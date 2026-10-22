@@ -33,6 +33,24 @@ Normal output is still displayed as text; it is never evaluated.
 - New projects start at (50, 50). Reset, switching projects, and page reload
   restore that position. Position is preview-only and is not project storage.
   Importing a file never runs it.
+  Creating or editing a script never runs it either.
+
+## Creating and editing source
+
+Use **Script → New script language → Create script** to add a movement starter
+for Python, C, C++, JavaScript, TypeScript, Lua, or C#. New scripts receive a
+language-appropriate extension and a unique `movement` filename. Each starter
+sets the player to (75, 35) using the example below.
+
+Select a script with **Script to run** to edit its source, including imported
+source and headers. Edits update browser-local project data automatically, with
+the same persistence as imported scripts; they do not save the preview position.
+Browser storage failures are reported in the project status. Source is plain
+text, limited to 256 KB per file and 1 MB per project, measured in UTF-8 bytes.
+An edit exceeding either limit is rejected and the previous source is retained.
+Stop a running script before editing its source. **Run script** or **Play**
+is still required to execute it through the existing isolated runner. Creation,
+selection, editing, and reload do not download language runtimes or execute code.
 
 The Script panel contains a complete example for the selected language, including
 the necessary string escaping for C, C++, C#, JavaScript, and TypeScript.

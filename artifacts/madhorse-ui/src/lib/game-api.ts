@@ -30,5 +30,6 @@ export function gameExample(language: string): string {
   if (language === 'C') return `#include <stdio.h>\nint main(void) { puts(${JSON.stringify(line)}); return 0; }`;
   if (language === 'C++') return `#include <iostream>\nint main() { std::cout << ${JSON.stringify(`${line}\n`)}; }`;
   if (language === 'C#') return `System.Console.WriteLine(${JSON.stringify(line)});`;
+  if (language === 'TypeScript') return `const command: string = ${JSON.stringify(line)};\nconsole.log(command);`;
   return `console.log(${JSON.stringify(line)});`;
 }

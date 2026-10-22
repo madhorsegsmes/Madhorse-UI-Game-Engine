@@ -11,35 +11,12 @@ import { SystemPanelTools } from '@/components/system-panel-tools';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import { GameScene } from '@/components/game-scene';
 import { initialGamePosition, type GamePosition } from '@/lib/game-api';
+import { ScriptCreate } from '@/components/script-create';
+import { scriptLanguages, maxScriptSize, maxProjectScriptsSize, movementStarter, scriptStorageError, sourceSize, type ScriptFile } from '@/lib/project-scripts';
 
 const queryClient = new QueryClient();
 const projectStorageKey = 'madhorse-ui-projects';
 const gameTypes = ['RTS', 'RPG', 'MMO', 'Arena Fighting', 'Card Game', 'Sport Game'] as const;
-const scriptLanguages: Record<string, string> = {
-  '.py': 'Python',
-  '.c': 'C',
-  '.h': 'C / C++',
-  '.cc': 'C++',
-  '.cpp': 'C++',
-  '.cxx': 'C++',
-  '.hpp': 'C++',
-  '.js': 'JavaScript',
-  '.mjs': 'JavaScript',
-  '.ts': 'TypeScript',
-  '.lua': 'Lua',
-  '.cs': 'C#',
-};
-const maxScriptSize = 256 * 1024;
-const maxProjectScriptsSize = 1024 * 1024;
-
-type ScriptFile = {
-  id: string;
-  name: string;
-  language: string;
-  size: number;
-  content: string;
-};
-
 type Project = {
   id: string;
   name: string;
@@ -94,10 +71,14 @@ function Home() {
   const [saveMessage, setSaveMessage] = useState('');
   const [scriptMessage, setScriptMessage] = useState('');
   const [isDraggingScript, setIsDraggingScript] = useState(false);
+  const [scriptSelection, setScriptSelection] = useState({ projectId: '', scriptId: '' });
   const [scene, setScene] = useState<{ projectId: string; position: GamePosition }>(() => ({
     projectId: projects[0].id, position: { ...initialGamePosition },
   }));
   const activeProject = projects.find((project) => project.id === activeProjectId) ?? projects[0];
+  const activeProjectRef = useRef(activeProject);
+  activeProjectRef.current = activeProject;
+  const selectedScriptId = scriptSelection.projectId === activeProject.id ? scriptSelection.scriptId : '';
   // Switching projects unmounts its runner, revoking its channel before another
   // project can run. No scene mutation is persisted alongside imported scripts.
   const position = scene.projectId === activeProject.id ? scene.position : initialGamePosition;
@@ -153,6 +134,33 @@ function Home() {
     setSaveMessage('Project saved');
   }
 
+  function selectScript(scriptId: string) {
+    setScriptSelection({ projectId: activeProject.id, scriptId });
+    setScriptMessage('');
+  }
+
+  function createScript(language: string) {
+    const scripts = activeProject.scripts ?? [];
+    const starter = movementStarter(language, scripts);
+    const error = scriptStorageError(starter.content, scripts);
+    if (error) { setScriptMessage(error); return; }
+    runnerRef.current?.stop();
+    const script = { ...starter, id: crypto.randomUUID() };
+    updateActiveProject({ scripts: [...scripts, script] });
+    selectScript(script.id);
+    setScriptMessage(`Created ${script.name}. Source saves automatically in this browser; press Run to execute.`);
+  }
+
+  function editScript(scriptId: string, content: string) {
+    const scripts = activeProject.scripts ?? [];
+    const error = scriptStorageError(content, scripts, scriptId);
+    if (error) { setScriptMessage(error); return; }
+    updateActiveProject({
+      scripts: scripts.map((script) => script.id === scriptId ? { ...script, content, size: sourceSize(content) } : script),
+    });
+    setScriptMessage('Source updated. Saved automatically in this browser unless a storage error is shown.');
+  }
+
   async function importScriptFiles(files: FileList | File[]) {
     const scripts = activeProject.scripts ?? [];
     let totalSize = scripts.reduce((sum, script) => sum + script.size, 0);
@@ -181,19 +189,31 @@ function Home() {
           rejected.push(`${file.name}: file is not plain text`);
           continue;
         }
+        const size = Math.max(file.size, sourceSize(content));
+        if (size > maxScriptSize || totalSize + size > maxProjectScriptsSize) {
+          rejected.push(`${file.name}: decoded text exceeds the script storage limits`);
+          continue;
+        }
         imported.push({
           id: crypto.randomUUID(),
           name: file.name,
           language,
-          size: file.size,
+          size,
           content,
         });
-        totalSize += file.size;
+        totalSize += size;
       } catch {
         rejected.push(`${file.name}: could not read file`);
       }
     }
 
+    // File reads yield to other edits and project switches. Never replace newer
+    // source with the snapshot captured before an asynchronous import.
+    if (activeProjectRef.current.id !== activeProject.id ||
+        activeProjectRef.current.scripts !== activeProject.scripts) {
+      setScriptMessage('Project scripts changed while reading files. No files imported; please import again.');
+      return;
+    }
     if (imported.length > 0) {
       updateActiveProject({ scripts: [...scripts, ...imported] });
     }
@@ -204,6 +224,7 @@ function Home() {
   }
 
   function removeScript(scriptId: string) {
+    runnerRef.current?.stop();
     updateActiveProject({
       scripts: (activeProject.scripts ?? []).filter((script) => script.id !== scriptId),
     });
@@ -325,6 +346,7 @@ function Home() {
                   <strong>Project scripts</strong>
                   <span>Python · C · C++ · JavaScript · TypeScript · Lua · C#</span>
                 </div>
+                <ScriptCreate key={`create-${activeProject.id}`} onCreate={createScript} />
                 <label
                   className={`script-dropzone${isDraggingScript ? ' is-dragging' : ''}`}
                   onDragEnter={(event) => {
@@ -386,6 +408,9 @@ function Home() {
                   key={activeProject.id}
                   projectId={activeProject.id}
                   scripts={activeProject.scripts ?? []}
+                  selectedId={selectedScriptId}
+                  onSelect={selectScript}
+                  onEdit={editScript}
                   position={position}
                   onPosition={(next) => setScene({ projectId: activeProject.id, position: next })}
                   onReset={() => setScene({ projectId: activeProject.id, position: { ...initialGamePosition } })}
@@ -425,7 +450,7 @@ function Home() {
               </button>
             </div>
             <span className="panel-text" role="status" data-testid="status-play">
-              {runnerState.scriptName ? `${runnerState.scriptName} · ${runnerState.status}` : 'Import a script to play.'}
+              {runnerState.scriptName ? `${runnerState.scriptName} · ${runnerState.status}` : 'Create or import a script to play.'}
             </span>
           </div>
           <div className="panel" role="region" aria-labelledby="panel-5-label">

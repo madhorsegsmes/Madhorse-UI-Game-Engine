@@ -443,7 +443,7 @@
   padding-top: 10px;
   border-top: 1px solid #383435;
 }
-.script-runtime-note button {
+.script-runtime-note button, .script-create button {
   min-height: 32px;
   border: 1px solid #554442;
   background: #262324;
@@ -455,6 +455,16 @@
 }
 .script-runtime-note button:disabled { opacity: .45; cursor: not-allowed; }
 .script-run-actions { display: grid; grid-template-columns: 1fr 70px; gap: 6px; }
+.script-create, .script-source-editor { display: grid; gap: 6px; min-width: 0; }
+.script-create { padding: 10px 0; }
+.script-create small, .script-source-editor small { color: #929299; font-size: 10px; line-height: 1.5; }
+.script-source {
+  box-sizing: border-box; width: 100%; min-width: 0; height: 150px;
+  resize: vertical; padding: 8px; border: 1px solid #424249; border-radius: 4px;
+  background: #0d0d10; color: #dddde2; font: 11px/1.5 monospace; tab-size: 2;
+}
+.script-source:focus-visible { outline: 1px solid #c73c42; outline-offset: 2px; }
+.script-source:disabled { opacity: .6; }
 .script-run-label, .script-run-status { color: #c26960; font: 10px/1.4 'DM Mono', monospace; }
 .script-console {
   margin: 0;

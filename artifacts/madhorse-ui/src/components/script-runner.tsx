@@ -7,10 +7,10 @@ export type ScriptRunnerState = { ready: boolean; running: boolean; status: stri
 
 export const ScriptRunner = forwardRef<ScriptRunnerHandle, {
   projectId: string; scripts: RuntimeScript[]; position: GamePosition;
+  selectedId: string; onSelect: (id: string) => void; onEdit: (id: string, content: string) => void;
   onPosition: (position: GamePosition) => void; onReset: () => void;
   onState?: (state: ScriptRunnerState) => void; onError?: (message: string) => void;
-}>(function ScriptRunner({ projectId, scripts, position, onPosition, onReset, onState, onError }, ref) {
-  const [selectedId, setSelectedId] = useState('');
+}>(function ScriptRunner({ projectId, scripts, selectedId, onSelect, onEdit, position, onPosition, onReset, onState, onError }, ref) {
   const [output, setOutput] = useState('');
   const [status, setStatus] = useState('Choose a script to run.');
   const [running, setRunning] = useState(false);
@@ -27,7 +27,6 @@ export const ScriptRunner = forwardRef<ScriptRunnerHandle, {
     setRunning(false);
     setOutput('');
     setStatus('Choose a script to run.');
-    setSelectedId('');
     return () => handle.current?.stop();
   }, [projectId]);
 
@@ -76,11 +75,29 @@ export const ScriptRunner = forwardRef<ScriptRunnerHandle, {
         className="project-dropdown"
         value={selected?.id ?? ''}
         disabled={running || !scripts.length}
-        onChange={(event) => setSelectedId(event.target.value)}
+        onChange={(event) => onSelect(event.target.value)}
       >
-        {!scripts.length && <option value="">Import a script first</option>}
+        {!scripts.length && <option value="">Create or import a script first</option>}
         {scripts.map((script) => <option key={script.id} value={script.id}>{script.name} · {script.language}</option>)}
       </select>
+      {selected && (
+        <div className="script-source-editor">
+          <label className="script-run-label" htmlFor="script-source">Source — {selected.name}</label>
+          <textarea
+            id="script-source"
+            className="script-source"
+            aria-describedby="script-source-help"
+            value={selected.content}
+            onChange={(event) => onEdit(selected.id, event.target.value)}
+            disabled={running}
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+            wrap="off"
+          />
+          <small id="script-source-help">Edits save as project data in this browser. Run executes the saved source in isolation. Stop before editing. Limits: 256 KB per script, 1 MB per project.</small>
+        </div>
+      )}
       <div className="script-run-actions">
         <button type="button" disabled={!runnable || running} onClick={run}>Run script</button>
         <button type="button" disabled={!running} onClick={stop}>Stop</button>
