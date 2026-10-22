@@ -51,7 +51,7 @@ export async function openScripts(page: Page) {
 }
 
 export async function importSource(page: Page, filename: string, source: string) {
-  await page.locator('input[type=file]').setInputFiles({
+  await page.locator('.script-file-input').setInputFiles({
     name: filename, mimeType: 'text/plain', buffer: Buffer.from(source),
   });
   await expect(page.getByLabel('Script to run').locator('option').filter({ hasText: filename })).toHaveCount(1);

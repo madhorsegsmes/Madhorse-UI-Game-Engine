@@ -16,7 +16,7 @@ export function loadActiveProjectId(projects: IdentifiedProject[]) {
   }
 }
 
-function persistProjectSnapshot(projects: unknown[], activeProjectId: string) {
+export function saveProjectSnapshotNow(projects: unknown[], activeProjectId: string) {
   try {
     const serialized = JSON.stringify(projects);
     localStorage.setItem(projectStorageKey, serialized);
@@ -46,7 +46,7 @@ export function useProjectAutosave<TProject>(
       pending = false;
       saveTimer.current = null;
       if (!canOverwriteSavedData) return;
-      const message = persistProjectSnapshot(
+      const message = saveProjectSnapshotNow(
         latestSnapshot.current.projects,
         latestSnapshot.current.activeProjectId,
       );

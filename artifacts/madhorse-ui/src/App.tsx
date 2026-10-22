@@ -13,7 +13,16 @@ import { GameScene } from '@/components/game-scene';
 import { initialGamePosition, type GamePosition } from '@/lib/game-api';
 import { ScriptCreate } from '@/components/script-create';
 import { scriptLanguages, maxScriptSize, maxProjectScriptsSize, movementStarter, scriptStorageError, sourceSize, type ScriptFile } from '@/lib/project-scripts';
-import { loadActiveProjectId, projectStorageKey, useProjectAutosave } from '@/hooks/use-project-autosave';
+import { loadActiveProjectId, projectStorageKey, saveProjectSnapshotNow, useProjectAutosave } from '@/hooks/use-project-autosave';
+import { useSceneEditor } from '@/hooks/use-scene-editor';
+import {
+  createDefaultPlayer,
+  getWorldTransform,
+  isAssetCollection,
+  isSceneGraph,
+  type ProjectAsset,
+  type SceneEntity,
+} from '@/lib/scene-model';
 
 const queryClient = new QueryClient();
 let savedProjectsWarning = '';
@@ -24,6 +33,8 @@ type Project = {
   gameType: string;
   savedAt: string;
   scripts?: ScriptFile[];
+  entities: SceneEntity[];
+  assets: ProjectAsset[];
 };
 
 function isSavedScript(script: unknown): script is ScriptFile {
@@ -41,7 +52,9 @@ function isSavedProject(project: unknown): project is Project {
     typeof value.gameType === 'string' && typeof value.savedAt === 'string' &&
     (value.scripts === undefined || (
       Array.isArray(value.scripts) && value.scripts.every(isSavedScript)
-    ));
+    )) &&
+    (value.entities === undefined || Array.isArray(value.entities) && isSceneGraph(value.entities)) &&
+    (value.assets === undefined || Array.isArray(value.assets) && isAssetCollection(value.assets));
 }
 
 function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: string } {
@@ -50,24 +63,46 @@ function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: 
     const stored = localStorage.getItem(projectStorageKey);
     if (stored === null) {
       return {
-        projects: [{ id: crypto.randomUUID(), name: 'Untitled Project', gameType: '', savedAt: '', scripts: [] }],
+        projects: [{
+          id: crypto.randomUUID(), name: 'Untitled Project', gameType: '', savedAt: '', scripts: [],
+          entities: [createDefaultPlayer()], assets: [],
+        }],
         canOverwrite: true,
         warning: '',
       };
     }
     const projects: unknown = JSON.parse(stored);
     if (Array.isArray(projects) && projects.length > 0 && projects.every(isSavedProject)) {
-      return { projects, canOverwrite: true, warning: '' };
+      return {
+        projects: projects.map((project) => ({
+          ...project,
+          entities: project.entities ?? [createDefaultPlayer()],
+          assets: project.assets ?? [],
+        })),
+        canOverwrite: true,
+        warning: '',
+      };
     }
     savedProjectsWarning = 'Saved projects could not be read. Existing browser data has been left untouched.';
   } catch {
     savedProjectsWarning = 'Saved projects could not be read. Existing browser data has been left untouched.';
   }
   return {
-    projects: [{ id: crypto.randomUUID(), name: 'Untitled Project', gameType: '', savedAt: '', scripts: [] }],
+    projects: [{
+      id: crypto.randomUUID(), name: 'Untitled Project', gameType: '', savedAt: '', scripts: [],
+      entities: [createDefaultPlayer()], assets: [],
+    }],
     canOverwrite: false,
     warning: savedProjectsWarning,
   };
+}
+
+function getPlayerStartPosition(project: Pick<Project, 'entities'>): GamePosition {
+  const world = getWorldTransform(project.entities, 'player');
+  if (!world || !Number.isFinite(world.position.x) || !Number.isFinite(world.position.y)) {
+    return { ...initialGamePosition };
+  }
+  return { x: world.position.x, y: world.position.y };
 }
 
 function HorseMark() {
@@ -108,7 +143,7 @@ function Home() {
   const [isDraggingScript, setIsDraggingScript] = useState(false);
   const [scriptSelection, setScriptSelection] = useState({ projectId: '', scriptId: '' });
   const [scene, setScene] = useState<{ projectId: string; position: GamePosition }>(() => ({
-    projectId: projects[0].id, position: { ...initialGamePosition },
+    projectId: projects[0].id, position: getPlayerStartPosition(projects[0]),
   }));
   const activeProject = projects.find((project) => project.id === activeProjectId) ?? projects[0];
   const activeProjectRef = useRef(activeProject);
@@ -116,14 +151,25 @@ function Home() {
   const selectedScriptId = scriptSelection.projectId === activeProject.id ? scriptSelection.scriptId : '';
   // Switching projects unmounts its runner, revoking its channel before another
   // project can run. No scene mutation is persisted alongside imported scripts.
-  const position = scene.projectId === activeProject.id ? scene.position : initialGamePosition;
+  const position = scene.projectId === activeProject.id
+    ? scene.position
+    : getPlayerStartPosition(activeProject);
   const runnerRef = useRef<ScriptRunnerHandle>(null);
   const stageRef = useRef<HTMLElement>(null);
   const [runnerState, setRunnerState] = useState<ScriptRunnerState>({ ready: false, running: false, status: 'Choose a script to run.', scriptName: '' });
   const [runtimeError, setRuntimeError] = useState('');
+  const sceneEditor = useSceneEditor<Project>({
+    project: activeProject,
+    projects,
+    activeProjectRef,
+    setProjects,
+    canOverwriteSavedData: loadedProjects.canOverwrite,
+    isRunning: runnerState.running,
+    onPreviewPosition: (nextPosition) => setScene({ projectId: activeProject.id, position: nextPosition }),
+  });
   useEffect(() => {
     setRuntimeError('');
-    setScene({ projectId: activeProject.id, position: { ...initialGamePosition } });
+    setScene({ projectId: activeProject.id, position: getPlayerStartPosition(activeProject) });
   }, [activeProject.id]);
 
   useProjectAutosave(projects, activeProjectId, loadedProjects.canOverwrite, setSaveMessage);
@@ -145,6 +191,8 @@ function Home() {
       gameType: '',
       savedAt: '',
       scripts: [],
+      entities: [createDefaultPlayer()],
+      assets: [],
     };
     setProjects((current) => [...current, project]);
     setActiveProjectId(project.id);
@@ -302,7 +350,15 @@ function Home() {
         </header>
 
         <section className="stage" id="scene-preview" ref={stageRef} tabIndex={-1} role="tabpanel" aria-labelledby="scene-preview-tab">
-          <GameScene position={position} />
+          <GameScene
+            entities={sceneEditor.entities}
+            assetUrls={sceneEditor.assetUrls}
+            selectedEntityId={sceneEditor.selectedEntityId}
+            position={position}
+            readOnly={runnerState.running}
+            onSelectEntity={sceneEditor.onSelectEntity}
+            onMoveEntity={sceneEditor.onMoveEntity}
+          />
           <div className="frame-lines" aria-hidden="true" />
           <span className="stage-corner tl" aria-hidden="true" />
           <span className="stage-corner tr" aria-hidden="true" />
@@ -313,7 +369,7 @@ function Home() {
         <div className="toolbar-row" role="group" aria-label="Workspace toolbars">
           <div className="toolbar-group" role="group" aria-labelledby="panel-2-label">
             <span className="panel-label" id="panel-2-label">PANEL 2</span>
-            <div className="toolbar-buttons"><WorkspaceBrowserMenus /></div>
+            <div className="toolbar-buttons"><WorkspaceBrowserMenus {...sceneEditor} /></div>
           </div>
           <div className="toolbar-group toolbar-group-right" role="group" aria-labelledby="panel-1-label">
             <span className="panel-label" id="panel-1-label">PANEL 1</span>
@@ -442,7 +498,7 @@ function Home() {
                   onEdit={editScript}
                   position={position}
                   onPosition={(next) => setScene({ projectId: activeProject.id, position: next })}
-                  onReset={() => setScene({ projectId: activeProject.id, position: { ...initialGamePosition } })}
+                  onReset={() => setScene({ projectId: activeProject.id, position: getPlayerStartPosition(activeProject) })}
                 />
                 <span className="script-message" role="status">{scriptMessage}</span>
               </div>

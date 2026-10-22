@@ -1,20 +1,451 @@
+import { useMemo, useRef, useState } from 'react';
+import type { ReactElement } from 'react';
 import './workspace-browser-menus.css';
+import type { WorkspaceBrowserProps } from './workspace-browser-contract';
+import type { ProjectAsset, SceneEntity, Vector3 } from '../lib/scene-model';
+import { getSpriteRenderer, getTransform, isDescendant } from '../lib/scene-model';
 
-export function WorkspaceBrowserMenus() {
+const formatSize = (bytes: number) => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+function VectorFields({
+  title,
+  value,
+  onChange,
+  testId,
+  minimum,
+}: {
+  title: string;
+  value: Vector3;
+  onChange: (axis: keyof Vector3, next: number) => void;
+  testId: string;
+  minimum?: number;
+}) {
+  return (
+    <fieldset className="browser-vector">
+      <legend>{title}</legend>
+      <div className="browser-vector-fields">
+        {(['x', 'y', 'z'] as const).map((axis) => (
+          <label className="browser-axis" key={axis}>
+            <span>{axis.toUpperCase()}</span>
+            <input
+              type="number"
+              step={axis === 'z' && title === 'Rotation' ? 1 : 0.1}
+              min={minimum}
+              value={value[axis]}
+              aria-label={`${title} ${axis.toUpperCase()}`}
+              data-testid={`${testId}-${axis}`}
+              onChange={(event) => {
+                const next = event.currentTarget.valueAsNumber;
+                if (Number.isFinite(next) && (minimum === undefined || next >= minimum)) onChange(axis, next);
+              }}
+            />
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+export function WorkspaceBrowserMenus(): ReactElement;
+export function WorkspaceBrowserMenus(props: WorkspaceBrowserProps): ReactElement;
+export function WorkspaceBrowserMenus(props?: WorkspaceBrowserProps) {
+  const {
+    entities = [],
+    assets = [],
+    assetUrls = {},
+    referencedAssetIds = [],
+    selectedEntityId = null,
+    assetStatus = '',
+    onSelectEntity,
+    onCreateEntity,
+    onRemoveEntity,
+    onRenameEntity,
+    onSetEntityActive,
+    onSetParent,
+    onUpdateTransform,
+    onAddSpriteRenderer,
+    onRemoveSpriteRenderer,
+    onUpdateSpriteRenderer,
+    onImportAssets,
+    onRemoveAsset,
+    onAssignAsset,
+  } = props ?? ({} as WorkspaceBrowserProps);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [pendingEntityRemoval, setPendingEntityRemoval] = useState<string | null>(null);
+  const [pendingAssetRemoval, setPendingAssetRemoval] = useState<string | null>(null);
+
+  const entityById = useMemo(() => new Map(entities.map((entity) => [entity.id, entity])), [entities]);
+  const childrenByParent = useMemo(() => {
+    const grouped = new Map<string | null, SceneEntity[]>();
+    for (const entity of entities) {
+      const parent = entity.parentId && entityById.has(entity.parentId) ? entity.parentId : null;
+      grouped.set(parent, [...(grouped.get(parent) ?? []), entity]);
+    }
+    return grouped;
+  }, [entities, entityById]);
+  const selectedEntity = selectedEntityId ? entityById.get(selectedEntityId) : undefined;
+  const transform = selectedEntity ? getTransform(selectedEntity) : undefined;
+  const sprite = selectedEntity ? getSpriteRenderer(selectedEntity) : undefined;
+  const imageAssets = assets.filter((asset) => asset.kind === 'image');
+
+  const importFiles = (files: FileList | File[]) => {
+    if (files.length) onImportAssets?.(files);
+  };
+
+  const renderEntity = (entity: SceneEntity, depth = 0, ancestors = new Set<string>()) => {
+    if (ancestors.has(entity.id)) return null;
+    const nextAncestors = new Set(ancestors).add(entity.id);
+    const children = childrenByParent.get(entity.id) ?? [];
+    return (
+      <li className="browser-tree-item" key={entity.id} data-testid={`hierarchy-object-${entity.id}`}>
+        <div className={`browser-tree-row${selectedEntityId === entity.id ? ' is-selected' : ''}`} style={{ '--tree-depth': depth } as React.CSSProperties}>
+          <button
+            type="button"
+            className="browser-tree-select"
+            onClick={() => onSelectEntity?.(entity.id)}
+            aria-label={`Select ${entity.name}`}
+            aria-pressed={selectedEntityId === entity.id}
+            data-testid={`select-object-${entity.id}`}
+          >
+            <span className="browser-tree-branch" aria-hidden="true">{children.length ? '›' : '·'}</span>
+            <span className="browser-object-glyph" aria-hidden="true">{getSpriteRenderer(entity) ? 'S' : 'O'}</span>
+            <span className="browser-tree-name">{entity.name}</span>
+            {!entity.active && <span className="browser-inactive-tag">OFF</span>}
+          </button>
+        </div>
+        {children.length > 0 && (
+          <ul className="browser-tree-children" aria-label={`${entity.name} children`}>
+            {children.map((child) => renderEntity(child, depth + 1, nextAncestors))}
+          </ul>
+        )}
+      </li>
+    );
+  };
+
+  const runEntityRemoval = () => {
+    if (pendingEntityRemoval) onRemoveEntity?.(pendingEntityRemoval);
+    setPendingEntityRemoval(null);
+  };
+
+  const runAssetRemoval = () => {
+    if (pendingAssetRemoval && !referencedAssetIds.includes(pendingAssetRemoval)) {
+      onRemoveAsset?.(pendingAssetRemoval);
+    }
+    setPendingAssetRemoval(null);
+  };
+
+  const updateVector = (key: 'position' | 'rotation' | 'scale', axis: keyof Vector3, next: number) => {
+    if (!selectedEntity || !transform || !onUpdateTransform) return;
+    onUpdateTransform(selectedEntity.id, { [key]: { ...transform[key], [axis]: next } });
+  };
+
+  const renderAsset = (asset: ProjectAsset) => {
+    const isReferenced = referencedAssetIds.includes(asset.id);
+    const url = asset.kind === 'image' ? assetUrls[asset.id] : undefined;
+    return (
+      <article className="browser-asset-card" key={asset.id} data-testid={`asset-card-${asset.id}`}>
+        <button
+          type="button"
+          className="browser-asset-apply"
+          onClick={() => {
+            if (selectedEntity && asset.kind === 'image') onAssignAsset?.(selectedEntity.id, asset.id);
+          }}
+          disabled={!selectedEntity || asset.kind !== 'image'}
+          aria-label={selectedEntity ? `Apply ${asset.name} to ${selectedEntity.name}` : `${asset.name}; select an object to apply`}
+          data-testid={`apply-asset-${asset.id}`}
+        >
+          <span className={`browser-asset-preview${asset.kind === 'model' ? ' is-model' : ''}`}>
+            {url ? <img src={url} alt="" /> : asset.kind === 'model'
+              ? <span className="browser-model-mark" aria-hidden="true">3D</span>
+              : <span className="browser-image-mark" aria-hidden="true">IMG</span>}
+          </span>
+          <span className="browser-asset-info">
+            <strong title={asset.name}>{asset.name}</strong>
+            <span>{asset.kind === 'model' ? 'Model file' : 'Image'} · {formatSize(asset.size)}</span>
+            <span className="browser-asset-mime">{asset.mimeType || 'Unknown type'}</span>
+          </span>
+        </button>
+        <button
+          type="button"
+          className="browser-icon-button browser-remove-asset"
+          onClick={() => setPendingAssetRemoval(asset.id)}
+          disabled={isReferenced}
+          title={isReferenced ? 'This asset is assigned to an object and cannot be removed' : `Remove ${asset.name}`}
+          aria-label={isReferenced ? `${asset.name} is in use and cannot be removed` : `Remove ${asset.name}`}
+          data-testid={`remove-asset-${asset.id}`}
+        >
+          Remove
+        </button>
+      </article>
+    );
+  };
+
   return (
     <>
-      {['Hierarchy', 'Assets', 'Data'].map((label) => (
-        <details
-          key={label}
-          name="workspace-browser"
-          className={`workspace-browser-menu workspace-browser-${label.toLowerCase()}`}
+      <details name="workspace-browser" className="workspace-browser-menu workspace-browser-hierarchy">
+        <summary className="control-button">Hierarchy <span className="control-chevron" aria-hidden="true">⌄</span></summary>
+        <div className="workspace-browser-panel" aria-label="Hierarchy contents" data-testid="hierarchy-panel">
+          <div className="browser-panel-heading">
+            <div><span className="browser-eyebrow">PANEL 2 / OBJECTS</span><h2>Hierarchy</h2></div>
+            <span className="browser-count">{entities.length.toString().padStart(2, '0')}</span>
+          </div>
+          <div className="browser-action-row">
+            <button type="button" onClick={() => onCreateEntity?.(null, true)} aria-label="Add sprite object" data-testid="add-sprite-object">+ Sprite</button>
+            <button type="button" onClick={() => onCreateEntity?.(null, false)} aria-label="Add empty object" data-testid="add-empty-object">+ Empty</button>
+          </div>
+          {selectedEntity && (
+            <button
+              type="button"
+              className="browser-add-child"
+              onClick={() => onCreateEntity?.(selectedEntity.id, true)}
+              aria-label={`Add sprite child to ${selectedEntity.name}`}
+              data-testid="add-child-object"
+            >＋ Add sprite child to <strong>{selectedEntity.name}</strong></button>
+          )}
+          {entities.length ? (
+            <ul className="browser-tree" aria-label="Scene objects" data-testid="hierarchy-tree">
+              {(childrenByParent.get(null) ?? []).map((entity) => renderEntity(entity))}
+            </ul>
+          ) : (
+            <div className="browser-empty-state" data-testid="empty-hierarchy">
+              <span className="browser-empty-mark" aria-hidden="true">＋</span>
+              <strong>No objects in this scene</strong>
+              <span>Add a sprite or an empty object to begin.</span>
+            </div>
+          )}
+        </div>
+      </details>
+
+      <details name="workspace-browser" className="workspace-browser-menu workspace-browser-assets">
+        <summary className="control-button">Assets <span className="control-chevron" aria-hidden="true">⌄</span></summary>
+        <div
+          className={`workspace-browser-panel browser-assets-panel${isDragging ? ' is-dragging' : ''}`}
+          aria-label="Assets contents"
+          data-testid="assets-panel"
+          onDragEnter={(event) => { event.preventDefault(); setIsDragging(true); }}
+          onDragOver={(event) => event.preventDefault()}
+          onDragLeave={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setIsDragging(false);
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            setIsDragging(false);
+            importFiles(event.dataTransfer.files);
+          }}
         >
-          <summary className="control-button">
-            {label} <span className="control-chevron" aria-hidden="true">⌄</span>
-          </summary>
-          <div className="workspace-browser-panel" aria-label={`${label} contents`} />
-        </details>
-      ))}
+          <div className="browser-panel-heading">
+            <div><span className="browser-eyebrow">PANEL 2 / LIBRARY</span><h2>Assets</h2></div>
+            <span className="browser-count">{assets.length.toString().padStart(2, '0')}</span>
+          </div>
+          <div className="browser-dropzone">
+            <span className="browser-drop-icon" aria-hidden="true">↑</span>
+            <span><strong>Drop files here</strong><small>Images and 3D source files</small></span>
+            <button type="button" onClick={() => fileInputRef.current?.click()} aria-label="Choose assets to import" data-testid="choose-assets">Browse</button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,.glb,.gltf,.obj,.fbx,.dae"
+              multiple
+              className="browser-file-input"
+              tabIndex={-1}
+              aria-label="Choose image or model files"
+              data-testid="input-assets"
+              onChange={(event) => {
+                importFiles(event.currentTarget.files ?? []);
+                event.currentTarget.value = '';
+              }}
+            />
+          </div>
+          <div className="browser-asset-status" role="status" aria-live="polite" data-testid="asset-status">
+            {assetStatus || 'Stored in this browser only'}
+          </div>
+          {assets.length ? (
+            <div className="browser-asset-list" aria-label="Project asset library">
+              {assets.map(renderAsset)}
+            </div>
+          ) : (
+            <div className="browser-empty-state browser-assets-empty" data-testid="empty-assets">
+              <span className="browser-empty-mark" aria-hidden="true">—</span>
+              <strong>Your library is clear</strong>
+              <span>Imported files stay in this browser. 3D files are stored and listed; rendering is not available yet.</span>
+            </div>
+          )}
+          {pendingAssetRemoval && (
+            <div className="browser-confirm" role="alertdialog" aria-label="Confirm asset removal" data-testid="confirm-remove-asset">
+              <strong>Remove this asset?</strong>
+              <span>The main project store will handle removal.</span>
+              <div>
+                <button type="button" onClick={() => setPendingAssetRemoval(null)} data-testid="cancel-remove-asset">Keep</button>
+                <button type="button" className="is-danger" onClick={runAssetRemoval} data-testid="confirm-remove-asset-button">Remove asset</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </details>
+
+      <details name="workspace-browser" className="workspace-browser-menu workspace-browser-data">
+        <summary className="control-button">Data <span className="control-chevron" aria-hidden="true">⌄</span></summary>
+        <div className="workspace-browser-panel browser-data-panel" aria-label="Data inspector" data-testid="data-panel">
+          <div className="browser-panel-heading">
+            <div><span className="browser-eyebrow">PANEL 2 / INSPECTOR</span><h2>Data</h2></div>
+            {selectedEntity && <span className="browser-object-id" title={selectedEntity.id}>{selectedEntity.id.slice(0, 7)}</span>}
+          </div>
+          {!selectedEntity || !transform ? (
+            <div className="browser-empty-state browser-inspector-empty" data-testid="empty-inspector">
+              <span className="browser-empty-mark" aria-hidden="true">◇</span>
+              <strong>Nothing selected</strong>
+              <span>Select an object in Hierarchy to edit its properties.</span>
+            </div>
+          ) : (
+            <div className="browser-inspector-content">
+              <section className="browser-inspector-section">
+                <div className="browser-section-title"><span>OBJECT</span><span className="browser-section-rule" /></div>
+                <label className="browser-field">
+                  <span>Name</span>
+                  <input
+                    type="text"
+                    value={selectedEntity.name}
+                    maxLength={80}
+                    aria-label="Object name"
+                    data-testid="input-object-name"
+                    onChange={(event) => onRenameEntity?.(selectedEntity.id, event.currentTarget.value)}
+                  />
+                </label>
+                <label className="browser-check-row">
+                  <input
+                    type="checkbox"
+                    checked={selectedEntity.active}
+                    onChange={(event) => onSetEntityActive?.(selectedEntity.id, event.currentTarget.checked)}
+                    aria-label="Object active"
+                    data-testid="toggle-object-active"
+                  />
+                  <span>Active in scene</span>
+                </label>
+                <label className="browser-field">
+                  <span>Parent object</span>
+                  <select
+                    value={selectedEntity.parentId ?? ''}
+                    aria-label="Parent object"
+                    data-testid="select-object-parent"
+                    onChange={(event) => onSetParent?.(selectedEntity.id, event.currentTarget.value || null)}
+                  >
+                    <option value="">Scene root</option>
+                    {entities.filter((entity) => entity.id !== selectedEntity.id && !isDescendant(entities, selectedEntity.id, entity.id)).map((entity) => (
+                      <option key={entity.id} value={entity.id}>{entity.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="browser-danger-action"
+                  onClick={() => setPendingEntityRemoval(selectedEntity.id)}
+                  aria-label={`Remove ${selectedEntity.name} from scene`}
+                  data-testid="remove-object"
+                >Remove object</button>
+                {pendingEntityRemoval === selectedEntity.id && (
+                  <div className="browser-confirm" role="alertdialog" aria-label="Confirm object removal" data-testid="confirm-remove-object">
+                    <strong>Remove “{selectedEntity.name}”?</strong>
+                    <span>This action affects this object and its children.</span>
+                    <div>
+                      <button type="button" onClick={() => setPendingEntityRemoval(null)} data-testid="cancel-remove-object">Cancel</button>
+                      <button type="button" className="is-danger" onClick={runEntityRemoval} data-testid="confirm-remove-object-button">Remove</button>
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              <section className="browser-inspector-section">
+                <div className="browser-section-title"><span>TRANSFORM</span><span className="browser-section-rule" /></div>
+                <VectorFields title="Position" value={transform.position} onChange={(axis, next) => updateVector('position', axis, next)} testId="transform-position" />
+                <VectorFields title="Rotation" value={transform.rotation} onChange={(axis, next) => updateVector('rotation', axis, next)} testId="transform-rotation" />
+                <VectorFields title="Scale" value={transform.scale} onChange={(axis, next) => updateVector('scale', axis, next)} testId="transform-scale" minimum={0.001} />
+              </section>
+
+              <section className="browser-inspector-section">
+                <div className="browser-section-title"><span>SPRITE RENDERER</span><span className="browser-section-rule" /></div>
+                {!sprite ? (
+                  <div className="browser-component-missing">
+                    <span>No sprite renderer attached.</span>
+                    <button type="button" onClick={() => onAddSpriteRenderer?.(selectedEntity.id)} data-testid="add-sprite-renderer">Add component</button>
+                  </div>
+                ) : (
+                  <>
+                    <label className="browser-check-row">
+                      <input
+                        type="checkbox"
+                        checked={sprite.enabled}
+                        onChange={(event) => onUpdateSpriteRenderer?.(selectedEntity.id, { enabled: event.currentTarget.checked })}
+                        aria-label="Sprite Renderer enabled"
+                        data-testid="toggle-sprite-renderer"
+                      />
+                      <span>Component enabled</span>
+                    </label>
+                    <label className="browser-field">
+                      <span>Image asset</span>
+                      <select
+                        value={sprite.assetId ?? ''}
+                        aria-label="Sprite image asset"
+                        data-testid="select-sprite-asset"
+                        onChange={(event) => onAssignAsset?.(selectedEntity.id, event.currentTarget.value || null)}
+                      >
+                        <option value="">No image assigned</option>
+                        {imageAssets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
+                      </select>
+                    </label>
+                    {sprite.assetId && assetUrls[sprite.assetId] && (
+                      <div className="browser-assigned-preview" data-testid="assigned-image-preview">
+                        <img src={assetUrls[sprite.assetId]} alt="" />
+                        <span>{assets.find((asset) => asset.id === sprite.assetId)?.name ?? 'Assigned image'}</span>
+                      </div>
+                    )}
+                    <label className="browser-field browser-tint-field">
+                      <span>Tint</span>
+                      <span className="browser-color-control">
+                        <input
+                          type="color"
+                          value={sprite.tint}
+                          onChange={(event) => onUpdateSpriteRenderer?.(selectedEntity.id, { tint: event.currentTarget.value })}
+                          aria-label="Sprite tint"
+                          data-testid="input-sprite-tint"
+                        />
+                        <code>{sprite.tint.toUpperCase()}</code>
+                      </span>
+                    </label>
+                    <div className="browser-size-fields">
+                      {(['width', 'height'] as const).map((dimension) => (
+                        <label className="browser-field" key={dimension}>
+                          <span>{dimension === 'width' ? 'Width' : 'Height'}</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="512"
+                            step="1"
+                            value={sprite[dimension]}
+                            aria-label={`Sprite ${dimension}`}
+                            data-testid={`input-sprite-${dimension}`}
+                            onChange={(event) => {
+                              const next = event.currentTarget.valueAsNumber;
+                              if (Number.isFinite(next) && next >= 1 && next <= 512) {
+                                onUpdateSpriteRenderer?.(selectedEntity.id, { [dimension]: next });
+                              }
+                            }}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <button type="button" className="browser-danger-action" onClick={() => onRemoveSpriteRenderer?.(selectedEntity.id)} data-testid="remove-sprite-renderer">Remove component</button>
+                  </>
+                )}
+              </section>
+            </div>
+          )}
+        </div>
+      </details>
     </>
   );
 }

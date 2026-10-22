@@ -111,3 +111,64 @@ test('rejected edits retain saved source and deletion cannot leave stale source 
   await page.getByLabel('Script tools').click();
   await expect(page.locator('#script-source')).toHaveCount(0);
 });
+
+test('scene objects and local transforms persist with the active project', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('.workspace-browser-hierarchy > summary').click();
+  await page.getByTestId('add-sprite-object').click();
+  const object = page.locator('[data-testid^="scene-object-"]').last();
+  const entityId = await object.getAttribute('data-entity-id');
+  expect(entityId).toBeTruthy();
+
+  await page.locator('.workspace-browser-data > summary').click();
+  await page.getByTestId('input-object-name').fill('Hero');
+  await page.getByTestId('transform-position-x').fill('72');
+  await expect(page.getByTestId(`scene-object-${entityId}`)).toHaveAttribute('data-x', '72');
+  await expect.poll(async () => page.evaluate(() => {
+    const projects = JSON.parse(localStorage.getItem('madhorse-ui-projects') ?? '[]');
+    const hero = projects[0]?.entities?.find((entry: { name: string }) => entry.name === 'Hero');
+    const transform = hero?.components?.find((entry: { type: string }) => entry.type === 'transform');
+    return transform?.position?.x;
+  })).toBe(72);
+
+  await page.reload();
+  await page.locator('.workspace-browser-hierarchy > summary').click();
+  await expect(page.getByTestId(`select-object-${entityId}`)).toContainText('Hero');
+});
+
+test('image and model assets persist in this browser and images can be assigned to sprites', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('.workspace-browser-assets > summary').click();
+  await page.getByTestId('input-assets').setInputFiles([
+    {
+      name: 'pixel.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/4wAAAABJRU5ErkJggg==', 'base64'),
+    },
+    {
+      name: 'sample.gltf',
+      mimeType: 'model/gltf+json',
+      buffer: Buffer.from('{"asset":{"version":"2.0"},"scenes":[{"nodes":[]}],"scene":0}'),
+    },
+  ]);
+
+  const imageCard = page.locator('[data-testid^="asset-card-"]').filter({ hasText: 'pixel.png' });
+  const modelCard = page.locator('[data-testid^="asset-card-"]').filter({ hasText: 'sample.gltf' });
+  await expect(imageCard).toBeVisible();
+  await expect(modelCard).toContainText('Model file');
+  const imageCardId = await imageCard.getAttribute('data-testid');
+  const imageId = imageCardId?.replace('asset-card-', '');
+  expect(imageId).toBeTruthy();
+  await page.getByTestId(`apply-asset-${imageId}`).click();
+  await expect(page.getByTestId('scene-player').locator('img')).toBeVisible();
+  await expect(page.getByTestId(`remove-asset-${imageId}`)).toBeDisabled();
+  await expect.poll(async () => page.evaluate(() => {
+    const projects = JSON.parse(localStorage.getItem('madhorse-ui-projects') ?? '[]');
+    return projects[0]?.assets?.length;
+  })).toBe(2);
+
+  await page.reload();
+  await page.locator('.workspace-browser-assets > summary').click();
+  await expect(page.locator('[data-testid^="asset-card-"]').filter({ hasText: 'pixel.png' })).toBeVisible();
+  await expect(page.getByTestId('scene-player').locator('img')).toBeVisible();
+});

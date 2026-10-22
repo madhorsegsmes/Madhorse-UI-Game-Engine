@@ -191,8 +191,16 @@
 }
 .game-scene { position: absolute; inset: 24px; display: flex; flex-direction: column; gap: 12px; color: #a5a5a8; font-size: 11px; }
 .scene-title, .scene-position { flex: none; }
-.scene-field { position: relative; flex: 1; min-height: 0; margin: 12px; border: 1px solid #333; background-image: linear-gradient(#ffffff05 1px, transparent 1px), linear-gradient(90deg, #ffffff05 1px, transparent 1px); background-size: 10% 10%; }
-.scene-player { position: absolute; width: 22px; height: 22px; transform: translate(-50%, -50%); background: #b73d34; border: 1px solid #eab1ab; box-shadow: 0 0 12px #b73d3440; }
+.scene-field { position: relative; flex: 1; min-height: 0; margin: 12px; overflow: hidden; isolation: isolate; border: 1px solid #333; background-image: linear-gradient(#ffffff05 1px, transparent 1px), linear-gradient(90deg, #ffffff05 1px, transparent 1px); background-size: 10% 10%; }
+.scene-player, .scene-object { position: absolute; display: grid; place-items: center; box-sizing: border-box; padding: 0; appearance: none; border: 1px solid #eab1ab; background: #b73d34; box-shadow: 0 0 12px #b73d3440; cursor: grab; touch-action: none; user-select: none; }
+.scene-player:active, .scene-object:active { cursor: grabbing; }
+.scene-object { border-color: #a9a4a1; }
+.scene-player.is-selected, .scene-object.is-selected { outline: 1px solid #dedbd5; outline-offset: 2px; box-shadow: 0 0 0 3px #b73d3445, 0 0 15px #b73d3470; }
+.scene-player:focus-visible, .scene-object:focus-visible { outline: 2px solid #f0c5bb; outline-offset: 3px; }
+.scene-player.is-inactive, .scene-object.is-inactive { opacity: .38; border-style: dashed; }
+.scene-player.is-read-only, .scene-object.is-read-only { cursor: default; touch-action: auto; }
+.scene-player img, .scene-object img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.scene-empty-object { color: #d6d0ca; font: 10px/1 ui-monospace, monospace; }
 .game-api-help { color: #aaa; font-size: 11px; }
 .game-api-help summary { cursor: pointer; color: #ddd; }
 .game-api-help span { display: block; margin-top: 8px; line-height: 1.5; }
