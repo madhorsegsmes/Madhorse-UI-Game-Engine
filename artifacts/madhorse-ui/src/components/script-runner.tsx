@@ -110,7 +110,7 @@ export const ScriptRunner = forwardRef<ScriptRunnerHandle, {
         <span>Print one MADHORSE_GAME JSON command per line. Use exactly version, object, action, x and y as shown. Only object "player" is available. Coordinates run from 0–100: x increases right, y increases down.</span>
         <pre aria-label="Game API example">{gameExample(selected?.language ?? 'JavaScript')}</pre>
         <span>Use "setPosition" for absolute coordinates, or "move" for x/y offsets (negative offsets allowed). Out-of-bounds, unknown or malformed commands stop the run. Maximum 128 commands per run, within the output limit. Commands apply in order; Stop or errors keep the last valid position. C# applies buffered commands when execution returns.</span>
-        <span>This is a preview, not saved project data. Reset scene returns to (50, 50). Switching projects or reloading resets it. Scripts do not run automatically.</span>
+        <span>This is a preview, not saved project data. Reset scene, switching projects and reloading restore the project's saved starting position (50, 50 by default). Use the scene's starting coordinate controls to save a new start; scripts cannot change it. Scripts do not run automatically.</span>
       </details>
       <span>Runtimes download only when used. C/C++ and C# need larger downloads and more device memory. 5-second run limit; no app, device-file, or network access.</span>
     </div>

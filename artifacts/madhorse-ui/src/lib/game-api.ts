@@ -3,6 +3,14 @@ export type GamePosition = { x: number; y: number };
 export const initialGamePosition: GamePosition = { x: 50, y: 50 };
 export const gameCommandLimit = 128;
 
+export function isGamePosition(value: unknown): value is GamePosition {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const position = value as Record<string, unknown>;
+  return ['x', 'y'].every((axis) =>
+    Object.hasOwn(position, axis) && typeof position[axis] === 'number' &&
+    Number.isFinite(position[axis]) && position[axis] >= 0 && position[axis] <= 100);
+}
+
 export function applyGameCommand(value: unknown, position: GamePosition): GamePosition {
   const fail = (): never => { throw new Error('Invalid game command: use version 1, object "player", action "setPosition" or "move", and finite numeric x/y within the 0–100 scene.'); };
   if (!value || typeof value !== 'object' || Array.isArray(value)) return fail();

@@ -10,7 +10,7 @@ import { WorkspaceBrowserMenus } from '@/components/workspace-browser-menus';
 import { SystemPanelTools } from '@/components/system-panel-tools';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import { GameScene } from '@/components/game-scene';
-import { initialGamePosition, type GamePosition } from '@/lib/game-api';
+import { initialGamePosition, isGamePosition, type GamePosition } from '@/lib/game-api';
 import { ScriptCreate } from '@/components/script-create';
 import { scriptLanguages, maxScriptSize, maxProjectScriptsSize, movementStarter, scriptStorageError, sourceSize, type ScriptFile } from '@/lib/project-scripts';
 import { loadActiveProjectId, projectStorageKey, saveProjectSnapshotNow, useProjectAutosave } from '@/hooks/use-project-autosave';
@@ -35,6 +35,7 @@ type Project = {
   scripts?: ScriptFile[];
   entities: SceneEntity[];
   assets: ProjectAsset[];
+  initialPosition?: GamePosition;
 };
 
 function isSavedScript(script: unknown): script is ScriptFile {
@@ -76,7 +77,15 @@ function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: 
       return {
         projects: projects.map((project) => ({
           ...project,
-          entities: project.entities ?? [createDefaultPlayer()],
+          // Entity transforms own the saved start. Migrate starts saved before
+          // the scene editor existed without overriding its newer transforms.
+          entities: project.entities ?? [{
+            ...createDefaultPlayer(),
+            components: createDefaultPlayer().components.map((component) =>
+              component.type === 'transform' && isGamePosition(project.initialPosition)
+                ? { ...component, position: { ...component.position, ...project.initialPosition } }
+                : component),
+          }],
           assets: project.assets ?? [],
         })),
         canOverwrite: true,
@@ -149,8 +158,9 @@ function Home() {
   const activeProjectRef = useRef(activeProject);
   activeProjectRef.current = activeProject;
   const selectedScriptId = scriptSelection.projectId === activeProject.id ? scriptSelection.scriptId : '';
+  const startingPosition = getPlayerStartPosition(activeProject);
   // Switching projects unmounts its runner, revoking its channel before another
-  // project can run. No scene mutation is persisted alongside imported scripts.
+  // project can run. Script scene mutations never update saved entity transforms.
   const position = scene.projectId === activeProject.id
     ? scene.position
     : getPlayerStartPosition(activeProject);
@@ -185,6 +195,7 @@ function Home() {
   function createProject() {
     const name = window.prompt('Name your project');
     if (!name?.trim()) return;
+    runnerRef.current?.stop();
     const project = {
       id: crypto.randomUUID(),
       name: name.trim(),
@@ -209,6 +220,13 @@ function Home() {
   function saveProject() {
     updateActiveProject({ savedAt: new Date().toISOString() });
     setSaveMessage('Project saved');
+  }
+
+  function saveStartingPosition(next: GamePosition) {
+    if (!isGamePosition(next) || runnerState.running) return;
+    runnerRef.current?.stop();
+    sceneEditor.onMoveEntity('player', next);
+    setSaveMessage('Starting position updated. Saved in this browser unless a storage error is shown.');
   }
 
   function selectScript(scriptId: string) {
@@ -351,10 +369,13 @@ function Home() {
 
         <section className="stage" id="scene-preview" ref={stageRef} tabIndex={-1} role="tabpanel" aria-labelledby="scene-preview-tab">
           <GameScene
+            key={activeProject.id}
             entities={sceneEditor.entities}
             assetUrls={sceneEditor.assetUrls}
             selectedEntityId={sceneEditor.selectedEntityId}
             position={position}
+            startingPosition={startingPosition}
+            onSaveStartingPosition={saveStartingPosition}
             readOnly={runnerState.running}
             onSelectEntity={sceneEditor.onSelectEntity}
             onMoveEntity={sceneEditor.onMoveEntity}
@@ -385,6 +406,7 @@ function Home() {
                 className="project-dropdown"
                 value={activeProjectId}
                 onChange={(event) => {
+                  runnerRef.current?.stop();
                   setActiveProjectId(event.target.value);
                   setSaveMessage('');
                 }}
@@ -497,8 +519,15 @@ function Home() {
                   onSelect={selectScript}
                   onEdit={editScript}
                   position={position}
-                  onPosition={(next) => setScene({ projectId: activeProject.id, position: next })}
-                  onReset={() => setScene({ projectId: activeProject.id, position: getPlayerStartPosition(activeProject) })}
+                  onPosition={(next) => {
+                    if (activeProjectRef.current.id === activeProject.id) {
+                      setScene({ projectId: activeProject.id, position: next });
+                    }
+                  }}
+                  onReset={() => {
+                    runnerRef.current?.stop();
+                    setScene({ projectId: activeProject.id, position: { ...startingPosition } });
+                  }}
                 />
                 <span className="script-message" role="status">{scriptMessage}</span>
               </div>

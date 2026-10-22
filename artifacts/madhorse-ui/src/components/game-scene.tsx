@@ -1,6 +1,6 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent } from 'react';
-import type { GamePosition } from '@/lib/game-api';
+import { isGamePosition, type GamePosition } from '@/lib/game-api';
 import {
   getSpriteRenderer,
   getWorldTransform,
@@ -12,6 +12,8 @@ type GameSceneProps = {
   assetUrls: Record<string, string>;
   selectedEntityId: string | null;
   position: GamePosition;
+  startingPosition: GamePosition;
+  onSaveStartingPosition: (position: GamePosition) => void;
   readOnly: boolean;
   onSelectEntity: (entityId: string) => void;
   onMoveEntity: (entityId: string, position: GamePosition) => void;
@@ -22,6 +24,8 @@ export function GameScene({
   assetUrls,
   selectedEntityId,
   position,
+  startingPosition,
+  onSaveStartingPosition,
   readOnly,
   onSelectEntity,
   onMoveEntity,
@@ -154,6 +158,29 @@ export function GameScene({
         {entities.find((entity) => entity.id === selectedEntityId)?.name ?? 'No selection'}
         {selectedEntityId === 'player' ? ` · x ${position.x} · y ${position.y}` : ''}
       </span>
+      <span className="scene-position">Runtime preview · player · x {position.x} · y {position.y} · script changes are not saved</span>
+      <StartingPositionControls key={`${startingPosition.x},${startingPosition.y}`} position={startingPosition} running={readOnly} onSave={onSaveStartingPosition} />
     </div>
+  );
+}
+
+function StartingPositionControls({ position, running, onSave }: {
+  position: GamePosition; running: boolean; onSave: (position: GamePosition) => void;
+}) {
+  const [x, setX] = useState(String(position.x));
+  const [y, setY] = useState(String(position.y));
+  const next = { x: Number(x), y: Number(y) };
+  const valid = x.trim() !== '' && y.trim() !== '' && isGamePosition(next);
+  return (
+    <form className="scene-start-controls" aria-label="Saved starting position" onSubmit={(event) => {
+      event.preventDefault();
+      if (valid && !running) onSave(next);
+    }}>
+      <span>Saved start · x {position.x} · y {position.y}</span>
+      <label>Starting X <input type="number" min="0" max="100" step="any" required value={x} disabled={running} onChange={(event) => setX(event.target.value)} /></label>
+      <label>Starting Y <input type="number" min="0" max="100" step="any" required value={y} disabled={running} onChange={(event) => setY(event.target.value)} /></label>
+      <button type="submit" disabled={running || !valid}>Save starting position</button>
+      <small role="status">{running ? 'Stop the script before editing the start.' : !valid ? 'Enter finite coordinates from 0 to 100.' : 'Save applies this start to the preview and stores it in this browser. Scene editor changes also save the start; scripts change only the runtime preview.'}</small>
+    </form>
   );
 }

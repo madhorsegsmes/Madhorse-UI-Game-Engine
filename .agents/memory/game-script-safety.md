@@ -34,6 +34,17 @@ languages as buffered rather than promising live per-frame updates. Future
 animation or readback needs a separate constrained design, not direct editor
 references.
 
+Keep the saved starting position shared between the scene editor and explicit
+starting-coordinate controls, rather than persisting two independent starts.
+
+**Why:** Dragging or Inspector edits and a separate start field would otherwise
+disagree about where Reset and reload should put the player. Preview-only script
+movement must never become a saved editor edit.
+
+**How to apply:** When integrating scene editing with scripting, preserve one
+saved starting state and a separate runtime preview. Migrate older starts without
+overwriting newer scene edits.
+
 Do not treat a configured interpreter memory or stack limit as proof that the
 selected WebAssembly build enforces it. Verify with bounded allocations and
 finite recursion, separately from worker termination and subsequent-run recovery.
