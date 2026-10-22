@@ -85,7 +85,6 @@ for (let i = 0; i < 96; i++) blocks.push(new Array(65536).fill(i));
 console.log("memory guard failed");
 `,
     error: /out of memory/i,
-    knownFailure: 'QuickJS 0.32.0 accepts this bounded allocation beyond setMemoryLimit(32 MiB).',
   },
   {
     name: '512 KiB stack',
@@ -122,7 +121,7 @@ console.log(descend(20000));
     // Only the exact known guard/diagnostic assertion is an expected failure.
     // All boundedness, teardown and recovery checks above must pass normally.
     // A fixed engine produces an unexpected pass and requires removing this.
-    test.fail(browserName === 'chromium', resource.knownFailure);
+    if (resource.knownFailure) test.fail(browserName === 'chromium', resource.knownFailure);
     expect(terminalStatus).toBe('Script stopped with an error.');
     expect(text).toMatch(resource.error);
   });

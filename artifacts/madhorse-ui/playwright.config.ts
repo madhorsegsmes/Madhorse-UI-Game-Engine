@@ -6,6 +6,8 @@ import path from 'node:path';
 const evidence = path.resolve(import.meta.dirname, '../../generated-artifacts/script-runtime');
 export default defineConfig({
   testDir: './tests/runtime',
+  // Direct Node engine checks live alongside browser specs, not inside them.
+  testMatch: '**/*.spec.ts',
   timeout: 240_000,
   expect: { timeout: 10_000 },
   forbidOnly: !!process.env.CI,

@@ -50,9 +50,11 @@ selected WebAssembly build enforces it. Verify with bounded allocations and
 finite recursion, separately from worker termination and subsequent-run recovery.
 
 **Why:** Bounded probes against the selected QuickJS build accepted retained
-allocations above its configured heap limit; stack exhaustion was obscured by
-an internal disposal assertion. Worker/frame cleanup and successful reruns still
-worked, so recovery alone did not prove either resource guard.
+allocations above its configured heap limit; JavaScript therefore needs an
+independent physical WASM memory ceiling (see `javascript-memory-boundary.md`).
+Stack exhaustion was obscured by an internal disposal assertion. Worker/frame
+cleanup and successful reruns still worked, so recovery alone did not prove
+either resource guard.
 
 **How to apply:** Preserve separate assertions for resource enforcement,
 bounded diagnostics, cleanup, and recovery when changing interpreter builds.

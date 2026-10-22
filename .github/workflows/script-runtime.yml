@@ -45,6 +45,12 @@ jobs:
 
       # Resolve the CLI from this workspace's lockfile, not a global/latest
       # Playwright. This installs all three matching builds and Ubuntu libraries.
+      - name: Check JavaScript memory enforcement in source and browser bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @workspace/madhorse-ui run test:runtime:memory 2>&1 | tee generated-artifacts/script-runtime/memory-test.log
+
       - name: Install matching browsers and Linux dependencies
         shell: bash
         run: |

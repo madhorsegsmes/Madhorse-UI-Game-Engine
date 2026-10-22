@@ -1,11 +1,24 @@
 import variant from '@jitl/quickjs-singlefile-browser-release-sync';
-import { newQuickJSWASMModuleFromVariant } from 'quickjs-emscripten-core';
+import { newQuickJSWASMModuleFromVariant, newVariant } from 'quickjs-emscripten-core';
+
+const memoryLimit = 32 * 1024 * 1024;
+const wasmPageSize = 65536;
 
 export async function initialize() {
-  const engine = await newQuickJSWASMModuleFromVariant(variant);
+  // QuickJS 0.32's Emscripten allocator reports usable_size = 0, so
+  // setMemoryLimit alone does not account for retained allocations. Bound the
+  // actual linear memory instead, including the engine, stack and FFI overhead.
+  // The maximum is enforced by WebAssembly on every growth, not by polling.
+  const memory = new WebAssembly.Memory({
+    initial: 16 * 1024 * 1024 / wasmPageSize,
+    maximum: memoryLimit / wasmPageSize,
+  });
+  const engine = await newQuickJSWASMModuleFromVariant(newVariant(variant, { wasmMemory: memory }));
+  // Fail closed if an upstream variant stops honoring the supplied memory.
+  if (engine.getWasmMemory() !== memory) throw new Error('JavaScript memory limit could not be installed');
   return (source, emit) => {
     const runtime = engine.newRuntime();
-    runtime.setMemoryLimit(32 * 1024 * 1024);
+    runtime.setMemoryLimit(memoryLimit);
     runtime.setMaxStackSize(512 * 1024);
     const deadline = Date.now() + 5000;
     runtime.setInterruptHandler(() => Date.now() > deadline);

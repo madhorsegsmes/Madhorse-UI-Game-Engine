@@ -23,7 +23,9 @@ Chromium, Firefox, WebKit **and** their OS dependencies with `install --with-dep
 This keeps browser revisions matched to the installed Playwright version.
 CI never uses the Replit Chromium override or substitutes one engine for another.
 
-The gate runs `pnpm --filter @workspace/madhorse-ui run test:runtime` once.
+The gate first runs `pnpm --filter @workspace/madhorse-ui run test:runtime:memory`
+against the source adapter and generated browser bundle, then runs
+`pnpm --filter @workspace/madhorse-ui run test:runtime` once.
 The config keeps one worker, disables parallel mode and retries, and rejects
 focused (`test.only`) tests in CI. Do not add browser matrices, shards, skips,
 `continue-on-error`, or failure-to-success fallbacks. Missing browsers, missing
@@ -116,24 +118,78 @@ also attach the original status/output and successful recovery as
 `resource-limit-observation`. Stop locators explicitly target the Script panel,
 not the separate game Stop control.
 
-### Confirmed Chromium resource defects
+### Enforced JavaScript memory budget
 
-The bounded probes exposed two pre-existing runtime defects:
+The adapter keeps QuickJS's `setMemoryLimit(32 MiB)` but does **not** trust it
+as the enforcement boundary. In the pinned QuickJS 0.32.0 single-file browser
+release variant, upstream `vendor/quickjs/quickjs.c` returns zero from
+`js_def_malloc_usable_size` under `EMSCRIPTEN`. The malloc/free/realloc accounting
+therefore omits allocation payloads. The original finite array probe retained
+about 48 MiB while `computeMemoryUsage` reported that usage and a 32 MiB limit.
+The bundler did not remove the limit call; the underlying allocator accounting
+was defective.
+
+`runtime/javascript.mjs` now supplies its own `WebAssembly.Memory` through
+`newVariant`, with 256 initial pages (16 MiB) and a maximum of 512 pages (32 MiB).
+It verifies the engine actually uses that memory and fails initialization
+otherwise. The WebAssembly maximum bounds **all linear memory**, including
+guest allocations, engine state, stack and FFI overhead. Consequently the usable
+guest heap is somewhat less than 32 MiB. This is not a total browser/worker RSS
+limit: the browser, compiled WASM code, adapter JS and TypeScript transpiler
+remain outside linear memory. It does not expose the memory or any new host API
+to guest scripts. The existing one-worker, input/output and wall-clock limits
+remain unchanged.
+
+The existing variant honors supplied memory and returns allocation failure when
+growth is refused. QuickJS turns that into a bounded `out of memory` diagnostic;
+this works even for one large native allocation that cannot be stopped by
+periodic interrupts. No memory-usage polling or timeout is used as the memory
+guard. Dev and production both bundle this adapter through `prepareRuntimes`.
+
+Run the finite direct-engine regressions (source **and** the real minified browser
+bundle) with:
+
+```sh
+pnpm --filter @workspace/madhorse-ui run test:runtime:memory
+```
+
+They check retained arrays, ArrayBuffers, strings, array reallocation and a
+single oversized allocation; success below the budget with growth beyond the
+initial memory; caught failures not bypassing the limit; host API isolation;
+and fresh-context recovery after every failure. The browser memory regression
+is now an ordinary required assertion in every engine, independently of cleanup.
+
+Verification after this fix: both direct-engine checks passed. The focused
+Chromium run completed 17 ordinary passes (including the memory regression,
+JavaScript/TypeScript execution, timeout/Stop/recovery, output limits and
+isolation) and the one existing expected stack-diagnostic failure. Its memory
+observation was `Script stopped with an error.`, `out of memory`, successful
+recovery and zero remaining sandbox frames. Test TypeScript checking passed.
+Firefox and WebKit were not rerun for this change; their missing-browser setup
+blocker documented below remains, and three-engine release approval is not claimed.
+
+Upstream references for the pinned build:
+- https://github.com/justjake/quickjs-emscripten/blob/v0.32.0/vendor/quickjs/quickjs.c
+- https://github.com/justjake/quickjs-emscripten/blob/v0.32.0/templates/pre-wasmMemory.js
+- https://github.com/justjake/quickjs-emscripten/blob/v0.32.0/packages/variant-quickjs-singlefile-browser-release-sync/Makefile
+
+### Remaining confirmed Chromium resource defect
+
+The stack diagnostic is a separate pre-existing defect:
 
 | Guard | Expected | Observed |
 | --- | --- | --- |
-| 32 MiB memory | Bounded out-of-memory error | The ~48 MiB retained allocation completes successfully despite `setMemoryLimit` |
 | 512 KiB stack | Bounded stack-overflow error | Disposal reports `Aborted(Assertion failed: list_empty(&rt->gc_obj_list) ... JS_FreeRuntime)` instead |
 
-Only these final diagnostic/guard assertions are marked as expected failures
+Only the stack's final diagnostic assertion is marked as an expected failure
 in Chromium. **All preceding boundedness, teardown, and recovery assertions
 must pass before that annotation is applied.** A corrected runtime unexpectedly
 passing the final assertion fails the test, requiring removal of the annotation.
 Firefox/WebKit have no such annotations because these defects have not been
 confirmed in those engines. These are not language-wide skips, memory-safety
-passes, or release approval; the actual memory cap still needs fixing.
+passes, or release approval. Teardown alone is not proof of resource enforcement.
 
-Focused verification on 2026-10-22: test TypeScript check passed; Chromium had
+Historical verification before the memory fix on 2026-10-22: test TypeScript check passed; Chromium had
 8 ordinary passes and the 2 documented expected failures, with teardown and
 recovery passing for all 10 cases. The other 20 cases failed before test bodies
 because the matching Firefox 1555 and WebKit 2370 browser executables were absent.

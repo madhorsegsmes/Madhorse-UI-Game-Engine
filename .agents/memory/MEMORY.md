@@ -1,4 +1,5 @@
 - [Game script safety](game-script-safety.md) — imported scripts must stay data until a properly isolated game runtime exists.
+- [JavaScript memory boundary](javascript-memory-boundary.md) — use a physical WASM memory ceiling; interpreter accounting and worker teardown do not prove enforcement.
 - [Runtime browser environment](runtime-browser-environment.md) — browser library and WebGL limitations; distinguish environment failures without weakening checks.
 - [Workspace panel layout](workspace-layout.md) — user-defined panel numbering, left/right control groups, and top Main Panel.
 - [Project identity](project-identity.md) — this is Madhorse Engine, not Blackboxradiomusic; keep unrelated branding out.
