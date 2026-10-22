@@ -1,0 +1,47 @@
+.shell { grid-template-rows: auto minmax(360px, 1fr) auto auto 10px !important; }
+.panel-label { color: #c9c6c1; font: 600 10px/1.3 'DM Mono', monospace; letter-spacing: .12em; text-transform: uppercase; overflow-wrap: anywhere; }
+.main-panel {
+  position: relative; z-index: 40; display: grid; grid-template-columns: auto 1px 1fr; align-items: center; gap: 14px;
+  padding: 8px 12px; border: 1px solid #4a4546; border-top: 2px solid #b43a32;
+  background: linear-gradient(90deg, #242325, #1b1b1d 50%, #242325);
+}
+.main-panel-identity { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.main-panel .brand::before, .main-panel .brand::after { display: none; }
+.main-panel-divider { align-self: stretch; width: 1px; background: linear-gradient(#8a3a35, #5a5859); }
+.main-panel-controls { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.main-menu .main-menu-panel { left: auto; right: 0; }
+.scene-tab.is-active { border-color: #cf4a40; background: #2a1d1d; box-shadow: inset 0 -2px 0 #cf4a40; }
+.stage:focus-visible { outline: 1px solid #cf4a40; }
+.toolbar-row { position: relative; z-index: 35; display: grid; grid-template-columns: 1fr 1fr; gap: clamp(16px, 4vw, 48px); }
+.toolbar-group { min-width: 0; display: grid; gap: 7px; padding: 8px 10px; border: 1px solid #6b3a36; background: linear-gradient(155deg, #292729, #141416 76%); }
+.toolbar-buttons { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.toolbar-buttons > * { min-width: 0; }
+.toolbar-group-right .toolbar-buttons .project-menu-panel,
+.toolbar-group-right .toolbar-buttons .script-menu-panel { left: auto; right: 0; }
+.toolbar-group-right .script-menu { position: static; }
+.toolbar-group-right .toolbar-buttons { position: relative; }
+.panel-row { min-height: 80px; position: relative; z-index: 1; }
+.panel { clip-path: none !important; padding: 10px 12px 14px; display: grid; align-content: start; gap: 8px; }
+.panel-play-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.panel-play-actions .control-button:disabled { opacity: .45; cursor: not-allowed; }
+.panel-text { color: #aaa5a2; font: 10px/1.45 'DM Mono', monospace; overflow-wrap: anywhere; white-space: pre-wrap; max-height: 120px; overflow: auto; }
+.panel-text.is-error { color: #e26a5f; }
+@media (max-width: 600px) {
+  .main-panel { grid-template-columns: 1fr 1px auto; gap: 8px; padding: 6px 8px; }
+  .main-panel-identity { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .main-panel .brand { padding: 3px 0; gap: 4px; border: 0; background: transparent; clip-path: none; }
+  .main-panel .brand-name { font-size: 12px; }
+  .main-panel .brand-mark { width: 20px; height: 20px; }
+  .main-panel-controls { flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 4px; }
+  .main-panel-controls .control-button { font-size: 8px; letter-spacing: .02em; padding: 5px; gap: 3px; white-space: nowrap; }
+  .toolbar-row { gap: 14px; }
+  .toolbar-group { padding: 6px; }
+  .toolbar-buttons { flex-direction: column; }
+  .toolbar-buttons .control-button, .toolbar-buttons .game-type-wrap, .toolbar-buttons .game-type-button { width: 100%; }
+  .toolbar-group-right .project-menu { position: static; }
+  .workspace-browser-panel { width: min(200px, calc(50vw - 24px)); }
+  .panel-row { grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .panel { padding: 8px 6px 10px; }
+  .panel-label { font-size: 9px; letter-spacing: .06em; }
+  .panel-play-actions { flex-direction: column; }
+}

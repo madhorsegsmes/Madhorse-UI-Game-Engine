@@ -1,11 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { startScriptRuntime, type RuntimeScript } from '@/lib/script-runtime';
 import { gameExample, type GamePosition } from '@/lib/game-api';
 
-export function ScriptRunner({ projectId, scripts, position, onPosition, onReset }: {
+export type ScriptRunnerHandle = { run: () => void; stop: () => void };
+export type ScriptRunnerState = { ready: boolean; running: boolean; status: string; scriptName: string };
+
+export const ScriptRunner = forwardRef<ScriptRunnerHandle, {
   projectId: string; scripts: RuntimeScript[]; position: GamePosition;
   onPosition: (position: GamePosition) => void; onReset: () => void;
-}) {
+  onState?: (state: ScriptRunnerState) => void; onError?: (message: string) => void;
+}>(function ScriptRunner({ projectId, scripts, position, onPosition, onReset, onState, onError }, ref) {
   const [selectedId, setSelectedId] = useState('');
   const [output, setOutput] = useState('');
   const [status, setStatus] = useState('Choose a script to run.');
@@ -13,6 +17,10 @@ export function ScriptRunner({ projectId, scripts, position, onPosition, onReset
   const handle = useRef<ReturnType<typeof startScriptRuntime> | null>(null);
   const selected = scripts.find((script) => script.id === selectedId) ?? scripts[0];
   const runnable = selected && !/\.(h|hpp)$/i.test(selected.name);
+  const onStateRef = useRef(onState);
+  onStateRef.current = onState;
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
   useEffect(() => {
     handle.current?.stop();
     handle.current = null;
@@ -24,8 +32,9 @@ export function ScriptRunner({ projectId, scripts, position, onPosition, onReset
   }, [projectId]);
 
   function run() {
-    if (!selected || running) return;
+    if (!selected || !runnable || running) return;
     setOutput('');
+    onErrorRef.current?.('');
     setRunning(true);
     setStatus(`Starting ${selected.language} sandbox…`);
     handle.current = startScriptRuntime(selected, scripts, (event) => {
@@ -39,6 +48,7 @@ export function ScriptRunner({ projectId, scripts, position, onPosition, onReset
       if (event.type === 'error') {
         setStatus('Script stopped with an error.');
         setOutput((text) => `${text}\n${event.message}`.slice(0, 16000));
+        onErrorRef.current?.(event.message);
         setRunning(false);
       }
     }, position);
@@ -49,6 +59,15 @@ export function ScriptRunner({ projectId, scripts, position, onPosition, onReset
     setRunning(false);
     setStatus('Script stopped.');
   }
+  const runRef = useRef(run);
+  runRef.current = run;
+  const stopRef = useRef(stop);
+  stopRef.current = stop;
+  useImperativeHandle(ref, () => ({ run: () => runRef.current(), stop: () => stopRef.current() }), []);
+  const shownStatus = !runnable && selected ? 'Header file — choose a .c or .cpp source file to run.' : status;
+  useEffect(() => {
+    onStateRef.current?.({ ready: Boolean(runnable), running, status: shownStatus, scriptName: selected?.name ?? '' });
+  }, [runnable, running, shownStatus, selected?.name]);
   return (
     <div className="script-runtime-note">
       <label className="script-run-label" htmlFor="run-script-selection">Script to run</label>
@@ -67,7 +86,7 @@ export function ScriptRunner({ projectId, scripts, position, onPosition, onReset
         <button type="button" disabled={!running} onClick={stop}>Stop</button>
         <button type="button" disabled={running} onClick={onReset}>Reset scene</button>
       </div>
-      <span className="script-run-status" role="status">{!runnable && selected ? 'Header file — choose a .c or .cpp source file to run.' : status}</span>
+      <span className="script-run-status" role="status">{shownStatus}</span>
       <pre className="script-console" aria-label="Script output" aria-live="polite">{output || 'Output will appear here.'}</pre>
       <details className="game-api-help">
         <summary>Move the player with a script</summary>
@@ -79,4 +98,4 @@ export function ScriptRunner({ projectId, scripts, position, onPosition, onReset
       <span>Runtimes download only when used. C/C++ and C# need larger downloads and more device memory. 5-second run limit; no app, device-file, or network access.</span>
     </div>
   );
-}
+});

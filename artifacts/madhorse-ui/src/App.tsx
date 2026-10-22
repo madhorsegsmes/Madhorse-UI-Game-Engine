@@ -1,10 +1,11 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
-import { ScriptRunner } from '@/components/script-runner';
+import { ScriptRunner, type ScriptRunnerHandle, type ScriptRunnerState } from '@/components/script-runner';
+import './components/workspace-layout.css';
 import { WorkspaceBrowserMenus } from '@/components/workspace-browser-menus';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import { GameScene } from '@/components/game-scene';
@@ -99,7 +100,12 @@ function Home() {
   // Switching projects unmounts its runner, revoking its channel before another
   // project can run. No scene mutation is persisted alongside imported scripts.
   const position = scene.projectId === activeProject.id ? scene.position : initialGamePosition;
+  const runnerRef = useRef<ScriptRunnerHandle>(null);
+  const stageRef = useRef<HTMLElement>(null);
+  const [runnerState, setRunnerState] = useState<ScriptRunnerState>({ ready: false, running: false, status: 'Choose a script to run.', scriptName: '' });
+  const [runtimeError, setRuntimeError] = useState('');
   useEffect(() => {
+    setRuntimeError('');
     setScene({ projectId: activeProject.id, position: { ...initialGamePosition } });
   }, [activeProject.id]);
 
@@ -206,15 +212,45 @@ function Home() {
   return (
     <main className="workspace" aria-label="Madhorse game creation workspace">
       <div className="shell">
-        <header className="topbar">
-          <div className="brand" aria-label="Madhorse UI">
-            <HorseMark />
-            <span className="brand-name">MADHORSE<span>UI</span></span>
+        <header className="main-panel" aria-label="Main panel">
+          <div className="main-panel-identity">
+            <span className="panel-label">MAIN PANEL</span>
+            <div className="brand" aria-label="Madhorse UI">
+              <HorseMark />
+              <span className="brand-name">MADHORSE<span>UI</span></span>
+            </div>
           </div>
-          <div className="utility-mark" aria-hidden="true"><i /><i /><i /></div>
+          <span className="main-panel-divider" aria-hidden="true" />
+          <div className="main-panel-controls">
+            {['File', 'Tools'].map((label) => (
+              <details key={label} name="main-menu" className="workspace-browser-menu main-menu">
+                <summary className="control-button" data-testid={`menu-${label.toLowerCase()}`}>
+                  {label} <span className="control-chevron" aria-hidden="true">⌄</span>
+                </summary>
+                <div className="workspace-browser-panel main-menu-panel" aria-label={`${label} contents`} />
+              </details>
+            ))}
+            <div role="tablist" aria-label="Editor views">
+            <button
+              type="button"
+              role="tab"
+              id="scene-preview-tab"
+              aria-selected="true"
+              aria-controls="scene-preview"
+              className="control-button scene-tab is-active"
+              data-testid="tab-scene-preview"
+              onClick={() => {
+                stageRef.current?.focus();
+                stageRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+              }}
+            >
+              Scene Preview
+            </button>
+            </div>
+          </div>
         </header>
 
-        <section className="stage" aria-label="Game workspace">
+        <section className="stage" id="scene-preview" ref={stageRef} tabIndex={-1} role="tabpanel" aria-labelledby="scene-preview-tab">
           <GameScene position={position} />
           <div className="frame-lines" aria-hidden="true" />
           <span className="stage-corner tl" aria-hidden="true" />
@@ -223,10 +259,14 @@ function Home() {
           <span className="stage-corner br" aria-hidden="true" />
         </section>
 
-        <div className="statusbar expanded-statusbar" role="group" aria-label="Workspace status and actions">
-          <div className="status-segment" aria-hidden="true"><span className="status-diamond" /></div>
-          <div className="workspace-controls expanded-controls">
-            <WorkspaceBrowserMenus />
+        <div className="toolbar-row" role="group" aria-label="Workspace toolbars">
+          <div className="toolbar-group" role="group" aria-labelledby="panel-2-label">
+            <span className="panel-label" id="panel-2-label">PANEL 2</span>
+            <div className="toolbar-buttons"><WorkspaceBrowserMenus /></div>
+          </div>
+          <div className="toolbar-group toolbar-group-right" role="group" aria-labelledby="panel-1-label">
+            <span className="panel-label" id="panel-1-label">PANEL 1</span>
+            <div className="toolbar-buttons">
             <details className="project-menu">
               <summary className="control-button project-button" aria-label="Project actions">
                 Project <span className="control-chevron" aria-hidden="true">⌄</span>
@@ -339,6 +379,9 @@ function Home() {
                   )}
                 </div>
                 <ScriptRunner
+                  ref={runnerRef}
+                  onState={setRunnerState}
+                  onError={setRuntimeError}
                   key={activeProject.id}
                   projectId={activeProject.id}
                   scripts={activeProject.scripts ?? []}
@@ -349,14 +392,46 @@ function Home() {
                 <span className="script-message" role="status">{scriptMessage}</span>
               </div>
             </details>
+            </div>
           </div>
-          <div className="status-segment" aria-hidden="true"><span className="status-diamond" /></div>
         </div>
 
         <section className="panel-row" aria-label="Workspace panels">
-          <div className="panel" aria-hidden="true" />
-          <div className="panel" aria-hidden="true" />
-          <div className="panel" aria-hidden="true" />
+          <div className="panel" role="region" aria-labelledby="panel-3-label">
+            <span className="panel-label" id="panel-3-label">PANEL 3 / System</span>
+          </div>
+          <div className="panel" role="region" aria-labelledby="panel-4-label">
+            <span className="panel-label" id="panel-4-label">PANEL 4 / Play/Test Game</span>
+            <div className="panel-play-actions">
+              <button
+                type="button"
+                className="control-button"
+                data-testid="button-play-game"
+                disabled={!runnerState.ready || runnerState.running}
+                onClick={() => runnerRef.current?.run()}
+              >
+                Play
+              </button>
+              <button
+                type="button"
+                className="control-button"
+                data-testid="button-stop-game"
+                disabled={!runnerState.running}
+                onClick={() => runnerRef.current?.stop()}
+              >
+                Stop
+              </button>
+            </div>
+            <span className="panel-text" role="status" data-testid="status-play">
+              {runnerState.scriptName ? `${runnerState.scriptName} · ${runnerState.status}` : 'Import a script to play.'}
+            </span>
+          </div>
+          <div className="panel" role="region" aria-labelledby="panel-5-label">
+            <span className="panel-label" id="panel-5-label">PANEL 5 / Error Displayer</span>
+            <span className={`panel-text${runtimeError ? ' is-error' : ''}`} role="alert" data-testid="text-runtime-error">
+              {runtimeError || 'No errors.'}
+            </span>
+          </div>
         </section>
 
         <div className="shell-footer" aria-hidden="true">
