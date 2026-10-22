@@ -257,8 +257,11 @@
 }
 .panel::after { content: ''; position: absolute; right: 7%; bottom: 8px; height: 3px; width: 18px; background: #6f3430; transform: skewX(-35deg); opacity: .8; }
 .project-menu { position: relative; }
+.script-menu { position: relative; }
 .project-menu > summary { list-style: none; }
+.script-menu > summary { list-style: none; }
 .project-menu > summary::-webkit-details-marker { display: none; }
+.script-menu > summary::-webkit-details-marker { display: none; }
 .control-button {
   appearance: none;
   min-height: 32px;
@@ -277,6 +280,7 @@
   cursor: pointer;
 }
 .project-button { width: 116px; }
+.script-button { width: 92px; }
 .game-type-wrap { position: relative; display: inline-flex; }
 .game-type-button { width: 134px; padding-right: 27px; }
 .control-chevron {
@@ -338,6 +342,109 @@
 }
 .project-actions button:last-child { grid-column: 1 / -1; border-color: #8e3933; }
 .project-save-status { min-height: 12px; color: #cf6a5f; }
+.script-menu-panel {
+  position: absolute;
+  top: calc(100% + 9px);
+  right: 0;
+  z-index: 6;
+  width: min(360px, calc(100vw - 32px));
+  max-height: min(68vh, 560px);
+  overflow: auto;
+  padding: 14px;
+  display: grid;
+  gap: 11px;
+  border: 1px solid #6b3a36;
+  background: #171719;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .58);
+}
+.script-panel-heading { display: grid; gap: 4px; }
+.script-panel-heading strong {
+  color: #e8e5e0;
+  font: 700 13px/1 'DM Mono', monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.script-panel-heading > span, .script-dropzone small,
+.script-empty, .script-file-info small, .script-runtime-note > span,
+.script-message {
+  color: #aaa5a2;
+  font: 10px/1.45 'DM Mono', monospace;
+}
+.script-dropzone {
+  min-height: 112px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px dashed #79504b;
+  background: #1d1b1c;
+  color: #e8e5e0;
+  font: 600 11px/1.35 'DM Mono', monospace;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease;
+}
+.script-dropzone:hover, .script-dropzone.is-dragging {
+  border-color: #df4a3d;
+  background: #282022;
+}
+.script-drop-icon { color: #df4a3d; font: 300 24px/1 'DM Mono', monospace; }
+.script-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.script-dropzone:focus-within { outline: 1px solid #cf4a40; outline-offset: 2px; }
+.script-list { display: grid; gap: 6px; }
+.script-empty { padding: 3px 0; }
+.script-file-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 9px;
+  border: 1px solid #383435;
+  background: #201e1f;
+}
+.script-file-info { min-width: 0; display: grid; gap: 3px; }
+.script-file-info strong {
+  overflow: hidden;
+  color: #e8e5e0;
+  font: 500 11px/1.3 'DM Mono', monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.script-file-info small { color: #c26960; }
+.script-remove {
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  border: 1px solid #4a4140;
+  background: #171719;
+  color: #df6a61;
+  font: 18px/1 'DM Mono', monospace;
+  cursor: pointer;
+}
+.script-runtime-note {
+  display: grid;
+  gap: 7px;
+  padding-top: 10px;
+  border-top: 1px solid #383435;
+}
+.script-runtime-note button {
+  min-height: 32px;
+  border: 1px solid #554442;
+  background: #262324;
+  color: #8f8887;
+  font: 700 10px/1 'DM Mono', monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: not-allowed;
+}
+.script-message { min-height: 0; color: #cf6a5f; }
 .sr-only {
   position: absolute;
   width: 1px;
@@ -381,11 +488,13 @@
   .statusbar { padding: 0 10px; min-height: 38px; }
   .status-segment { width: 23%; }
   .status-segment::before { width: 10px; }
-  .workspace-controls { right: 4px; top: -9px; gap: 4px; padding: 6px; }
+  .workspace-controls { right: 4px; top: -9px; gap: 3px; padding: 5px; }
   .control-button { min-height: 29px; font-size: 9px; gap: 5px; padding: 5px 7px; }
-  .project-button { width: 98px; }
-  .game-type-button { width: 114px; padding-right: 22px; }
+  .project-button { width: 88px; }
+  .game-type-button { width: 104px; padding-right: 22px; }
+  .script-button { width: 78px; }
   .project-menu-panel { width: min(220px, calc(100vw - 38px)); }
+  .script-menu-panel { width: min(360px, calc(100vw - 28px)); padding: 12px; }
   .panel-row { grid-template-columns: 1fr 1.08fr 1fr; gap: 6px; min-height: 43px; }
 }
 @media (prefers-reduced-motion: no-preference) {

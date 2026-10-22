@@ -9,12 +9,37 @@ import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 const queryClient = new QueryClient();
 const projectStorageKey = 'madhorse-ui-projects';
 const gameTypes = ['RTS', 'RPG', 'MMO', 'Arena Fighting', 'Card Game', 'Sport Game'] as const;
+const scriptLanguages: Record<string, string> = {
+  '.py': 'Python',
+  '.c': 'C',
+  '.h': 'C / C++',
+  '.cc': 'C++',
+  '.cpp': 'C++',
+  '.cxx': 'C++',
+  '.hpp': 'C++',
+  '.js': 'JavaScript',
+  '.mjs': 'JavaScript',
+  '.ts': 'TypeScript',
+  '.lua': 'Lua',
+  '.cs': 'C#',
+};
+const maxScriptSize = 256 * 1024;
+const maxProjectScriptsSize = 1024 * 1024;
+
+type ScriptFile = {
+  id: string;
+  name: string;
+  language: string;
+  size: number;
+  content: string;
+};
 
 type Project = {
   id: string;
   name: string;
   gameType: string;
   savedAt: string;
+  scripts?: ScriptFile[];
 };
 
 function loadProjects(): Project[] {
@@ -25,7 +50,7 @@ function loadProjects(): Project[] {
   } catch {
     // Start with a clean project if browser storage is unavailable or invalid.
   }
-  return [{ id: crypto.randomUUID(), name: 'Untitled Project', gameType: '', savedAt: '' }];
+  return [{ id: crypto.randomUUID(), name: 'Untitled Project', gameType: '', savedAt: '', scripts: [] }];
 }
 
 function HorseMark() {
@@ -61,6 +86,8 @@ function Home() {
   const [projects, setProjects] = useState<Project[]>(loadProjects);
   const [activeProjectId, setActiveProjectId] = useState(projects[0].id);
   const [saveMessage, setSaveMessage] = useState('');
+  const [scriptMessage, setScriptMessage] = useState('');
+  const [isDraggingScript, setIsDraggingScript] = useState(false);
   const activeProject = projects.find((project) => project.id === activeProjectId) ?? projects[0];
 
   useEffect(() => {
@@ -87,6 +114,7 @@ function Home() {
       name: name.trim(),
       gameType: '',
       savedAt: '',
+      scripts: [],
     };
     setProjects((current) => [...current, project]);
     setActiveProjectId(project.id);
@@ -103,6 +131,63 @@ function Home() {
   function saveProject() {
     updateActiveProject({ savedAt: new Date().toISOString() });
     setSaveMessage('Project saved');
+  }
+
+  async function importScriptFiles(files: FileList | File[]) {
+    const scripts = activeProject.scripts ?? [];
+    let totalSize = scripts.reduce((sum, script) => sum + script.size, 0);
+    const imported: ScriptFile[] = [];
+    const rejected: string[] = [];
+
+    for (const file of Array.from(files)) {
+      const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+      const language = scriptLanguages[extension];
+      if (!language) {
+        rejected.push(`${file.name}: unsupported file type`);
+        continue;
+      }
+      if (file.size > maxScriptSize) {
+        rejected.push(`${file.name}: files must be 256 KB or smaller`);
+        continue;
+      }
+      if (totalSize + file.size > maxProjectScriptsSize) {
+        rejected.push(`${file.name}: this project has reached its 1 MB script storage limit`);
+        continue;
+      }
+
+      try {
+        const content = await file.text();
+        if (content.includes('\u0000')) {
+          rejected.push(`${file.name}: file is not plain text`);
+          continue;
+        }
+        imported.push({
+          id: crypto.randomUUID(),
+          name: file.name,
+          language,
+          size: file.size,
+          content,
+        });
+        totalSize += file.size;
+      } catch {
+        rejected.push(`${file.name}: could not read file`);
+      }
+    }
+
+    if (imported.length > 0) {
+      updateActiveProject({ scripts: [...scripts, ...imported] });
+    }
+    setScriptMessage([
+      imported.length ? `Imported ${imported.length} script${imported.length === 1 ? '' : 's'}` : '',
+      ...rejected,
+    ].filter(Boolean).join(' · ') || 'Choose a script file to import.');
+  }
+
+  function removeScript(scriptId: string) {
+    updateActiveProject({
+      scripts: (activeProject.scripts ?? []).filter((script) => script.id !== scriptId),
+    });
+    setScriptMessage('Script removed from this project');
   }
 
   return (
@@ -175,6 +260,76 @@ function Home() {
               </select>
               <span className="control-chevron" aria-hidden="true">⌄</span>
             </span>
+            <details className="script-menu">
+              <summary className="control-button script-button" aria-label="Script tools">
+                Script <span className="control-chevron" aria-hidden="true">⌄</span>
+              </summary>
+              <div className="script-menu-panel">
+                <div className="script-panel-heading">
+                  <strong>Project scripts</strong>
+                  <span>Python · C++ · JavaScript · Lua · C#</span>
+                </div>
+                <label
+                  className={`script-dropzone${isDraggingScript ? ' is-dragging' : ''}`}
+                  onDragEnter={(event) => {
+                    event.preventDefault();
+                    setIsDraggingScript(true);
+                  }}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDragLeave={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                      setIsDraggingScript(false);
+                    }
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setIsDraggingScript(false);
+                    void importScriptFiles(event.dataTransfer.files);
+                  }}
+                >
+                  <input
+                    className="script-file-input"
+                    type="file"
+                    multiple
+                    accept=".py,.c,.h,.cc,.cpp,.cxx,.hpp,.js,.mjs,.ts,.lua,.cs"
+                    onChange={(event) => {
+                      if (event.target.files) void importScriptFiles(event.target.files);
+                      event.target.value = '';
+                    }}
+                  />
+                  <span className="script-drop-icon" aria-hidden="true">+</span>
+                  <span>Drop scripts here or <u>browse files</u></span>
+                  <small>Plain-text files up to 256 KB each</small>
+                </label>
+                <div className="script-list" aria-live="polite">
+                  {(activeProject.scripts ?? []).length === 0 ? (
+                    <span className="script-empty">No scripts added to this project.</span>
+                  ) : (
+                    (activeProject.scripts ?? []).map((script) => (
+                      <div className="script-file-row" key={script.id}>
+                        <span className="script-file-info">
+                          <strong>{script.name}</strong>
+                          <small>{script.language} · {(script.size / 1024).toFixed(1)} KB</small>
+                        </span>
+                        <button
+                          type="button"
+                          className="script-remove"
+                          onClick={() => removeScript(script.id)}
+                          aria-label={`Remove ${script.name}`}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="script-runtime-note">
+                  <button type="button" disabled aria-disabled="true">Run script</button>
+                  <span>Script execution will be available when a safe game runtime is connected.</span>
+                </div>
+                <span className="script-message" role="status">{scriptMessage}</span>
+              </div>
+            </details>
           </div>
           <div className="status-segment" aria-hidden="true"><span className="status-diamond" /></div>
         </div>

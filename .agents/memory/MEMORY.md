@@ -1,0 +1,1 @@
+- [Game script safety](game-script-safety.md) — imported scripts must stay data until a properly isolated game runtime exists.
