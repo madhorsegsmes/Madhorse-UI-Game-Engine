@@ -1,0 +1,40 @@
+.system-panel-tools {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.system-panel-tools details {
+  position: relative;
+  min-width: 0;
+}
+
+.system-tool-button {
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  list-style: none;
+  justify-content: flex-start;
+}
+
+.system-tool-button::-webkit-details-marker {
+  display: none;
+}
+
+.system-tool-button::after {
+  content: '⌄';
+  margin-left: auto;
+  color: #d94b40;
+}
+
+.system-tool-content {
+  min-height: 44px;
+  margin-top: 5px;
+  border: 1px solid #383435;
+  background: #151517;
+}
+
+.system-tool-button:focus-visible {
+  outline: 1px solid #cf4a40;
+  outline-offset: 2px;
+}

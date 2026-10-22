@@ -7,6 +7,8 @@ The left toolbar is **Panel 2**, containing **Hierarchy, Assets, Data**. The rig
 
 The lower panels run left to right: **Panel 3 — System**, **Panel 4 — Play/Test Game**, **Panel 5 — Error Displayer**.
 
+Panel 3 has an **Animations** button, with **UI Controls** underneath it.
+
 At the very top is one long bordered **Main Panel**, with a column divider and **File, Tools, Scene Preview** controls at its right corner.
 
 **Why:** The user explicitly corrected the control placement and assigned these panel numbers.

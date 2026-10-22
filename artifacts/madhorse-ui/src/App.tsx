@@ -7,6 +7,7 @@ import NotFound from '@/pages/not-found';
 import { ScriptRunner, type ScriptRunnerHandle, type ScriptRunnerState } from '@/components/script-runner';
 import './components/workspace-layout.css';
 import { WorkspaceBrowserMenus } from '@/components/workspace-browser-menus';
+import { SystemPanelTools } from '@/components/system-panel-tools';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import { GameScene } from '@/components/game-scene';
 import { initialGamePosition, type GamePosition } from '@/lib/game-api';
@@ -399,6 +400,7 @@ function Home() {
         <section className="panel-row" aria-label="Workspace panels">
           <div className="panel" role="region" aria-labelledby="panel-3-label">
             <span className="panel-label" id="panel-3-label">PANEL 3 / System</span>
+            <SystemPanelTools />
           </div>
           <div className="panel" role="region" aria-labelledby="panel-4-label">
             <span className="panel-label" id="panel-4-label">PANEL 4 / Play/Test Game</span>
