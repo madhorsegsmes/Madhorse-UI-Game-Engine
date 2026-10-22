@@ -33,3 +33,16 @@ the editor; worker-side parsing is not a trust boundary.
 languages as buffered rather than promising live per-frame updates. Future
 animation or readback needs a separate constrained design, not direct editor
 references.
+
+Do not treat a configured interpreter memory or stack limit as proof that the
+selected WebAssembly build enforces it. Verify with bounded allocations and
+finite recursion, separately from worker termination and subsequent-run recovery.
+
+**Why:** Bounded probes against the selected QuickJS build accepted retained
+allocations above its configured heap limit; stack exhaustion was obscured by
+an internal disposal assertion. Worker/frame cleanup and successful reruns still
+worked, so recovery alone did not prove either resource guard.
+
+**How to apply:** Preserve separate assertions for resource enforcement,
+bounded diagnostics, cleanup, and recovery when changing interpreter builds.
+Do not weaken isolation or stress machine-wide memory to validate a guest limit.

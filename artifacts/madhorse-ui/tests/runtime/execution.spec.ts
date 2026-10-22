@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { test, languages, openScripts, importSource, run, finished, status, output, frames } from './fixtures';
+import { test, languages, openScripts, importSource, run, finished, status, output, frames, stopButton } from './fixtures';
 
 for (const language of languages) {
   test(`${language.name}: imported hello world, syntax error, successful rerun`, async ({ page }) => {
@@ -37,7 +37,7 @@ for (const language of languages) {
     await run(page);
     await expect(status(page)).toHaveText(/Running (script|WebAssembly|C# script)…/, { timeout: 180_000 });
     const stoppedAt = Date.now();
-    await page.getByRole('button', { name: 'Stop', exact: true }).click();
+    await stopButton(page).click();
     await expect(status(page)).toHaveText('Script stopped.');
     expect(Date.now() - stoppedAt).toBeLessThan(2_000);
     await expect(frames(page)).toHaveCount(0);

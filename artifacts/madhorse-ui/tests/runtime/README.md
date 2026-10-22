@@ -55,6 +55,59 @@ For a focused rerun, append `--grep "C is compiled"` (or another test title) to
 `test:runtime`. A full run is required before shipping runtime changes.
 Select an engine with `--project=firefox` or `--project=webkit`.
 
+## Bounded resource and teardown regressions
+
+Run the focused cases with:
+
+```sh
+pnpm --filter @workspace/madhorse-ui run test:runtime resources.spec.ts
+```
+
+These cases use the real Script panel and production runtime with one worker:
+
+- Exactly 16,000 output characters including the emitted newline; rejection of
+  an oversized line, cumulative lines, and embedded newlines.
+- A 32,000-character thrown error, bounded to the editor's 16,000-character
+  console limit.
+- Finite memory allocation (96 arrays of 65,536 slots, approximately 48 MiB of
+  QuickJS values) and finite 20,000-level recursion against the configured
+  32 MiB heap / 512 KiB stack limits. Never use unbounded host-memory stress.
+- Three cycles of completion, failure, and Stop, fresh globals/output,
+  removal of sandbox frames, and recovery beyond the old execution deadline.
+- Stop while either the worker bootstrap or JavaScript runtime asset is held
+  at the network boundary. A subsequent run completes before the old real
+  asset is released, and late delivery must not alter its result.
+
+Each case checks teardown and successful subsequent execution. Resource cases
+also attach the original status/output and successful recovery as
+`resource-limit-observation`. Stop locators explicitly target the Script panel,
+not the separate game Stop control.
+
+### Confirmed Chromium resource defects
+
+The bounded probes exposed two pre-existing runtime defects:
+
+| Guard | Expected | Observed |
+| --- | --- | --- |
+| 32 MiB memory | Bounded out-of-memory error | The ~48 MiB retained allocation completes successfully despite `setMemoryLimit` |
+| 512 KiB stack | Bounded stack-overflow error | Disposal reports `Aborted(Assertion failed: list_empty(&rt->gc_obj_list) ... JS_FreeRuntime)` instead |
+
+Only these final diagnostic/guard assertions are marked as expected failures
+in Chromium. **All preceding boundedness, teardown, and recovery assertions
+must pass before that annotation is applied.** A corrected runtime unexpectedly
+passing the final assertion fails the test, requiring removal of the annotation.
+Firefox/WebKit have no such annotations because these defects have not been
+confirmed in those engines. These are not language-wide skips, memory-safety
+passes, or release approval; the actual memory cap still needs fixing.
+
+Focused verification on 2026-10-22: test TypeScript check passed; Chromium had
+8 ordinary passes and the 2 documented expected failures, with teardown and
+recovery passing for all 10 cases. The other 20 cases failed before test bodies
+because the matching Firefox 1555 and WebKit 2370 browser executables were absent.
+The focused three-engine command therefore exits nonzero; compatibility remains
+unverified until those engines and their matching host libraries are available.
+No runtime implementation was changed as part of this regression-only work.
+
 ## Unsupported features and release failures
 
 There are no engine-wide skips, automatic retries, or catch-and-pass fallbacks.
@@ -66,7 +119,9 @@ startup errors as an unsupported language. Confirm the exact missing engine
 feature first and record its affected engine/version, language, error and
 reproduction here before considering any narrowly scoped expected failure.
 An expected failure must also fail the suite when it unexpectedly starts passing.
-No unsupported runtime features have been confirmed or exempted yet.
+No language-wide unsupported runtime features have been confirmed or exempted.
+The narrowly scoped Chromium resource defects above are recorded separately;
+they do not exempt any language or engine from the existing execution checks.
 
 ### Workspace verification: 2026-10-22
 

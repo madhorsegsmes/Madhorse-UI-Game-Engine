@@ -41,6 +41,8 @@ export const languages = [
 export const status = (page: Page) => page.locator('.script-run-status');
 export const output = (page: Page) => page.getByLabel('Script output');
 export const frames = (page: Page) => page.locator('iframe[sandbox="allow-scripts"]');
+// The workspace also has a game Stop button. Target the Script panel explicitly.
+export const stopButton = (page: Page) => page.locator('.script-run-actions').getByRole('button', { name: 'Stop', exact: true });
 
 export async function openScripts(page: Page) {
   await page.goto('/');
@@ -64,5 +66,5 @@ export async function finished(page: Page) {
   // Compilation/download time is deliberately separate from the 5s execution budget.
   await expect(status(page)).toHaveText('Script finished.', { timeout: 180_000 });
   await expect(frames(page)).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Stop', exact: true })).toBeDisabled();
+  await expect(stopButton(page)).toBeDisabled();
 }

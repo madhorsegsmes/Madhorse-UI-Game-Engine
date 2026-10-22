@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { test, openScripts, importSource, run, finished, output, frames, status } from './fixtures';
+import { test, openScripts, importSource, run, finished, output, frames, status, stopButton } from './fixtures';
 
 test('initial load and importing scripts never download language runtimes', async ({ page }) => {
   const downloads: string[] = [];
@@ -94,6 +94,6 @@ test('opaque sandbox denies app storage, parent DOM, private API and external re
   expect(denied).toEqual(['storage', 'parent', '/api/runtime-private-probe', 'https://sandbox-probe.invalid/exfiltrate']);
   expect(escaped).toEqual([]);
   expect(await page.evaluate(() => localStorage.getItem('runtime-private-sentinel'))).toBe('must-stay-private');
-  await page.getByRole('button', { name: 'Stop', exact: true }).click();
+  await stopButton(page).click();
   await expect(frames(page)).toHaveCount(0);
 });

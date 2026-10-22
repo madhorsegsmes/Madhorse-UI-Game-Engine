@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import { applyGameCommand, gameExample } from '../../src/lib/game-api';
-import { test, languages, openScripts, importSource, run, finished, status, output, frames } from './fixtures';
+import { test, languages, openScripts, importSource, run, finished, status, output, frames, stopButton } from './fixtures';
 
 const command = (updates: Record<string, unknown> = {}) => ({
   version: 1, object: 'player', action: 'setPosition', x: 75, y: 35, ...updates,
@@ -110,7 +110,7 @@ test('Stop and timeout revoke scene writes without rolling back valid moves', as
   await importSource(page, 'loop-scene.js', `${gameExample('JavaScript')}\nwhile (true) {}`);
   await run(page);
   await expect(player(page)).toHaveAttribute('data-x', '75');
-  await page.getByRole('button', { name: 'Stop', exact: true }).click();
+  await stopButton(page).click();
   await expect(frames(page)).toHaveCount(0);
   await page.getByRole('button', { name: 'Reset scene', exact: true }).click();
   await expect(player(page)).toHaveAttribute('data-x', '50');
