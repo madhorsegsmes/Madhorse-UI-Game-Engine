@@ -5,6 +5,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { ScriptRunner } from '@/components/script-runner';
+import { WorkspaceBrowserMenus } from '@/components/workspace-browser-menus';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 
 const queryClient = new QueryClient();
@@ -210,9 +211,10 @@ function Home() {
           <span className="stage-corner br" aria-hidden="true" />
         </section>
 
-        <div className="statusbar" role="group" aria-label="Workspace status and actions">
+        <div className="statusbar expanded-statusbar" role="group" aria-label="Workspace status and actions">
           <div className="status-segment" aria-hidden="true"><span className="status-diamond" /></div>
-          <div className="workspace-controls">
+          <div className="workspace-controls expanded-controls">
+            <WorkspaceBrowserMenus />
             <details className="project-menu">
               <summary className="control-button project-button" aria-label="Project actions">
                 Project <span className="control-chevron" aria-hidden="true">⌄</span>
