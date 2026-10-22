@@ -1,5 +1,5 @@
 - [Game script safety](game-script-safety.md) — imported scripts must stay data until a properly isolated game runtime exists.
-- [Runtime browser environment](runtime-browser-environment.md) — downloaded Chromium may lack Linux libraries; use the supplied browser without weakening checks.
+- [Runtime browser environment](runtime-browser-environment.md) — browser library and WebGL limitations; distinguish environment failures without weakening checks.
 - [Workspace panel layout](workspace-layout.md) — user-defined panel numbering, left/right control groups, and top Main Panel.
 - [Project identity](project-identity.md) — this is Madhorse Engine, not Blackboxradiomusic; keep unrelated branding out.
 - [Madhorse data ownership](madhorse-data-ownership.md) — keep system reference data separate from editable project data and game rules.

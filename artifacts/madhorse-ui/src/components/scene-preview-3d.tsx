@@ -8,6 +8,7 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { TextureLoader } from 'three';
+import { SceneWebGLBoundary } from './scene-webgl-boundary';
 import {
   getModelRenderer,
   getSpriteRenderer,
@@ -182,6 +183,7 @@ export function ScenePreview3D({
         aria-label="3D scene viewport. Select objects, use W to move, E to rotate, R to scale. Drag to orbit and use two fingers to pan or zoom."
         onKeyDown={handleViewportKeyDown}
       >
+        <SceneWebGLBoundary>
         <Canvas
           camera={{ position: [10, 8, 12], fov: 48, near: 0.1, far: 300 }}
           dpr={mobile ? 1 : [1, 1.5]}
@@ -210,6 +212,7 @@ export function ScenePreview3D({
             mobile={mobile}
           />
         </Canvas>
+        </SceneWebGLBoundary>
         {entities.length === 0 && (
           <div className="mh-scene3d__empty" data-testid="scene3d-empty-state">
             <span className="mh-scene3d__empty-mark" aria-hidden="true" />
@@ -574,6 +577,13 @@ function ModelAssetView(props: LoadedModelProps) {
     const loader = new (loaderTypes as unknown as new (manager: THREE.LoadingManager) => any)(manager);
     loader.load(props.url, (result: any) => {
       if (!alive) return;
+      if (missingDependency) {
+        const message = `Missing local model dependency · ${missingDependency} · ${props.asset.name}`;
+        setFailure(message);
+        props.onError(props.id, message);
+        props.onStatus(props.id, '');
+        return;
+      }
       const root: THREE.Object3D = ext === '.gltf' || ext === '.glb' ? result.scene : ext === '.dae' ? result.scene : result;
       root.traverse((item) => {
         const mesh = item as THREE.Mesh;

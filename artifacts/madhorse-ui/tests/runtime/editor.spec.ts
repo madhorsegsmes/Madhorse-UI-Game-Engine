@@ -116,7 +116,7 @@ test('the game preview opens in 3D and still offers a working 2D view', async ({
   await page.goto('/');
   await expect(page.getByTestId('tab-scene-3d')).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('scene-preview-3d')).toBeVisible();
-  await expect(page.getByTestId('scene3d-viewport').locator('canvas')).toBeVisible();
+  await expect(page.getByTestId('scene3d-viewport')).toBeVisible();
   await expect(page.getByTestId('scene3d-mode-translate')).toHaveAttribute('aria-pressed', 'true');
 
   await page.getByTestId('scene3d-mode-rotate').click();
@@ -124,7 +124,33 @@ test('the game preview opens in 3D and still offers a working 2D view', async ({
   await page.getByTestId('tab-scene-2d').click();
   await expect(page.getByTestId('scene-field')).toBeVisible();
   await page.getByTestId('tab-scene-3d').click();
-  await expect(page.getByTestId('scene3d-viewport').locator('canvas')).toBeVisible();
+  await expect(page.getByTestId('scene3d-viewport')).toBeVisible();
+});
+
+test('WebGL 2 renderer creates a real graphics canvas', async ({ page }) => {
+  await page.goto('/');
+  const canvas = page.getByTestId('scene3d-viewport').locator('canvas');
+  await expect(canvas).toBeVisible();
+  expect(await canvas.evaluate((element) => Boolean((element as HTMLCanvasElement).getContext('webgl2')))).toBe(true);
+  await expect(page.getByTestId('scene3d-unavailable')).toHaveCount(0);
+});
+
+test('editor remains usable when WebGL 2 is unavailable', async ({ page }) => {
+  await page.addInitScript(() => {
+    const original = HTMLCanvasElement.prototype.getContext;
+    Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+      value: function (this: HTMLCanvasElement, contextId: string, ...args: unknown[]) {
+        if (contextId.includes('webgl')) return null;
+        return Reflect.apply(original, this, [contextId, ...args]);
+      },
+    });
+  });
+  await page.goto('/');
+  await expect(page.getByTestId('scene3d-unavailable')).toContainText('3D graphics unavailable');
+  await expect(page.getByLabel('Project actions')).toBeVisible();
+  await page.getByTestId('tab-scene-2d').click();
+  await expect(page.getByTestId('scene-field')).toBeVisible();
+  await expect(page.getByTestId('scene-player')).toBeVisible();
 });
 
 test('scene objects and local transforms persist with the active project', async ({ page }) => {

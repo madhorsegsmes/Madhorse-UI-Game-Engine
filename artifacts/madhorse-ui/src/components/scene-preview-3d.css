@@ -8,7 +8,7 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: 300px;
+  min-height: 0;
   height: 100%;
   overflow: hidden;
   border: 1px solid #414142;
@@ -138,7 +138,7 @@
 .mh-scene3d__viewport {
   position: relative;
   flex: 1 1 auto;
-  min-height: 220px;
+  min-height: 0;
   overflow: hidden;
   background: #171819;
   touch-action: none;
@@ -150,6 +150,23 @@
   height: 100%;
   touch-action: none;
 }
+
+.mh-scene3d__unavailable {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow: auto;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 16px;
+  color: #c7c3be;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.mh-scene3d__unavailable strong { color: #e19a90; font-size: 12px; }
+.mh-scene3d__unavailable p { margin: 5px 0; }
+.mh-scene3d__unavailable button { align-self: flex-start; margin-top: 8px; padding: 7px 10px; border: 1px solid #92514a; background: #30201f; color: #eee0dc; cursor: pointer; }
 
 .mh-scene3d__axis-key {
   position: absolute;
@@ -296,7 +313,7 @@
 }
 
 @media (max-width: 700px) {
-  .mh-scene3d { min-height: 280px; }
+  .mh-scene3d { min-height: 0; }
   .mh-scene3d__toolbar { min-height: 48px; gap: 7px; padding: 0 8px; }
   .mh-scene3d__heading { gap: 3px 6px; }
   .mh-scene3d__heading strong { font-size: 13px; }
@@ -304,7 +321,7 @@
   .mh-scene3d__tool { width: 39px; height: 34px; }
   .mh-scene3d__view-label { font-size: 0; }
   .mh-scene3d__view-label i { width: 7px; height: 7px; }
-  .mh-scene3d__viewport { min-height: 210px; }
+  .mh-scene3d__viewport { min-height: 0; }
   .mh-scene3d__footer { min-height: 27px; padding: 0 7px; font-size: 7px; }
   .mh-scene3d__hint { display: none; }
   .mh-scene3d__footer-center { margin-left: auto; }
