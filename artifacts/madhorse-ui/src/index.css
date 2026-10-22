@@ -316,7 +316,7 @@
   .status-segment::before { width: 10px; }
   .status-center span { width: 9px; }
   .panel-row { grid-template-columns: minmax(0, 1fr); gap: 0; min-height: 58px; }
-  .panel-row > .panel:nth-child(n + 2) { display: none; }
+  .panel-row > .panel:not(.project-panel) { display: none; }
   .project-panel-rows { padding: 8px 22px 7px; }
   .project-dropdown-wrap { width: min(100%, 250px); }
   .project-dropdown { min-height: 38px; padding-left: 12px; font-size: 12px; }

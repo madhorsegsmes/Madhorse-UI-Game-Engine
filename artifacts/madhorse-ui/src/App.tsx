@@ -64,6 +64,7 @@ function Home() {
         </div>
 
         <section className="panel-row" aria-label="Workspace panels">
+          <div className="panel" aria-hidden="true" />
           <div className="panel project-panel" aria-label="Project panel">
             <div className="project-panel-rows">
               <div className="project-panel-row">
@@ -86,7 +87,6 @@ function Home() {
               <div className="project-panel-row" aria-hidden="true" />
             </div>
           </div>
-          <div className="panel" aria-hidden="true" />
           <div className="panel" aria-hidden="true" />
         </section>
 
