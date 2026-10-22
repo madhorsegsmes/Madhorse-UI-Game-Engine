@@ -206,6 +206,37 @@
 .scene-preview-settings .scene-position { display: block; margin-bottom: 10px; }
 .scene-preview-2d .scene-player, .scene-preview-2d .scene-object { box-shadow: none; }
 .scene-accessibility-markers { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; }
+.game-ui-overlay { position: absolute; inset: 0; z-index: 4; overflow: hidden; pointer-events: none; }
+.game-ui-element {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  max-width: calc(100% - 12px);
+  padding: 6px 10px;
+  transform: translate(-50%, -50%);
+  border: 1px solid #eee5db;
+  background: #bd4037;
+  color: #fff8f3;
+  box-shadow: 0 3px 12px #0007;
+  font: 700 13px/1.2 'DM Mono', monospace;
+  text-align: center;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  pointer-events: auto;
+}
+.game-ui-element:active { cursor: grabbing; }
+.game-ui-element.is-text { padding: 3px 6px; border-color: transparent; box-shadow: none; font: 600 17px/1.2 'Barlow Condensed', sans-serif; }
+.game-ui-element.is-panel { justify-items: start; border-color: #e5cfc3; background: #29272a; color: #f0e9e2; text-align: left; }
+.game-ui-element.is-health-bar { padding: 4px 7px; border-color: transparent; box-shadow: none; }
+.game-ui-element.is-selected { outline: 2px dashed #f1d0a4; outline-offset: 3px; }
+.game-ui-element:focus-visible { outline: 2px solid #f1d0a4; outline-offset: 3px; }
+.game-ui-element.is-read-only { cursor: default; touch-action: auto; }
+.game-ui-health { display: grid; width: 100%; gap: 4px; }
+.game-ui-label { overflow: hidden; color: #f3eeea; font: 600 9px/1 'DM Mono', monospace; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.game-ui-health-track { display: block; width: 100%; height: 8px; overflow: hidden; border: 1px solid #f2e8df; background: #151517; }
+.game-ui-health-track > span { display: block; height: 100%; }
 .scene-start-controls { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .scene-start-controls label { display: flex; align-items: center; gap: 6px; }
 .scene-start-controls input { width: 66px; padding: 4px; background: #151517; color: #ddd; border: 1px solid #555; border-radius: 3px; }

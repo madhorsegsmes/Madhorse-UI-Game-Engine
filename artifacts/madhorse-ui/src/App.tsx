@@ -24,6 +24,7 @@ import {
 import { ScriptCreate } from '@/components/script-create';
 import { scriptLanguages, maxScriptSize, maxProjectScriptsSize, movementStarter, scriptStorageError, sourceSize, type ScriptFile } from '@/lib/project-scripts';
 import { loadActiveProjectId, projectStorageKey, saveProjectSnapshotNow, useProjectAutosave } from '@/hooks/use-project-autosave';
+import { createUIControlElement, isUIControlCollection, type UIControlElement, type UIControlType } from '@/lib/ui-controls';
 import { useSceneEditor } from '@/hooks/use-scene-editor';
 import {
   createDefaultPlayer,
@@ -47,6 +48,7 @@ type Project = {
   entities: SceneEntity[];
   assets: ProjectAsset[];
   animations?: GameAnimation[];
+  uiControls?: UIControlElement[];
   initialPosition?: GamePosition;
   gameCamera?: GameCamera;
 };
@@ -70,6 +72,7 @@ function isSavedProject(project: unknown): project is Project {
     (value.entities === undefined || Array.isArray(value.entities) && isSceneGraph(value.entities)) &&
     (value.assets === undefined || Array.isArray(value.assets) && isAssetCollection(value.assets)) &&
     (value.animations === undefined || isGameAnimationCollection(value.animations)) &&
+    (value.uiControls === undefined || isUIControlCollection(value.uiControls)) &&
     (value.gameCamera === undefined || isGameCamera(value.gameCamera));
 }
 
@@ -81,7 +84,7 @@ function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: 
       return {
         projects: [{
           id: crypto.randomUUID(), name: 'Untitled Project', gameType: '', savedAt: '', scripts: [],
-          entities: [createDefaultPlayer()], assets: [], animations: [], gameCamera: createGameCamera([]),
+          entities: [createDefaultPlayer()], assets: [], animations: [], uiControls: [], gameCamera: createGameCamera([]),
         }],
         canOverwrite: true,
         warning: '',
@@ -103,6 +106,7 @@ function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: 
           }],
           assets: project.assets ?? [],
           animations: project.animations ?? [],
+          uiControls: project.uiControls ?? [],
         })).map((project) => ({
           ...project,
           gameCamera: project.gameCamera ?? createGameCamera(project.entities),
@@ -118,7 +122,7 @@ function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: 
   return {
     projects: [{
       id: crypto.randomUUID(), name: 'Untitled Project', gameType: '', savedAt: '', scripts: [],
-      entities: [createDefaultPlayer()], assets: [], animations: [], gameCamera: createGameCamera([]),
+      entities: [createDefaultPlayer()], assets: [], animations: [], uiControls: [], gameCamera: createGameCamera([]),
     }],
     canOverwrite: false,
     warning: savedProjectsWarning,
@@ -228,6 +232,7 @@ function Home() {
     animation: GameAnimation;
     time: number;
   } | null>(null);
+  const [selectedUIControlId, setSelectedUIControlId] = useState<string | null>(null);
   const onAnimationPreviewFrame = useCallback((animation: GameAnimation | null, time: number) => {
     if (!animation || runnerState.running) {
       setAnimationPreview(null);
@@ -257,6 +262,7 @@ function Home() {
     setRuntimeError('');
     setScene({ projectId: activeProject.id, position: getPlayerStartPosition(activeProject) });
     setAnimationPreview(null);
+    setSelectedUIControlId(null);
   }, [activeProject.id]);
 
   useProjectAutosave(projects, activeProjectId, loadedProjects.canOverwrite, setSaveMessage);
@@ -282,6 +288,7 @@ function Home() {
       entities: [createDefaultPlayer()],
       assets: [],
       animations: [],
+      uiControls: [],
       gameCamera: createGameCamera([]),
     };
     setProjects((current) => [...current, project]);
@@ -405,6 +412,33 @@ function Home() {
     setScriptMessage('Script removed from this project');
   }
 
+  function createUIControl(type: UIControlType) {
+    if (runnerState.running) return;
+    const elements = activeProject.uiControls ?? [];
+    const element = createUIControlElement(type, elements.length);
+    updateActiveProject({ uiControls: [...elements, element] });
+    setSelectedUIControlId(element.id);
+  }
+
+  function updateUIControl(id: string, changes: Partial<Omit<UIControlElement, 'id' | 'type'>>) {
+    if (runnerState.running) return;
+    updateActiveProject({
+      uiControls: (activeProject.uiControls ?? []).map((element) =>
+        element.id === id ? { ...element, ...changes } : element,
+      ),
+    });
+  }
+
+  function moveUIControl(id: string, x: number, y: number) {
+    updateUIControl(id, { x, y });
+  }
+
+  function deleteUIControl(id: string) {
+    if (runnerState.running) return;
+    updateActiveProject({ uiControls: (activeProject.uiControls ?? []).filter((element) => element.id !== id) });
+    setSelectedUIControlId((selected) => selected === id ? null : selected);
+  }
+
   return (
     <main className="workspace" aria-label="Madhorse game creation workspace">
       <div className="shell">
@@ -454,6 +488,8 @@ function Home() {
             onViewModeChange={selectPreview}
             gameCamera={gameCamera}
             entities={sceneEntities}
+            uiControls={activeProject.uiControls ?? []}
+            selectedUIControlId={selectedUIControlId}
             assets={sceneEditor.assets}
             assetUrls={sceneEditor.assetUrls}
             selectedEntityId={sceneEditor.selectedEntityId}
@@ -464,6 +500,8 @@ function Home() {
             onSelectEntity={sceneEditor.onSelectEntity}
             onMoveEntity={sceneEditor.onMoveEntity}
             onUpdateTransform={sceneEditor.onUpdateTransform}
+            onSelectUIControl={setSelectedUIControlId}
+            onMoveUIControl={moveUIControl}
           />
           <div className="frame-lines" aria-hidden="true" />
           <span className="stage-corner tl" aria-hidden="true" />
@@ -629,8 +667,14 @@ function Home() {
               animations={activeProject.animations ?? []}
               entities={sceneEditor.entities}
               selectedEntityId={sceneEditor.selectedEntityId}
+              uiControls={activeProject.uiControls ?? []}
+              selectedUIControlId={selectedUIControlId}
               onAnimationsChange={(animations) => updateActiveProject({ animations })}
               onAnimationPreviewFrame={onAnimationPreviewFrame}
+              onCreateUIControl={createUIControl}
+              onSelectUIControl={setSelectedUIControlId}
+              onUpdateUIControl={updateUIControl}
+              onDeleteUIControl={deleteUIControl}
               onAimCamera={() => {
                 updateActiveProject({ gameCamera: createGameCamera(activeProject.entities) });
                 selectPreview('2d');

@@ -13,12 +13,15 @@ import {
   type SceneEntity,
   type TransformComponent,
 } from '@/lib/scene-model';
+import type { UIControlElement } from '@/lib/ui-controls';
 
 type GameSceneProps = {
   viewMode: '3d' | '2d';
   onViewModeChange: (mode: '3d' | '2d') => void;
   gameCamera: GameCamera;
   entities: SceneEntity[];
+  uiControls: UIControlElement[];
+  selectedUIControlId: string | null;
   assets: ProjectAsset[];
   assetUrls: Record<string, string>;
   selectedEntityId: string | null;
@@ -28,6 +31,8 @@ type GameSceneProps = {
   readOnly: boolean;
   onSelectEntity: (entityId: string) => void;
   onMoveEntity: (entityId: string, position: GamePosition) => void;
+  onSelectUIControl: (id: string | null) => void;
+  onMoveUIControl: (id: string, x: number, y: number) => void;
   onUpdateTransform: (
     entityId: string,
     changes: Partial<Pick<TransformComponent, 'position' | 'rotation' | 'scale'>>,
@@ -39,6 +44,8 @@ export function GameScene({
   onViewModeChange,
   gameCamera,
   entities,
+  uiControls,
+  selectedUIControlId,
   assets,
   assetUrls,
   selectedEntityId,
@@ -48,6 +55,8 @@ export function GameScene({
   readOnly,
   onSelectEntity,
   onMoveEntity,
+  onSelectUIControl,
+  onMoveUIControl,
   onUpdateTransform,
 }: GameSceneProps) {
   const [transformMode, setTransformMode] = useState<SceneTransformMode>('translate');
@@ -55,6 +64,32 @@ export function GameScene({
   const onGraphicsUnavailable = useCallback(() => setGameGraphicsUnavailable(true), []);
   const onGraphicsReady = useCallback(() => setGameGraphicsUnavailable(false), []);
   const selectedName = entities.find((entity) => entity.id === selectedEntityId)?.name ?? 'No selection';
+  const uiDragging = useRef<{ id: string; pointerId: number } | null>(null);
+
+  const moveUIControlFromPointer = (event: PointerEvent<HTMLButtonElement>, id: string) => {
+    if (readOnly || uiDragging.current?.id !== id || uiDragging.current.pointerId !== event.pointerId) return;
+    const bounds = event.currentTarget.parentElement?.getBoundingClientRect();
+    if (!bounds || bounds.width === 0 || bounds.height === 0) return;
+    onMoveUIControl(
+      id,
+      Math.max(0, Math.min(100, ((event.clientX - bounds.left) / bounds.width) * 100)),
+      Math.max(0, Math.min(100, ((event.clientY - bounds.top) / bounds.height) * 100)),
+    );
+  };
+
+  const moveUIControlFromKeyboard = (event: KeyboardEvent<HTMLButtonElement>, element: UIControlElement) => {
+    if (readOnly) return;
+    const delta = event.shiftKey ? 10 : 1;
+    let x = element.x;
+    let y = element.y;
+    if (event.key === 'ArrowLeft') x -= delta;
+    else if (event.key === 'ArrowRight') x += delta;
+    else if (event.key === 'ArrowUp') y -= delta;
+    else if (event.key === 'ArrowDown') y += delta;
+    else return;
+    event.preventDefault();
+    onMoveUIControl(element.id, Math.max(0, Math.min(100, x)), Math.max(0, Math.min(100, y)));
+  };
 
   return (
     <div className="game-scene">
@@ -107,6 +142,64 @@ export function GameScene({
             onTransformCommit={onUpdateTransform}
             onTransformModeChange={setTransformMode}
           />
+          {viewMode === '2d' && uiControls.length > 0 && (
+            <div className="game-ui-overlay" aria-label="Game interface preview" data-testid="game-ui-overlay">
+              {uiControls.map((element, index) => (
+                <button
+                  key={element.id}
+                  type="button"
+                  className={[
+                    'game-ui-element',
+                    `is-${element.type}`,
+                    selectedUIControlId === element.id ? 'is-selected' : '',
+                    readOnly ? 'is-read-only' : '',
+                  ].filter(Boolean).join(' ')}
+                  aria-label={`${element.label || element.type} interface element at ${Math.round(element.x)}%, ${Math.round(element.y)}%`}
+                  aria-pressed={selectedUIControlId === element.id}
+                  title={readOnly ? element.label : `${element.label}: drag to arrange`}
+                  data-testid={`ui-preview-element-${element.id}`}
+                  data-ui-control-id={element.id}
+                  data-x={element.x}
+                  data-y={element.y}
+                  disabled={readOnly}
+                  onClick={() => onSelectUIControl(element.id)}
+                  onKeyDown={(event) => moveUIControlFromKeyboard(event, element)}
+                  onPointerDown={(event) => {
+                    if (readOnly) return;
+                    event.preventDefault();
+                    onSelectUIControl(element.id);
+                    uiDragging.current = { id: element.id, pointerId: event.pointerId };
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                  }}
+                  onPointerMove={(event) => moveUIControlFromPointer(event, element.id)}
+                  onPointerUp={(event) => {
+                    if (uiDragging.current?.id === element.id && uiDragging.current.pointerId === event.pointerId) {
+                      uiDragging.current = null;
+                    }
+                  }}
+                  onPointerCancel={() => {
+                    if (uiDragging.current?.id === element.id) uiDragging.current = null;
+                  }}
+                  style={{
+                    left: `${element.x}%`,
+                    top: `${element.y}%`,
+                    width: `${element.width}px`,
+                    minHeight: `${element.height}px`,
+                    zIndex: index + 1,
+                    color: element.type === 'text' ? element.color : undefined,
+                    backgroundColor: element.type === 'health-bar' || element.type === 'text' ? 'transparent' : element.color,
+                  }}
+                >
+                  {element.type === 'health-bar' ? (
+                    <span className="game-ui-health">
+                      <span className="game-ui-label">{element.label}</span>
+                      <span className="game-ui-health-track"><span style={{ width: '72%', backgroundColor: element.color }} /></span>
+                    </span>
+                  ) : element.label}
+                </button>
+              ))}
+            </div>
+          )}
       </div>
       {(viewMode === '3d' || !gameGraphicsUnavailable) && (
         <div className="scene-accessibility-markers" aria-label="Scene objects">

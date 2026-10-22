@@ -144,6 +144,53 @@ test('the game preview opens as a blank canvas with a centered square and offers
   await expect(page.getByTestId('scene3d-viewport')).toBeVisible();
 });
 
+test('UI Controls create, arrange, edit, and save interface elements with the project', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('UI Controls', { exact: true }).click();
+  await expect(page.getByLabel('UI Controls menu')).toBeVisible();
+  await expect(page.getByTestId('game-ui-overlay')).toHaveCount(0);
+
+  for (const type of ['text', 'button', 'health-bar', 'panel']) {
+    await page.getByTestId(`add-ui-control-${type}`).click();
+  }
+
+  const previewElements = page.locator('[data-testid^="ui-preview-element-"]');
+  await expect(previewElements).toHaveCount(4);
+  const buttonElement = previewElements.filter({ hasText: 'Button' });
+  const buttonId = await buttonElement.getAttribute('data-ui-control-id');
+  expect(buttonId).toBeTruthy();
+  await page.getByTestId(`ui-control-item-${buttonId}`).click();
+  await page.getByTestId('input-ui-control-label').fill('Start Mission');
+  await page.getByTestId('input-ui-control-color').fill('#287a4b');
+
+  const previewBounds = await page.locator('.scene-preview-shell').boundingBox();
+  const buttonBounds = await page.getByTestId(`ui-preview-element-${buttonId}`).boundingBox();
+  expect(previewBounds).not.toBeNull();
+  expect(buttonBounds).not.toBeNull();
+  await page.mouse.move(buttonBounds!.x + buttonBounds!.width / 2, buttonBounds!.y + buttonBounds!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(previewBounds!.x + previewBounds!.width * 0.7, previewBounds!.y + previewBounds!.height * 0.65, { steps: 6 });
+  await page.mouse.up();
+  await expect(page.getByTestId(`ui-preview-element-${buttonId}`)).toHaveAttribute('data-x', /6[5-9]|7\d/);
+  await expect(page.getByTestId(`ui-preview-element-${buttonId}`)).toHaveAttribute('data-y', /6[0-9]|7[0-9]/);
+  await expect.poll(async () => page.evaluate((id) => {
+    const projects = JSON.parse(localStorage.getItem('madhorse-ui-projects') ?? '[]');
+    return projects[0]?.uiControls?.find((element: { id: string }) => element.id === id)?.label;
+  }, buttonId)).toBe('Start Mission');
+
+  await page.reload();
+  await expect(page.locator('[data-testid^="ui-preview-element-"]')).toHaveCount(4);
+  await page.getByText('UI Controls', { exact: true }).click();
+  await page.getByTestId(`ui-control-item-${buttonId}`).click();
+  await expect(page.getByTestId('input-ui-control-label')).toHaveValue('Start Mission');
+  await expect(page.getByTestId('input-ui-control-color')).toHaveValue('#287a4b');
+  await expect(page.getByTestId('input-ui-control-width')).toHaveValue('136');
+  await page.getByTestId(`delete-ui-control-${buttonId}`).click();
+  await expect(page.getByTestId(`ui-preview-element-${buttonId}`)).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'PANEL 3 / System' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'PANEL 4 / Play/Test Game' })).toBeVisible();
+});
+
 test('WebGL 2 renderer creates a real graphics canvas', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('tab-scene-3d').click();
