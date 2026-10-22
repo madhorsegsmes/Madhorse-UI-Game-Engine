@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import './workspace-browser-menus.css';
 import type { WorkspaceBrowserProps } from './workspace-browser-contract';
 import type { ProjectAsset, SceneEntity, Vector3 } from '../lib/scene-model';
-import { getSpriteRenderer, getTransform, isDescendant } from '../lib/scene-model';
+import { getModelRenderer, getSpriteRenderer, getTransform, isDescendant } from '../lib/scene-model';
 
 const formatSize = (bytes: number) => {
   if (bytes < 1024) return `${bytes} B`;
@@ -73,6 +73,10 @@ export function WorkspaceBrowserMenus(props?: WorkspaceBrowserProps) {
     onImportAssets,
     onRemoveAsset,
     onAssignAsset,
+    onAddModelRenderer,
+    onRemoveModelRenderer,
+    onUpdateModelRenderer,
+    onAssignModel,
   } = props ?? ({} as WorkspaceBrowserProps);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -91,7 +95,9 @@ export function WorkspaceBrowserMenus(props?: WorkspaceBrowserProps) {
   const selectedEntity = selectedEntityId ? entityById.get(selectedEntityId) : undefined;
   const transform = selectedEntity ? getTransform(selectedEntity) : undefined;
   const sprite = selectedEntity ? getSpriteRenderer(selectedEntity) : undefined;
+  const modelRenderer = selectedEntity ? getModelRenderer(selectedEntity) : undefined;
   const imageAssets = assets.filter((asset) => asset.kind === 'image');
+  const modelAssets = assets.filter((asset) => asset.kind === 'model');
 
   const importFiles = (files: FileList | File[]) => {
     if (files.length) onImportAssets?.(files);
@@ -153,9 +159,11 @@ export function WorkspaceBrowserMenus(props?: WorkspaceBrowserProps) {
           type="button"
           className="browser-asset-apply"
           onClick={() => {
-            if (selectedEntity && asset.kind === 'image') onAssignAsset?.(selectedEntity.id, asset.id);
+            if (!selectedEntity) return;
+            if (asset.kind === 'image') onAssignAsset?.(selectedEntity.id, asset.id);
+            else onAssignModel?.(selectedEntity.id, asset.id);
           }}
-          disabled={!selectedEntity || asset.kind !== 'image'}
+          disabled={!selectedEntity}
           aria-label={selectedEntity ? `Apply ${asset.name} to ${selectedEntity.name}` : `${asset.name}; select an object to apply`}
           data-testid={`apply-asset-${asset.id}`}
         >
@@ -272,7 +280,7 @@ export function WorkspaceBrowserMenus(props?: WorkspaceBrowserProps) {
             <div className="browser-empty-state browser-assets-empty" data-testid="empty-assets">
               <span className="browser-empty-mark" aria-hidden="true">—</span>
               <strong>Your library is clear</strong>
-              <span>Imported files stay in this browser. 3D files are stored and listed; rendering is not available yet.</span>
+              <span>Imported files stay in this browser. Assign a model to an object to view it in 3D.</span>
             </div>
           )}
           {pendingAssetRemoval && (
@@ -439,6 +447,47 @@ export function WorkspaceBrowserMenus(props?: WorkspaceBrowserProps) {
                       ))}
                     </div>
                     <button type="button" className="browser-danger-action" onClick={() => onRemoveSpriteRenderer?.(selectedEntity.id)} data-testid="remove-sprite-renderer">Remove component</button>
+                  </>
+                )}
+              </section>
+
+              <section className="browser-inspector-section">
+                <div className="browser-section-title"><span>MODEL RENDERER</span><span className="browser-section-rule" /></div>
+                {!modelRenderer ? (
+                  <div className="browser-component-missing">
+                    <span>No 3D model attached.</span>
+                    <button type="button" onClick={() => onAddModelRenderer?.(selectedEntity.id)} data-testid="add-model-renderer">Add component</button>
+                  </div>
+                ) : (
+                  <>
+                    <label className="browser-check-row">
+                      <input
+                        type="checkbox"
+                        checked={modelRenderer.enabled}
+                        onChange={(event) => onUpdateModelRenderer?.(selectedEntity.id, { enabled: event.currentTarget.checked })}
+                        aria-label="Model Renderer enabled"
+                        data-testid="toggle-model-renderer"
+                      />
+                      <span>Component enabled</span>
+                    </label>
+                    <label className="browser-field">
+                      <span>3D model asset</span>
+                      <select
+                        value={modelRenderer.assetId ?? ''}
+                        aria-label="3D model asset"
+                        data-testid="select-model-asset"
+                        onChange={(event) => onAssignModel?.(selectedEntity.id, event.currentTarget.value || null)}
+                      >
+                        <option value="">No model assigned</option>
+                        {modelAssets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
+                      </select>
+                    </label>
+                    <button
+                      type="button"
+                      className="browser-danger-action"
+                      onClick={() => onRemoveModelRenderer?.(selectedEntity.id)}
+                      data-testid="remove-model-renderer"
+                    >Remove component</button>
                   </>
                 )}
               </section>

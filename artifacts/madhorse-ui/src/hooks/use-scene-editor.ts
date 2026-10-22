@@ -4,8 +4,10 @@ import { useProjectAssetUrls } from '@/hooks/use-project-asset-urls';
 import { deleteLocalAsset, saveLocalAsset } from '@/lib/asset-vault';
 import { saveProjectSnapshotNow } from '@/hooks/use-project-autosave';
 import {
+  createModelRendererComponent,
   createSceneEntity,
   createSpriteRendererComponent,
+  getModelRenderer,
   getSpriteRenderer,
   getTransform,
   getWorldTransform,
@@ -15,6 +17,7 @@ import {
 } from '@/lib/scene-model';
 import type {
   ProjectAsset,
+  ModelRendererComponent,
   SceneEntity,
   SpriteRendererComponent,
   TransformComponent,
@@ -97,7 +100,6 @@ export function useSceneEditor<T extends ProjectSceneDocument>({
     () => project.entities[0]?.id ?? null,
   );
   const [assetStatus, setAssetStatus] = useState('');
-  const assetUrls = useProjectAssetUrls(project.id, project.assets, setAssetStatus);
 
   useEffect(() => {
     setSelectedEntityId(project.entities[0]?.id ?? null);
@@ -106,9 +108,13 @@ export function useSceneEditor<T extends ProjectSceneDocument>({
 
   const referencedAssetIds = useMemo(() => [...new Set(
     project.entities
-      .map((entity) => getSpriteRenderer(entity)?.assetId)
+      .flatMap((entity) => [
+        getSpriteRenderer(entity)?.assetId,
+        getModelRenderer(entity)?.assetId,
+      ])
       .filter((assetId): assetId is string => Boolean(assetId)),
   )], [project.entities]);
+  const assetUrls = useProjectAssetUrls(project.id, project.assets, referencedAssetIds, setAssetStatus);
 
   function updateProjectScene(updates: Partial<Pick<T, 'entities' | 'assets'>>) {
     const nextProject = { ...project, ...updates };
@@ -249,6 +255,57 @@ export function useSceneEditor<T extends ProjectSceneDocument>({
         ? entity
         : { ...entity, components: entity.components.filter((component) => component.type !== 'spriteRenderer') }),
     });
+  }
+
+  function onAddModelRenderer(entityId: string) {
+    updateProjectScene({
+      entities: project.entities.map((entity) => getModelRenderer(entity) || entity.id !== entityId
+        ? entity
+        : { ...entity, components: [...entity.components, createModelRendererComponent()] }),
+    });
+  }
+
+  function onRemoveModelRenderer(entityId: string) {
+    updateProjectScene({
+      entities: project.entities.map((entity) => entity.id !== entityId
+        ? entity
+        : { ...entity, components: entity.components.filter((component) => component.type !== 'modelRenderer') }),
+    });
+  }
+
+  function onUpdateModelRenderer(entityId: string, changes: Partial<ModelRendererComponent>) {
+    const entity = project.entities.find((entry) => entry.id === entityId);
+    if (!entity || !getModelRenderer(entity)) return;
+    if (changes.assetId && !project.assets.some((asset) =>
+      asset.id === changes.assetId && asset.kind === 'model')) return;
+    updateProjectScene({
+      entities: project.entities.map((entry) => entry.id === entityId
+        ? {
+            ...entry,
+            components: entry.components.map((component) =>
+              component.type === 'modelRenderer' ? { ...component, ...changes } : component,
+            ),
+          }
+        : entry),
+    });
+  }
+
+  function onAssignModel(entityId: string, assetId: string | null) {
+    if (assetId && !project.assets.some((asset) => asset.id === assetId && asset.kind === 'model')) return;
+    const entity = project.entities.find((entry) => entry.id === entityId);
+    if (!entity) return;
+    if (!getModelRenderer(entity)) {
+      updateProjectScene({
+        entities: project.entities.map((entry) => entry.id === entityId
+          ? {
+              ...entry,
+              components: [...entry.components, createModelRendererComponent(assetId)],
+            }
+          : entry),
+      });
+      return;
+    }
+    onUpdateModelRenderer(entityId, { assetId });
   }
 
   function onUpdateSpriteRenderer(entityId: string, changes: Partial<SpriteRendererComponent>) {
@@ -400,5 +457,9 @@ export function useSceneEditor<T extends ProjectSceneDocument>({
     onImportAssets,
     onRemoveAsset,
     onAssignAsset,
+    onAddModelRenderer,
+    onRemoveModelRenderer,
+    onUpdateModelRenderer,
+    onAssignModel,
   };
 }

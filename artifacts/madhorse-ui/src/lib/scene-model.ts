@@ -19,7 +19,14 @@ export type SpriteRendererComponent = {
   height: number;
 };
 
-export type SceneComponent = TransformComponent | SpriteRendererComponent;
+export type ModelRendererComponent = {
+  id: string;
+  type: 'modelRenderer';
+  enabled: boolean;
+  assetId: string | null;
+};
+
+export type SceneComponent = TransformComponent | SpriteRendererComponent | ModelRendererComponent;
 
 export type SceneEntity = {
   id: string;
@@ -65,6 +72,15 @@ export function createSpriteRendererComponent(): SpriteRendererComponent {
   };
 }
 
+export function createModelRendererComponent(assetId: string | null = null): ModelRendererComponent {
+  return {
+    id: crypto.randomUUID(),
+    type: 'modelRenderer',
+    enabled: true,
+    assetId,
+  };
+}
+
 export function createDefaultPlayer(): SceneEntity {
   return {
     id: 'player',
@@ -105,6 +121,10 @@ export function getSpriteRenderer(entity: SceneEntity): SpriteRendererComponent 
   return entity.components.find((entry): entry is SpriteRendererComponent => entry.type === 'spriteRenderer');
 }
 
+export function getModelRenderer(entity: SceneEntity): ModelRendererComponent | undefined {
+  return entity.components.find((entry): entry is ModelRendererComponent => entry.type === 'modelRenderer');
+}
+
 export function isSceneComponent(value: unknown): value is SceneComponent {
   if (!value || typeof value !== 'object') return false;
   const item = value as SceneComponent;
@@ -121,6 +141,10 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
       Number.isFinite(item.width) && item.width > 0 && item.width <= 512 &&
       Number.isFinite(item.height) && item.height > 0 && item.height <= 512;
   }
+  if (item.type === 'modelRenderer') {
+    return typeof item.enabled === 'boolean' &&
+      (item.assetId === null || typeof item.assetId === 'string');
+  }
   return false;
 }
 
@@ -132,7 +156,8 @@ export function isSceneEntity(value: unknown): value is SceneEntity {
       typeof entity.active !== 'boolean' || !Array.isArray(entity.components) ||
       !entity.components.every(isSceneComponent)) return false;
   return entity.components.filter((component) => component.type === 'transform').length === 1 &&
-    entity.components.filter((component) => component.type === 'spriteRenderer').length <= 1;
+    entity.components.filter((component) => component.type === 'spriteRenderer').length <= 1 &&
+    entity.components.filter((component) => component.type === 'modelRenderer').length <= 1;
 }
 
 export function isSceneGraph(values: unknown[]): values is SceneEntity[] {

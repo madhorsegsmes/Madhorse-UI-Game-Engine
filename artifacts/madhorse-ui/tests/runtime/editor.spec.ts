@@ -112,6 +112,21 @@ test('rejected edits retain saved source and deletion cannot leave stale source 
   await expect(page.locator('#script-source')).toHaveCount(0);
 });
 
+test('the game preview opens in 3D and still offers a working 2D view', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByTestId('tab-scene-3d')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('scene-preview-3d')).toBeVisible();
+  await expect(page.getByTestId('scene3d-viewport').locator('canvas')).toBeVisible();
+  await expect(page.getByTestId('scene3d-mode-translate')).toHaveAttribute('aria-pressed', 'true');
+
+  await page.getByTestId('scene3d-mode-rotate').click();
+  await expect(page.getByTestId('scene3d-mode-rotate')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByTestId('tab-scene-2d').click();
+  await expect(page.getByTestId('scene-field')).toBeVisible();
+  await page.getByTestId('tab-scene-3d').click();
+  await expect(page.getByTestId('scene3d-viewport').locator('canvas')).toBeVisible();
+});
+
 test('scene objects and local transforms persist with the active project', async ({ page }) => {
   await page.goto('/');
   await page.locator('.workspace-browser-hierarchy > summary').click();
@@ -138,6 +153,26 @@ test('scene objects and local transforms persist with the active project', async
 
 test('image and model assets persist in this browser and images can be assigned to sprites', async ({ page }) => {
   await page.goto('/');
+  const geometry = Buffer.alloc(42);
+  [-0.8, 0, 0, 0.8, 0, 0, 0, 1, 0].forEach((value, index) => geometry.writeFloatLE(value, index * 4));
+  [0, 1, 2].forEach((value, index) => geometry.writeUInt16LE(value, 36 + index * 2));
+  const dataUri = `data:application/octet-stream;base64,${geometry.toString('base64')}`;
+  const gltf = {
+    asset: { version: '2.0', generator: 'Madhorse editor test' },
+    scene: 0,
+    scenes: [{ nodes: [0] }],
+    nodes: [{ mesh: 0 }],
+    meshes: [{ primitives: [{ attributes: { POSITION: 0 }, indices: 1 }] }],
+    buffers: [{ uri: dataUri, byteLength: geometry.length }],
+    bufferViews: [
+      { buffer: 0, byteOffset: 0, byteLength: 36 },
+      { buffer: 0, byteOffset: 36, byteLength: 6 },
+    ],
+    accessors: [
+      { bufferView: 0, componentType: 5126, count: 3, type: 'VEC3', min: [-0.8, 0, 0], max: [0.8, 1, 0] },
+      { bufferView: 1, componentType: 5123, count: 3, type: 'SCALAR', min: [0], max: [2] },
+    ],
+  };
   await page.locator('.workspace-browser-assets > summary').click();
   await page.getByTestId('input-assets').setInputFiles([
     {
@@ -148,7 +183,7 @@ test('image and model assets persist in this browser and images can be assigned 
     {
       name: 'sample.gltf',
       mimeType: 'model/gltf+json',
-      buffer: Buffer.from('{"asset":{"version":"2.0"},"scenes":[{"nodes":[]}],"scene":0}'),
+      buffer: Buffer.from(JSON.stringify(gltf)),
     },
   ]);
 
@@ -160,8 +195,19 @@ test('image and model assets persist in this browser and images can be assigned 
   const imageId = imageCardId?.replace('asset-card-', '');
   expect(imageId).toBeTruthy();
   await page.getByTestId(`apply-asset-${imageId}`).click();
-  await expect(page.getByTestId('scene-player').locator('img')).toBeVisible();
+  await expect(page.getByTestId('scene-player')).toHaveAttribute('data-sprite-asset-id', imageId!);
   await expect(page.getByTestId(`remove-asset-${imageId}`)).toBeDisabled();
+  await page.getByTestId('tab-scene-2d').click();
+  await expect(page.getByTestId('scene-player').locator('img')).toBeVisible();
+  await page.getByTestId('tab-scene-3d').click();
+
+  const modelCardId = await modelCard.getAttribute('data-testid');
+  const modelId = modelCardId?.replace('asset-card-', '');
+  expect(modelId).toBeTruthy();
+  await page.getByTestId(`apply-asset-${modelId}`).click();
+  await expect(page.getByTestId('scene-player')).toHaveAttribute('data-model-asset-id', modelId!);
+  await expect(page.getByTestId('scene3d-asset-status')).toContainText('Model ready · sample.gltf', { timeout: 30_000 });
+  await expect(page.getByTestId(`remove-asset-${modelId}`)).toBeDisabled();
   await expect.poll(async () => page.evaluate(() => {
     const projects = JSON.parse(localStorage.getItem('madhorse-ui-projects') ?? '[]');
     return projects[0]?.assets?.length;
@@ -170,5 +216,7 @@ test('image and model assets persist in this browser and images can be assigned 
   await page.reload();
   await page.locator('.workspace-browser-assets > summary').click();
   await expect(page.locator('[data-testid^="asset-card-"]').filter({ hasText: 'pixel.png' })).toBeVisible();
-  await expect(page.getByTestId('scene-player').locator('img')).toBeVisible();
+  await expect(page.getByTestId('scene-player')).toHaveAttribute('data-sprite-asset-id', imageId!);
+  await expect(page.getByTestId('scene-player')).toHaveAttribute('data-model-asset-id', modelId!);
+  await expect(page.getByTestId('scene3d-asset-status')).toContainText('Model ready · sample.gltf', { timeout: 30_000 });
 });

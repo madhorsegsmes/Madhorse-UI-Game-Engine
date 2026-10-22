@@ -191,6 +191,16 @@
 }
 .game-scene { position: absolute; inset: 24px; display: flex; flex-direction: column; gap: 12px; color: #a5a5a8; font-size: 11px; }
 .scene-title, .scene-position { flex: none; }
+.scene-view-tabs { min-height: 31px; display: flex; align-items: center; gap: 5px; flex: none; }
+.scene-view-tabs button { min-height: 29px; padding: 5px 10px; border: 1px solid #393638; background: #18181a; color: #aaa6a3; font-size: 10px; cursor: pointer; }
+.scene-view-tabs button.is-active { border-color: #8c3d38; background: #30201f; color: #f1e7e4; }
+.scene-view-tabs button:focus-visible { outline: 2px solid #d95043; outline-offset: 2px; }
+.scene-view-status { min-width: 0; margin-left: auto; overflow: hidden; color: #aaa5a2; text-overflow: ellipsis; white-space: nowrap; }
+.scene-preview-shell { position: relative; display: flex; flex: 1; min-height: 180px; overflow: hidden; border: 1px solid #3c3939; background: #0b0c10; }
+.scene-preview-3d > * { width: 100%; height: 100%; }
+.scene-preview-2d > * { display: flex; width: 100%; height: 100%; flex-direction: column; }
+.scene-preview-2d .scene-field { margin: 10px; }
+.scene-accessibility-markers { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; }
 .scene-start-controls { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .scene-start-controls label { display: flex; align-items: center; gap: 6px; }
 .scene-start-controls input { width: 66px; padding: 4px; background: #151517; color: #ddd; border: 1px solid #555; border-radius: 3px; }
@@ -207,6 +217,12 @@
 .scene-player.is-read-only, .scene-object.is-read-only { cursor: default; touch-action: auto; }
 .scene-player img, .scene-object img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 .scene-empty-object { color: #d6d0ca; font: 10px/1 ui-monospace, monospace; }
+@media (max-width: 560px) {
+  .game-scene { gap: 8px; }
+  .scene-preview-shell { min-height: 150px; }
+  .scene-start-controls { gap: 6px 9px; font-size: 10px; }
+  .scene-start-controls small { font-size: 9px; line-height: 1.35; }
+}
 .game-api-help { color: #aaa; font-size: 11px; }
 .game-api-help summary { cursor: pointer; color: #ddd; }
 .game-api-help span { display: block; margin-top: 8px; line-height: 1.5; }

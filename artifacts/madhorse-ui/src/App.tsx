@@ -371,6 +371,7 @@ function Home() {
           <GameScene
             key={activeProject.id}
             entities={sceneEditor.entities}
+            assets={sceneEditor.assets}
             assetUrls={sceneEditor.assetUrls}
             selectedEntityId={sceneEditor.selectedEntityId}
             position={position}
@@ -379,6 +380,7 @@ function Home() {
             readOnly={runnerState.running}
             onSelectEntity={sceneEditor.onSelectEntity}
             onMoveEntity={sceneEditor.onMoveEntity}
+            onUpdateTransform={sceneEditor.onUpdateTransform}
           />
           <div className="frame-lines" aria-hidden="true" />
           <span className="stage-corner tl" aria-hidden="true" />

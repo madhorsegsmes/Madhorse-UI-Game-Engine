@@ -1,0 +1,315 @@
+.mh-scene3d {
+  --scene-bg: #171819;
+  --scene-panel: #202123;
+  --scene-line: #3b3c3d;
+  --scene-text: #e4e1dc;
+  --scene-muted: #969799;
+  --scene-red: #bd4037;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 300px;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid #414142;
+  background: var(--scene-bg);
+  color: var(--scene-text);
+  font-family: 'DM Mono', ui-monospace, monospace;
+  isolation: isolate;
+}
+
+.mh-scene3d__toolbar {
+  min-height: 53px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  background: linear-gradient(180deg, #29292a, #202123);
+  border-bottom: 1px solid #424344;
+}
+
+.mh-scene3d__heading {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  gap: 3px 9px;
+  min-width: 0;
+}
+
+.mh-scene3d__eyebrow {
+  grid-column: 1 / -1;
+  color: #c74a41;
+  font-size: 8px;
+  letter-spacing: .15em;
+  line-height: 1;
+}
+
+.mh-scene3d__heading strong {
+  font: 700 14px/1 'Barlow Condensed', sans-serif;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.mh-scene3d__selection {
+  max-width: 140px;
+  overflow: hidden;
+  color: #aaa9a6;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mh-scene3d__tools {
+  display: flex;
+  gap: 3px;
+  margin-left: auto;
+  padding: 3px;
+  border: 1px solid #424344;
+  background: #171819;
+}
+
+.mh-scene3d__tool {
+  width: 47px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 1px;
+  padding: 2px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #a5a6a7;
+  cursor: pointer;
+  transition: background .14s ease, color .14s ease, border-color .14s ease;
+}
+
+.mh-scene3d__tool > span {
+  font: 14px/1 'DM Mono', monospace;
+}
+
+.mh-scene3d__tool small {
+  font: 8px/1 'DM Mono', monospace;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.mh-scene3d__tool:hover:not(:disabled) {
+  color: #eee9e2;
+  background: #2a2a2c;
+}
+
+.mh-scene3d__tool.is-active {
+  border-color: #79413d;
+  background: #3a2423;
+  color: #ee8a7d;
+}
+
+.mh-scene3d__tool:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+.mh-scene3d__tool:focus-visible,
+.mh-scene3d__viewport:focus-visible {
+  outline: 2px solid #d15a50;
+  outline-offset: -2px;
+}
+
+.mh-scene3d__view-label {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  color: #a9a9a6;
+  font-size: 8px;
+  letter-spacing: .07em;
+  white-space: nowrap;
+}
+
+.mh-scene3d__view-label i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #9b4039;
+  box-shadow: 0 0 0 2px #a6403926;
+}
+
+.mh-scene3d__viewport {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 220px;
+  overflow: hidden;
+  background: #171819;
+  touch-action: none;
+}
+
+.mh-scene3d__viewport canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.mh-scene3d__axis-key {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  gap: 7px;
+  padding: 5px 7px;
+  border: 1px solid #393a3b;
+  background: #171819cf;
+  color: #c2c0bc;
+  font-size: 8px;
+  pointer-events: none;
+}
+
+.mh-scene3d__empty {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  width: min(270px, calc(100% - 36px));
+  padding: 18px;
+  transform: translate(-50%, -50%);
+  border: 1px solid #474748;
+  background: #1b1c1de8;
+  text-align: center;
+  pointer-events: none;
+}
+
+.mh-scene3d__empty-mark {
+  width: 22px;
+  height: 22px;
+  border: 1px solid #a4433b;
+  transform: rotate(45deg);
+  box-shadow: inset 0 0 0 5px #1b1c1d, inset 0 0 0 6px #454344;
+}
+
+.mh-scene3d__empty strong {
+  color: #e1ddd7;
+  font: 700 14px/1 'Barlow Condensed', sans-serif;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.mh-scene3d__empty > span:last-child {
+  color: #a5a3a0;
+  font-size: 9px;
+}
+
+.mh-scene3d__axis-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mh-scene3d__axis-key i {
+  display: block;
+  width: 7px;
+  height: 2px;
+}
+
+.mh-scene3d__axis-key .axis-x { background: #c94b43; }
+.mh-scene3d__axis-key .axis-y { background: #72ae79; }
+.mh-scene3d__axis-key .axis-z { background: #638bc5; }
+
+.mh-scene3d__notices {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  display: grid;
+  gap: 5px;
+  width: min(340px, calc(100% - 20px));
+  pointer-events: none;
+}
+
+.mh-scene3d__notice {
+  padding: 7px 9px;
+  border-left: 2px solid #b84a40;
+  background: #19191beF;
+  color: #d2cfca;
+  font-size: 9px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.mh-scene3d__notice.is-error {
+  border-left-color: #e05b50;
+  color: #f0b0a8;
+}
+
+.mh-scene3d__runtime-note {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: grid;
+  gap: 3px;
+  padding: 7px 9px;
+  border: 1px solid #70413d;
+  background: #211a1aeb;
+  color: #e07b70;
+  font-size: 8px;
+  letter-spacing: .08em;
+  pointer-events: none;
+}
+
+.mh-scene3d__runtime-note span {
+  color: #c0b9b4;
+  font-size: 8px;
+  letter-spacing: 0;
+}
+
+.mh-scene3d__footer {
+  min-height: 29px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px;
+  border-top: 1px solid #3c3d3e;
+  background: #202123;
+  color: #8f9091;
+  font-size: 8px;
+  letter-spacing: .07em;
+}
+
+.mh-scene3d__footer b {
+  color: #d6d3ce;
+  font-weight: 500;
+}
+
+.mh-scene3d__footer-center {
+  overflow: hidden;
+  color: #b7b5b1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mh-scene3d__hint {
+  text-align: right;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .mh-scene3d { min-height: 280px; }
+  .mh-scene3d__toolbar { min-height: 48px; gap: 7px; padding: 0 8px; }
+  .mh-scene3d__heading { gap: 3px 6px; }
+  .mh-scene3d__heading strong { font-size: 13px; }
+  .mh-scene3d__selection { max-width: 86px; font-size: 8px; }
+  .mh-scene3d__tool { width: 39px; height: 34px; }
+  .mh-scene3d__view-label { font-size: 0; }
+  .mh-scene3d__view-label i { width: 7px; height: 7px; }
+  .mh-scene3d__viewport { min-height: 210px; }
+  .mh-scene3d__footer { min-height: 27px; padding: 0 7px; font-size: 7px; }
+  .mh-scene3d__hint { display: none; }
+  .mh-scene3d__footer-center { margin-left: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mh-scene3d__tool { transition: none; }
+}

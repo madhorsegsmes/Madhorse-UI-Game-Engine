@@ -1,14 +1,20 @@
 import { useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent } from 'react';
+import { ScenePreview3D } from '@/components/scene-preview-3d';
+import type { SceneTransformMode } from '@/components/scene-preview-3d';
 import { isGamePosition, type GamePosition } from '@/lib/game-api';
 import {
+  getModelRenderer,
   getSpriteRenderer,
   getWorldTransform,
+  type ProjectAsset,
   type SceneEntity,
+  type TransformComponent,
 } from '@/lib/scene-model';
 
 type GameSceneProps = {
   entities: SceneEntity[];
+  assets: ProjectAsset[];
   assetUrls: Record<string, string>;
   selectedEntityId: string | null;
   position: GamePosition;
@@ -17,10 +23,15 @@ type GameSceneProps = {
   readOnly: boolean;
   onSelectEntity: (entityId: string) => void;
   onMoveEntity: (entityId: string, position: GamePosition) => void;
+  onUpdateTransform: (
+    entityId: string,
+    changes: Partial<Pick<TransformComponent, 'position' | 'rotation' | 'scale'>>,
+  ) => void;
 };
 
 export function GameScene({
   entities,
+  assets,
   assetUrls,
   selectedEntityId,
   position,
@@ -29,7 +40,108 @@ export function GameScene({
   readOnly,
   onSelectEntity,
   onMoveEntity,
+  onUpdateTransform,
 }: GameSceneProps) {
+  const [viewMode, setViewMode] = useState<'3d' | '2d'>('3d');
+  const [transformMode, setTransformMode] = useState<SceneTransformMode>('translate');
+  const selectedName = entities.find((entity) => entity.id === selectedEntityId)?.name ?? 'No selection';
+
+  return (
+    <div className="game-scene">
+      <div className="scene-view-tabs" role="tablist" aria-label="Scene preview mode">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={viewMode === '3d'}
+          className={viewMode === '3d' ? 'is-active' : ''}
+          data-testid="tab-scene-3d"
+          onClick={() => setViewMode('3d')}
+        >3D Preview</button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={viewMode === '2d'}
+          className={viewMode === '2d' ? 'is-active' : ''}
+          data-testid="tab-scene-2d"
+          onClick={() => setViewMode('2d')}
+        >2D Preview</button>
+        <span className="scene-view-status">{readOnly ? 'Script running' : selectedName}</span>
+      </div>
+      <div className={`scene-preview-shell scene-preview-${viewMode}`} data-testid="scene-preview">
+        {viewMode === '3d' ? (
+          <ScenePreview3D
+            entities={entities}
+            assets={assets}
+            assetUrls={assetUrls}
+            selectedEntityId={selectedEntityId}
+            playerPreviewPosition={position}
+            transformMode={transformMode}
+            readOnly={readOnly}
+            onSelectEntity={onSelectEntity}
+            onTransformCommit={onUpdateTransform}
+            onTransformModeChange={setTransformMode}
+          />
+        ) : (
+          <ScenePreview2D
+            entities={entities}
+            assetUrls={assetUrls}
+            selectedEntityId={selectedEntityId}
+            position={position}
+            readOnly={readOnly}
+            onSelectEntity={onSelectEntity}
+            onMoveEntity={onMoveEntity}
+          />
+        )}
+      </div>
+      {viewMode === '3d' && (
+        <div className="scene-accessibility-markers" aria-label="Scene objects">
+          {entities.map((entity) => {
+          const world = getWorldTransform(entities, entity.id);
+          if (!world) return null;
+          const isPlayer = entity.id === 'player';
+          const current = isPlayer ? position : world.position;
+          return (
+            <span
+              key={entity.id}
+              role="img"
+              aria-label={`${entity.name} object at x ${current.x}, y ${current.y}, z ${world.position.z}`}
+              data-testid={isPlayer ? 'scene-player' : `scene-object-${entity.id}`}
+              data-entity-id={entity.id}
+              data-x={current.x}
+              data-y={current.y}
+              data-z={world.position.z}
+              data-sprite-asset-id={getSpriteRenderer(entity)?.assetId ?? ''}
+              data-model-asset-id={getModelRenderer(entity)?.assetId ?? ''}
+            />
+          );
+          })}
+        </div>
+      )}
+      <span className="scene-position">
+        {selectedName} · {viewMode.toUpperCase()} preview
+      </span>
+      <span className="scene-position">
+        Runtime preview · player · x {position.x} · y {position.y} · script changes are not saved
+      </span>
+      <StartingPositionControls
+        key={`${startingPosition.x},${startingPosition.y}`}
+        position={startingPosition}
+        running={readOnly}
+        onSave={onSaveStartingPosition}
+      />
+    </div>
+  );
+}
+
+function ScenePreview2D({
+  entities,
+  assetUrls,
+  selectedEntityId,
+  position,
+  readOnly,
+  onSelectEntity,
+  onMoveEntity,
+}: Pick<GameSceneProps, 'entities' | 'assetUrls' | 'selectedEntityId' | 'position' | 'readOnly' | 'onSelectEntity' | 'onMoveEntity'>) {
   const fieldRef = useRef<HTMLDivElement>(null);
   const dragging = useRef<{ entityId: string; pointerId: number } | null>(null);
   const worldByEntity = useMemo(() => new Map(
@@ -70,7 +182,7 @@ export function GameScene({
   );
 
   return (
-    <div className="game-scene">
+    <div className="scene-2d-view">
       <span className="scene-title">{readOnly ? 'Script running · 2D preview' : '2D scene · drag objects or use arrow keys to position'}</span>
       <div
         ref={fieldRef}
@@ -154,12 +266,6 @@ export function GameScene({
           );
         })}
       </div>
-      <span className="scene-position">
-        {entities.find((entity) => entity.id === selectedEntityId)?.name ?? 'No selection'}
-        {selectedEntityId === 'player' ? ` · x ${position.x} · y ${position.y}` : ''}
-      </span>
-      <span className="scene-position">Runtime preview · player · x {position.x} · y {position.y} · script changes are not saved</span>
-      <StartingPositionControls key={`${startingPosition.x},${startingPosition.y}`} position={startingPosition} running={readOnly} onSave={onSaveStartingPosition} />
     </div>
   );
 }

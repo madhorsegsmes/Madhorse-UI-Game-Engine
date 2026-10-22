@@ -1,5 +1,6 @@
 import type {
   ProjectAsset,
+  ModelRendererComponent,
   SceneEntity,
   SpriteRendererComponent,
   TransformComponent,
@@ -28,4 +29,8 @@ export type WorkspaceBrowserProps = {
   onImportAssets: (files: FileList | File[]) => void;
   onRemoveAsset: (assetId: string) => void;
   onAssignAsset: (entityId: string, assetId: string | null) => void;
+  onAddModelRenderer: (entityId: string) => void;
+  onRemoveModelRenderer: (entityId: string) => void;
+  onUpdateModelRenderer: (entityId: string, changes: Partial<ModelRendererComponent>) => void;
+  onAssignModel: (entityId: string, assetId: string | null) => void;
 };

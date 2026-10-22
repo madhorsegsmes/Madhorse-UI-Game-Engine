@@ -5,6 +5,7 @@ import type { ProjectAsset } from '@/lib/scene-model';
 export function useProjectAssetUrls(
   projectId: string,
   assets: ProjectAsset[],
+  referencedAssetIds: string[],
   onStatus: (message: string) => void,
 ): Record<string, string> {
   const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
@@ -14,9 +15,12 @@ export function useProjectAssetUrls(
     const objectUrls: string[] = [];
     setAssetUrls({});
 
-    async function loadImages() {
-      const imageAssets = assets.filter((asset) => asset.kind === 'image');
-      const results = await Promise.all(imageAssets.map(async (asset) => {
+    async function loadProjectAssets() {
+      const referenced = new Set(referencedAssetIds);
+      const visibleAssets = assets.filter((asset) =>
+        asset.kind === 'image' || referenced.has(asset.id),
+      );
+      const results = await Promise.all(visibleAssets.map(async (asset) => {
         try {
           const blob = await loadLocalAsset(projectId, asset.id);
           return { asset, blob, error: '' };
@@ -41,12 +45,12 @@ export function useProjectAssetUrls(
       onStatus(missing.length ? `Could not read local asset${missing.length === 1 ? '' : 's'}: ${missing.join(', ')}` : '');
     }
 
-    void loadImages();
+    void loadProjectAssets();
     return () => {
       disposed = true;
       objectUrls.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [projectId, assets, onStatus]);
+  }, [projectId, assets, referencedAssetIds, onStatus]);
 
   return assetUrls;
 }
