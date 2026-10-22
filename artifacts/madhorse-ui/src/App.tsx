@@ -7,6 +7,8 @@ import NotFound from '@/pages/not-found';
 import { ScriptRunner } from '@/components/script-runner';
 import { WorkspaceBrowserMenus } from '@/components/workspace-browser-menus';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
+import { GameScene } from '@/components/game-scene';
+import { initialGamePosition, type GamePosition } from '@/lib/game-api';
 
 const queryClient = new QueryClient();
 const projectStorageKey = 'madhorse-ui-projects';
@@ -90,7 +92,16 @@ function Home() {
   const [saveMessage, setSaveMessage] = useState('');
   const [scriptMessage, setScriptMessage] = useState('');
   const [isDraggingScript, setIsDraggingScript] = useState(false);
+  const [scene, setScene] = useState<{ projectId: string; position: GamePosition }>(() => ({
+    projectId: projects[0].id, position: { ...initialGamePosition },
+  }));
   const activeProject = projects.find((project) => project.id === activeProjectId) ?? projects[0];
+  // Switching projects unmounts its runner, revoking its channel before another
+  // project can run. No scene mutation is persisted alongside imported scripts.
+  const position = scene.projectId === activeProject.id ? scene.position : initialGamePosition;
+  useEffect(() => {
+    setScene({ projectId: activeProject.id, position: { ...initialGamePosition } });
+  }, [activeProject.id]);
 
   useEffect(() => {
     try {
@@ -203,7 +214,8 @@ function Home() {
           <div className="utility-mark" aria-hidden="true"><i /><i /><i /></div>
         </header>
 
-        <section className="stage" aria-label="Empty game workspace">
+        <section className="stage" aria-label="Game workspace">
+          <GameScene position={position} />
           <div className="frame-lines" aria-hidden="true" />
           <span className="stage-corner tl" aria-hidden="true" />
           <span className="stage-corner tr" aria-hidden="true" />
@@ -270,7 +282,7 @@ function Home() {
               <div className="script-menu-panel">
                 <div className="script-panel-heading">
                   <strong>Project scripts</strong>
-                  <span>Python · C++ · JavaScript · Lua · C#</span>
+                  <span>Python · C · C++ · JavaScript · TypeScript · Lua · C#</span>
                 </div>
                 <label
                   className={`script-dropzone${isDraggingScript ? ' is-dragging' : ''}`}
@@ -326,7 +338,14 @@ function Home() {
                     ))
                   )}
                 </div>
-                <ScriptRunner projectId={activeProject.id} scripts={activeProject.scripts ?? []} />
+                <ScriptRunner
+                  key={activeProject.id}
+                  projectId={activeProject.id}
+                  scripts={activeProject.scripts ?? []}
+                  position={position}
+                  onPosition={(next) => setScene({ projectId: activeProject.id, position: next })}
+                  onReset={() => setScene({ projectId: activeProject.id, position: { ...initialGamePosition } })}
+                />
                 <span className="script-message" role="status">{scriptMessage}</span>
               </div>
             </details>

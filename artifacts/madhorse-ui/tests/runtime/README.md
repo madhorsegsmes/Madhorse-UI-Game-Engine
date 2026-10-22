@@ -27,6 +27,10 @@ Coverage includes real file import and output, syntax failure followed by rerun,
 runaway termination and manual Stop for every language, genuine C17 semantics,
 empty JS/Python host capabilities, outer opaque-frame/CSP isolation, lazy runtime
 downloads, a 390px Script panel, and production GET/HEAD/304 CORS and MIME headers.
+Scene coverage includes movement through every language, exact command schema
+validation, ordered relative movement, invalid JSON, unknown actions and objects,
+out-of-bounds positions, command quotas, forged worker messages, reset, Stop,
+timeout, and project switching. See `runtime/GAME_API.md` for the API contract.
 
 HTML reports, traces, and failure screenshots are under
 `generated-artifacts/script-runtime/` at the repository root, ignored by Git and

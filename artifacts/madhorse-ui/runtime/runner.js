@@ -6,12 +6,27 @@ const originalFetch = self.fetch.bind(self);
 let networkLocked = false;
 let outputSize = 0;
 const outputLimit = 16000;
+let gameCommands = 0;
+const gamePrefix = 'MADHORSE_GAME ';
 
 const emit = (text) => {
   const value = String(text);
   outputSize += value.length + 1;
   if (outputSize > outputLimit) throw new Error('Script output exceeded the 16,000-character limit');
-  send({ type: 'output', text: value });
+  // C# returns buffered stdout; WASI/Python/Lua/JS emit individual lines.
+  // Only a whole reserved line is a command. Ordinary text remains text.
+  for (const line of value.split(/\r?\n/)) {
+    if (line.startsWith(gamePrefix)) {
+      if (++gameCommands > 128) throw new Error('Game command limit exceeded (128 per run).');
+      if (line.length > 512) throw new Error('Game command is too large.');
+      let command;
+      try { command = JSON.parse(line.slice(gamePrefix.length)); }
+      catch { throw new Error('Invalid game command JSON.'); }
+      send({ type: 'game', command });
+    } else {
+      send({ type: 'output', text: line });
+    }
+  }
 };
 const phase = (name, message) => send({ type: 'phase', phase: name, message });
 

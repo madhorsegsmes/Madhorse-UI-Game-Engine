@@ -20,3 +20,16 @@ Opaque-origin sandbox frames cannot reliably start Blob **module** workers in th
 **Why:** Browser verification failed before any runtime request with Blob module workers, but the classic-worker bootstrap successfully ran JavaScript, TypeScript, Python, and Lua.
 
 **How to apply:** Keep the opaque-origin boundary; do not add `allow-same-origin` just to work around worker startup. Verify the bootstrap in the actual preview browser when changing it.
+
+For the first scene, prefer a shared, reserved stdout command protocol over
+adding a host-object bridge separately to each language.
+
+**Why:** All seven runners already expose stdout, including compiled WASI and
+buffered C#. Reusing it preserves language parity without expanding each
+interpreter's host capabilities. Validation must still happen independently in
+the editor; worker-side parsing is not a trust boundary.
+
+**How to apply:** Keep the scene API narrow and versioned. Treat buffered
+languages as buffered rather than promising live per-frame updates. Future
+animation or readback needs a separate constrained design, not direct editor
+references.

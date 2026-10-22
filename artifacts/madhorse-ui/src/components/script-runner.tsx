@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { startScriptRuntime, type RuntimeScript } from '@/lib/script-runtime';
+import { gameExample, type GamePosition } from '@/lib/game-api';
 
-export function ScriptRunner({ projectId, scripts }: { projectId: string; scripts: RuntimeScript[] }) {
+export function ScriptRunner({ projectId, scripts, position, onPosition, onReset }: {
+  projectId: string; scripts: RuntimeScript[]; position: GamePosition;
+  onPosition: (position: GamePosition) => void; onReset: () => void;
+}) {
   const [selectedId, setSelectedId] = useState('');
   const [output, setOutput] = useState('');
   const [status, setStatus] = useState('Choose a script to run.');
@@ -25,6 +29,7 @@ export function ScriptRunner({ projectId, scripts }: { projectId: string; script
     setRunning(true);
     setStatus(`Starting ${selected.language} sandbox…`);
     handle.current = startScriptRuntime(selected, scripts, (event) => {
+      if (event.type === 'game') onPosition(event.position);
       if (event.type === 'output') setOutput((text) => `${text}${event.text}\n`.slice(0, 16000));
       if (event.type === 'phase') setStatus(event.message);
       if (event.type === 'complete') {
@@ -36,7 +41,7 @@ export function ScriptRunner({ projectId, scripts }: { projectId: string; script
         setOutput((text) => `${text}\n${event.message}`.slice(0, 16000));
         setRunning(false);
       }
-    });
+    }, position);
   }
   function stop() {
     handle.current?.stop();
@@ -60,10 +65,18 @@ export function ScriptRunner({ projectId, scripts }: { projectId: string; script
       <div className="script-run-actions">
         <button type="button" disabled={!runnable || running} onClick={run}>Run script</button>
         <button type="button" disabled={!running} onClick={stop}>Stop</button>
+        <button type="button" disabled={running} onClick={onReset}>Reset scene</button>
       </div>
       <span className="script-run-status" role="status">{!runnable && selected ? 'Header file — choose a .c or .cpp source file to run.' : status}</span>
       <pre className="script-console" aria-label="Script output" aria-live="polite">{output || 'Output will appear here.'}</pre>
-      <span>Runtimes download only when used. C/C++ and C# need larger downloads and more device memory. Console-only execution, 5-second run limit, no app, device-file, or network access. Game-scene APIs are not connected yet.</span>
+      <details className="game-api-help">
+        <summary>Move the player with a script</summary>
+        <span>Print one MADHORSE_GAME JSON command per line. Use exactly version, object, action, x and y as shown. Only object "player" is available. Coordinates run from 0–100: x increases right, y increases down.</span>
+        <pre aria-label="Game API example">{gameExample(selected?.language ?? 'JavaScript')}</pre>
+        <span>Use "setPosition" for absolute coordinates, or "move" for x/y offsets (negative offsets allowed). Out-of-bounds, unknown or malformed commands stop the run. Maximum 128 commands per run, within the output limit. Commands apply in order; Stop or errors keep the last valid position. C# applies buffered commands when execution returns.</span>
+        <span>This is a preview, not saved project data. Reset scene returns to (50, 50). Switching projects or reloading resets it. Scripts do not run automatically.</span>
+      </details>
+      <span>Runtimes download only when used. C/C++ and C# need larger downloads and more device memory. 5-second run limit; no app, device-file, or network access.</span>
     </div>
   );
 }

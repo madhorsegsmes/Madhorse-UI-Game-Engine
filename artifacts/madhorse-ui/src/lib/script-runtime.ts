@@ -1,6 +1,9 @@
+import { applyGameCommand, gameCommandLimit, initialGamePosition, type GamePosition } from './game-api';
+
 export type RuntimeScript = { id: string; name: string; language: string; content: string };
 export type RuntimeEvent =
   | { type: 'output'; text: string }
+  | { type: 'game'; position: GamePosition }
   | { type: 'phase'; phase: string; message: string }
   | { type: 'complete' }
   | { type: 'error'; message: string };
@@ -9,6 +12,7 @@ export function startScriptRuntime(
   script: RuntimeScript,
   files: RuntimeScript[],
   onEvent: (event: RuntimeEvent) => void,
+  initialPosition: GamePosition = initialGamePosition,
 ) {
   const root = new URL(`${import.meta.env.BASE_URL}runtimes/`, window.location.origin);
   const iframe = document.createElement('iframe');
@@ -19,6 +23,9 @@ export function startScriptRuntime(
   let timer: ReturnType<typeof setTimeout>;
   let finished = false;
   let executing = false;
+  let initialized = false;
+  let gameCommands = 0;
+  let position = { ...initialPosition };
   const cleanup = () => {
     if (finished) return;
     finished = true;
@@ -69,10 +76,25 @@ addEventListener('message', function initialize(event) {
   channel.port1.onmessage = ({ data }) => {
     if (finished) return;
     if (data?.type === 'ready') {
+      if (initialized) return;
+      initialized = true;
       channel.port1.postMessage({
         language: script.language, source: script.content,
         filename: script.name, files: files.map(({ name, content }) => ({ name, content })),
       });
+      return;
+    }
+    if (data?.type === 'game') {
+      try {
+        if (!executing || Object.keys(data).length !== 2 || ++gameCommands > gameCommandLimit) {
+          throw new Error('Game command rejected: invalid state or 128-command run limit exceeded.');
+        }
+        position = applyGameCommand(data.command, position);
+        onEvent({ type: 'game', position: { ...position } });
+      } catch (error) {
+        cleanup();
+        onEvent({ type: 'error', message: error instanceof Error ? error.message : 'Game command rejected.' });
+      }
       return;
     }
     if (!['output', 'phase', 'complete', 'error'].includes(data?.type)) return;

@@ -189,6 +189,14 @@
   border: 1px solid rgba(255,255,255,.025);
   pointer-events: none;
 }
+.game-scene { position: absolute; inset: 24px; display: flex; flex-direction: column; gap: 12px; color: #a5a5a8; font-size: 11px; }
+.scene-title, .scene-position { flex: none; }
+.scene-field { position: relative; flex: 1; min-height: 0; margin: 12px; border: 1px solid #333; background-image: linear-gradient(#ffffff05 1px, transparent 1px), linear-gradient(90deg, #ffffff05 1px, transparent 1px); background-size: 10% 10%; }
+.scene-player { position: absolute; width: 22px; height: 22px; transform: translate(-50%, -50%); background: #b73d34; border: 1px solid #eab1ab; box-shadow: 0 0 12px #b73d3440; }
+.game-api-help { color: #aaa; font-size: 11px; }
+.game-api-help summary { cursor: pointer; color: #ddd; }
+.game-api-help span { display: block; margin-top: 8px; line-height: 1.5; }
+.game-api-help pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #111; padding: 8px; user-select: text; }
 .stage-corner { position: absolute; width: 13px; height: 13px; border-color: #9f3932; border-style: solid; opacity: .82; }
 .stage-corner.tl { top: -1px; left: -1px; border-width: 1px 0 0 1px; }
 .stage-corner.tr { top: -1px; right: -1px; border-width: 1px 1px 0 0; }
