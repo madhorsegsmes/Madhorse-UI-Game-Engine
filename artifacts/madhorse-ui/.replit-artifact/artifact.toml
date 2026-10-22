@@ -1,7 +1,7 @@
 kind = "web"
 previewPath = "/"
 title = "Madhorse UI"
-description = "A browser-based game engine workspace, beginning with a blank black, silver, and red interface shell inspired by the provided streaming-panel layout. Future steps will add simplified 2D and 3D game creation tools."
+description = "A browser-based game engine workspace with a black, silver, and red interface and isolated, on-demand language runtimes."
 version = "1.0.0"
 id = "artifacts/madhorse-ui"
 router = "path"
@@ -16,12 +16,9 @@ run = "pnpm --filter @workspace/madhorse-ui run dev"
 
 [services.production]
 build = [ "pnpm", "--filter", "@workspace/madhorse-ui", "run", "build" ]
-serve = "static"
-publicDir = "artifacts/madhorse-ui/dist/public"
 
-[[services.production.rewrites]]
-from = "/*"
-to = "/index.html"
+[services.production.run]
+args = [ "node", "artifacts/madhorse-ui/server.mjs" ]
 
 [services.env]
 PORT = "22277"

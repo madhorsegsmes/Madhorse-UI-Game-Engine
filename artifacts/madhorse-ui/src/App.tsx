@@ -4,6 +4,7 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
+import { ScriptRunner } from '@/components/script-runner';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 
 const queryClient = new QueryClient();
@@ -323,10 +324,7 @@ function Home() {
                     ))
                   )}
                 </div>
-                <div className="script-runtime-note">
-                  <button type="button" disabled aria-disabled="true">Run script</button>
-                  <span>Script execution will be available when a safe game runtime is connected.</span>
-                </div>
+                <ScriptRunner projectId={activeProject.id} scripts={activeProject.scripts ?? []} />
                 <span className="script-message" role="status">{scriptMessage}</span>
               </div>
             </details>

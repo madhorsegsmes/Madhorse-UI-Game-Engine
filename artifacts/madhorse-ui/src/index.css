@@ -237,6 +237,7 @@
   background: linear-gradient(155deg, #292729, #141416 76%);
   filter: drop-shadow(0 5px 9px rgba(0, 0, 0, .42));
 }
+.statusbar { z-index: 10; }
 .panel-row { display: grid; grid-template-columns: 1fr 1.08fr 1fr; gap: 12px; min-height: 53px; }
 .panel {
   position: relative;
@@ -438,11 +439,27 @@
   min-height: 32px;
   border: 1px solid #554442;
   background: #262324;
-  color: #8f8887;
+  color: #e8e5e0;
   font: 700 10px/1 'DM Mono', monospace;
   letter-spacing: .08em;
   text-transform: uppercase;
-  cursor: not-allowed;
+  cursor: pointer;
+}
+.script-runtime-note button:disabled { opacity: .45; cursor: not-allowed; }
+.script-run-actions { display: grid; grid-template-columns: 1fr 70px; gap: 6px; }
+.script-run-label, .script-run-status { color: #c26960; font: 10px/1.4 'DM Mono', monospace; }
+.script-console {
+  margin: 0;
+  padding: 9px;
+  min-height: 80px;
+  max-height: 180px;
+  overflow: auto;
+  border: 1px solid #383435;
+  background: #101012;
+  color: #d8d4cf;
+  font: 10px/1.5 'DM Mono', monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .script-message { min-height: 0; color: #cf6a5f; }
 .sr-only {
