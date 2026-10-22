@@ -115,16 +115,18 @@ test('rejected edits retain saved source and deletion cannot leave stale source 
 test('the game preview opens as a blank canvas with a centered square and offers 3D tools', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByTestId('tab-scene-2d')).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByTestId('scene-field')).toBeVisible();
-  await expect(page.getByTestId('scene-player')).toBeVisible();
+  await expect(page.getByTestId('scene-game-view')).toBeVisible();
+  await expect(page.getByTestId('scene-game-view').locator('canvas').or(page.getByTestId('scene-field'))).toBeVisible();
   await expect(page.getByTestId('scene-player')).toHaveAttribute('data-x', '50');
   await expect(page.getByTestId('scene-player')).toHaveAttribute('data-y', '50');
-  const field = await page.getByTestId('scene-field').boundingBox();
-  const square = await page.getByTestId('scene-player').boundingBox();
-  expect(field).not.toBeNull();
-  expect(square).not.toBeNull();
-  expect(Math.abs(square!.x + square!.width / 2 - (field!.x + field!.width / 2))).toBeLessThan(2);
-  expect(Math.abs(square!.y + square!.height / 2 - (field!.y + field!.height / 2))).toBeLessThan(2);
+  if (await page.getByTestId('game-camera-fallback').isVisible()) {
+    const field = await page.getByTestId('scene-field').boundingBox();
+    const square = await page.getByTestId('scene-player').boundingBox();
+    expect(field).not.toBeNull();
+    expect(square).not.toBeNull();
+    expect(Math.abs(square!.x + square!.width / 2 - (field!.x + field!.width / 2))).toBeLessThan(2);
+    expect(Math.abs(square!.y + square!.height / 2 - (field!.y + field!.height / 2))).toBeLessThan(2);
+  }
   await expect(page.getByLabel('Starting X')).not.toBeVisible();
   await page.getByTestId('scene-preview-settings').locator('summary').click();
   await expect(page.getByLabel('Starting X')).toBeVisible();
@@ -137,7 +139,7 @@ test('the game preview opens as a blank canvas with a centered square and offers
   await page.getByTestId('scene3d-mode-rotate').click();
   await expect(page.getByTestId('scene3d-mode-rotate')).toHaveAttribute('aria-pressed', 'true');
   await page.getByTestId('tab-scene-2d').click();
-  await expect(page.getByTestId('scene-field')).toBeVisible();
+  await expect(page.getByTestId('scene-game-view')).toBeVisible();
   await page.getByTestId('tab-scene-3d').click();
   await expect(page.getByTestId('scene3d-viewport')).toBeVisible();
 });
@@ -242,7 +244,10 @@ test('image and model assets persist in this browser and images can be assigned 
   await expect(page.getByTestId('scene-player')).toHaveAttribute('data-sprite-asset-id', imageId!);
   await expect(page.getByTestId(`remove-asset-${imageId}`)).toBeDisabled();
   await page.getByTestId('tab-scene-2d').click();
-  await expect(page.getByTestId('scene-player').locator('img')).toBeVisible();
+  await expect(page.getByTestId('scene-game-view').locator('canvas').or(page.getByTestId('scene-field'))).toBeVisible();
+  if (await page.getByTestId('game-camera-fallback').isVisible()) {
+    await expect(page.getByTestId('scene-player').locator('img')).toBeVisible();
+  }
   await page.getByTestId('tab-scene-3d').click();
 
   const modelCardId = await modelCard.getAttribute('data-testid');
@@ -252,6 +257,9 @@ test('image and model assets persist in this browser and images can be assigned 
   await expect(page.getByTestId('scene-player')).toHaveAttribute('data-model-asset-id', modelId!);
   await expect(page.getByTestId('scene3d-asset-status')).toContainText('Model ready · sample.gltf', { timeout: 30_000 });
   await expect(page.getByTestId(`remove-asset-${modelId}`)).toBeDisabled();
+  await page.getByTestId('tab-scene-2d').click();
+  await expect(page.getByTestId('scene-game-view')).toBeVisible();
+  await expect(page.getByTestId('scene3d-asset-status')).toContainText('Model ready · sample.gltf', { timeout: 30_000 });
   await expect.poll(async () => page.evaluate(() => {
     const projects = JSON.parse(localStorage.getItem('madhorse-ui-projects') ?? '[]');
     return projects[0]?.assets?.length;

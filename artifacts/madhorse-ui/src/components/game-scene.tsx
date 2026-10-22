@@ -1,5 +1,7 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent } from 'react';
+import { Plane, Raycaster, Vector2, Vector3 } from 'three';
+import { makeGameViewCamera, type GameCamera } from '@/lib/game-camera';
 import { ScenePreview3D } from '@/components/scene-preview-3d';
 import type { SceneTransformMode } from '@/components/scene-preview-3d';
 import { isGamePosition, type GamePosition } from '@/lib/game-api';
@@ -13,6 +15,9 @@ import {
 } from '@/lib/scene-model';
 
 type GameSceneProps = {
+  viewMode: '3d' | '2d';
+  onViewModeChange: (mode: '3d' | '2d') => void;
+  gameCamera: GameCamera;
   entities: SceneEntity[];
   assets: ProjectAsset[];
   assetUrls: Record<string, string>;
@@ -30,6 +35,9 @@ type GameSceneProps = {
 };
 
 export function GameScene({
+  viewMode,
+  onViewModeChange,
+  gameCamera,
   entities,
   assets,
   assetUrls,
@@ -42,8 +50,10 @@ export function GameScene({
   onMoveEntity,
   onUpdateTransform,
 }: GameSceneProps) {
-  const [viewMode, setViewMode] = useState<'3d' | '2d'>('2d');
   const [transformMode, setTransformMode] = useState<SceneTransformMode>('translate');
+  const [gameGraphicsUnavailable, setGameGraphicsUnavailable] = useState(false);
+  const onGraphicsUnavailable = useCallback(() => setGameGraphicsUnavailable(true), []);
+  const onGraphicsReady = useCallback(() => setGameGraphicsUnavailable(false), []);
   const selectedName = entities.find((entity) => entity.id === selectedEntityId)?.name ?? 'No selection';
 
   return (
@@ -55,7 +65,7 @@ export function GameScene({
           aria-selected={viewMode === '3d'}
           className={viewMode === '3d' ? 'is-active' : ''}
           data-testid="tab-scene-3d"
-          onClick={() => setViewMode('3d')}
+          onClick={() => onViewModeChange('3d')}
         >3D Preview</button>
         <button
           type="button"
@@ -63,13 +73,29 @@ export function GameScene({
           aria-selected={viewMode === '2d'}
           className={viewMode === '2d' ? 'is-active' : ''}
           data-testid="tab-scene-2d"
-          onClick={() => setViewMode('2d')}
+          onClick={() => onViewModeChange('2d')}
         >Canvas</button>
-        <span className="scene-view-status">{readOnly ? 'Script running' : selectedName}</span>
+        <span className="scene-view-status">{readOnly ? 'Script running' : viewMode === '2d' ? 'Game Camera' : selectedName}</span>
       </div>
       <div className={`scene-preview-shell scene-preview-${viewMode}`} data-testid="scene-preview">
-        {viewMode === '3d' ? (
           <ScenePreview3D
+            key={viewMode}
+            gameView={viewMode === '2d'}
+            gameCamera={gameCamera}
+            onGraphicsUnavailable={onGraphicsUnavailable}
+            onGraphicsReady={onGraphicsReady}
+            graphicsFallback={viewMode === '2d' ? (
+              <ScenePreview2D
+                gameCamera={gameCamera}
+                entities={entities}
+                assetUrls={assetUrls}
+                selectedEntityId={selectedEntityId}
+                position={position}
+                readOnly={readOnly}
+                onSelectEntity={onSelectEntity}
+                onMoveEntity={onMoveEntity}
+              />
+            ) : undefined}
             entities={entities}
             assets={assets}
             assetUrls={assetUrls}
@@ -81,19 +107,8 @@ export function GameScene({
             onTransformCommit={onUpdateTransform}
             onTransformModeChange={setTransformMode}
           />
-        ) : (
-          <ScenePreview2D
-            entities={entities}
-            assetUrls={assetUrls}
-            selectedEntityId={selectedEntityId}
-            position={position}
-            readOnly={readOnly}
-            onSelectEntity={onSelectEntity}
-            onMoveEntity={onMoveEntity}
-          />
-        )}
       </div>
-      {viewMode === '3d' && (
+      {(viewMode === '3d' || !gameGraphicsUnavailable) && (
         <div className="scene-accessibility-markers" aria-label="Scene objects">
           {entities.map((entity) => {
           const world = getWorldTransform(entities, entity.id);
@@ -134,6 +149,7 @@ export function GameScene({
 }
 
 function ScenePreview2D({
+  gameCamera,
   entities,
   assetUrls,
   selectedEntityId,
@@ -141,8 +157,20 @@ function ScenePreview2D({
   readOnly,
   onSelectEntity,
   onMoveEntity,
-}: Pick<GameSceneProps, 'entities' | 'assetUrls' | 'selectedEntityId' | 'position' | 'readOnly' | 'onSelectEntity' | 'onMoveEntity'>) {
+}: Pick<GameSceneProps, 'gameCamera' | 'entities' | 'assetUrls' | 'selectedEntityId' | 'position' | 'readOnly' | 'onSelectEntity' | 'onMoveEntity'>) {
   const fieldRef = useRef<HTMLDivElement>(null);
+  const [fieldSize, setFieldSize] = useState({ width: 1, height: 1 });
+  useEffect(() => {
+    const field = fieldRef.current;
+    if (!field) return;
+    const update = () => setFieldSize({ width: field.clientWidth, height: field.clientHeight });
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(field);
+    return () => observer.disconnect();
+  }, []);
+  const camera = useMemo(() => makeGameViewCamera(gameCamera, fieldSize.width / Math.max(1, fieldSize.height)),
+    [gameCamera, fieldSize.width, fieldSize.height]);
   const dragging = useRef<{ entityId: string; pointerId: number } | null>(null);
   const worldByEntity = useMemo(() => new Map(
     entities.map((entity) => [entity.id, getWorldTransform(entities, entity.id)]),
@@ -156,9 +184,17 @@ function ScenePreview2D({
         dragging.current.pointerId !== event.pointerId) return;
     const bounds = fieldRef.current?.getBoundingClientRect();
     if (!bounds || bounds.width === 0 || bounds.height === 0) return;
+    const ray = new Raycaster();
+    ray.setFromCamera(new Vector2(
+      ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+      1 - ((event.clientY - bounds.top) / bounds.height) * 2,
+    ), camera);
+    const worldHeight = (worldByEntity.get(entityId)?.position.z ?? 0) / 10;
+    const hit = ray.ray.intersectPlane(new Plane(new Vector3(0, 1, 0), -worldHeight), new Vector3());
+    if (!hit) return;
     onMoveEntity(entityId, {
-      x: Math.max(0, Math.min(100, ((event.clientX - bounds.left) / bounds.width) * 100)),
-      y: Math.max(0, Math.min(100, ((event.clientY - bounds.top) / bounds.height) * 100)),
+      x: Math.max(0, Math.min(100, hit.x * 10 + 50)),
+      y: Math.max(0, Math.min(100, hit.z * 10 + 50)),
     });
   };
 
@@ -186,7 +222,7 @@ function ScenePreview2D({
       <div
         ref={fieldRef}
         className="scene-field"
-        aria-label="Game scene, coordinates 0 to 100"
+        aria-label="Game camera sprite fallback; full 3D graphics require WebGL 2"
         data-testid="scene-field"
       >
         {orderedEntities.map((entity) => {
@@ -195,8 +231,15 @@ function ScenePreview2D({
           const sprite = getSpriteRenderer(entity);
           const isPlayer = entity.id === 'player';
           const previewPosition = isPlayer ? position : world.position;
-          const x = Math.max(0, Math.min(100, previewPosition.x));
-          const y = Math.max(0, Math.min(100, previewPosition.y));
+          const projected = new Vector3(
+            (previewPosition.x - 50) / 10, world.position.z / 10, (previewPosition.y - 50) / 10,
+          ).project(camera);
+          if (projected.z < -1 || projected.z > 1 || getModelRenderer(entity)?.enabled) return null;
+          const x = (projected.x + 1) * 50;
+          const y = (1 - projected.y) * 50;
+          const visibleHeight = 2 * Math.max(0.1, gameCamera.position.y - world.position.z / 10) *
+            Math.tan(gameCamera.fov * Math.PI / 360);
+          const pixelsPerUnit = fieldSize.height / visibleHeight;
           const inheritedInactive = (() => {
             let parentId = entity.parentId;
             const visited = new Set<string>([entity.id]);
@@ -210,6 +253,7 @@ function ScenePreview2D({
             }
             return !entity.active;
           })();
+          if (inheritedInactive) return null;
           const imageUrl = sprite?.assetId ? assetUrls[sprite.assetId] : undefined;
           return (
             <button
@@ -217,7 +261,6 @@ function ScenePreview2D({
               type="button"
               className={[
                 isPlayer ? 'scene-player' : 'scene-object',
-                selectedEntityId === entity.id ? 'is-selected' : '',
                 inheritedInactive ? 'is-inactive' : '',
                 readOnly ? 'is-read-only' : '',
               ].filter(Boolean).join(' ')}
@@ -253,8 +296,8 @@ function ScenePreview2D({
               style={{
                 left: `${x}%`,
                 top: `${y}%`,
-                width: `${sprite?.width ?? 14}px`,
-                height: `${sprite?.height ?? 14}px`,
+                width: `${(sprite?.width ?? 14) / 10 * pixelsPerUnit}px`,
+                height: `${(sprite?.height ?? 14) / 10 * pixelsPerUnit}px`,
                 transform: `translate(-50%, -50%) rotate(${world.rotation.z}deg) scale(${world.scale.x}, ${world.scale.y})`,
                 backgroundColor: sprite?.enabled ? sprite.tint : 'transparent',
                 zIndex: Math.round(world.position.z + 200),
@@ -267,6 +310,9 @@ function ScenePreview2D({
           );
         })}
       </div>
+      <span className="game-camera-fallback-note" data-testid="game-camera-fallback">
+        Limited graphics preview · sprites only. Full 3D game view requires WebGL 2.
+      </span>
     </div>
   );
 }

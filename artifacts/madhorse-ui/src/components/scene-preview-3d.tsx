@@ -1,5 +1,5 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { KeyboardEvent } from 'react';
+import type { KeyboardEvent, ReactNode } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { Grid, OrbitControls, TransformControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -9,6 +9,8 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { TextureLoader } from 'three';
 import { SceneWebGLBoundary } from './scene-webgl-boundary';
+import { GameCameraFrustum, GameCameraRig } from './game-camera-rig';
+import type { GameCamera } from '@/lib/game-camera';
 import {
   getModelRenderer,
   getSpriteRenderer,
@@ -21,6 +23,11 @@ import './scene-preview-3d.css';
 
 export type SceneTransformMode = 'translate' | 'rotate' | 'scale';
 export type ScenePreview3DProps = {
+  gameView?: boolean;
+  gameCamera?: GameCamera;
+  graphicsFallback?: ReactNode;
+  onGraphicsUnavailable?: () => void;
+  onGraphicsReady?: () => void;
   entities: SceneEntity[];
   assets: ProjectAsset[];
   assetUrls: Record<string, string>;
@@ -82,6 +89,11 @@ function isEffectivelyActive(entity: SceneEntity, byId: Map<string, SceneEntity>
 }
 
 export function ScenePreview3D({
+  gameView = false,
+  gameCamera,
+  graphicsFallback,
+  onGraphicsUnavailable,
+  onGraphicsReady,
   entities,
   assets,
   assetUrls,
@@ -146,8 +158,11 @@ export function ScenePreview3D({
   };
 
   return (
-    <section className="mh-scene3d" data-testid="scene-preview-3d" aria-label="3D scene preview">
-      <header className="mh-scene3d__toolbar">
+    <section className={`mh-scene3d ${gameView ? 'is-game-view' : ''}`} data-testid={gameView ? 'scene-game-view' : 'scene-preview-3d'} aria-label={gameView ? 'Game camera view' : '3D scene preview'}
+      data-camera-target={gameView && gameCamera ? JSON.stringify(gameCamera.target) : undefined}
+      data-camera-position={gameView && gameCamera ? JSON.stringify(gameCamera.position) : undefined}
+      data-scene-entity-count={entities.length}>
+      {!gameView && <header className="mh-scene3d__toolbar">
         <div className="mh-scene3d__heading">
           <span className="mh-scene3d__eyebrow">VIEWPORT / 01</span>
           <strong>Scene view</strong>
@@ -173,28 +188,32 @@ export function ScenePreview3D({
           ))}
         </div>
         <div className="mh-scene3d__view-label"><i aria-hidden="true" /> {readOnly ? 'RUNTIME PREVIEW' : 'PERSPECTIVE'}</div>
-      </header>
+      </header>}
       <div
         ref={rootRef}
         className="mh-scene3d__viewport"
         data-testid="scene3d-viewport"
         tabIndex={0}
         role="application"
-        aria-label="3D scene viewport. Select objects, use W to move, E to rotate, R to scale. Drag to orbit and use two fingers to pan or zoom."
-        onKeyDown={handleViewportKeyDown}
+        aria-label={gameView ? 'Canvas: live game camera view of the 3D scene' : '3D scene viewport. Select objects, use W to move, E to rotate, R to scale. Drag to orbit and use two fingers to pan or zoom.'}
+        onKeyDown={gameView ? undefined : handleViewportKeyDown}
       >
-        <SceneWebGLBoundary>
+        <SceneWebGLBoundary fallback={graphicsFallback} onUnavailable={onGraphicsUnavailable}>
         <Canvas
           camera={{ position: [10, 8, 12], fov: 48, near: 0.1, far: 300 }}
           dpr={mobile ? 1 : [1, 1.5]}
           frameloop="demand"
           gl={{ antialias: !mobile, powerPreference: 'low-power', alpha: false }}
           onCreated={({ gl, scene }) => {
-            gl.setClearColor('#171819');
-            scene.background = new THREE.Color('#171819');
+            const background = gameView ? '#333538' : '#171819';
+            gl.setClearColor(background);
+            scene.background = new THREE.Color(background);
+            onGraphicsReady?.();
           }}
         >
         <SceneWorld
+            gameView={gameView}
+            gameCamera={gameCamera}
             entities={entities}
           assets={assets}
             childrenByParent={childrenByParent}
@@ -220,9 +239,9 @@ export function ScenePreview3D({
             <span>Add an object to begin building in 3D.</span>
           </div>
         )}
-        <div className="mh-scene3d__axis-key" aria-label="Axis colors">
+        {!gameView && <div className="mh-scene3d__axis-key" aria-label="Axis colors">
           <span><i className="axis-x" /> X</span><span><i className="axis-y" /> Y</span><span><i className="axis-z" /> Z</span>
-        </div>
+        </div>}
         {(errors.length > 0 || Object.keys(modelStatuses).length > 0) && (
           <div className="mh-scene3d__notices" role="status" aria-live="polite" data-testid="scene3d-asset-status">
             {errors.map((entry) => <div key={entry.id} className="mh-scene3d__notice is-error">{entry.message}</div>)}
@@ -231,25 +250,27 @@ export function ScenePreview3D({
             ))}
           </div>
         )}
-        {readOnly && (
+        {readOnly && !gameView && (
           <div className="mh-scene3d__runtime-note" data-testid="scene3d-runtime-note">
             PLAY MODE <span>Player preview position · {playerPreviewPosition.x.toFixed(1)}, {playerPreviewPosition.y.toFixed(1)} · project unchanged</span>
           </div>
         )}
       </div>
-      <footer className="mh-scene3d__footer">
+      {!gameView && <footer className="mh-scene3d__footer">
         <span data-testid="scene3d-entity-count"><b>{String(entities.length).padStart(2, '0')}</b> OBJECTS</span>
         <span className="mh-scene3d__footer-center">
           {selected ? `SELECTED · ${selected.name}` : 'SELECT AN OBJECT'}
           {selected && ` · ${getModelRenderer(selected)?.assetId ? 'MODEL' : getSpriteRenderer(selected)?.enabled ? 'SPRITE' : 'OBJECT'}`}
         </span>
         <span className="mh-scene3d__hint">{mobile ? 'DRAG ORBIT · PINCH ZOOM' : 'DRAG ORBIT · RIGHT-DRAG PAN · SCROLL ZOOM'}</span>
-      </footer>
+      </footer>}
     </section>
   );
 }
 
 type SceneWorldProps = {
+  gameView?: boolean;
+  gameCamera?: GameCamera;
   entities: SceneEntity[];
   assets: ProjectAsset[];
   childrenByParent: Map<string | null, SceneEntity[]>;
@@ -279,11 +300,13 @@ function SceneWorld(props: SceneWorldProps) {
       <ambientLight intensity={1.15} />
       <directionalLight position={[7, 12, 6]} intensity={2.2} />
       <directionalLight position={[-7, 5, -8]} intensity={0.75} color="#b3c0cf" />
-      <Grid args={[160, 160]} cellSize={1} cellThickness={0.48} cellColor="#43474a" sectionSize={5}
+      {props.gameView && props.gameCamera && <GameCameraRig settings={props.gameCamera} />}
+      {!props.gameView && props.gameCamera && <GameCameraFrustum settings={props.gameCamera} />}
+      {!props.gameView && <Grid args={[160, 160]} cellSize={1} cellThickness={0.48} cellColor="#43474a" sectionSize={5}
         sectionThickness={0.9} sectionColor="#777b7d" fadeDistance={72} fadeStrength={1.5} infiniteGrid
-        position={[0, -0.012, 0]} />
-      <Axes />
-      <OrbitControls
+        position={[0, -0.012, 0]} />}
+      {!props.gameView && <Axes />}
+      {!props.gameView && <OrbitControls
         ref={orbitRef}
         makeDefault
         enableDamping
@@ -294,13 +317,13 @@ function SceneWorld(props: SceneWorldProps) {
         enablePan
         screenSpacePanning={false}
         touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
-      />
+      />}
       <Suspense fallback={null}>
         {(props.childrenByParent.get(null) ?? []).map((entity) => (
           <EntityNode key={entity.id} {...props} entity={entity} onSelectedObject={setSelectedObject} />
         ))}
       </Suspense>
-      {!props.readOnly && selected && selectedObject && (
+      {!props.gameView && !props.readOnly && selected && selectedObject && (
         <SelectedGizmo
           key={selected.id}
           entity={selected}
@@ -328,13 +351,14 @@ function EntityNode(props: SceneWorldProps & { entity: SceneEntity; onSelectedOb
   const sprite = getSpriteRenderer(entity);
   const model = getModelRenderer(entity);
   const effective = isEffectivelyActive(entity, props.byId);
-  const selectedEntity = props.selectedEntityId === entity.id;
+  const selectedEntity = !props.gameView && props.selectedEntityId === entity.id;
   const modelAsset = model?.assetId ? props.assets.find((asset) => asset.id === model.assetId) : undefined;
   const modelUrl = model?.assetId ? props.assetUrls[model.assetId] : undefined;
   const spriteUrl = sprite?.assetId ? props.assetUrls[sprite.assetId] : undefined;
   const setGroupRef = useCallback((node: THREE.Group | null) => {
     if (selectedEntity) props.onSelectedObject(node);
   }, [selectedEntity, props.onSelectedObject]);
+  if (props.gameView && !effective) return null;
   return (
     <group
       ref={setGroupRef}
@@ -345,11 +369,11 @@ function EntityNode(props: SceneWorldProps & { entity: SceneEntity; onSelectedOb
       userData={{ entityId: entity.id }}
       onClick={(event) => {
         event.stopPropagation();
-        props.onSelectEntity(entity.id);
+        if (!props.gameView) props.onSelectEntity(entity.id);
       }}
       onPointerOver={(event) => {
         event.stopPropagation();
-        if (!props.readOnly) document.body.style.cursor = 'pointer';
+        if (!props.gameView && !props.readOnly) document.body.style.cursor = 'pointer';
       }}
       onPointerOut={() => { document.body.style.cursor = ''; }}
     >
@@ -484,7 +508,7 @@ function SpriteVisual({ url, width, height, tint, active, missing }: {
   }, [url]);
   return (
     <group>
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[width, height]} />
         <meshBasicMaterial color={texture ? '#ffffff' : tint} map={texture ?? undefined} transparent opacity={active ? 1 : 0.4} side={THREE.DoubleSide} />
       </mesh>

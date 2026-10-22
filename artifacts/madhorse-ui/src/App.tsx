@@ -10,6 +10,7 @@ import { WorkspaceBrowserMenus } from '@/components/workspace-browser-menus';
 import { SystemPanelTools } from '@/components/system-panel-tools';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import { GameScene } from '@/components/game-scene';
+import { createGameCamera, isGameCamera, type GameCamera } from '@/lib/game-camera';
 import { initialGamePosition, isGamePosition, type GamePosition } from '@/lib/game-api';
 import { ScriptCreate } from '@/components/script-create';
 import { scriptLanguages, maxScriptSize, maxProjectScriptsSize, movementStarter, scriptStorageError, sourceSize, type ScriptFile } from '@/lib/project-scripts';
@@ -36,6 +37,7 @@ type Project = {
   entities: SceneEntity[];
   assets: ProjectAsset[];
   initialPosition?: GamePosition;
+  gameCamera?: GameCamera;
 };
 
 function isSavedScript(script: unknown): script is ScriptFile {
@@ -55,7 +57,8 @@ function isSavedProject(project: unknown): project is Project {
       Array.isArray(value.scripts) && value.scripts.every(isSavedScript)
     )) &&
     (value.entities === undefined || Array.isArray(value.entities) && isSceneGraph(value.entities)) &&
-    (value.assets === undefined || Array.isArray(value.assets) && isAssetCollection(value.assets));
+    (value.assets === undefined || Array.isArray(value.assets) && isAssetCollection(value.assets)) &&
+    (value.gameCamera === undefined || isGameCamera(value.gameCamera));
 }
 
 function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: string } {
@@ -66,7 +69,7 @@ function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: 
       return {
         projects: [{
           id: crypto.randomUUID(), name: 'Untitled Project', gameType: '', savedAt: '', scripts: [],
-          entities: [createDefaultPlayer()], assets: [],
+          entities: [createDefaultPlayer()], assets: [], gameCamera: createGameCamera([]),
         }],
         canOverwrite: true,
         warning: '',
@@ -87,6 +90,9 @@ function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: 
                 : component),
           }],
           assets: project.assets ?? [],
+        })).map((project) => ({
+          ...project,
+          gameCamera: project.gameCamera ?? createGameCamera(project.entities),
         })),
         canOverwrite: true,
         warning: '',
@@ -99,7 +105,7 @@ function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: 
   return {
     projects: [{
       id: crypto.randomUUID(), name: 'Untitled Project', gameType: '', savedAt: '', scripts: [],
-      entities: [createDefaultPlayer()], assets: [],
+      entities: [createDefaultPlayer()], assets: [], gameCamera: createGameCamera([]),
     }],
     canOverwrite: false,
     warning: savedProjectsWarning,
@@ -155,6 +161,12 @@ function Home() {
     projectId: projects[0].id, position: getPlayerStartPosition(projects[0]),
   }));
   const activeProject = projects.find((project) => project.id === activeProjectId) ?? projects[0];
+  const [previewSelection, setPreviewSelection] = useState<{ projectId: string; mode: '3d' | '2d' }>({
+    projectId: '', mode: '2d',
+  });
+  const viewMode = previewSelection.projectId === activeProject.id ? previewSelection.mode : '2d';
+  const gameCamera = activeProject.gameCamera ?? createGameCamera(activeProject.entities);
+  const selectPreview = (mode: '3d' | '2d') => setPreviewSelection({ projectId: activeProject.id, mode });
   const activeProjectRef = useRef(activeProject);
   activeProjectRef.current = activeProject;
   const selectedScriptId = scriptSelection.projectId === activeProject.id ? scriptSelection.scriptId : '';
@@ -204,6 +216,7 @@ function Home() {
       scripts: [],
       entities: [createDefaultPlayer()],
       assets: [],
+      gameCamera: createGameCamera([]),
     };
     setProjects((current) => [...current, project]);
     setActiveProjectId(project.id);
@@ -370,6 +383,9 @@ function Home() {
         <section className="stage" id="scene-preview" ref={stageRef} tabIndex={-1} role="tabpanel" aria-labelledby="scene-preview-tab">
           <GameScene
             key={activeProject.id}
+            viewMode={viewMode}
+            onViewModeChange={selectPreview}
+            gameCamera={gameCamera}
             entities={sceneEditor.entities}
             assets={sceneEditor.assets}
             assetUrls={sceneEditor.assetUrls}
@@ -541,7 +557,19 @@ function Home() {
         <section className="panel-row" aria-label="Workspace panels">
           <div className="panel" role="region" aria-labelledby="panel-3-label">
             <span className="panel-label" id="panel-3-label">PANEL 3 / System</span>
-            <SystemPanelTools />
+            <SystemPanelTools
+              readOnly={runnerState.running}
+              onAimCamera={() => {
+                updateActiveProject({ gameCamera: createGameCamera(activeProject.entities) });
+                selectPreview('2d');
+                setSaveMessage('Game camera aimed at the square and saved in this browser.');
+                stageRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+              }}
+              onShowGameView={() => {
+                selectPreview('2d');
+                stageRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+              }}
+            />
           </div>
           <div className="panel" role="region" aria-labelledby="panel-4-label">
             <span className="panel-label" id="panel-4-label">PANEL 4 / Play/Test Game</span>

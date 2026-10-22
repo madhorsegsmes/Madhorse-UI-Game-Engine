@@ -150,6 +150,11 @@
   height: 100%;
   touch-action: none;
 }
+.mh-scene3d.is-game-view { border: 0; background: #333538; }
+.is-game-view .mh-scene3d__viewport { background: #333538; }
+.is-game-view .scene-2d-view { display: flex; height: 100%; flex-direction: column; }
+.is-game-view .scene-field { margin: 0; border: 0; background: #333538; background-image: none; }
+.game-camera-fallback-note { position: absolute; bottom: 8px; left: 8px; right: 8px; color: #bcb8b3; font-size: 9px; line-height: 1.4; pointer-events: none; }
 
 .mh-scene3d__unavailable {
   display: flex;

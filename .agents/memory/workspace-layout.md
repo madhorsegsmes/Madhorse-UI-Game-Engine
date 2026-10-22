@@ -22,3 +22,13 @@ square, like Unity. Keep the surrounding numbered panels unchanged.
 
 **How to apply:** Keep preview settings unobtrusive and preserve existing project
 objects and saved positions when changing the presentation.
+
+Canvas is the Game Camera's output from the same scene edited in 3D Preview,
+not an independent 2D scene. Game Camera belongs in Panel 3 and initially points
+directly at the square.
+
+**Why:** The user asked for whatever is built in 3D Preview to display in Canvas
+through the game camera.
+
+**How to apply:** Preserve shared scene data and keep editor-only guides and
+transform handles out of the camera output.
