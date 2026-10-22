@@ -8,6 +8,8 @@ export default defineConfig({
   testDir: './tests/runtime',
   timeout: 240_000,
   expect: { timeout: 10_000 },
+  forbidOnly: !!process.env.CI,
+  fullyParallel: false,
   workers: 1,
   retries: 0,
   outputDir: path.join(evidence, 'results'),

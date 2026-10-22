@@ -1,0 +1,69 @@
+name: Script runtime release gate
+
+# No path filters: a required check must also run when shared dependencies,
+# runtime assets, production headers, or the workflow itself change.
+on:
+  pull_request:
+  push:
+  merge_group:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  script-runtime:
+    name: Script runtime (Chromium, Firefox, WebKit)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      CI: 'true'
+      # Never inherit a workspace-specific Chromium executable in CI.
+      REPLIT_PLAYWRIGHT_CHROMIUM_EXECUTABLE: ''
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare evidence directory
+        run: mkdir -p generated-artifacts/script-runtime
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install locked workspace dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile 2>&1 | tee generated-artifacts/script-runtime/dependency-install.log
+
+      # Resolve the CLI from this workspace's lockfile, not a global/latest
+      # Playwright. This installs all three matching builds and Ubuntu libraries.
+      - name: Install matching browsers and Linux dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @workspace/madhorse-ui exec playwright install --with-deps chromium firefox webkit 2>&1 | tee generated-artifacts/script-runtime/browser-install.log
+
+      # Deliberately one invocation, no matrix/shards: the compiler runtimes
+      # need the config's single worker. A setup or test failure fails the job.
+      - name: Check script runtimes in all three engines
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @workspace/madhorse-ui run test:runtime 2>&1 | tee generated-artifacts/script-runtime/test.log
+
+      - name: Upload runtime evidence (including failures)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: script-runtime-${{ github.run_id }}-${{ github.run_attempt }}
+          path: generated-artifacts/script-runtime/
+          if-no-files-found: error
+          retention-days: 14

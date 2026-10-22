@@ -14,6 +14,39 @@ not a claim that physical iOS devices or released Safari versions were tested. I
 deploys anything, calls real private APIs, or changes existing user projects.
 Do not run multiple copies against the same port.
 
+## CI release gate
+
+`.github/workflows/script-runtime.yml` runs on every pull request, push (including
+tags), merge-queue update, and manual dispatch. It uses Ubuntu 24.04, Node 24,
+pnpm 10.26.1, a frozen lockfile, and the workspace's own Playwright CLI to install
+Chromium, Firefox, WebKit **and** their OS dependencies with `install --with-deps`.
+This keeps browser revisions matched to the installed Playwright version.
+CI never uses the Replit Chromium override or substitutes one engine for another.
+
+The gate runs `pnpm --filter @workspace/madhorse-ui run test:runtime` once.
+The config keeps one worker, disables parallel mode and retries, and rejects
+focused (`test.only`) tests in CI. Do not add browser matrices, shards, skips,
+`continue-on-error`, or failure-to-success fallbacks. Missing browsers, missing
+features, and failing assertions must fail the gate.
+
+Every run uploads `generated-artifacts/script-runtime/` as
+`script-runtime-<run-id>-<attempt>` for 14 days, including failed runs. It contains
+HTML/JSON reports, traces, screenshots and attachments when produced, plus
+dependency-install, browser-install, and test logs so failures before browser
+startup are visible too. These generated files remain ignored by Git and
+deployment packaging.
+
+Repository administrators must require the check
+**Script runtime (Chromium, Firefox, WebKit)** in the protected release branch's
+ruleset/branch protection (including merge queues). Adding a workflow file alone
+does not configure repository protection. There is currently no automated
+publisher in this repository. A future publishing workflow must call this
+workflow as a reusable job (`uses: ./.github/workflows/script-runtime.yml`) and
+make publishing depend on that job with `needs`, without an `always()` bypass.
+Tag-triggered checks alone cannot block an independent publishing workflow.
+
+## Local setup and coverage
+
 In Replit, the suite uses `REPLIT_PLAYWRIGHT_CHROMIUM_EXECUTABLE` when supplied
 to select the system browser with its required Linux libraries. Elsewhere it
 uses the Chromium installed by `test:runtime:install`.
