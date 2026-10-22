@@ -58,6 +58,20 @@ test('create every language, edit source and reload without loading any runtime'
   await page.getByLabel('Script to run').selectOption(await choice.getAttribute('value') ?? '');
   await expect(page.locator('#script-source')).toHaveValue('console.log("saved source")');
   expect(runtimeRequests).toEqual([]);
+  await page.reload();
+  await page.getByLabel('Project actions').click();
+  await expect(page.getByLabel('Choose project')).toHaveValue(originalProject);
+});
+
+test('unreadable saved project data is reported and never overwritten', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('madhorse-ui-projects', '{invalid saved data');
+  });
+  await page.goto('/');
+  await page.getByLabel('Project actions').click();
+  await expect(page.locator('.project-save-status')).toContainText('Saved projects could not be read');
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(() => localStorage.getItem('madhorse-ui-projects'))).toBe('{invalid saved data');
 });
 
 test('edited source runs only on request through Run and Play, and headers remain non-runnable', async ({ page }) => {

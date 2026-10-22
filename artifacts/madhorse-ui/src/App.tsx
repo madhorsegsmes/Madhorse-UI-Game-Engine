@@ -13,9 +13,10 @@ import { GameScene } from '@/components/game-scene';
 import { initialGamePosition, type GamePosition } from '@/lib/game-api';
 import { ScriptCreate } from '@/components/script-create';
 import { scriptLanguages, maxScriptSize, maxProjectScriptsSize, movementStarter, scriptStorageError, sourceSize, type ScriptFile } from '@/lib/project-scripts';
+import { loadActiveProjectId, projectStorageKey, useProjectAutosave } from '@/hooks/use-project-autosave';
 
 const queryClient = new QueryClient();
-const projectStorageKey = 'madhorse-ui-projects';
+let savedProjectsWarning = '';
 const gameTypes = ['RTS', 'RPG', 'MMO', 'Arena Fighting', 'Card Game', 'Sport Game'] as const;
 type Project = {
   id: string;
@@ -25,15 +26,48 @@ type Project = {
   scripts?: ScriptFile[];
 };
 
-function loadProjects(): Project[] {
+function isSavedScript(script: unknown): script is ScriptFile {
+  if (!script || typeof script !== 'object') return false;
+  const value = script as ScriptFile;
+  return typeof value.id === 'string' && typeof value.name === 'string' &&
+    typeof value.language === 'string' && typeof value.content === 'string' &&
+    Number.isFinite(value.size) && value.size >= 0;
+}
+
+function isSavedProject(project: unknown): project is Project {
+  if (!project || typeof project !== 'object') return false;
+  const value = project as Project;
+  return typeof value.id === 'string' && typeof value.name === 'string' &&
+    typeof value.gameType === 'string' && typeof value.savedAt === 'string' &&
+    (value.scripts === undefined || (
+      Array.isArray(value.scripts) && value.scripts.every(isSavedScript)
+    ));
+}
+
+function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: string } {
+  savedProjectsWarning = '';
   try {
     const stored = localStorage.getItem(projectStorageKey);
-    const projects = stored ? JSON.parse(stored) : null;
-    if (Array.isArray(projects) && projects.length > 0) return projects;
+    if (stored === null) {
+      return {
+        projects: [{ id: crypto.randomUUID(), name: 'Untitled Project', gameType: '', savedAt: '', scripts: [] }],
+        canOverwrite: true,
+        warning: '',
+      };
+    }
+    const projects: unknown = JSON.parse(stored);
+    if (Array.isArray(projects) && projects.length > 0 && projects.every(isSavedProject)) {
+      return { projects, canOverwrite: true, warning: '' };
+    }
+    savedProjectsWarning = 'Saved projects could not be read. Existing browser data has been left untouched.';
   } catch {
-    // Start with a clean project if browser storage is unavailable or invalid.
+    savedProjectsWarning = 'Saved projects could not be read. Existing browser data has been left untouched.';
   }
-  return [{ id: crypto.randomUUID(), name: 'Untitled Project', gameType: '', savedAt: '', scripts: [] }];
+  return {
+    projects: [{ id: crypto.randomUUID(), name: 'Untitled Project', gameType: '', savedAt: '', scripts: [] }],
+    canOverwrite: false,
+    warning: savedProjectsWarning,
+  };
 }
 
 function HorseMark() {
@@ -66,9 +100,10 @@ function HorseMark() {
 }
 
 function Home() {
-  const [projects, setProjects] = useState<Project[]>(loadProjects);
-  const [activeProjectId, setActiveProjectId] = useState(projects[0].id);
-  const [saveMessage, setSaveMessage] = useState('');
+  const [loadedProjects] = useState(loadProjects);
+  const [projects, setProjects] = useState<Project[]>(loadedProjects.projects);
+  const [activeProjectId, setActiveProjectId] = useState(() => loadActiveProjectId(loadedProjects.projects));
+  const [saveMessage, setSaveMessage] = useState(loadedProjects.warning);
   const [scriptMessage, setScriptMessage] = useState('');
   const [isDraggingScript, setIsDraggingScript] = useState(false);
   const [scriptSelection, setScriptSelection] = useState({ projectId: '', scriptId: '' });
@@ -91,13 +126,7 @@ function Home() {
     setScene({ projectId: activeProject.id, position: { ...initialGamePosition } });
   }, [activeProject.id]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(projectStorageKey, JSON.stringify(projects));
-    } catch {
-      setSaveMessage('Browser storage unavailable');
-    }
-  }, [projects]);
+  useProjectAutosave(projects, activeProjectId, loadedProjects.canOverwrite, setSaveMessage);
 
   function updateActiveProject(updates: Partial<Project>) {
     setProjects((current) =>
@@ -315,8 +344,8 @@ function Home() {
                   <button type="button" onClick={renameProject}>Rename</button>
                   <button type="button" onClick={saveProject}>Save project</button>
                 </div>
-                <span className="project-save-status" role="status" aria-live="polite">
-                  {saveMessage || (activeProject.savedAt ? 'Saved in this browser' : 'Not saved yet')}
+                <span className="project-save-status" role={loadedProjects.warning ? 'alert' : 'status'} aria-live="polite">
+                  {loadedProjects.warning || saveMessage || (activeProject.savedAt ? 'Saved in this browser' : 'Not saved yet')}
                 </span>
               </div>
             </details>
