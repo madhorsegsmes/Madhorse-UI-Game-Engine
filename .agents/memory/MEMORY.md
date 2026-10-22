@@ -1,1 +1,2 @@
 - [Game script safety](game-script-safety.md) — imported scripts must stay data until a properly isolated game runtime exists.
+- [Runtime browser environment](runtime-browser-environment.md) — downloaded Chromium may lack Linux libraries; use the supplied browser without weakening checks.
