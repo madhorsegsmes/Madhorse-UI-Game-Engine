@@ -43,3 +43,91 @@
 .game-camera-tools button { padding: 7px; border: 1px solid #6a3d38; background: #282023; color: #e1d7d3; cursor: pointer; }
 .game-camera-tools button:disabled { opacity: .5; cursor: not-allowed; }
 .game-camera-tools button:focus-visible { outline: 2px solid #cf4a40; outline-offset: 2px; }
+
+.animation-editor {
+  display: grid;
+  gap: 8px;
+  max-height: min(62vh, 560px);
+  overflow: auto;
+  padding: 9px;
+  color: #d5d0cd;
+  font-size: 10px;
+}
+.animation-editor-heading,
+.animation-preview-controls,
+.animation-keyframes-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.animation-editor-heading > span,
+.animation-preview-controls > span { color: #aaa6a3; }
+.animation-editor button {
+  min-height: 26px;
+  padding: 4px 7px;
+  border: 1px solid #6a3d38;
+  background: #282023;
+  color: #e1d7d3;
+  cursor: pointer;
+}
+.animation-editor button:disabled { opacity: .5; cursor: not-allowed; }
+.animation-editor button:focus-visible,
+.animation-editor input:focus-visible,
+.animation-editor select:focus-visible { outline: 2px solid #cf4a40; outline-offset: 1px; }
+.animation-field {
+  display: grid;
+  grid-template-columns: minmax(72px, .7fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  color: #aaa6a3;
+}
+.animation-editor input:not([type="checkbox"]):not([type="range"]),
+.animation-editor select {
+  width: 100%;
+  min-width: 0;
+  height: 27px;
+  padding: 4px 6px;
+  border: 1px solid #383435;
+  background: #111113;
+  color: #e1d7d3;
+}
+.animation-loop { display: flex; align-items: center; gap: 7px; color: #aaa6a3; }
+.animation-loop input { accent-color: #cf4a40; }
+.animation-preview-controls button { flex: 0 0 auto; }
+.animation-preview-controls > span { text-align: right; }
+.animation-scrubber { display: grid; gap: 4px; color: #aaa6a3; }
+.animation-scrubber input { width: 100%; accent-color: #cf4a40; }
+.animation-keyframes { display: grid; gap: 7px; }
+.animation-keyframes-heading strong { color: #e1d7d3; font-size: 11px; }
+.animation-keyframe {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 7px;
+  border: 1px solid #383435;
+}
+.animation-keyframe legend { padding: 0 4px; color: #cf8b83; }
+.animation-keyframe label { display: grid; gap: 3px; color: #aaa6a3; }
+.animation-keyframe input { min-width: 0; }
+.animation-editor .animation-remove-keyframe {
+  position: absolute;
+  top: 1px;
+  right: 2px;
+  min-height: 20px;
+  padding: 0 5px;
+  border: 0;
+  background: transparent;
+  color: #cf8b83;
+  font-size: 16px;
+}
+.animation-editor .animation-delete { justify-self: start; }
+.animation-preview-note,
+.animation-empty { margin: 0; color: #aaa6a3; line-height: 1.5; }
+@media (max-width: 520px) {
+  .animation-keyframe { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .animation-field { grid-template-columns: 1fr; gap: 4px; }
+  .animation-preview-controls { flex-wrap: wrap; }
+}

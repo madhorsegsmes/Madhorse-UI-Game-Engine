@@ -1,15 +1,39 @@
 import './system-panel-tools.css';
+import { AnimationEditor } from '@/components/animation-editor';
+import type { GameAnimation } from '@/lib/game-api';
+import type { SceneEntity } from '@/lib/scene-model';
 
-export function SystemPanelTools({ onAimCamera, onShowGameView, readOnly }: {
+export function SystemPanelTools({
+  onAimCamera,
+  onShowGameView,
+  readOnly,
+  animations,
+  entities,
+  selectedEntityId,
+  onAnimationsChange,
+  onAnimationPreviewFrame,
+}: {
   onAimCamera: () => void;
   onShowGameView: () => void;
   readOnly: boolean;
+  animations: GameAnimation[];
+  entities: SceneEntity[];
+  selectedEntityId: string | null;
+  onAnimationsChange: (animations: GameAnimation[]) => void;
+  onAnimationPreviewFrame: (animation: GameAnimation | null, time: number) => void;
 }) {
   return (
     <div className="system-panel-tools" role="group" aria-label="System tools">
       <details name="system-panel-tools">
         <summary className="control-button system-tool-button">Animations</summary>
-        <div id="system-panel-animations-content" className="system-tool-content" aria-label="Animations menu" />
+        <AnimationEditor
+          animations={animations}
+          entities={entities}
+          selectedEntityId={selectedEntityId}
+          readOnly={readOnly}
+          onChange={onAnimationsChange}
+          onPreviewFrame={onAnimationPreviewFrame}
+        />
       </details>
       <details name="system-panel-tools">
         <summary className="control-button system-tool-button">UI Controls</summary>

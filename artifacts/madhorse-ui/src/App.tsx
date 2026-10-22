@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -13,7 +13,14 @@ import { withSystemActivity } from '@/lib/system-activity';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import { GameScene } from '@/components/game-scene';
 import { createGameCamera, isGameCamera, type GameCamera } from '@/lib/game-camera';
-import { initialGamePosition, isGamePosition, type GamePosition } from '@/lib/game-api';
+import {
+  initialGamePosition,
+  isGameAnimationCollection,
+  isGamePosition,
+  sampleGameAnimation,
+  type GameAnimation,
+  type GamePosition,
+} from '@/lib/game-api';
 import { ScriptCreate } from '@/components/script-create';
 import { scriptLanguages, maxScriptSize, maxProjectScriptsSize, movementStarter, scriptStorageError, sourceSize, type ScriptFile } from '@/lib/project-scripts';
 import { loadActiveProjectId, projectStorageKey, saveProjectSnapshotNow, useProjectAutosave } from '@/hooks/use-project-autosave';
@@ -23,6 +30,7 @@ import {
   getWorldTransform,
   isAssetCollection,
   isSceneGraph,
+  type TransformComponent,
   type ProjectAsset,
   type SceneEntity,
 } from '@/lib/scene-model';
@@ -38,6 +46,7 @@ type Project = {
   scripts?: ScriptFile[];
   entities: SceneEntity[];
   assets: ProjectAsset[];
+  animations?: GameAnimation[];
   initialPosition?: GamePosition;
   gameCamera?: GameCamera;
 };
@@ -60,6 +69,7 @@ function isSavedProject(project: unknown): project is Project {
     )) &&
     (value.entities === undefined || Array.isArray(value.entities) && isSceneGraph(value.entities)) &&
     (value.assets === undefined || Array.isArray(value.assets) && isAssetCollection(value.assets)) &&
+    (value.animations === undefined || isGameAnimationCollection(value.animations)) &&
     (value.gameCamera === undefined || isGameCamera(value.gameCamera));
 }
 
@@ -71,7 +81,7 @@ function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: 
       return {
         projects: [{
           id: crypto.randomUUID(), name: 'Untitled Project', gameType: '', savedAt: '', scripts: [],
-          entities: [createDefaultPlayer()], assets: [], gameCamera: createGameCamera([]),
+          entities: [createDefaultPlayer()], assets: [], animations: [], gameCamera: createGameCamera([]),
         }],
         canOverwrite: true,
         warning: '',
@@ -92,6 +102,7 @@ function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: 
                 : component),
           }],
           assets: project.assets ?? [],
+          animations: project.animations ?? [],
         })).map((project) => ({
           ...project,
           gameCamera: project.gameCamera ?? createGameCamera(project.entities),
@@ -107,7 +118,7 @@ function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: 
   return {
     projects: [{
       id: crypto.randomUUID(), name: 'Untitled Project', gameType: '', savedAt: '', scripts: [],
-      entities: [createDefaultPlayer()], assets: [], gameCamera: createGameCamera([]),
+      entities: [createDefaultPlayer()], assets: [], animations: [], gameCamera: createGameCamera([]),
     }],
     canOverwrite: false,
     warning: savedProjectsWarning,
@@ -120,6 +131,36 @@ function getPlayerStartPosition(project: Pick<Project, 'entities'>): GamePositio
     return { ...initialGamePosition };
   }
   return { x: world.position.x, y: world.position.y };
+}
+
+function applyAnimationPreview(
+  entities: SceneEntity[],
+  animation: GameAnimation,
+  time: number,
+): SceneEntity[] {
+  const targetId = animation.targetEntityId;
+  if (!entities.some((entity) => entity.id === targetId)) return entities;
+  const frame = sampleGameAnimation(animation, time);
+  return entities.map((entity) => {
+    if (entity.id !== targetId) return entity;
+    return {
+      ...entity,
+      components: entity.components.map((component) => {
+        if (component.type !== 'transform') return component;
+        const transform: TransformComponent = {
+          ...component,
+          position: { ...frame.position },
+          rotation: { ...frame.rotation },
+          scale: {
+            x: component.scale.x * frame.scale,
+            y: component.scale.y * frame.scale,
+            z: component.scale.z * frame.scale,
+          },
+        };
+        return transform;
+      }),
+    };
+  });
 }
 
 function HorseMark() {
@@ -182,6 +223,27 @@ function Home() {
   const stageRef = useRef<HTMLElement>(null);
   const [runnerState, setRunnerState] = useState<ScriptRunnerState>({ ready: false, running: false, status: 'Choose a script to run.', scriptName: '' });
   const [runtimeError, setRuntimeError] = useState('');
+  const [animationPreview, setAnimationPreview] = useState<{
+    projectId: string;
+    animation: GameAnimation;
+    time: number;
+  } | null>(null);
+  const onAnimationPreviewFrame = useCallback((animation: GameAnimation | null, time: number) => {
+    if (!animation || runnerState.running) {
+      setAnimationPreview(null);
+      return;
+    }
+    setAnimationPreview({ projectId: activeProject.id, animation, time });
+  }, [activeProject.id, runnerState.running]);
+  const activeAnimationPreview = animationPreview?.projectId === activeProject.id && !runnerState.running
+    ? animationPreview
+    : null;
+  const sceneEntities = activeAnimationPreview
+    ? applyAnimationPreview(activeProject.entities, activeAnimationPreview.animation, activeAnimationPreview.time)
+    : activeProject.entities;
+  const scenePosition = activeAnimationPreview
+    ? getPlayerStartPosition({ entities: sceneEntities })
+    : position;
   const sceneEditor = useSceneEditor<Project>({
     project: activeProject,
     projects,
@@ -194,6 +256,7 @@ function Home() {
   useEffect(() => {
     setRuntimeError('');
     setScene({ projectId: activeProject.id, position: getPlayerStartPosition(activeProject) });
+    setAnimationPreview(null);
   }, [activeProject.id]);
 
   useProjectAutosave(projects, activeProjectId, loadedProjects.canOverwrite, setSaveMessage);
@@ -218,6 +281,7 @@ function Home() {
       scripts: [],
       entities: [createDefaultPlayer()],
       assets: [],
+      animations: [],
       gameCamera: createGameCamera([]),
     };
     setProjects((current) => [...current, project]);
@@ -389,11 +453,11 @@ function Home() {
             viewMode={viewMode}
             onViewModeChange={selectPreview}
             gameCamera={gameCamera}
-            entities={sceneEditor.entities}
+            entities={sceneEntities}
             assets={sceneEditor.assets}
             assetUrls={sceneEditor.assetUrls}
             selectedEntityId={sceneEditor.selectedEntityId}
-            position={position}
+            position={scenePosition}
             startingPosition={startingPosition}
             onSaveStartingPosition={saveStartingPosition}
             readOnly={runnerState.running}
@@ -562,6 +626,11 @@ function Home() {
             <span className="panel-label" id="panel-3-label">PANEL 3 / System</span>
             <SystemPanelTools
               readOnly={runnerState.running}
+              animations={activeProject.animations ?? []}
+              entities={sceneEditor.entities}
+              selectedEntityId={sceneEditor.selectedEntityId}
+              onAnimationsChange={(animations) => updateActiveProject({ animations })}
+              onAnimationPreviewFrame={onAnimationPreviewFrame}
               onAimCamera={() => {
                 updateActiveProject({ gameCamera: createGameCamera(activeProject.entities) });
                 selectPreview('2d');
