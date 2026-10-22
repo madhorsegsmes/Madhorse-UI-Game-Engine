@@ -59,34 +59,29 @@ function Home() {
 
         <div className="statusbar" role="group" aria-label="Workspace status and actions">
           <div className="status-segment" aria-hidden="true"><span className="status-diamond" /></div>
-          <div className="status-center" aria-hidden="true"><span /><span /><span /></div>
+          <div className="project-badge" role="group" aria-label="Project selection">
+            <label className="sr-only" htmlFor="project-dropdown">Project</label>
+            <div className="project-dropdown-wrap">
+              <select
+                id="project-dropdown"
+                className="project-dropdown"
+                defaultValue="project"
+                aria-label="Project"
+                data-testid="select-project"
+              >
+                <option value="project">Project</option>
+              </select>
+              <svg aria-hidden="true" viewBox="0 0 12 12" className="project-chevron">
+                <path d="m2.5 4.5 3.5 3 3.5-3" />
+              </svg>
+            </div>
+          </div>
           <div className="status-segment" aria-hidden="true"><span className="status-diamond" /></div>
         </div>
 
         <section className="panel-row" aria-label="Workspace panels">
           <div className="panel" aria-hidden="true" />
-          <div className="panel project-panel" aria-label="Project panel">
-            <div className="project-panel-rows">
-              <div className="project-panel-row">
-                <label className="sr-only" htmlFor="project-dropdown">Project</label>
-                <div className="project-dropdown-wrap">
-                  <select
-                    id="project-dropdown"
-                    className="project-dropdown"
-                    defaultValue="project"
-                    aria-label="Project"
-                    data-testid="select-project"
-                  >
-                    <option value="project">Project</option>
-                  </select>
-                  <svg aria-hidden="true" viewBox="0 0 12 12" className="project-chevron">
-                    <path d="m2.5 4.5 3.5 3 3.5-3" />
-                  </svg>
-                </div>
-              </div>
-              <div className="project-panel-row" aria-hidden="true" />
-            </div>
-          </div>
+          <div className="panel" aria-hidden="true" />
           <div className="panel" aria-hidden="true" />
         </section>
 
