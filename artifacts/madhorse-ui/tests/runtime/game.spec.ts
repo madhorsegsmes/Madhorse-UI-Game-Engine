@@ -1,6 +1,6 @@
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
 import { applyGameCommand, gameExample } from '../../src/lib/game-api';
-import { languages, openScripts, importSource, run, finished, status, output, frames } from './fixtures';
+import { test, languages, openScripts, importSource, run, finished, status, output, frames } from './fixtures';
 
 const command = (updates: Record<string, unknown> = {}) => ({
   version: 1, object: 'player', action: 'setPosition', x: 75, y: 35, ...updates,

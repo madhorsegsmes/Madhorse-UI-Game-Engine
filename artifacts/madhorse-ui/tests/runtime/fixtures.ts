@@ -1,4 +1,32 @@
-import { expect, type Page } from '@playwright/test';
+import { test as base, expect, type Page } from '@playwright/test';
+
+// Preserve the actual engine/runtime failure, not an engine-wide skip or a
+// catch-and-pass fallback. These attachments are included in both reports.
+export const test = base.extend<{ runtimeEvidence: void }>({
+  runtimeEvidence: [async ({ page, browserName }, use, testInfo) => {
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    page.on('console', message => {
+      if (message.type() === 'error') errors.push(message.text());
+    });
+    page.on('requestfailed', request => {
+      errors.push(`${request.method()} ${request.url()}: ${request.failure()?.errorText}`);
+    });
+    await use();
+    if (testInfo.status !== testInfo.expectedStatus) {
+      await testInfo.attach('runtime-diagnostics', {
+        contentType: 'application/json',
+        body: JSON.stringify({
+          browser: browserName,
+          project: testInfo.project.name,
+          status: await status(page).allTextContents().catch(() => []),
+          output: await output(page).allTextContents().catch(() => []),
+          errors,
+        }, null, 2),
+      });
+    }
+  }, { auto: true }],
+});
 
 export const languages = [
   { name: 'JavaScript', extension: 'js', hello: 'console.log("hello JavaScript")', invalid: 'const = ;', loop: 'while (true) {}' },

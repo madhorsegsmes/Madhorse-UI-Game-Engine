@@ -1,5 +1,5 @@
-import { test, expect } from '@playwright/test';
-import { languages, openScripts, importSource, run, finished, status, output, frames } from './fixtures';
+import { expect } from '@playwright/test';
+import { test, languages, openScripts, importSource, run, finished, status, output, frames } from './fixtures';
 
 for (const language of languages) {
   test(`${language.name}: imported hello world, syntax error, successful rerun`, async ({ page }) => {

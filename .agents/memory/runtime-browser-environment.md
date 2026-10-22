@@ -14,3 +14,16 @@ runtime checks successfully. A browser launch failure is not a sandbox regressio
 **How to apply:** When browser checks fail before their test bodies, distinguish
 missing Linux libraries from application failures and preserve the system-browser
 override rather than weakening assertions or skipping browser coverage.
+
+Firefox and WebKit need their own matching Playwright builds and host libraries;
+the supplied Chromium path is not a cross-engine fallback. Do not combine all
+`/repl/tools/*/lib` directories into `LD_LIBRARY_PATH`.
+
+**Why:** Mixing the supplied Nix libraries with downloaded Ubuntu browser
+binaries produced glibc ABI errors before browser startup. WebKit also needs
+the exact ICU SONAMEs its build targets; a newer unrelated ICU is not a substitute.
+
+**How to apply:** Treat missing-library and loader failures as environment
+blockers, preserve their failure reports, and run on a host with the matching
+Playwright dependencies. Do not weaken sandbox isolation or mark tests skipped
+to work around browser launch problems.

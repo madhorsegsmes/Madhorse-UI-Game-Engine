@@ -1,5 +1,5 @@
-import { test, expect } from '@playwright/test';
-import { openScripts, importSource, run, finished, output, frames, status } from './fixtures';
+import { expect } from '@playwright/test';
+import { test, openScripts, importSource, run, finished, output, frames, status } from './fixtures';
 
 test('initial load and importing scripts never download language runtimes', async ({ page }) => {
   const downloads: string[] = [];

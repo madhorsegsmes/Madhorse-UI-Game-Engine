@@ -14,18 +14,28 @@ export default defineConfig({
   reporter: [
     ['list'],
     ['html', { outputFolder: path.join(evidence, 'report'), open: 'never' }],
+    ['json', { outputFile: path.join(evidence, 'report.json') }],
   ],
   use: {
     baseURL: 'http://127.0.0.1:4174',
-    browserName: 'chromium',
     headless: true,
-    launchOptions: {
-      executablePath: process.env.REPLIT_PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined,
-    },
     viewport: { width: 1280, height: 900 },
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        browserName: 'chromium',
+        launchOptions: {
+          executablePath: process.env.REPLIT_PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined,
+        },
+      },
+    },
+    { name: 'firefox', use: { browserName: 'firefox' } },
+    { name: 'webkit', use: { browserName: 'webkit' } },
+  ],
   webServer: {
     command: 'pnpm run build && pnpm run serve',
     env: { PORT: '4174', BASE_PATH: '/', NODE_ENV: 'production' },
