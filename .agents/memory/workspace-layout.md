@@ -14,3 +14,11 @@ At the very top is one long bordered **Main Panel**, with a column divider and *
 **Why:** The user explicitly corrected the control placement and assigned these panel numbers.
 
 **How to apply:** Use these names and sides when interpreting future layout requests. Preserve the grouping on phone layouts rather than combining all six toolbar controls into one box.
+
+The visual preview's default appearance should be a blank canvas with a centered
+square, like Unity. Keep the surrounding numbered panels unchanged.
+
+**Why:** The user asked for a blank canvas with a centered square like Unity.
+
+**How to apply:** Keep preview settings unobtrusive and preserve existing project
+objects and saved positions when changing the presentation.

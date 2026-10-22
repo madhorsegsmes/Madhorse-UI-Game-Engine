@@ -4,6 +4,12 @@ import { test, openScripts, importSource, run, finished, frames } from './fixtur
 
 const storageKey = 'madhorse-ui-projects';
 const player = (page: import('@playwright/test').Page) => page.getByTestId('scene-player');
+async function showStartControls(page: import('@playwright/test').Page) {
+  const settings = page.getByTestId('scene-preview-settings');
+  if (!await settings.evaluate((element) => (element as HTMLDetailsElement).open)) {
+    await settings.locator('summary').click();
+  }
+}
 
 test('saved coordinates accept only finite numbers in the scene bounds', () => {
   for (const value of [null, [], {}, { x: '50', y: 50 }, { x: NaN, y: 50 },
@@ -16,6 +22,7 @@ test('saved coordinates accept only finite numbers in the scene bounds', () => {
 
 test('saved start survives scripts, reset, project switches and reloads', async ({ page }) => {
   await openScripts(page);
+  await showStartControls(page);
   await page.getByLabel('Starting X', { exact: true }).fill('20.5');
   await page.getByLabel('Starting Y', { exact: true }).fill('80');
   // Drafts do not save or move the runtime.
@@ -41,6 +48,7 @@ test('saved start survives scripts, reset, project switches and reloads', async 
   page.once('dialog', dialog => dialog.accept('Separate scene'));
   await page.getByRole('button', { name: 'New project', exact: true }).click();
   await expect(player(page)).toHaveAttribute('data-x', '50');
+  await showStartControls(page);
   await page.getByLabel('Starting X', { exact: true }).fill('0');
   await page.getByLabel('Starting Y', { exact: true }).fill('100');
   await page.getByRole('button', { name: 'Save starting position', exact: true }).click();
@@ -66,6 +74,7 @@ test('invalid drafts cannot save, and old or malformed saved positions use the d
     await expect(player(page)).toHaveAttribute('data-x', '50');
     await expect(player(page)).toHaveAttribute('data-y', '50');
   }
+  await showStartControls(page);
   for (const value of ['', '-1', '101']) {
     await page.getByLabel('Starting X', { exact: true }).fill(value);
     await expect(page.getByRole('button', { name: 'Save starting position', exact: true })).toBeDisabled();
@@ -75,6 +84,7 @@ test('invalid drafts cannot save, and old or malformed saved positions use the d
 
 test('running scripts cannot edit saved coordinates and switching projects revokes the runner', async ({ page }) => {
   await openScripts(page);
+  await showStartControls(page);
   await page.getByLabel('Starting X', { exact: true }).fill('25');
   await page.getByRole('button', { name: 'Save starting position', exact: true }).click();
   await importSource(page, 'loop.js', 'console.log(\'MADHORSE_GAME {"version":1,"object":"player","action":"setPosition","x":75,"y":35}\'); while(true) {}');
@@ -93,6 +103,7 @@ test('running scripts cannot edit saved coordinates and switching projects revok
 
 test('scene editor positioning and explicit start controls share one saved start', async ({ page }) => {
   await openScripts(page);
+  await showStartControls(page);
   await page.getByLabel('Starting X', { exact: true }).fill('25');
   await page.getByRole('button', { name: 'Save starting position', exact: true }).click();
   await player(page).focus();

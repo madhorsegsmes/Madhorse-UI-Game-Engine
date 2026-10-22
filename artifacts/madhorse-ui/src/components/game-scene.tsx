@@ -42,7 +42,7 @@ export function GameScene({
   onMoveEntity,
   onUpdateTransform,
 }: GameSceneProps) {
-  const [viewMode, setViewMode] = useState<'3d' | '2d'>('3d');
+  const [viewMode, setViewMode] = useState<'3d' | '2d'>('2d');
   const [transformMode, setTransformMode] = useState<SceneTransformMode>('translate');
   const selectedName = entities.find((entity) => entity.id === selectedEntityId)?.name ?? 'No selection';
 
@@ -64,7 +64,7 @@ export function GameScene({
           className={viewMode === '2d' ? 'is-active' : ''}
           data-testid="tab-scene-2d"
           onClick={() => setViewMode('2d')}
-        >2D Preview</button>
+        >Canvas</button>
         <span className="scene-view-status">{readOnly ? 'Script running' : selectedName}</span>
       </div>
       <div className={`scene-preview-shell scene-preview-${viewMode}`} data-testid="scene-preview">
@@ -117,18 +117,18 @@ export function GameScene({
           })}
         </div>
       )}
-      <span className="scene-position">
-        {selectedName} · {viewMode.toUpperCase()} preview
-      </span>
-      <span className="scene-position">
-        Runtime preview · player · x {position.x} · y {position.y} · script changes are not saved
-      </span>
-      <StartingPositionControls
-        key={`${startingPosition.x},${startingPosition.y}`}
-        position={startingPosition}
-        running={readOnly}
-        onSave={onSaveStartingPosition}
-      />
+      <details className="scene-preview-settings" data-testid="scene-preview-settings">
+        <summary>Preview settings</summary>
+        <span className="scene-position">
+          Runtime preview · player · x {position.x} · y {position.y} · script changes are not saved
+        </span>
+        <StartingPositionControls
+          key={`${startingPosition.x},${startingPosition.y}`}
+          position={startingPosition}
+          running={readOnly}
+          onSave={onSaveStartingPosition}
+        />
+      </details>
     </div>
   );
 }
@@ -183,7 +183,6 @@ function ScenePreview2D({
 
   return (
     <div className="scene-2d-view">
-      <span className="scene-title">{readOnly ? 'Script running · 2D preview' : '2D scene · drag objects or use arrow keys to position'}</span>
       <div
         ref={fieldRef}
         className="scene-field"
@@ -231,6 +230,8 @@ function ScenePreview2D({
               data-x={previewPosition.x}
               data-y={previewPosition.y}
               data-entity-id={entity.id}
+              data-sprite-asset-id={sprite?.assetId ?? ''}
+              data-model-asset-id={getModelRenderer(entity)?.assetId ?? ''}
               disabled={readOnly}
               onClick={() => onSelectEntity(entity.id)}
               onKeyDown={(event) => moveFromKeyboard(event, entity.id)}

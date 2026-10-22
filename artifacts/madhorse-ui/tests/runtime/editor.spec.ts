@@ -112,8 +112,23 @@ test('rejected edits retain saved source and deletion cannot leave stale source 
   await expect(page.locator('#script-source')).toHaveCount(0);
 });
 
-test('the game preview opens in 3D and still offers a working 2D view', async ({ page }) => {
+test('the game preview opens as a blank canvas with a centered square and offers 3D tools', async ({ page }) => {
   await page.goto('/');
+  await expect(page.getByTestId('tab-scene-2d')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('scene-field')).toBeVisible();
+  await expect(page.getByTestId('scene-player')).toBeVisible();
+  await expect(page.getByTestId('scene-player')).toHaveAttribute('data-x', '50');
+  await expect(page.getByTestId('scene-player')).toHaveAttribute('data-y', '50');
+  const field = await page.getByTestId('scene-field').boundingBox();
+  const square = await page.getByTestId('scene-player').boundingBox();
+  expect(field).not.toBeNull();
+  expect(square).not.toBeNull();
+  expect(Math.abs(square!.x + square!.width / 2 - (field!.x + field!.width / 2))).toBeLessThan(2);
+  expect(Math.abs(square!.y + square!.height / 2 - (field!.y + field!.height / 2))).toBeLessThan(2);
+  await expect(page.getByLabel('Starting X')).not.toBeVisible();
+  await page.getByTestId('scene-preview-settings').locator('summary').click();
+  await expect(page.getByLabel('Starting X')).toBeVisible();
+  await page.getByTestId('tab-scene-3d').click();
   await expect(page.getByTestId('tab-scene-3d')).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('scene-preview-3d')).toBeVisible();
   await expect(page.getByTestId('scene3d-viewport')).toBeVisible();
@@ -129,6 +144,7 @@ test('the game preview opens in 3D and still offers a working 2D view', async ({
 
 test('WebGL 2 renderer creates a real graphics canvas', async ({ page }) => {
   await page.goto('/');
+  await page.getByTestId('tab-scene-3d').click();
   const canvas = page.getByTestId('scene3d-viewport').locator('canvas');
   await expect(canvas).toBeVisible();
   expect(await canvas.evaluate((element) => Boolean((element as HTMLCanvasElement).getContext('webgl2')))).toBe(true);
@@ -146,6 +162,7 @@ test('editor remains usable when WebGL 2 is unavailable', async ({ page }) => {
     });
   });
   await page.goto('/');
+  await page.getByTestId('tab-scene-3d').click();
   await expect(page.getByTestId('scene3d-unavailable')).toContainText('3D graphics unavailable');
   await expect(page.getByLabel('Project actions')).toBeVisible();
   await page.getByTestId('tab-scene-2d').click();
@@ -179,6 +196,7 @@ test('scene objects and local transforms persist with the active project', async
 
 test('image and model assets persist in this browser and images can be assigned to sprites', async ({ page }) => {
   await page.goto('/');
+  await page.getByTestId('tab-scene-3d').click();
   const geometry = Buffer.alloc(42);
   [-0.8, 0, 0, 0.8, 0, 0, 0, 1, 0].forEach((value, index) => geometry.writeFloatLE(value, index * 4));
   [0, 1, 2].forEach((value, index) => geometry.writeUInt16LE(value, 36 + index * 2));
@@ -240,6 +258,7 @@ test('image and model assets persist in this browser and images can be assigned 
   })).toBe(2);
 
   await page.reload();
+  await page.getByTestId('tab-scene-3d').click();
   await page.locator('.workspace-browser-assets > summary').click();
   await expect(page.locator('[data-testid^="asset-card-"]').filter({ hasText: 'pixel.png' })).toBeVisible();
   await expect(page.getByTestId('scene-player')).toHaveAttribute('data-sprite-asset-id', imageId!);
