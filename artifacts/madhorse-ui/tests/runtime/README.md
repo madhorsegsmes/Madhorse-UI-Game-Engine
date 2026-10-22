@@ -24,6 +24,7 @@ This keeps browser revisions matched to the installed Playwright version.
 CI never uses the Replit Chromium override or substitutes one engine for another.
 
 The gate first runs `pnpm --filter @workspace/madhorse-ui run test:runtime:memory`
+and `pnpm --filter @workspace/madhorse-ui run test:runtime:stack`
 against the source adapter and generated browser bundle, then runs
 `pnpm --filter @workspace/madhorse-ui run test:runtime` once.
 The config keeps one worker, disables parallel mode and retries, and rejects
@@ -106,7 +107,7 @@ These cases use the real Script panel and production runtime with one worker:
   console limit.
 - Finite memory allocation (96 arrays of 65,536 slots, approximately 48 MiB of
   QuickJS values) and finite 20,000-level recursion against the configured
-  32 MiB heap / 512 KiB stack limits. Never use unbounded host-memory stress.
+  32 MiB heap / 64 KiB stack limits. Never use unbounded host-memory stress.
 - Three cycles of completion, failure, and Stop, fresh globals/output,
   removal of sandbox frames, and recovery beyond the old execution deadline.
 - Stop while either the worker bootstrap or JavaScript runtime asset is held
@@ -173,21 +174,63 @@ Upstream references for the pinned build:
 - https://github.com/justjake/quickjs-emscripten/blob/v0.32.0/templates/pre-wasmMemory.js
 - https://github.com/justjake/quickjs-emscripten/blob/v0.32.0/packages/variant-quickjs-singlefile-browser-release-sync/Makefile
 
-### Remaining confirmed Chromium resource defect
+### JavaScript stack diagnostics and safe disposal
 
-The stack diagnostic is a separate pre-existing defect:
+The former Chromium stack expected-failure annotation has been removed. The
+same finite 20,000-level recursion must now report `stack overflow` normally;
+bounded output, frame removal, enabled controls and subsequent execution remain
+independent assertions. The test also rejects disposal assertions and native
+`Maximum call stack size exceeded` errors.
 
-| Guard | Expected | Observed |
-| --- | --- | --- |
-| 512 KiB stack | Bounded stack-overflow error | Disposal reports `Aborted(Assertion failed: list_empty(&rt->gc_obj_list) ... JS_FreeRuntime)` instead |
+The old 512 KiB QuickJS stack setting bounded the engine's linear-memory stack,
+not native WASM call frames. A direct probe showed `evalCode` throwing a host
+`RangeError: Maximum call stack size exceeded` before returning any result/error
+handle. Because this bypasses QuickJS's normal unwinding, `JS_FreeRuntime` then
+asserted `list_empty(&rt->gc_obj_list)` and masked the original failure. This was
+not an ordinary leaked evaluation-error handle. Both source and the production
+bundle reproduced it under V8.
 
-Only the stack's final diagnostic assertion is marked as an expected failure
-in Chromium. **All preceding boundedness, teardown, and recovery assertions
-must pass before that annotation is applied.** A corrected runtime unexpectedly
-passing the final assertion fails the test, requiring removal of the annotation.
-Firefox/WebKit have no such annotations because these defects have not been
-confirmed in those engines. These are not language-wide skips, memory-safety
-passes, or release approval. Teardown alone is not proof of resource enforcement.
+The adapter now uses a stricter **64 KiB guest stack ceiling** so QuickJS raises
+its own catchable `InternalError: stack overflow` and unwinds before the native
+stack is exhausted. This deliberately reduces allowed recursion rather than
+enlarging host limits or reclassifying a native trap as a successful guest guard.
+It is not a general guarantee about every browser's native stack size.
+The 32 MiB physical WASM memory ceiling, opaque frame, worker boundary, output
+cap and wall-clock deadline are unchanged.
+
+Error handles are released in `finally`, including when dumping fails or consumes
+a thrown Promise. Logger/console setup handles are similarly protected. Both
+context and runtime disposal are attempted; if cleanup also fails, an
+`AggregateError` retains the original failure first and includes every cleanup
+failure in its visible message. No assertion is caught and silently discarded.
+
+Run the direct finite source/bundle checks with:
+
+```sh
+pnpm --filter @workspace/madhorse-ui run test:runtime:stack
+```
+
+They reuse one initialized WASM module through repeated stack failures and fresh
+runtimes, check ordinary recursion, guest-caught stack errors (also in pending
+Promise jobs), and ordinary/primitive/Promise exceptions. The original browser
+resource case remains responsible for frame teardown and editor recovery.
+
+Stack-fix verification on 2026-10-22: both direct source/bundle stack tests and
+both direct memory tests passed, as did app and browser-test TypeScript checks.
+The full 186-test browser matrix was run once with one worker, no retries and no
+skips. Chromium passed 51/62 tests, including **all ten resource/teardown tests**,
+all seven languages' execution/Stop/timeout checks, and all isolation checks.
+The stack observation was `Script stopped with an error.`, `stack overflow`,
+successful recovery and zero remaining sandbox frames, with no expected failure.
+
+The full matrix still exits nonzero: Chromium's eleven other failures concern
+WebGL canvas creation, the unavailable model-status element, seven scene
+accessible-name expectations missing the current `z` coordinate, and two saved
+scene-position assertions. Firefox and WebKit each passed two server-only tests
+and failed sixty browser tests before their bodies because the matching
+`firefox-1555` and `webkit-2370` executables are absent. These failures were not
+changed, skipped, or relabeled as stack failures. Full cross-engine release
+approval is not claimed. The ignored JSON/HTML reports preserve all results.
 
 Historical verification before the memory fix on 2026-10-22: test TypeScript check passed; Chromium had
 8 ordinary passes and the 2 documented expected failures, with teardown and
@@ -209,8 +252,8 @@ feature first and record its affected engine/version, language, error and
 reproduction here before considering any narrowly scoped expected failure.
 An expected failure must also fail the suite when it unexpectedly starts passing.
 No language-wide unsupported runtime features have been confirmed or exempted.
-The narrowly scoped Chromium resource defects above are recorded separately;
-they do not exempt any language or engine from the existing execution checks.
+The historical Chromium resource defects above are recorded separately;
+they no longer have expected-failure annotations.
 
 ### Workspace verification: 2026-10-22
 

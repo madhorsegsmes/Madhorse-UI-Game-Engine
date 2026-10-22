@@ -3,6 +3,22 @@ import { newQuickJSWASMModuleFromVariant, newVariant } from 'quickjs-emscripten-
 
 const memoryLimit = 32 * 1024 * 1024;
 const wasmPageSize = 65536;
+// QuickJS counts its linear-memory stack, not the browser's native WASM call
+// frames. At 512 KiB Chromium/V8 can trap first, skipping QuickJS's unwinding
+// and leaving live GC objects behind. Keep the guest guard below that boundary.
+const stackLimit = 64 * 1024;
+
+function throwGuestError(context, handle) {
+  let error;
+  try {
+    error = context.dump(handle);
+  } finally {
+    // dump can itself fail (or consume a thrown Promise). Never leave the
+    // exception rooted when the context/runtime are freed.
+    if (handle.alive) handle.dispose();
+  }
+  throw new Error(error?.message ?? String(error));
+}
 
 export async function initialize() {
   // QuickJS 0.32's Emscripten allocator reports usable_size = 0, so
@@ -18,42 +34,49 @@ export async function initialize() {
   if (engine.getWasmMemory() !== memory) throw new Error('JavaScript memory limit could not be installed');
   return (source, emit) => {
     const runtime = engine.newRuntime();
-    runtime.setMemoryLimit(memoryLimit);
-    runtime.setMaxStackSize(512 * 1024);
-    const deadline = Date.now() + 5000;
-    runtime.setInterruptHandler(() => Date.now() > deadline);
-    const context = runtime.newContext();
+    let context;
+    const errors = [];
     try {
+      runtime.setMemoryLimit(memoryLimit);
+      runtime.setMaxStackSize(stackLimit);
+      const deadline = Date.now() + 5000;
+      runtime.setInterruptHandler(() => Date.now() > deadline);
+      context = runtime.newContext();
       const logger = context.newFunction('print', (...args) => {
         emit(args.map((arg) => {
           const value = context.dump(arg);
           return typeof value === 'string' ? value : JSON.stringify(value) ?? String(value);
         }).join(' '));
       });
-      context.setProp(context.global, 'print', logger);
-      const consoleObject = context.newObject();
-      for (const name of ['log', 'info', 'warn', 'error']) context.setProp(consoleObject, name, logger);
-      context.setProp(context.global, 'console', consoleObject);
-      logger.dispose();
-      consoleObject.dispose();
-      const result = context.evalCode(source, 'project-script.js');
-      if (result.error) {
-        const error = context.dump(result.error);
-        result.error.dispose();
-        throw new Error(error?.message ?? String(error));
+      try {
+        context.setProp(context.global, 'print', logger);
+        const consoleObject = context.newObject();
+        try {
+          for (const name of ['log', 'info', 'warn', 'error']) context.setProp(consoleObject, name, logger);
+          context.setProp(context.global, 'console', consoleObject);
+        } finally {
+          consoleObject.dispose();
+        }
+      } finally {
+        logger.dispose();
       }
+      const result = context.evalCode(source, 'project-script.js');
+      if (result.error) throwGuestError(context, result.error);
       result.value.dispose();
       while (runtime.hasPendingJob()) {
         const jobs = runtime.executePendingJobs(1);
-        if (jobs.error) {
-          const error = context.dump(jobs.error);
-          jobs.error.dispose();
-          throw new Error(error?.message ?? String(error));
-        }
+        if (jobs.error) throwGuestError(jobs.error.context, jobs.error);
       }
+    } catch (error) {
+      errors.push(error);
     } finally {
-      context.dispose();
-      runtime.dispose();
+      // Attempt both disposals, but never replace the execution failure with
+      // a cleanup failure. Additional failures must remain visible, too.
+      try { context?.dispose(); } catch (error) { errors.push(error); }
+      try { runtime.dispose(); } catch (error) { errors.push(error); }
     }
+    if (errors.length === 1) throw errors[0];
+    if (errors.length > 1) throw new AggregateError(errors,
+      errors.map((error) => error instanceof Error ? error.message : String(error)).join('\n'));
   };
 }

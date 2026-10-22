@@ -52,7 +52,8 @@ finite recursion, separately from worker termination and subsequent-run recovery
 **Why:** Bounded probes against the selected QuickJS build accepted retained
 allocations above its configured heap limit; JavaScript therefore needs an
 independent physical WASM memory ceiling (see `javascript-memory-boundary.md`).
-Stack exhaustion was obscured by an internal disposal assertion. Worker/frame
+An oversized guest-stack budget let native WASM stack exhaustion prevent normal
+unwinding, obscuring it with a disposal assertion (see `javascript-stack-boundary.md`). Worker/frame
 cleanup and successful reruns still worked, so recovery alone did not prove
 either resource guard.
 

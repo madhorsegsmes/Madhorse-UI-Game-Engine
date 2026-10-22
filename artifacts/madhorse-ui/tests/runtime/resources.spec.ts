@@ -87,17 +87,16 @@ console.log("memory guard failed");
     error: /out of memory/i,
   },
   {
-    name: '512 KiB stack',
+    name: '64 KiB stack',
     // Finite recursion exceeds the configured QuickJS stack, not the host's.
     source: `
 function descend(depth) { return depth === 0 ? 0 : 1 + descend(depth - 1); }
 console.log(descend(20000));
 `,
     error: /stack overflow/i,
-    knownFailure: 'QuickJS stack exhaustion is masked by a JS_FreeRuntime GC assertion during disposal.',
   },
 ]) {
-  test(`JavaScript ${resource.name} limit reports a bounded error and recovers`, async ({ page, browserName }, testInfo) => {
+  test(`JavaScript ${resource.name} limit reports a bounded error and recovers`, async ({ page }, testInfo) => {
     await openScripts(page);
     await importSource(page, 'resource.js', resource.source);
     await run(page);
@@ -118,12 +117,9 @@ console.log(descend(20000));
         recovered: true, remainingSandboxFrames: await frames(page).count(),
       }, null, 2),
     });
-    // Only the exact known guard/diagnostic assertion is an expected failure.
-    // All boundedness, teardown and recovery checks above must pass normally.
-    // A fixed engine produces an unexpected pass and requires removing this.
-    if (resource.knownFailure) test.fail(browserName === 'chromium', resource.knownFailure);
     expect(terminalStatus).toBe('Script stopped with an error.');
     expect(text).toMatch(resource.error);
+    expect(text).not.toMatch(/Aborted|Assertion failed|JS_FreeRuntime|Maximum call stack size exceeded/i);
   });
 }
 

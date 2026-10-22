@@ -51,6 +51,12 @@ jobs:
           set -euo pipefail
           pnpm --filter @workspace/madhorse-ui run test:runtime:memory 2>&1 | tee generated-artifacts/script-runtime/memory-test.log
 
+      - name: Check JavaScript stack diagnostics and disposal in source and browser bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @workspace/madhorse-ui run test:runtime:stack 2>&1 | tee generated-artifacts/script-runtime/stack-test.log
+
       - name: Install matching browsers and Linux dependencies
         shell: bash
         run: |
