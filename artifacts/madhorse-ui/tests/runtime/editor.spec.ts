@@ -1,5 +1,7 @@
 import { expect } from '@playwright/test';
 import { movementLanguages, movementStarter, scriptStorageError, sourceSize, maxScriptSize, maxProjectScriptsSize } from '../../src/lib/project-scripts';
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { hasRenderableModelGeometry } from '../../src/lib/scene-model-validation';
 import { test, openScripts, run, finished, frames, importSource } from './fixtures';
 
 test('source quotas count UTF-8 bytes and replace only the edited file', () => {
@@ -302,11 +304,20 @@ test('image and model assets persist in this browser and images can be assigned 
   expect(modelId).toBeTruthy();
   await page.getByTestId(`apply-asset-${modelId}`).click();
   await expect(page.getByTestId('scene-player')).toHaveAttribute('data-model-asset-id', modelId!);
-  await expect(page.getByTestId('scene3d-asset-status')).toContainText('Model ready · sample.gltf', { timeout: 30_000 });
+  const graphicsAvailable = await page.getByTestId('scene3d-unavailable').count() === 0;
+  if (graphicsAvailable) {
+    await expect(page.getByTestId('scene3d-asset-status')).toContainText('Model ready · sample.gltf', { timeout: 30_000 });
+  }
+  await page.locator('.workspace-browser-data > summary').click();
+  await page.getByTestId('transform-position-x').fill('63');
+  await page.getByTestId('transform-rotation-y').fill('37');
+  await page.getByTestId('transform-scale-z').fill('1.5');
   await expect(page.getByTestId(`remove-asset-${modelId}`)).toBeDisabled();
   await page.getByTestId('tab-scene-2d').click();
   await expect(page.getByTestId('scene-game-view')).toBeVisible();
-  await expect(page.getByTestId('scene3d-asset-status')).toContainText('Model ready · sample.gltf', { timeout: 30_000 });
+  if (graphicsAvailable) {
+    await expect(page.getByTestId('scene3d-asset-status')).toContainText('Model ready · sample.gltf', { timeout: 30_000 });
+  }
   await expect.poll(async () => page.evaluate(() => {
     const projects = JSON.parse(localStorage.getItem('madhorse-ui-projects') ?? '[]');
     return projects[0]?.assets?.length;
@@ -318,5 +329,23 @@ test('image and model assets persist in this browser and images can be assigned 
   await expect(page.locator('[data-testid^="asset-card-"]').filter({ hasText: 'pixel.png' })).toBeVisible();
   await expect(page.getByTestId('scene-player')).toHaveAttribute('data-sprite-asset-id', imageId!);
   await expect(page.getByTestId('scene-player')).toHaveAttribute('data-model-asset-id', modelId!);
-  await expect(page.getByTestId('scene3d-asset-status')).toContainText('Model ready · sample.gltf', { timeout: 30_000 });
+  await page.locator('.workspace-browser-data > summary').click();
+  await expect(page.getByTestId('transform-position-x')).toHaveValue('63');
+  await expect(page.getByTestId('transform-rotation-y')).toHaveValue('37');
+  await expect(page.getByTestId('transform-scale-z')).toHaveValue('1.5');
+  if (graphicsAvailable) {
+    await expect(page.getByTestId('scene3d-asset-status')).toContainText('Model ready · sample.gltf', { timeout: 30_000 });
+  } else {
+    await expect(page.getByTestId('scene3d-unavailable')).toBeVisible();
+  }
+  await page.getByTestId('remove-model-renderer').click();
+  await expect(page.getByTestId('scene-player')).toHaveAttribute('data-model-asset-id', '');
+});
+
+test('OBJ models without geometry are rejected while valid model geometry is accepted', () => {
+  const loader = new OBJLoader();
+  const invalid = loader.parse('this is not a valid OBJ model');
+  const valid = loader.parse('v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3');
+  expect(hasRenderableModelGeometry(invalid)).toBe(false);
+  expect(hasRenderableModelGeometry(valid)).toBe(true);
 });

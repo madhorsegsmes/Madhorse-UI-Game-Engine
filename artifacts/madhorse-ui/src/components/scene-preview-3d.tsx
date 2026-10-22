@@ -10,6 +10,7 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { TextureLoader } from 'three';
 import { SceneWebGLBoundary } from './scene-webgl-boundary';
 import { beginSystemActivity } from '@/lib/system-activity';
+import { hasRenderableModelGeometry } from '@/lib/scene-model-validation';
 import { GameCameraFrustum, GameCameraRig } from './game-camera-rig';
 import type { GameCamera } from '@/lib/game-camera';
 import {
@@ -564,6 +565,7 @@ function ModelAssetView(props: LoadedModelProps) {
     let alive = true;
     setObject(null);
     setFailure('');
+    props.clearError(props.id);
     props.onStatus(props.id, supported ? `Loading model · ${props.asset.name}` : '');
     if (!supported || !loaderTypes) {
       const message = `Unsupported model format · ${props.asset.name}`;
@@ -630,6 +632,13 @@ function ModelAssetView(props: LoadedModelProps) {
           material.needsUpdate = true;
         });
       });
+      if (!hasRenderableModelGeometry(root)) {
+        const message = `Model contains no renderable geometry · ${props.asset.name}`;
+        setFailure(message);
+        props.onError(props.id, message);
+        props.onStatus(props.id, '');
+        return;
+      }
       setObject(root);
       props.clearError(props.id);
       props.onStatus(props.id, `Model ready · ${props.asset.name}`);
