@@ -9,6 +9,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { TextureLoader } from 'three';
 import { SceneWebGLBoundary } from './scene-webgl-boundary';
+import { beginSystemActivity } from '@/lib/system-activity';
 import { GameCameraFrustum, GameCameraRig } from './game-camera-rig';
 import type { GameCamera } from '@/lib/game-camera';
 import {
@@ -491,14 +492,17 @@ function SpriteVisual({ url, width, height, tint, active, missing }: {
     setTexture(null);
     if (!url) return;
     let live = true;
+    const finish = beginSystemActivity('Loading textures');
     const loader = new TextureLoader();
     loader.load(url, (loaded) => {
+      finish();
       if (!live) { loaded.dispose(); return; }
       loaded.colorSpace = THREE.SRGBColorSpace;
       loaded.needsUpdate = true;
       setTexture(loaded);
-    });
+    }, undefined, () => finish());
     return () => {
+      finish();
       live = false;
       setTexture((current) => {
         current?.dispose();
@@ -574,6 +578,7 @@ function ModelAssetView(props: LoadedModelProps) {
       return () => { alive = false; };
     }
 
+    const finish = beginSystemActivity('Loading 3D models');
     const manager = new THREE.LoadingManager();
     let missingDependency = '';
     const byBasename = new Map<string, string>();
@@ -599,7 +604,9 @@ function ModelAssetView(props: LoadedModelProps) {
       return 'data:application/octet-stream,missing-local-model-dependency';
     });
     const loader = new (loaderTypes as unknown as new (manager: THREE.LoadingManager) => any)(manager);
+    try {
     loader.load(props.url, (result: any) => {
+      finish();
       if (!alive) return;
       if (missingDependency) {
         const message = `Missing local model dependency · ${missingDependency} · ${props.asset.name}`;
@@ -627,6 +634,7 @@ function ModelAssetView(props: LoadedModelProps) {
       props.clearError(props.id);
       props.onStatus(props.id, `Model ready · ${props.asset.name}`);
     }, undefined, (error: unknown) => {
+      finish();
       if (!alive) return;
       const detail = missingDependency
         ? `Missing local model dependency · ${missingDependency}`
@@ -636,7 +644,14 @@ function ModelAssetView(props: LoadedModelProps) {
       props.onError(props.id, message);
       props.onStatus(props.id, '');
     });
-    return () => { alive = false; };
+    } catch {
+      finish();
+      const message = `Could not load model · ${props.asset.name}`;
+      setFailure(message);
+      props.onError(props.id, message);
+      props.onStatus(props.id, '');
+    }
+    return () => { alive = false; finish(); };
   }, [props.id, props.asset, props.url, props.assets, props.assetUrls, props.opacity, props.onError, props.onStatus, props.clearError, supported, loaderTypes, ext]);
 
   if (failure) return <ModelFailure message={failure} />;

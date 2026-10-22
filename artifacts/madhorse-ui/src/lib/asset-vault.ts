@@ -1,3 +1,5 @@
+import { withSystemActivity } from './system-activity';
+
 const databaseName = 'madhorse-engine-local-assets';
 const databaseVersion = 1;
 const storeName = 'project-assets';
@@ -26,7 +28,7 @@ function recordKey(projectId: string, assetId: string) {
   return `${projectId}:${assetId}`;
 }
 
-export async function saveLocalAsset(projectId: string, assetId: string, blob: Blob): Promise<void> {
+async function writeAsset(projectId: string, assetId: string, blob: Blob): Promise<void> {
   const database = await openVault();
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(storeName, 'readwrite');
@@ -42,7 +44,7 @@ export async function saveLocalAsset(projectId: string, assetId: string, blob: B
   });
 }
 
-export async function loadLocalAsset(projectId: string, assetId: string): Promise<Blob | null> {
+async function readAsset(projectId: string, assetId: string): Promise<Blob | null> {
   const database = await openVault();
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(storeName, 'readonly');
@@ -58,7 +60,7 @@ export async function loadLocalAsset(projectId: string, assetId: string): Promis
   });
 }
 
-export async function deleteLocalAsset(projectId: string, assetId: string): Promise<void> {
+async function removeAsset(projectId: string, assetId: string): Promise<void> {
   const database = await openVault();
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(storeName, 'readwrite');
@@ -67,4 +69,16 @@ export async function deleteLocalAsset(projectId: string, assetId: string): Prom
     transaction.onerror = () => { database.close(); reject(transaction.error ?? new Error('Could not remove this asset from this device.')); };
     transaction.onabort = () => { database.close(); reject(transaction.error ?? new Error('Could not remove this asset from this device.')); };
   });
+}
+
+export function saveLocalAsset(projectId: string, assetId: string, blob: Blob): Promise<void> {
+  return withSystemActivity('Saving assets', () => writeAsset(projectId, assetId, blob));
+}
+
+export function loadLocalAsset(projectId: string, assetId: string): Promise<Blob | null> {
+  return withSystemActivity('Loading assets', () => readAsset(projectId, assetId));
+}
+
+export function deleteLocalAsset(projectId: string, assetId: string): Promise<void> {
+  return withSystemActivity('Updating assets', () => removeAsset(projectId, assetId));
 }

@@ -32,3 +32,12 @@ through the game camera.
 
 **How to apply:** Preserve shared scene data and keep editor-only guides and
 transform handles out of the camera output.
+
+Show a spinning cog and adjacent loading bar whenever the system refreshes or
+collects data, and keep the screen awake while the editor is being used.
+
+**Why:** The user explicitly requested both behaviors.
+
+**How to apply:** New data-loading paths must participate in the global activity
+indicator. Do not trigger extra refreshes just to animate it. Respect browser
+wake-lock restrictions and never claim the screen is awake when acquisition fails.

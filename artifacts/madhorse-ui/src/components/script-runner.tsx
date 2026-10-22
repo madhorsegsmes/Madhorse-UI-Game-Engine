@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { startScriptRuntime, type RuntimeScript } from '@/lib/script-runtime';
 import { gameExample, type GamePosition } from '@/lib/game-api';
+import { beginSystemActivity } from '@/lib/system-activity';
 
 export type ScriptRunnerHandle = { run: () => void; stop: () => void };
 export type ScriptRunnerState = { ready: boolean; running: boolean; status: string; scriptName: string };
@@ -14,6 +15,10 @@ export const ScriptRunner = forwardRef<ScriptRunnerHandle, {
   const [output, setOutput] = useState('');
   const [status, setStatus] = useState('Choose a script to run.');
   const [running, setRunning] = useState(false);
+  useEffect(() => {
+    if (!running || !/starting|loading|compiling|preparing|initializ/i.test(status)) return;
+    return beginSystemActivity('Loading script runtime');
+  }, [running, status]);
   const handle = useRef<ReturnType<typeof startScriptRuntime> | null>(null);
   const selected = scripts.find((script) => script.id === selectedId) ?? scripts[0];
   const runnable = selected && !/\.(h|hpp)$/i.test(selected.name);

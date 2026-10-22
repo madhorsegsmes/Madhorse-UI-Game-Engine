@@ -8,6 +8,8 @@ import { ScriptRunner, type ScriptRunnerHandle, type ScriptRunnerState } from '@
 import './components/workspace-layout.css';
 import { WorkspaceBrowserMenus } from '@/components/workspace-browser-menus';
 import { SystemPanelTools } from '@/components/system-panel-tools';
+import { SystemStatus } from '@/components/system-status';
+import { withSystemActivity } from '@/lib/system-activity';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import { GameScene } from '@/components/game-scene';
 import { createGameCamera, isGameCamera, type GameCamera } from '@/lib/game-camera';
@@ -292,7 +294,7 @@ function Home() {
       }
 
       try {
-        const content = await file.text();
+        const content = await withSystemActivity('Reading scripts', () => file.text());
         if (content.includes('\u0000')) {
           rejected.push(`${file.name}: file is not plain text`);
           continue;
@@ -378,6 +380,7 @@ function Home() {
             </button>
             </div>
           </div>
+          <SystemStatus />
         </header>
 
         <section className="stage" id="scene-preview" ref={stageRef} tabIndex={-1} role="tabpanel" aria-labelledby="scene-preview-tab">

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { beginSystemActivity } from '@/lib/system-activity';
 
 export const projectStorageKey = 'madhorse-ui-projects';
 const activeProjectKey = 'madhorse-ui-active-project';
@@ -17,6 +18,7 @@ export function loadActiveProjectId(projects: IdentifiedProject[]) {
 }
 
 export function saveProjectSnapshotNow(projects: unknown[], activeProjectId: string) {
+  const finish = beginSystemActivity('Saving project data');
   try {
     const serialized = JSON.stringify(projects);
     localStorage.setItem(projectStorageKey, serialized);
@@ -24,6 +26,8 @@ export function saveProjectSnapshotNow(projects: unknown[], activeProjectId: str
     return '';
   } catch {
     return 'Browser storage is full or unavailable. Latest changes may not survive a refresh.';
+  } finally {
+    finish();
   }
 }
 
