@@ -4,15 +4,20 @@ import { useProjectAssetUrls } from '@/hooks/use-project-asset-urls';
 import { deleteLocalAsset, saveLocalAsset } from '@/lib/asset-vault';
 import { saveProjectSnapshotNow } from '@/hooks/use-project-autosave';
 import {
+  createDefaultPhysicsWorldSettings,
   createModelRendererComponent,
+  createPhysicsComponent,
   createSceneEntity,
   createSpriteRendererComponent,
   getModelRenderer,
+  getPhysicsComponent,
   getPrimitive,
   getSpriteRenderer,
   getTransform,
   getWorldTransform,
   isDescendant,
+  isPhysicsComponent,
+  isPhysicsWorldSettings,
   localTransformFromWorld,
   projectAssetKind,
 } from '@/lib/scene-model';
@@ -21,6 +26,8 @@ import type { UIControlElement } from '@/lib/ui-controls';
 import type {
   ProjectAsset,
   ModelRendererComponent,
+  PhysicsComponent,
+  PhysicsWorldSettings,
   SceneEntity,
   SpriteRendererComponent,
   TransformComponent,
@@ -31,6 +38,7 @@ export type ProjectSceneDocument = {
   id: string;
   entities: SceneEntity[];
   assets: ProjectAsset[];
+  physics?: PhysicsWorldSettings;
   prefabs?: ScenePrefab[];
   uiControls?: UIControlElement[];
 };
@@ -105,6 +113,7 @@ export function useSceneEditor<T extends ProjectSceneDocument>({
     () => project.entities[0]?.id ?? null,
   );
   const [assetStatus, setAssetStatus] = useState('');
+  const [physicsStatus, setPhysicsStatus] = useState('');
 
   useEffect(() => {
     setSelectedEntityId(project.entities[0]?.id ?? null);
@@ -122,7 +131,7 @@ export function useSceneEditor<T extends ProjectSceneDocument>({
   )], [project.entities, project.prefabs]);
   const assetUrls = useProjectAssetUrls(project.id, project.assets, referencedAssetIds, setAssetStatus);
 
-  function updateProjectScene(updates: Partial<Pick<T, 'entities' | 'assets' | 'uiControls'>>) {
+  function updateProjectScene(updates: Partial<Pick<T, 'entities' | 'assets' | 'uiControls' | 'physics'>>) {
     const nextProject = { ...project, ...updates };
     const nextProjects = projects.map((entry) => entry.id === project.id ? nextProject : entry);
     setProjects(nextProjects);
@@ -319,6 +328,71 @@ export function useSceneEditor<T extends ProjectSceneDocument>({
     onUpdateModelRenderer(entityId, { assetId });
   }
 
+  function onUpdatePhysicsWorld(changes: Partial<PhysicsWorldSettings>) {
+    const current = project.physics ?? createDefaultPhysicsWorldSettings();
+    const next: PhysicsWorldSettings = {
+      ...current,
+      ...changes,
+      gravity: changes.gravity
+        ? { ...current.gravity, ...changes.gravity }
+        : changes.dimension && changes.dimension !== current.dimension
+          ? createDefaultPhysicsWorldSettings(changes.dimension).gravity
+          : { ...current.gravity },
+    };
+    if (!isPhysicsWorldSettings(next)) {
+      setPhysicsStatus('Physics settings are invalid. Gravity must stay between -1000 and 1000.');
+      return;
+    }
+    setPhysicsStatus('');
+    updateProjectScene({ physics: next } as Partial<T>);
+  }
+
+  function onAddPhysicsComponent(entityId: string) {
+    const entity = project.entities.find((entry) => entry.id === entityId);
+    if (!entity || getPhysicsComponent(entity)) return;
+    const body = createPhysicsComponent(entityId === 'player' ? 'kinematic' : 'dynamic');
+    setPhysicsStatus('');
+    updateProjectScene({
+      entities: project.entities.map((entry) => entry.id === entityId
+        ? { ...entry, components: [...entry.components, body] }
+        : entry),
+    });
+  }
+
+  function onRemovePhysicsComponent(entityId: string) {
+    setPhysicsStatus('');
+    updateProjectScene({
+      entities: project.entities.map((entity) => entity.id !== entityId
+        ? entity
+        : { ...entity, components: entity.components.filter((component) => component.type !== 'physics') }),
+    });
+  }
+
+  function onUpdatePhysicsComponent(
+    entityId: string,
+    changes: Partial<Omit<PhysicsComponent, 'id' | 'type'>>,
+  ) {
+    const entity = project.entities.find((entry) => entry.id === entityId);
+    const current = entity && getPhysicsComponent(entity);
+    if (!entity || !current) return;
+    const next = { ...current, ...changes };
+    if (!isPhysicsComponent(next)) {
+      setPhysicsStatus('Invalid physics setting. Size must be 0.1–512; mass 0.01–1000; gravity scale -10–10; friction and bounce 0–1.');
+      return;
+    }
+    setPhysicsStatus('');
+    updateProjectScene({
+      entities: project.entities.map((entry) => entry.id === entityId
+        ? {
+            ...entry,
+            components: entry.components.map((component) =>
+              component.type === 'physics' ? next : component,
+            ),
+          }
+        : entry),
+    });
+  }
+
   function onUpdateSpriteRenderer(entityId: string, changes: Partial<SpriteRendererComponent>) {
     const entity = project.entities.find((entry) => entry.id === entityId);
     if (!entity || !getSpriteRenderer(entity)) return;
@@ -463,6 +537,8 @@ export function useSceneEditor<T extends ProjectSceneDocument>({
     referencedAssetIds,
     selectedEntityId,
     assetStatus,
+    physicsWorld: project.physics ?? createDefaultPhysicsWorldSettings(),
+    physicsStatus,
     onSelectEntity,
     onSelectCreatedEntity: setSelectedEntityId,
     onCreateEntity,
@@ -482,5 +558,9 @@ export function useSceneEditor<T extends ProjectSceneDocument>({
     onRemoveModelRenderer,
     onUpdateModelRenderer,
     onAssignModel,
+    onUpdatePhysicsWorld,
+    onAddPhysicsComponent,
+    onRemovePhysicsComponent,
+    onUpdatePhysicsComponent,
   };
 }

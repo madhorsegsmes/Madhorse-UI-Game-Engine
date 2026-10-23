@@ -26,6 +26,25 @@ export type ModelRendererComponent = {
   assetId: string | null;
 };
 
+export type PhysicsBodyType = 'static' | 'dynamic' | 'kinematic';
+export type PhysicsDimension = '2d' | '3d';
+export type PhysicsComponent = {
+  id: string;
+  type: 'physics';
+  enabled: boolean;
+  bodyType: PhysicsBodyType;
+  colliderEnabled: boolean;
+  size: Vector3;
+  mass: number;
+  gravityScale: number;
+  friction: number;
+  restitution: number;
+};
+export type PhysicsWorldSettings = {
+  dimension: PhysicsDimension;
+  gravity: Vector3;
+};
+
 export type PrimitiveComponent = {
   id: string; type: 'primitive'; enabled: boolean;
   shape: 'cube' | 'plane' | 'terrain'; color: string; textureAssetId: string | null;
@@ -43,7 +62,7 @@ export type UICanvasComponent = {
   id: string; type: 'uiCanvas'; enabled: boolean; controlId: string; frame?: boolean;
 };
 export type SceneComponent = TransformComponent | SpriteRendererComponent | ModelRendererComponent |
-  PrimitiveComponent | LightComponent | CameraComponent | UICanvasComponent;
+  PrimitiveComponent | LightComponent | CameraComponent | UICanvasComponent | PhysicsComponent;
 
 export type SceneEntity = {
   id: string;
@@ -100,6 +119,23 @@ export function createModelRendererComponent(assetId: string | null = null): Mod
   };
 }
 
+export function createPhysicsComponent(
+  bodyType: PhysicsBodyType = 'dynamic',
+): PhysicsComponent {
+  return {
+    id: crypto.randomUUID(),
+    type: 'physics',
+    enabled: true,
+    bodyType,
+    colliderEnabled: true,
+    size: { x: 24, y: 24, z: 24 },
+    mass: 1,
+    gravityScale: 1,
+    friction: 0.4,
+    restitution: 0,
+  };
+}
+
 export function createDefaultPlayer(): SceneEntity {
   return {
     id: 'player',
@@ -109,6 +145,7 @@ export function createDefaultPlayer(): SceneEntity {
     components: [
       createTransformComponent(),
       createSpriteRendererComponent(),
+      createPhysicsComponent('kinematic'),
     ],
   };
 }
@@ -127,6 +164,7 @@ export function createSceneEntity(
     components: [
       createTransformComponent(position),
       ...(withSprite ? [createSpriteRendererComponent()] : []),
+      createPhysicsComponent(),
     ],
   };
 }
@@ -142,6 +180,10 @@ export function getSpriteRenderer(entity: SceneEntity): SpriteRendererComponent 
 
 export function getModelRenderer(entity: SceneEntity): ModelRendererComponent | undefined {
   return entity.components.find((entry): entry is ModelRendererComponent => entry.type === 'modelRenderer');
+}
+
+export function getPhysicsComponent(entity: SceneEntity): PhysicsComponent | undefined {
+  return entity.components.find((entry): entry is PhysicsComponent => entry.type === 'physics');
 }
 
 export function getPrimitive(entity: SceneEntity) {
@@ -193,7 +235,47 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
   }
   if (item.type === 'uiCanvas') return typeof item.enabled === 'boolean' && typeof item.controlId === 'string' &&
     (item.frame === undefined || typeof item.frame === 'boolean');
+  if (item.type === 'physics') return isPhysicsComponent(item);
   return false;
+}
+
+export function isPhysicsComponent(value: unknown): value is PhysicsComponent {
+  if (!value || typeof value !== 'object') return false;
+  const component = value as PhysicsComponent;
+  return typeof component.id === 'string' &&
+    component.type === 'physics' &&
+    typeof component.enabled === 'boolean' &&
+    ['static', 'dynamic', 'kinematic'].includes(component.bodyType) &&
+    typeof component.colliderEnabled === 'boolean' &&
+    isVector(component.size) &&
+    component.size.x >= 0.1 && component.size.x <= 512 &&
+    component.size.y >= 0.1 && component.size.y <= 512 &&
+    component.size.z >= 0.1 && component.size.z <= 512 &&
+    Number.isFinite(component.mass) && component.mass >= 0.01 && component.mass <= 1000 &&
+    Number.isFinite(component.gravityScale) && component.gravityScale >= -10 && component.gravityScale <= 10 &&
+    Number.isFinite(component.friction) && component.friction >= 0 && component.friction <= 1 &&
+    Number.isFinite(component.restitution) && component.restitution >= 0 && component.restitution <= 1;
+}
+
+export function createDefaultPhysicsWorldSettings(
+  dimension: PhysicsDimension = '2d',
+): PhysicsWorldSettings {
+  return {
+    dimension,
+    gravity: dimension === '2d'
+      ? { x: 0, y: -9.81, z: 0 }
+      : { x: 0, y: 0, z: -9.81 },
+  };
+}
+
+export function isPhysicsWorldSettings(value: unknown): value is PhysicsWorldSettings {
+  if (!value || typeof value !== 'object') return false;
+  const settings = value as PhysicsWorldSettings;
+  return (settings.dimension === '2d' || settings.dimension === '3d') &&
+    isVector(settings.gravity) &&
+    Math.abs(settings.gravity.x) <= 1000 &&
+    Math.abs(settings.gravity.y) <= 1000 &&
+    Math.abs(settings.gravity.z) <= 1000;
 }
 
 export function isSceneEntity(value: unknown): value is SceneEntity {
@@ -206,7 +288,8 @@ export function isSceneEntity(value: unknown): value is SceneEntity {
   return entity.components.filter((component) => component.type === 'transform').length === 1 &&
     ['primitive', 'light', 'camera', 'uiCanvas'].every((type) => entity.components.filter((component) => component.type === type).length <= 1) &&
     entity.components.filter((component) => component.type === 'spriteRenderer').length <= 1 &&
-    entity.components.filter((component) => component.type === 'modelRenderer').length <= 1;
+    entity.components.filter((component) => component.type === 'modelRenderer').length <= 1 &&
+    entity.components.filter((component) => component.type === 'physics').length <= 1;
 }
 
 export function isSceneGraph(values: unknown[]): values is SceneEntity[] {

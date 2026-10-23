@@ -1,6 +1,8 @@
 import type {
   ProjectAsset,
   ModelRendererComponent,
+  PhysicsComponent,
+  PhysicsWorldSettings,
   SceneEntity,
   SpriteRendererComponent,
   TransformComponent,
@@ -15,6 +17,8 @@ export type WorkspaceBrowserProps = {
   referencedAssetIds: string[];
   selectedEntityId: string | null;
   assetStatus: string;
+  physicsWorld: PhysicsWorldSettings;
+  physicsStatus: string;
   onSelectEntity: (entityId: string) => void;
   onCreateEntity: (parentId: string | null, withSprite: boolean) => void;
   onRemoveEntity: (entityId: string) => void;
@@ -35,4 +39,11 @@ export type WorkspaceBrowserProps = {
   onRemoveModelRenderer: (entityId: string) => void;
   onUpdateModelRenderer: (entityId: string, changes: Partial<ModelRendererComponent>) => void;
   onAssignModel: (entityId: string, assetId: string | null) => void;
+  onUpdatePhysicsWorld: (changes: Partial<PhysicsWorldSettings>) => void;
+  onAddPhysicsComponent: (entityId: string) => void;
+  onRemovePhysicsComponent: (entityId: string) => void;
+  onUpdatePhysicsComponent: (
+    entityId: string,
+    changes: Partial<Omit<PhysicsComponent, 'id' | 'type'>>,
+  ) => void;
 };

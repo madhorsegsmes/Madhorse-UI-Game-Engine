@@ -2,8 +2,8 @@ import { useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import './workspace-browser-menus.css';
 import type { WorkspaceBrowserProps } from './workspace-browser-contract';
-import type { ProjectAsset, SceneEntity, Vector3 } from '../lib/scene-model';
-import { getModelRenderer, getSpriteRenderer, getTransform, getPrimitive, getCamera, getLight, getUICanvas, isDescendant } from '../lib/scene-model';
+import { getModelRenderer, getPhysicsComponent, getSpriteRenderer, getTransform, getPrimitive, getCamera, getLight, getUICanvas, isDescendant } from '../lib/scene-model';
+import type { PhysicsComponent, ProjectAsset, SceneEntity, Vector3 } from '../lib/scene-model';
 
 const formatSize = (bytes: number) => {
   if (bytes < 1024) return `${bytes} B`;
@@ -50,8 +50,42 @@ function VectorFields({
   );
 }
 
-export function WorkspaceBrowserMenus(): ReactElement;
-export function WorkspaceBrowserMenus(props: WorkspaceBrowserProps): ReactElement;
+function PhysicsNumberField({
+  label,
+  value,
+  min,
+  max,
+  step,
+  testId,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  testId: string;
+  onChange: (next: number) => void;
+}) {
+  return (
+    <label className="browser-field">
+      <span>{label}</span>
+      <input
+        type="number"
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        aria-label={label}
+        data-testid={testId}
+        onChange={(event) => {
+          const next = event.currentTarget.valueAsNumber;
+          if (Number.isFinite(next)) onChange(next);
+        }}
+      />
+    </label>
+  );
+}
 export function WorkspaceBrowserMenus(props?: WorkspaceBrowserProps) {
   const {
     creationTools,
@@ -78,6 +112,12 @@ export function WorkspaceBrowserMenus(props?: WorkspaceBrowserProps) {
     onRemoveModelRenderer,
     onUpdateModelRenderer,
     onAssignModel,
+    physicsWorld,
+    physicsStatus = '',
+    onUpdatePhysicsWorld,
+    onAddPhysicsComponent,
+    onRemovePhysicsComponent,
+    onUpdatePhysicsComponent,
   } = props ?? ({} as WorkspaceBrowserProps);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -97,6 +137,10 @@ export function WorkspaceBrowserMenus(props?: WorkspaceBrowserProps) {
   const transform = selectedEntity ? getTransform(selectedEntity) : undefined;
   const sprite = selectedEntity ? getSpriteRenderer(selectedEntity) : undefined;
   const modelRenderer = selectedEntity ? getModelRenderer(selectedEntity) : undefined;
+  const physics = selectedEntity ? getPhysicsComponent(selectedEntity) : undefined;
+  const physicsSizeAxes: (keyof Vector3)[] = physicsWorld?.dimension === '3d'
+    ? ['x', 'y', 'z']
+    : ['x', 'y'];
   const imageAssets = assets.filter((asset) => asset.kind === 'image');
   const modelAssets = assets.filter((asset) => asset.kind === 'model');
 
@@ -307,6 +351,56 @@ export function WorkspaceBrowserMenus(props?: WorkspaceBrowserProps) {
             <div><span className="browser-eyebrow">PANEL 2 / INSPECTOR</span><h2>Data</h2></div>
             {selectedEntity && <span className="browser-object-id" title={selectedEntity.id}>{selectedEntity.id.slice(0, 7)}</span>}
           </div>
+          {physicsWorld && (
+            <div className="browser-inspector-content">
+              <section className="browser-inspector-section">
+                <div className="browser-section-title"><span>PHYSICS WORLD</span><span className="browser-section-rule" /></div>
+                <label className="browser-field">
+                  <span>Simulation dimension</span>
+                  <select
+                    value={physicsWorld.dimension}
+                    aria-label="Simulation dimension"
+                    data-testid="select-physics-dimension"
+                    onChange={(event) => onUpdatePhysicsWorld?.({ dimension: event.currentTarget.value as '2d' | '3d' })}
+                  >
+                    <option value="2d">2D · X/Y plane</option>
+                    <option value="3d">3D · X/Y/Z, Z up</option>
+                  </select>
+                </label>
+                <fieldset className="browser-vector">
+                  <legend>Gravity</legend>
+                  <div className="browser-vector-fields">
+                    {(physicsWorld.dimension === '2d' ? ['x', 'y'] : ['x', 'y', 'z']).map((axis) => (
+                      <label className="browser-axis" key={axis}>
+                        <span>{axis.toUpperCase()}</span>
+                        <input
+                          type="number"
+                          min="-1000"
+                          max="1000"
+                          step="0.1"
+                          value={physicsWorld.gravity[axis as keyof Vector3]}
+                          aria-label={`Gravity ${axis.toUpperCase()}`}
+                          data-testid={`physics-gravity-${axis}`}
+                          onChange={(event) => {
+                            const next = event.currentTarget.valueAsNumber;
+                            if (Number.isFinite(next)) {
+                              onUpdatePhysicsWorld?.({
+                                gravity: { ...physicsWorld.gravity, [axis]: next },
+                              });
+                            }
+                          }}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+                <p className="browser-physics-note">
+                  Play uses gravity and axis-aligned box contacts. 2D checks X/Y; 3D checks X/Y/Z. Rotation does not rotate colliders. The floor is Y=0 in 2D and Z=0 in 3D.
+                </p>
+                {physicsStatus && <span className="browser-physics-status" role="status" data-testid="physics-status">{physicsStatus}</span>}
+              </section>
+            </div>
+          )}
           {!selectedEntity || !transform ? (
             <div className="browser-empty-state browser-inspector-empty" data-testid="empty-inspector">
               <span className="browser-empty-mark" aria-hidden="true">◇</span>
@@ -376,6 +470,113 @@ export function WorkspaceBrowserMenus(props?: WorkspaceBrowserProps) {
                 <VectorFields title="Position" value={transform.position} onChange={(axis, next) => updateVector('position', axis, next)} testId="transform-position" />
                 <VectorFields title="Rotation" value={transform.rotation} onChange={(axis, next) => updateVector('rotation', axis, next)} testId="transform-rotation" />
                 <VectorFields title="Scale" value={transform.scale} onChange={(axis, next) => updateVector('scale', axis, next)} testId="transform-scale" minimum={0.001} />
+              </section>
+
+              <section className="browser-inspector-section">
+                <div className="browser-section-title"><span>PHYSICS BODY</span><span className="browser-section-rule" /></div>
+                {!physics ? (
+                  <div className="browser-component-missing">
+                    <span>No physics body attached.</span>
+                    <button type="button" onClick={() => onAddPhysicsComponent?.(selectedEntity.id)} data-testid="add-physics-component">Add component</button>
+                  </div>
+                ) : (
+                  <>
+                    <label className="browser-check-row">
+                      <input
+                        type="checkbox"
+                        checked={physics.enabled}
+                        onChange={(event) => onUpdatePhysicsComponent?.(selectedEntity.id, { enabled: event.currentTarget.checked })}
+                        aria-label="Physics body enabled"
+                        data-testid="toggle-physics-body"
+                      />
+                      <span>Component enabled</span>
+                    </label>
+                    <label className="browser-field">
+                      <span>Body type</span>
+                      <select
+                        value={physics.bodyType}
+                        aria-label="Physics body type"
+                        data-testid="select-physics-body-type"
+                        onChange={(event) => onUpdatePhysicsComponent?.(selectedEntity.id, { bodyType: event.currentTarget.value as PhysicsComponent['bodyType'] })}
+                      >
+                        <option value="dynamic">Dynamic · gravity and collisions</option>
+                        <option value="static">Static · fixed collider</option>
+                        <option value="kinematic">Kinematic · moved by game logic</option>
+                      </select>
+                    </label>
+                    <label className="browser-check-row">
+                      <input
+                        type="checkbox"
+                        checked={physics.colliderEnabled}
+                        onChange={(event) => onUpdatePhysicsComponent?.(selectedEntity.id, { colliderEnabled: event.currentTarget.checked })}
+                        aria-label="Box collider enabled"
+                        data-testid="toggle-physics-collider"
+                      />
+                      <span>Box collider enabled</span>
+                    </label>
+                    <div className="browser-size-fields">
+                      {physicsSizeAxes.map((axis) => (
+                        <PhysicsNumberField
+                          key={axis}
+                          label={`Collider ${axis.toUpperCase()} size`}
+                          value={physics.size[axis]}
+                          min={0.1}
+                          max={512}
+                          step={0.1}
+                          testId={`physics-size-${axis}`}
+                          onChange={(next) => onUpdatePhysicsComponent?.(selectedEntity.id, {
+                            size: { ...physics.size, [axis]: next },
+                          })}
+                        />
+                      ))}
+                    </div>
+                    <div className="browser-size-fields">
+                      <PhysicsNumberField
+                        label="Mass"
+                        value={physics.mass}
+                        min={0.01}
+                        max={1000}
+                        step={0.1}
+                        testId="physics-mass"
+                        onChange={(mass) => onUpdatePhysicsComponent?.(selectedEntity.id, { mass })}
+                      />
+                      <PhysicsNumberField
+                        label="Gravity scale"
+                        value={physics.gravityScale}
+                        min={-10}
+                        max={10}
+                        step={0.1}
+                        testId="physics-gravity-scale"
+                        onChange={(gravityScale) => onUpdatePhysicsComponent?.(selectedEntity.id, { gravityScale })}
+                      />
+                    </div>
+                    <div className="browser-size-fields">
+                      <PhysicsNumberField
+                        label="Friction"
+                        value={physics.friction}
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        testId="physics-friction"
+                        onChange={(friction) => onUpdatePhysicsComponent?.(selectedEntity.id, { friction })}
+                      />
+                      <PhysicsNumberField
+                        label="Bounce"
+                        value={physics.restitution}
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        testId="physics-restitution"
+                        onChange={(restitution) => onUpdatePhysicsComponent?.(selectedEntity.id, { restitution })}
+                      />
+                    </div>
+                    <p className="browser-physics-note">
+                      Dynamic bodies use project gravity and collide. Static bodies do not move. Kinematic bodies stay under game logic control.
+                    </p>
+                    {physicsStatus && <span className="browser-physics-status" role="status" data-testid="physics-status">{physicsStatus}</span>}
+                    <button type="button" className="browser-danger-action" onClick={() => onRemovePhysicsComponent?.(selectedEntity.id)} data-testid="remove-physics-component">Remove component</button>
+                  </>
+                )}
               </section>
 
               <section className="browser-inspector-section">

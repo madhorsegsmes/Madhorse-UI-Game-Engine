@@ -383,6 +383,8 @@
 .browser-axis { min-width: 0; display: grid; grid-template-columns: 13px minmax(0, 1fr); align-items: center; gap: 5px; }
 .browser-axis > span { color: #867e7b; font: 9px ui-monospace, monospace; }
 .browser-axis input { height: 29px; padding: 4px 5px; font: 10px ui-monospace, monospace; }
+.browser-physics-note { margin: 8px 0 0; color: #928a87; font-size: 9px; line-height: 1.5; }
+.browser-physics-status { display: block; margin-top: 8px; color: #f0a69e; font-size: 10px; line-height: 1.45; }
 .browser-component-missing {
   display: flex;
   align-items: center;

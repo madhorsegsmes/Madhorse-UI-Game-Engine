@@ -245,6 +245,80 @@ test('scene objects and local transforms persist with the active project', async
   await expect(page.getByTestId(`select-object-${entityId}`)).toContainText('Hero');
 });
 
+test('new objects get editable physics and Play previews gravity without saving runtime motion', async ({ page }) => {
+  await page.addInitScript(() => {
+    const original = HTMLCanvasElement.prototype.getContext;
+    Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+      value: function (this: HTMLCanvasElement, contextId: string, ...args: unknown[]) {
+        if (contextId.includes('webgl')) return null;
+        return Reflect.apply(original, this, [contextId, ...args]);
+      },
+    });
+  });
+  await page.goto('/');
+  await page.locator('.workspace-browser-hierarchy > summary').click();
+  await page.getByTestId('add-sprite-object').click();
+  const object = page.locator('[data-testid^="scene-object-"]').last();
+  const entityId = await object.getAttribute('data-entity-id');
+  expect(entityId).toBeTruthy();
+
+  await page.locator('.workspace-browser-data > summary').click();
+  await expect(page.getByTestId('select-physics-body-type')).toHaveValue('dynamic');
+  await expect(page.getByTestId('toggle-physics-collider')).toBeChecked();
+  await page.getByTestId('physics-mass').fill('2');
+  await page.getByTestId('physics-friction').fill('0.7');
+  await page.getByTestId('physics-mass').fill('1001');
+  await expect(page.locator('[data-testid="physics-status"]').first()).toContainText('Invalid physics setting');
+  await expect(page.getByTestId('physics-mass')).toHaveValue('2');
+  await page.getByTestId('physics-mass').fill('2');
+  await page.getByTestId('physics-gravity-y').fill('-1001');
+  await expect(page.locator('[data-testid="physics-status"]').first()).toContainText('Gravity must stay');
+  await page.getByTestId('physics-gravity-y').fill('-9.81');
+
+  await page.getByTestId('select-physics-dimension').selectOption('3d');
+  await expect(page.getByTestId('physics-gravity-z')).toHaveValue('-9.81');
+  await expect(page.getByTestId('physics-size-z')).toBeVisible();
+  await page.getByTestId('select-physics-dimension').selectOption('2d');
+  await expect(page.getByTestId('physics-gravity-y')).toHaveValue('-9.81');
+
+  const originalY = Number(await object.getAttribute('data-y'));
+  expect(originalY).toBe(28);
+  await page.locator('.workspace-browser-data > summary').click();
+  await page.getByTestId('button-play-game').click();
+  await expect(page.getByTestId('status-play')).toContainText('Physics preview running');
+  await expect.poll(async () => Number(await object.getAttribute('data-y'))).toBeLessThan(originalY);
+  await expect.poll(() => page.evaluate((id) => {
+    const projects = JSON.parse(localStorage.getItem('madhorse-ui-projects') ?? '[]');
+    const entity = projects[0]?.entities?.find((entry: { id: string }) => entry.id === id);
+    const transform = entity?.components?.find((entry: { type: string }) => entry.type === 'transform');
+    const physics = entity?.components?.find((entry: { type: string }) => entry.type === 'physics');
+    return {
+      y: transform?.position?.y,
+      mass: physics?.mass,
+      friction: physics?.friction,
+      dimension: projects[0]?.physics?.dimension,
+    };
+  }, entityId)).toEqual({ y: originalY, mass: 2, friction: 0.7, dimension: '2d' });
+
+  await page.getByTestId('button-stop-game').click();
+  await expect(object).toHaveAttribute('data-y', String(originalY));
+
+  await page.locator('.workspace-browser-data > summary').click();
+  await page.getByTestId('select-physics-dimension').selectOption('3d');
+  await page.locator('.workspace-browser-data > summary').click();
+  const originalZ = Number(await object.getAttribute('data-z'));
+  await page.getByTestId('button-play-game').click();
+  await expect.poll(async () => Number(await object.getAttribute('data-z'))).toBeGreaterThan(originalZ);
+  await expect.poll(() => page.evaluate((id) => {
+    const projects = JSON.parse(localStorage.getItem('madhorse-ui-projects') ?? '[]');
+    const entity = projects[0]?.entities?.find((entry: { id: string }) => entry.id === id);
+    const transform = entity?.components?.find((entry: { type: string }) => entry.type === 'transform');
+    return { z: transform?.position?.z, dimension: projects[0]?.physics?.dimension };
+  }, entityId)).toEqual({ z: originalZ, dimension: '3d' });
+  await page.getByTestId('button-stop-game').click();
+  await expect(object).toHaveAttribute('data-z', String(originalZ));
+});
+
 test('image and model assets persist in this browser and images can be assigned to sprites', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('tab-scene-3d').click();

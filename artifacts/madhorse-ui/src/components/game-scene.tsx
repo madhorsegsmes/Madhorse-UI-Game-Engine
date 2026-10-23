@@ -141,7 +141,7 @@ export function GameScene({
           data-testid="tab-scene-2d"
           onClick={() => onViewModeChange('2d')}
         >Canvas</button>
-        <span className="scene-view-status">{readOnly ? 'Script running' : viewMode === '2d' ? 'Game Camera' : selectedName}</span>
+        <span className="scene-view-status">{readOnly ? 'Play mode' : viewMode === '2d' ? 'Game Camera' : selectedName}</span>
       </div>
       <div className={`scene-preview-shell scene-preview-${viewMode}`} data-testid="scene-preview">
           <ScenePreview3D
@@ -415,6 +415,7 @@ function ScenePreview2D({
               data-testid={isPlayer ? 'scene-player' : `scene-object-${entity.id}`}
               data-x={previewPosition.x}
               data-y={previewPosition.y}
+              data-z={world.position.z}
               data-entity-id={entity.id}
               data-sprite-asset-id={sprite?.assetId ?? ''}
               data-model-asset-id={getModelRenderer(entity)?.assetId ?? ''}

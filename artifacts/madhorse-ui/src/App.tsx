@@ -38,13 +38,18 @@ import { createUIControlElement, isUIControlCollection, type UIControlElement, t
 import { useSceneEditor } from '@/hooks/use-scene-editor';
 import {
   createDefaultPlayer,
+  createDefaultPhysicsWorldSettings,
   getWorldTransform,
   isAssetCollection,
+  isPhysicsComponent,
+  isPhysicsWorldSettings,
   isSceneGraph,
   type TransformComponent,
   type ProjectAsset,
+  type PhysicsWorldSettings,
   type SceneEntity,
 } from '@/lib/scene-model';
+import { usePhysicsPreview } from '@/hooks/use-physics-preview';
 
 const queryClient = new QueryClient();
 let savedProjectsWarning = '';
@@ -57,6 +62,7 @@ type Project = {
   scripts?: ScriptFile[];
   entities: SceneEntity[];
   assets: ProjectAsset[];
+  physics: PhysicsWorldSettings;
   animations?: GameAnimation[];
   uiControls?: UIControlElement[];
   initialPosition?: GamePosition;
@@ -85,6 +91,7 @@ function isSavedProject(project: unknown): project is Project {
     )) &&
     (value.entities === undefined || Array.isArray(value.entities) && isSceneGraph(value.entities)) &&
     (value.assets === undefined || Array.isArray(value.assets) && isAssetCollection(value.assets)) &&
+    (value.physics === undefined || isPhysicsWorldSettings(value.physics)) &&
     (value.animations === undefined || isGameAnimationCollection(value.animations)) &&
     (value.uiControls === undefined || isUIControlCollection(value.uiControls)) &&
     (value.gameCamera === undefined || isGameCamera(value.gameCamera)) &&
@@ -92,6 +99,23 @@ function isSavedProject(project: unknown): project is Project {
     (value.activeCameraId === undefined || value.activeCameraId === null || typeof value.activeCameraId === 'string') &&
     (value.builderHistory === undefined || isBuilderHistory(value.builderHistory)) &&
     (value.builderDraft === undefined || isBuilderDraft(value.builderDraft));
+}
+
+function hasInvalidSavedPhysics(projects: unknown[]): boolean {
+  return projects.some((candidate) => {
+    if (!candidate || typeof candidate !== 'object') return false;
+    const project = candidate as { physics?: unknown; entities?: unknown };
+    if (project.physics !== undefined && !isPhysicsWorldSettings(project.physics)) return true;
+    if (!Array.isArray(project.entities)) return false;
+    return project.entities.some((entity) => {
+      if (!entity || typeof entity !== 'object' || !Array.isArray((entity as SceneEntity).components)) return false;
+      return (entity as SceneEntity).components.some((component) =>
+        component && typeof component === 'object' &&
+        (component as { type?: unknown }).type === 'physics' &&
+        !isPhysicsComponent(component),
+      );
+    });
+  });
 }
 
 function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: string } {
@@ -102,7 +126,8 @@ function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: 
       return {
         projects: [{
           id: crypto.randomUUID(), name: 'Untitled Project', gameType: '', savedAt: '', scripts: [],
-          entities: [createDefaultPlayer()], assets: [], animations: [], uiControls: [], gameCamera: createGameCamera([]),
+          entities: [createDefaultPlayer()], assets: [], physics: createDefaultPhysicsWorldSettings(),
+          animations: [], uiControls: [], gameCamera: createGameCamera([]),
         }],
         canOverwrite: true,
         warning: '',
@@ -123,6 +148,7 @@ function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: 
                 : component),
           }],
           assets: project.assets ?? [],
+          physics: project.physics ?? createDefaultPhysicsWorldSettings(),
           animations: project.animations ?? [],
           uiControls: project.uiControls ?? [],
         })).map((project) => ({
@@ -133,14 +159,17 @@ function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: 
         warning: '',
       };
     }
-    savedProjectsWarning = 'Saved projects could not be read. Existing browser data has been left untouched.';
+    savedProjectsWarning = Array.isArray(projects) && hasInvalidSavedPhysics(projects)
+      ? 'Saved physics settings are invalid. Existing browser data has been left untouched.'
+      : 'Saved projects could not be read. Existing browser data has been left untouched.';
   } catch {
     savedProjectsWarning = 'Saved projects could not be read. Existing browser data has been left untouched.';
   }
   return {
     projects: [{
       id: crypto.randomUUID(), name: 'Untitled Project', gameType: '', savedAt: '', scripts: [],
-      entities: [createDefaultPlayer()], assets: [], animations: [], uiControls: [], gameCamera: createGameCamera([]),
+      entities: [createDefaultPlayer()], assets: [], physics: createDefaultPhysicsWorldSettings(),
+      animations: [], uiControls: [], gameCamera: createGameCamera([]),
     }],
     canOverwrite: false,
     warning: savedProjectsWarning,
@@ -246,6 +275,8 @@ function Home() {
   const runnerRef = useRef<ScriptRunnerHandle>(null);
   const stageRef = useRef<HTMLElement>(null);
   const [runnerState, setRunnerState] = useState<ScriptRunnerState>({ ready: false, running: false, status: 'Choose a script to run.', scriptName: '' });
+  const [physicsPlaying, setPhysicsPlaying] = useState(false);
+  const isPlayMode = physicsPlaying || runnerState.running;
   const [runtimeError, setRuntimeError] = useState('');
   const [animationPreview, setAnimationPreview] = useState<{
     projectId: string;
@@ -254,13 +285,13 @@ function Home() {
   } | null>(null);
   const [selectedUIControlId, setSelectedUIControlId] = useState<string | null>(null);
   const onAnimationPreviewFrame = useCallback((animation: GameAnimation | null, time: number) => {
-    if (!animation || runnerState.running) {
+    if (!animation || isPlayMode) {
       setAnimationPreview(null);
       return;
     }
     setAnimationPreview({ projectId: activeProject.id, animation, time });
-  }, [activeProject.id, runnerState.running]);
-  const activeAnimationPreview = animationPreview?.projectId === activeProject.id && !runnerState.running
+  }, [activeProject.id, isPlayMode]);
+  const activeAnimationPreview = animationPreview?.projectId === activeProject.id && !isPlayMode
     ? animationPreview
     : null;
   const sceneEntities = activeAnimationPreview
@@ -275,21 +306,27 @@ function Home() {
     activeProjectRef,
     setProjects,
     canOverwriteSavedData: loadedProjects.canOverwrite,
-    isRunning: runnerState.running,
+    isRunning: isPlayMode,
     onPreviewPosition: (nextPosition) => setScene({ projectId: activeProject.id, position: nextPosition }),
   });
+  const physicsPreviewEntities = usePhysicsPreview(
+    activeProject.entities,
+    activeProject.physics ?? createDefaultPhysicsWorldSettings(),
+    isPlayMode,
+  );
+  const displayedSceneEntities = isPlayMode ? physicsPreviewEntities : sceneEntities;
   const authoring = useSceneAuthoring({
     project: activeProject, activeProjectRef, setProjects,
     selectedEntityId: sceneEditor.selectedEntityId,
     onSelectCreatedEntity: sceneEditor.onSelectCreatedEntity,
     onSetParent: sceneEditor.onSetParent, onImportAssets: sceneEditor.onImportAssets,
-    readOnly: runnerState.running || Boolean(activeAnimationPreview),
+    readOnly: isPlayMode || Boolean(activeAnimationPreview),
     canOverwrite: loadedProjects.canOverwrite,
     onUICanvasCreated: (controlId) => { setSelectedUIControlId(controlId); selectPreview('2d'); },
   });
   const madBuilder = useMadBuilder({
     project: activeProject, activeProjectRef, setProjects,
-    readOnly: !loadedProjects.canOverwrite || runnerState.running || Boolean(activeAnimationPreview),
+    readOnly: !loadedProjects.canOverwrite || isPlayMode || Boolean(activeAnimationPreview),
     onBuilt: (rootId) => {
       sceneEditor.onSelectCreatedEntity(rootId);
       selectPreview('3d');
@@ -299,6 +336,7 @@ function Home() {
   });
   useEffect(() => {
     setRuntimeError('');
+    setPhysicsPlaying(false);
     setScene({ projectId: activeProject.id, position: getPlayerStartPosition(activeProject) });
     setAnimationPreview(null);
     setSelectedUIControlId(null);
@@ -318,6 +356,7 @@ function Home() {
     const name = window.prompt('Name your project');
     if (!name?.trim()) return;
     runnerRef.current?.stop();
+    setPhysicsPlaying(false);
     const project = {
       id: crypto.randomUUID(),
       name: name.trim(),
@@ -326,6 +365,7 @@ function Home() {
       scripts: [],
       entities: [createDefaultPlayer()],
       assets: [],
+      physics: createDefaultPhysicsWorldSettings(),
       animations: [],
       uiControls: [],
       gameCamera: createGameCamera([]),
@@ -347,8 +387,19 @@ function Home() {
     setSaveMessage('Project saved');
   }
 
+  function playProject() {
+    setRuntimeError('');
+    setPhysicsPlaying(true);
+    if (runnerState.ready) runnerRef.current?.run();
+  }
+
+  function stopProject() {
+    setPhysicsPlaying(false);
+    runnerRef.current?.stop();
+  }
+
   function saveStartingPosition(next: GamePosition) {
-    if (!isGamePosition(next) || runnerState.running) return;
+    if (!isGamePosition(next) || isPlayMode || activeAnimationPreview || !loadedProjects.canOverwrite) return;
     runnerRef.current?.stop();
     sceneEditor.onMoveEntity('player', next);
     setSaveMessage('Starting position updated. Saved in this browser unless a storage error is shown.');
@@ -452,7 +503,7 @@ function Home() {
   }
 
   function createUIControl(type: UIControlType) {
-    if (runnerState.running) return;
+    if (isPlayMode) return;
     const elements = activeProject.uiControls ?? [];
     const element = createUIControlElement(type, elements.length);
     updateActiveProject({ uiControls: [...elements, element] });
@@ -460,7 +511,7 @@ function Home() {
   }
 
   function updateUIControl(id: string, changes: Partial<Omit<UIControlElement, 'id' | 'type'>>) {
-    if (runnerState.running) return;
+    if (isPlayMode) return;
     updateActiveProject({
       uiControls: (activeProject.uiControls ?? []).map((element) =>
         element.id === id ? { ...element, ...changes } : element,
@@ -473,7 +524,7 @@ function Home() {
   }
 
   function deleteUIControl(id: string) {
-    if (runnerState.running) return;
+    if (isPlayMode) return;
     updateActiveProject({ uiControls: (activeProject.uiControls ?? []).filter((element) => element.id !== id) });
     setSelectedUIControlId((selected) => selected === id ? null : selected);
   }
@@ -527,7 +578,7 @@ function Home() {
             viewMode={viewMode}
             onViewModeChange={selectPreview}
             gameCamera={gameCamera}
-            entities={sceneEntities}
+            entities={displayedSceneEntities}
             uiControls={activeProject.uiControls ?? []}
             selectedUIControlId={selectedUIControlId}
             assets={sceneEditor.assets}
@@ -536,16 +587,16 @@ function Home() {
             position={scenePosition}
             startingPosition={startingPosition}
             onSaveStartingPosition={saveStartingPosition}
-            readOnly={runnerState.running || Boolean(activeAnimationPreview) || !loadedProjects.canOverwrite}
+            readOnly={isPlayMode || Boolean(activeAnimationPreview) || !loadedProjects.canOverwrite}
             onSelectEntity={sceneEditor.onSelectEntity}
             onMoveEntity={sceneEditor.onMoveEntity}
             onUpdateTransform={sceneEditor.onUpdateTransform}
             onPrimaryCameraChange={(camera) => {
-              if (runnerState.running || activeAnimationPreview || !loadedProjects.canOverwrite) return;
+              if (isPlayMode || activeAnimationPreview || !loadedProjects.canOverwrite) return;
               updateActiveProject({ gameCamera: camera, activeCameraId: null });
             }}
             onCameraEntityTransform={(id, changes) => {
-              if (runnerState.running || activeAnimationPreview || !loadedProjects.canOverwrite) return;
+              if (isPlayMode || activeAnimationPreview || !loadedProjects.canOverwrite) return;
               setProjects((current) => current.map((project) => project.id === activeProjectId
                 ? { ...project, entities: updateCameraEntityTransform(project.entities, id, changes) ?? project.entities }
                 : project));
@@ -608,6 +659,7 @@ function Home() {
                 value={activeProjectId}
                 onChange={(event) => {
                   runnerRef.current?.stop();
+                  setPhysicsPlaying(false);
                   setActiveProjectId(event.target.value);
                   setSaveMessage('');
                 }}
@@ -741,7 +793,7 @@ function Home() {
           <div className="panel" role="region" aria-labelledby="panel-3-label">
             <span className="panel-label" id="panel-3-label">PANEL 3 / System</span>
             <SystemPanelTools
-              readOnly={runnerState.running}
+              readOnly={isPlayMode}
               animations={activeProject.animations ?? []}
               entities={sceneEditor.entities}
               selectedEntityId={sceneEditor.selectedEntityId}
@@ -772,8 +824,8 @@ function Home() {
                 type="button"
                 className="control-button"
                 data-testid="button-play-game"
-                disabled={!runnerState.ready || runnerState.running}
-                onClick={() => runnerRef.current?.run()}
+                disabled={isPlayMode}
+                onClick={playProject}
               >
                 Play
               </button>
@@ -781,14 +833,20 @@ function Home() {
                 type="button"
                 className="control-button"
                 data-testid="button-stop-game"
-                disabled={!runnerState.running}
-                onClick={() => runnerRef.current?.stop()}
+                disabled={!isPlayMode}
+                onClick={stopProject}
               >
                 Stop
               </button>
             </div>
             <span className="panel-text" role="status" data-testid="status-play">
-              {runnerState.scriptName ? `${runnerState.scriptName} · ${runnerState.status}` : 'Create or import a script to play.'}
+              {runnerState.running
+                ? `${runnerState.scriptName} · ${runnerState.status}`
+                : physicsPlaying
+                  ? 'Physics preview running · project data unchanged.'
+                  : runnerState.scriptName
+                    ? `${runnerState.scriptName} · ${runnerState.status}`
+                    : 'Play starts physics; scripts run when a script is ready.'}
             </span>
           </div>
           <div className="panel" role="region" aria-labelledby="panel-5-label">
