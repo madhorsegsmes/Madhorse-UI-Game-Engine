@@ -12,6 +12,7 @@ import {
   getModelRenderer,
   getPhysicsComponent,
   getPrimitive,
+  getScriptComponent,
   getSpriteRenderer,
   getTransform,
   getWorldTransform,
@@ -41,6 +42,7 @@ export type ProjectSceneDocument = {
   physics?: PhysicsWorldSettings;
   prefabs?: ScenePrefab[];
   uiControls?: UIControlElement[];
+  scripts?: { id: string }[];
 };
 
 type SceneEditorOptions<T extends ProjectSceneDocument> = {
@@ -187,6 +189,21 @@ export function useSceneEditor<T extends ProjectSceneDocument>({
       entities: project.entities.map((entity) =>
         entity.id === entityId ? { ...entity, name: name.slice(0, 80) } : entity,
       ),
+    });
+  }
+
+  function onAssignScript(entityId: string, scriptId: string | null) {
+    const entity = project.entities.find((entry) => entry.id === entityId);
+    if (!entity) return;
+    if (scriptId && !project.scripts?.some((script) => script.id === scriptId)) return;
+    const current = getScriptComponent(entity);
+    const components = scriptId
+      ? current
+        ? entity.components.map((component) => component.type === 'script' ? { ...component, scriptId } : component)
+        : [...entity.components, { id: crypto.randomUUID(), type: 'script' as const, enabled: true, scriptId }]
+      : entity.components.filter((component) => component.type !== 'script');
+    updateProjectScene({
+      entities: project.entities.map((entry) => entry.id === entityId ? { ...entry, components } : entry),
     });
   }
 
@@ -544,6 +561,7 @@ export function useSceneEditor<T extends ProjectSceneDocument>({
     onCreateEntity,
     onRemoveEntity,
     onRenameEntity,
+    onAssignScript,
     onSetEntityActive,
     onSetParent,
     onUpdateTransform,

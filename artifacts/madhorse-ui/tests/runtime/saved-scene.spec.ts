@@ -29,6 +29,10 @@ test('saved start survives scripts, reset, project switches and reloads', async 
   await expect(player(page)).toHaveAttribute('data-x', '50');
   await page.getByRole('button', { name: 'Save starting position', exact: true }).click();
   await expect(player(page)).toHaveAttribute('data-x', '20.5');
+  await expect.poll(() => page.evaluate((key) => JSON.parse(localStorage.getItem(key)!)[0].entities
+    .find((entity: { id: string }) => entity.id === 'player').components
+    .find((component: { type: string }) => component.type === 'transform').position, storageKey))
+    .toMatchObject({ x: 20.5, y: 80 });
   await importSource(page, 'relative.js', 'console.log(\'MADHORSE_GAME {"version":1,"object":"player","action":"move","x":10,"y":-5}\')');
   await run(page);
   await finished(page);

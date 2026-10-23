@@ -7,11 +7,13 @@ import type {
   SpriteRendererComponent,
   TransformComponent,
 } from '@/lib/scene-model';
+import type { ScriptFile } from '@/lib/project-scripts';
 import type { ReactNode } from 'react';
 
 export type WorkspaceBrowserProps = {
   creationTools?: ReactNode;
   entities: SceneEntity[];
+  scripts: Pick<ScriptFile, 'id' | 'name' | 'language'>[];
   assets: ProjectAsset[];
   assetUrls: Record<string, string>;
   referencedAssetIds: string[];
@@ -23,6 +25,7 @@ export type WorkspaceBrowserProps = {
   onCreateEntity: (parentId: string | null, withSprite: boolean) => void;
   onRemoveEntity: (entityId: string) => void;
   onRenameEntity: (entityId: string, name: string) => void;
+  onAssignScript: (entityId: string, scriptId: string | null) => void;
   onSetEntityActive: (entityId: string, active: boolean) => void;
   onSetParent: (entityId: string, parentId: string | null) => void;
   onUpdateTransform: (

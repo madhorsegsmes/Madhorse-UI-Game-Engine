@@ -260,6 +260,25 @@ function applyAnimationPreview(
   });
 }
 
+function applyScriptPreview(entities: SceneEntity[], positions: Record<string, GamePosition>): SceneEntity[] {
+  return entities.map((entity) => {
+    const position = positions[entity.id];
+    if (!position || entity.id === 'player') return entity;
+    const world = getWorldTransform(entities, entity.id);
+    if (!world) return entity;
+    const local = localTransformFromWorld(
+      entities,
+      { ...world, position: { ...world.position, ...position } },
+      entity.parentId,
+    );
+    return {
+      ...entity,
+      components: entity.components.map((component) => component.type === 'transform'
+        ? { ...component, position: local.position }
+        : component),
+    };
+  });
+}
 function HorseMark() {
   return (
     <svg
@@ -300,6 +319,10 @@ function Home() {
   const [scene, setScene] = useState<{ projectId: string; position: GamePosition }>(() => ({
     projectId: projects[0].id, position: getPlayerStartPosition(projects[0]),
   }));
+  const [scriptPreview, setScriptPreview] = useState<{
+    projectId: string;
+    positions: Record<string, GamePosition>;
+  }>({ projectId: projects[0].id, positions: {} });
   const activeProject = projects.find((project) => project.id === activeProjectId) ?? projects[0];
   const [previewSelection, setPreviewSelection] = useState<{ projectId: string; mode: '3d' | '2d' }>({
     projectId: '', mode: '2d',
@@ -360,7 +383,13 @@ function Home() {
     activeProject.physics ?? createDefaultPhysicsWorldSettings(),
     isPlayMode,
   );
-  const displayedSceneEntities = isPlayMode ? physicsPreviewEntities : sceneEntities;
+  const baseDisplayedSceneEntities = isPlayMode ? physicsPreviewEntities : sceneEntities;
+  const displayedSceneEntities = activeAnimationPreview
+    ? baseDisplayedSceneEntities
+    : applyScriptPreview(
+        baseDisplayedSceneEntities,
+        scriptPreview.projectId === activeProject.id ? scriptPreview.positions : {},
+      );
   const authoring = useSceneAuthoring({
     project: activeProject, activeProjectRef, setProjects,
     selectedEntityId: sceneEditor.selectedEntityId,
@@ -384,6 +413,7 @@ function Home() {
     setRuntimeError('');
     setPhysicsPlaying(false);
     setScene({ projectId: activeProject.id, position: getPlayerStartPosition(activeProject) });
+    setScriptPreview({ projectId: activeProject.id, positions: {} });
     setAnimationPreview(null);
     setSelectedUIControlId(null);
   }, [activeProject.id]);
@@ -437,6 +467,8 @@ function Home() {
   function playProject() {
     setRuntimeError('');
     setPhysicsPlaying(true);
+    setScriptPreview({ projectId: activeProject.id, positions: {} });
+    setScene({ projectId: activeProject.id, position: startingPosition });
     if (runnerState.ready) runnerRef.current?.run();
   }
 
@@ -545,6 +577,11 @@ function Home() {
     runnerRef.current?.stop();
     updateActiveProject({
       scripts: (activeProject.scripts ?? []).filter((script) => script.id !== scriptId),
+      entities: activeProject.entities.map((entity) => ({
+        ...entity,
+        components: entity.components.filter((component) =>
+          component.type !== 'script' || component.scriptId !== scriptId),
+      })),
     });
     setScriptMessage('Script removed from this project');
   }
@@ -684,7 +721,11 @@ function Home() {
           <div className="toolbar-group" role="group" aria-labelledby="panel-2-label">
             <span className="panel-label" id="panel-2-label">PANEL 2</span>
             <div className="toolbar-buttons">
-              <WorkspaceBrowserMenus {...sceneEditor} creationTools={<HierarchyCreationTools {...authoring} />} />
+              <WorkspaceBrowserMenus
+                {...sceneEditor}
+                scripts={activeProject.scripts ?? []}
+                creationTools={<HierarchyCreationTools {...authoring} />}
+              />
               <MadBuilderMenu key={activeProject.id} {...madBuilder} />
             </div>
           </div>
@@ -812,18 +853,30 @@ function Home() {
                   key={activeProject.id}
                   projectId={activeProject.id}
                   scripts={activeProject.scripts ?? []}
+                  entities={activeProject.entities}
                   selectedId={selectedScriptId}
                   onSelect={selectScript}
                   onEdit={editScript}
                   position={position}
-                  onPosition={(next) => {
+                  onEntityPosition={(entityId, next) => {
                     if (activeProjectRef.current.id === activeProject.id) {
-                      setScene({ projectId: activeProject.id, position: next });
+                      if (entityId === 'player') {
+                        setScene({ projectId: activeProject.id, position: next });
+                      } else {
+                        setScriptPreview((current) => ({
+                          projectId: activeProject.id,
+                          positions: {
+                            ...(current.projectId === activeProject.id ? current.positions : {}),
+                            [entityId]: next,
+                          },
+                        }));
+                      }
                     }
                   }}
                   onReset={() => {
                     runnerRef.current?.stop();
                     setScene({ projectId: activeProject.id, position: { ...startingPosition } });
+                    setScriptPreview({ projectId: activeProject.id, positions: {} });
                   }}
                 />
                 <span className="script-message" role="status">{scriptMessage}</span>

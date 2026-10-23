@@ -22,6 +22,14 @@ test('editor boundary accepts only the exact finite, bounded command schema', ()
   expect(start).toEqual({ x: 50, y: 50 });
 });
 
+test('object commands are bound to the one object granted to that runtime', () => {
+  const start = { x: 50, y: 50 };
+  expect(applyGameCommand(command({ object: 'self' }), start, 'coin')).toEqual({ x: 75, y: 35 });
+  expect(applyGameCommand(command({ object: 'coin' }), start, 'coin')).toEqual({ x: 75, y: 35 });
+  expect(() => applyGameCommand(command(), start, 'coin')).toThrow('Invalid game command');
+  expect(() => applyGameCommand(command({ object: 'player' }), start, 'coin')).toThrow('Invalid game command');
+});
+
 for (const language of languages) {
   test(`${language.name}: scene API moves the visible object and Reset restores it`, async ({ page }) => {
     await openScripts(page);

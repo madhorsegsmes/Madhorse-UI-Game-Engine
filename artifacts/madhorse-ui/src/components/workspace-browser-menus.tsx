@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import './workspace-browser-menus.css';
 import type { WorkspaceBrowserProps } from './workspace-browser-contract';
-import { getModelRenderer, getPhysicsComponent, getSpriteRenderer, getTransform, getPrimitive, getCamera, getLight, getUICanvas, isDescendant } from '../lib/scene-model';
+import { getModelRenderer, getPhysicsComponent, getSpriteRenderer, getTransform, getPrimitive, getCamera, getLight, getUICanvas, getScriptComponent, isDescendant } from '../lib/scene-model';
 import type { PhysicsComponent, ProjectAsset, SceneEntity, Vector3 } from '../lib/scene-model';
 
 const formatSize = (bytes: number) => {
@@ -90,6 +90,7 @@ export function WorkspaceBrowserMenus(props?: WorkspaceBrowserProps) {
   const {
     creationTools,
     entities = [],
+    scripts = [],
     assets = [],
     assetUrls = {},
     referencedAssetIds = [],
@@ -99,6 +100,7 @@ export function WorkspaceBrowserMenus(props?: WorkspaceBrowserProps) {
     onCreateEntity,
     onRemoveEntity,
     onRenameEntity,
+    onAssignScript,
     onSetEntityActive,
     onSetParent,
     onUpdateTransform,
@@ -138,6 +140,7 @@ export function WorkspaceBrowserMenus(props?: WorkspaceBrowserProps) {
   const sprite = selectedEntity ? getSpriteRenderer(selectedEntity) : undefined;
   const modelRenderer = selectedEntity ? getModelRenderer(selectedEntity) : undefined;
   const physics = selectedEntity ? getPhysicsComponent(selectedEntity) : undefined;
+  const assignedScript = selectedEntity ? getScriptComponent(selectedEntity) : undefined;
   const physicsSizeAxes: (keyof Vector3)[] = physicsWorld?.dimension === '3d'
     ? ['x', 'y', 'z']
     : ['x', 'y'];
@@ -463,6 +466,33 @@ export function WorkspaceBrowserMenus(props?: WorkspaceBrowserProps) {
                     </div>
                   </div>
                 )}
+              </section>
+
+              <section className="browser-inspector-section">
+                <div className="browser-section-title"><span>SCRIPT</span><span className="browser-section-rule" /></div>
+                <label className="browser-field">
+                  <span>Assigned script</span>
+                  <select
+                    value={assignedScript?.scriptId ?? ''}
+                    aria-label="Object script"
+                    data-testid="select-object-script"
+                    onChange={(event) => onAssignScript?.(selectedEntity.id, event.currentTarget.value || null)}
+                  >
+                    <option value="">No script assigned</option>
+                    {scripts.map((script) => (
+                      <option key={script.id} value={script.id}>{script.name} · {script.language}</option>
+                    ))}
+                  </select>
+                </label>
+                {assignedScript && (
+                  <button
+                    type="button"
+                    className="browser-danger-action"
+                    onClick={() => onAssignScript?.(selectedEntity.id, null)}
+                    data-testid="remove-object-script"
+                  >Remove script</button>
+                )}
+                <small className="browser-physics-note">Scripts run in the isolated sandbox and can change only their assigned object.</small>
               </section>
 
               <section className="browser-inspector-section">

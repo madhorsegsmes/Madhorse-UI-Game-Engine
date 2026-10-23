@@ -9,6 +9,12 @@ Game scripts may be imported and stored as project data, but must not execute di
 
 **How to apply:** Keep import, language display, and project storage separate from execution. Do not enable a Run action until a constrained runtime has been designed and verified for each supported language.
 
+Bind each isolated run's scene commands to one assigned object. Let scripts name that capability as `self`, validate all commands against the trusted target ID in the editor, and never expose scene/editor objects or project access to the worker.
+
+**Why:** A script attached to one scene object must not gain authority over the Player or other project objects just because it can print a valid command.
+
+**How to apply:** When expanding the scene API, keep the object binding in the host-side runtime context, not in script-provided data; preview changes remain temporary and object-local.
+
 The user chose “All listed languages” and “Keep all languages; load runtimes only when needed”: Python, C, C++, JavaScript, TypeScript, Lua, and C#.
 
 **Why:** The user explicitly chose full language coverage rather than reducing the supported languages to reduce runtime size.

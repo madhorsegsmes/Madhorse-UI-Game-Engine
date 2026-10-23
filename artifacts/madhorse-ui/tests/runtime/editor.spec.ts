@@ -245,6 +245,63 @@ test('scene objects and local transforms persist with the active project', async
   await expect(page.getByTestId(`select-object-${entityId}`)).toContainText('Hero');
 });
 
+test('scripts can be assigned, run only on their object, persist, report object errors, and be removed', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto('/');
+  await page.locator('.workspace-browser-hierarchy > summary').click();
+  await page.getByTestId('add-sprite-object').click();
+  const object = page.locator('[data-testid^="scene-object-"]').last();
+  const entityId = await object.getAttribute('data-entity-id');
+  expect(entityId).toBeTruthy();
+
+  const command = 'MADHORSE_GAME {"version":1,"object":"self","action":"setPosition","x":75,"y":35}';
+  await page.getByLabel('Script tools').click();
+  await page.locator('.script-file-input').setInputFiles({
+    name: 'attached.js',
+    mimeType: 'text/javascript',
+    buffer: Buffer.from(`console.log(${JSON.stringify(command)});`),
+  });
+  await expect(page.getByLabel('Script to run')).toHaveValue(/.+/);
+  const scriptId = await page.getByLabel('Script to run').inputValue();
+
+  await page.locator('.workspace-browser-data > summary').click();
+  await page.getByTestId('select-object-script').selectOption(scriptId);
+  await expect.poll(() => page.evaluate((id) => {
+    const projects = JSON.parse(localStorage.getItem('madhorse-ui-projects') ?? '[]');
+    const entity = projects[0]?.entities?.find((entry: { id: string }) => entry.id === id);
+    return entity?.components?.find((component: { type: string }) => component.type === 'script')?.scriptId;
+  }, entityId)).toBe(scriptId);
+
+  await page.getByRole('button', { name: 'Run assigned scripts' }).click();
+  await expect(page.getByTestId(`scene-object-${entityId}`)).toHaveAttribute('data-x', '75', { timeout: 180_000 });
+  await expect(page.getByTestId(`scene-object-${entityId}`)).toHaveAttribute('data-y', '35');
+  await expect(page.getByTestId('scene-player')).toHaveAttribute('data-x', '50');
+  await expect(page.getByTestId('scene-player')).toHaveAttribute('data-y', '50');
+  await expect.poll(() => page.evaluate((id) => {
+    const projects = JSON.parse(localStorage.getItem('madhorse-ui-projects') ?? '[]');
+    const entity = projects[0]?.entities?.find((entry: { id: string }) => entry.id === id);
+    return entity?.components?.find((component: { type: string }) => component.type === 'transform')?.position;
+  }, entityId)).toEqual({ x: 40, y: 28, z: 0 });
+
+  await page.locator('#script-source').fill(`console.log(${JSON.stringify('MADHORSE_GAME {"version":1,"object":"player","action":"setPosition","x":20,"y":20}')});`);
+  await page.getByRole('button', { name: 'Run assigned scripts' }).click();
+  await expect(page.locator('.script-run-status')).toHaveText('Script stopped with an error.');
+  await expect(page.getByLabel('Script output')).toContainText('Sprite 1 (attached.js): Invalid game command');
+
+  await page.reload();
+  await page.locator('.workspace-browser-hierarchy > summary').click();
+  await page.getByTestId(`select-object-${entityId}`).click();
+  await page.locator('.workspace-browser-data > summary').click();
+  await expect(page.getByTestId('select-object-script')).toHaveValue(scriptId);
+  await page.getByTestId('remove-object-script').click();
+  await expect(page.getByTestId('select-object-script')).toHaveValue('');
+  await expect.poll(() => page.evaluate((id) => {
+    const projects = JSON.parse(localStorage.getItem('madhorse-ui-projects') ?? '[]');
+    const entity = projects[0]?.entities?.find((entry: { id: string }) => entry.id === id);
+    return entity?.components?.some((component: { type: string }) => component.type === 'script') ?? false;
+  }, entityId)).toBe(false);
+});
+
 test('new objects get editable physics and Play previews gravity without saving runtime motion', async ({ page }) => {
   await page.addInitScript(() => {
     const original = HTMLCanvasElement.prototype.getContext;

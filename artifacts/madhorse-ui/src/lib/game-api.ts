@@ -122,13 +122,17 @@ export function isGamePosition(value: unknown): value is GamePosition {
     Number.isFinite(position[axis]) && position[axis] >= 0 && position[axis] <= 100);
 }
 
-export function applyGameCommand(value: unknown, position: GamePosition): GamePosition {
-  const fail = (): never => { throw new Error('Invalid game command: use version 1, object "player", action "setPosition" or "move", and finite numeric x/y within the 0–100 scene.'); };
+export function applyGameCommand(
+  value: unknown,
+  position: GamePosition,
+  targetObjectId = 'player',
+): GamePosition {
+  const fail = (): never => { throw new Error('Invalid game command: use version 1, object "self" (or the assigned object ID), action "setPosition" or "move", and finite numeric x/y within the 0–100 scene.'); };
   if (!value || typeof value !== 'object' || Array.isArray(value)) return fail();
   const command = value as Record<string, unknown>;
   const keys = ['version', 'object', 'action', 'x', 'y'];
   if (Object.keys(command).length !== keys.length || !keys.every((key) => Object.hasOwn(command, key))) return fail();
-  if (command.version !== 1 || command.object !== 'player' ||
+  if (command.version !== 1 || (command.object !== 'self' && command.object !== targetObjectId) ||
       (command.action !== 'setPosition' && command.action !== 'move') ||
       typeof command.x !== 'number' || typeof command.y !== 'number' ||
       !Number.isFinite(command.x) || !Number.isFinite(command.y) ||
@@ -143,7 +147,7 @@ export function applyGameCommand(value: unknown, position: GamePosition): GamePo
 // A reserved output line gives every existing language the same tiny API,
 // without exposing host objects or adding FFI capabilities to any runtime.
 export function gameExample(language: string): string {
-  const line = 'MADHORSE_GAME {"version":1,"object":"player","action":"setPosition","x":75,"y":35}';
+  const line = 'MADHORSE_GAME {"version":1,"object":"self","action":"setPosition","x":75,"y":35}';
   if (language === 'Python') return `print('${line}')`;
   if (language === 'Lua') return `print('${line}')`;
   if (language === 'C') return `#include <stdio.h>\nint main(void) { puts(${JSON.stringify(line)}); return 0; }`;

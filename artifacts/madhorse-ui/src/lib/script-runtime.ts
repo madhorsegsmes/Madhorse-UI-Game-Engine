@@ -3,7 +3,7 @@ import { applyGameCommand, gameCommandLimit, initialGamePosition, type GamePosit
 export type RuntimeScript = { id: string; name: string; language: string; content: string };
 export type RuntimeEvent =
   | { type: 'output'; text: string }
-  | { type: 'game'; position: GamePosition }
+  | { type: 'game'; entityId: string; position: GamePosition }
   | { type: 'phase'; phase: string; message: string }
   | { type: 'complete' }
   | { type: 'error'; message: string };
@@ -13,6 +13,7 @@ export function startScriptRuntime(
   files: RuntimeScript[],
   onEvent: (event: RuntimeEvent) => void,
   initialPosition: GamePosition = initialGamePosition,
+  targetEntityId = 'player',
 ) {
   const root = new URL(`${import.meta.env.BASE_URL}runtimes/`, window.location.origin);
   const iframe = document.createElement('iframe');
@@ -89,8 +90,8 @@ addEventListener('message', function initialize(event) {
         if (!executing || Object.keys(data).length !== 2 || ++gameCommands > gameCommandLimit) {
           throw new Error('Game command rejected: invalid state or 128-command run limit exceeded.');
         }
-        position = applyGameCommand(data.command, position);
-        onEvent({ type: 'game', position: { ...position } });
+        position = applyGameCommand(data.command, position, targetEntityId);
+        onEvent({ type: 'game', entityId: targetEntityId, position: { ...position } });
       } catch (error) {
         cleanup();
         onEvent({ type: 'error', message: error instanceof Error ? error.message : 'Game command rejected.' });
