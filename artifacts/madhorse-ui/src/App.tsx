@@ -18,6 +18,7 @@ import { isPrefabCollection, type ScenePrefab } from '@/lib/scene-authoring';
 import { useSceneAuthoring } from '@/hooks/use-scene-authoring';
 import { HierarchyCreationTools } from '@/components/hierarchy-creation-tools';
 import { MadBuilderMenu } from '@/components/mad-builder-menu';
+import { SceneCameraControls } from '@/components/scene-camera-controls';
 import { useMadBuilder } from '@/hooks/use-mad-builder';
 import { isBuilderHistory, isBuilderDraft } from '@/lib/mad-builder';
 import type { MadBuilderPlan } from '@workspace/api-client-react';
@@ -559,6 +560,30 @@ function Home() {
           <span className="stage-corner bl" aria-hidden="true" />
           <span className="stage-corner br" aria-hidden="true" />
         </section>
+
+        <SceneCameraControls
+          key={activeProject.id}
+          camera={primaryGameCamera}
+          readOnly={runnerState.running || Boolean(activeAnimationPreview) || !loadedProjects.canOverwrite}
+          selected={sceneEditor.selectedEntityId === PRIMARY_CAMERA_ID}
+          onSelect={() => {
+            sceneEditor.onSelectCreatedEntity(PRIMARY_CAMERA_ID);
+            selectPreview('3d');
+          }}
+          onChange={(camera) => {
+            if (runnerState.running || activeAnimationPreview || !loadedProjects.canOverwrite) return;
+            updateActiveProject({ gameCamera: camera, activeCameraId: null });
+          }}
+          onViewThrough={() => {
+            if (runnerState.running || activeAnimationPreview || !loadedProjects.canOverwrite) return;
+            updateActiveProject({ activeCameraId: null });
+            selectPreview('2d');
+          }}
+          onResetNorth={() => {
+            if (runnerState.running || activeAnimationPreview || !loadedProjects.canOverwrite) return;
+            updateActiveProject({ gameCamera: createGameCamera(activeProject.entities), activeCameraId: null });
+          }}
+        />
 
         <div className="toolbar-row" role="group" aria-label="Workspace toolbars">
           <div className="toolbar-group" role="group" aria-labelledby="panel-2-label">

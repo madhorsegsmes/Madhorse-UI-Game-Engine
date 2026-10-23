@@ -62,10 +62,15 @@ test('extra camera moving and rotating matches its rendered parent transforms wi
 test('phone camera controls save pose, update Canvas and reset north without creating scene entities', async ({ page }) => {
   await page.setViewportSize({ width: 402, height: 874 });
   await page.goto('/');
-  await page.getByTestId('tab-scene-3d').click();
   const controls = page.getByTestId('scene-camera-controls');
+  await expect(controls).toBeVisible();
+  expect(await controls.evaluate((element) => !element.closest('.stage') && !element.closest('[data-testid=\"scene-preview\"]'))).toBe(true);
+  const previewBounds = await page.getByTestId('scene-preview').boundingBox();
+  const controlsBounds = await controls.boundingBox();
+  expect(controlsBounds!.y).toBeGreaterThanOrEqual(previewBounds!.y + previewBounds!.height);
   await controls.locator('summary').click();
   await page.getByTestId('scene-select-game-camera').click();
+  await expect(page.getByTestId('tab-scene-3d')).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('scene-camera-marker')).toHaveAttribute('data-selected', 'true');
   const set = async (field: string, value: string) => {
     await page.getByTestId(`camera-input-${field}`).fill(value);

@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent } from 'react';
 import { Plane, Raycaster, Vector2, Vector3 } from 'three';
-import { createGameCamera, makeGameViewCamera, type GameCamera } from '@/lib/game-camera';
+import { makeGameViewCamera, type GameCamera } from '@/lib/game-camera';
 import { PRIMARY_CAMERA_ID } from '@/lib/camera-editor';
-import { SceneCameraControls } from '@/components/scene-camera-controls';
 import { ScenePreview3D } from '@/components/scene-preview-3d';
 import type { SceneTransformMode } from '@/components/scene-preview-3d';
 import { isGamePosition, type GamePosition } from '@/lib/game-api';
@@ -178,18 +177,6 @@ export function GameScene({
             onCameraEntityTransform={onCameraEntityTransform}
             onSelectPrimaryCamera={onSelectPrimaryCamera}
           />
-          {viewMode === '3d' && onPrimaryCameraChange && (
-            <SceneCameraControls camera={primaryCamera} readOnly={readOnly}
-              selected={selectedEntityId === PRIMARY_CAMERA_ID}
-              onSelect={onSelectPrimaryCamera}
-              onChange={onPrimaryCameraChange}
-              onViewThrough={() => {
-                if (readOnly) return;
-                onPrimaryCameraChange(primaryCamera);
-                onViewModeChange('2d');
-              }}
-              onResetNorth={() => onPrimaryCameraChange(createGameCamera(entities))} />
-          )}
           {viewMode === '2d' && uiControls.length > 0 && (
             <div className="game-ui-overlay" aria-label="Game interface preview" data-testid="game-ui-overlay">
               {uiControls.filter((control) => {

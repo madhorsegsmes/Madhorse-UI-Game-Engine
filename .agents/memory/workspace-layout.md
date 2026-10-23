@@ -44,6 +44,14 @@ Manual edits should preserve a custom camera pose rather than snapping back
 north when the square changes; Reset north restores automatic placement. Keep
 the Scene View marker visible and editor navigation independent of camera edits.
 
+Keep CAM / Game Camera controls in their own bordered box outside the preview
+frame, not overlaid on the 2D canvas.
+
+**Why:** The user explicitly requested the camera controls outside the preview.
+
+**How to apply:** Keep the box in normal page flow below the preview and available
+in both Canvas and 3D Preview. Expanding controls must not cover the viewport.
+
 Show a spinning cog and adjacent loading bar whenever the system refreshes or
 collects data, and keep the screen awake while the editor is being used.
 
