@@ -52,6 +52,14 @@ frame, not overlaid on the 2D canvas.
 **How to apply:** Keep the box in normal page flow below the preview and available
 in both Canvas and 3D Preview. Expanding controls must not cover the viewport.
 
+Responsive component overrides must not rely on stylesheet import order.
+
+**Why:** Desktop checks found the global base styles overriding active component
+media-query styles, leaving controls at the smaller base size.
+
+**How to apply:** Scope desktop rules beneath the workspace root so they have
+greater specificity than global base rules; check computed sizes at desktop widths.
+
 Show a spinning cog and adjacent loading bar whenever the system refreshes or
 collects data, and keep the screen awake while the editor is being used.
 

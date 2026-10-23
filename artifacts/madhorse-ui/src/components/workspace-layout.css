@@ -1,4 +1,4 @@
-.shell { grid-template-rows: auto minmax(360px, 1fr) auto auto 10px !important; }
+.shell { grid-template-rows: auto minmax(360px, 1fr) auto auto auto 10px !important; }
 .panel-label { color: #c9c6c1; font: 600 10px/1.3 'DM Mono', monospace; letter-spacing: .12em; text-transform: uppercase; overflow-wrap: anywhere; }
 .main-panel {
   position: relative; z-index: 40; display: grid; grid-template-columns: auto 1px 1fr; align-items: center; gap: 14px;
@@ -26,6 +26,31 @@
 .panel-play-actions .control-button:disabled { opacity: .45; cursor: not-allowed; }
 .panel-text { color: #aaa5a2; font: 10px/1.45 'DM Mono', monospace; overflow-wrap: anywhere; white-space: pre-wrap; max-height: 120px; overflow: auto; }
 .panel-text.is-error { color: #e26a5f; }
+@media (min-width: 1000px) {
+  .workspace .shell {
+    width: 100%;
+    padding: clamp(14px, 1.1vw, 26px);
+    gap: 12px;
+    grid-template-rows: auto minmax(clamp(360px, 48dvh, 900px), 1fr) auto auto auto 10px !important;
+  }
+  .workspace .game-scene { inset: 20px; }
+  .workspace .main-panel .control-button,
+  .workspace .toolbar-buttons .control-button,
+  .workspace .panel .control-button { min-height: 36px; padding: 8px 12px; font-size: 12px; }
+  .workspace .scene-view-tabs button { min-height: 34px; padding: 7px 12px; font-size: 12px; }
+  .workspace .scene-view-status, .workspace .panel-text { font-size: 12px; }
+  .workspace .panel-label { font-size: 11px; }
+  .workspace .toolbar-row { gap: clamp(24px, 3vw, 64px); }
+  .workspace .toolbar-group { padding: 10px 12px; }
+  .workspace .panel-row { grid-template-columns: 1fr 1.08fr 1fr; gap: 16px; }
+  .workspace .panel { padding: 12px 14px 16px; }
+  .workspace .mh-camctl { font-size: 12px; }
+  .workspace .mh-camctl summary { min-height: 34px; padding: 8px 12px; }
+  .workspace .mh-camctl__body { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 12px; }
+  .workspace .mh-camctl label span, .workspace .mh-camctl__row b { font-size: 10px; }
+  .workspace .mh-camctl input { padding: 8px; }
+  .workspace .mh-camctl__actions, .workspace .mh-camctl__error { grid-column: 1 / -1; }
+}
 @media (max-width: 600px) {
   .main-panel { grid-template-columns: 1fr 1px auto; gap: 8px; padding: 6px 8px; }
   .main-panel-identity { flex-direction: column; align-items: flex-start; gap: 4px; }
