@@ -16,6 +16,7 @@ type Props = {
   onUseAsset: (asset: ProjectAsset) => void;
   onCreateCamera: () => void;
   onCreateLight: () => void;
+  onCreateUI: () => void;
   onCreateScript: () => void;
   onCreateTexture: () => void;
   onOpenTimeline: () => void;
@@ -28,6 +29,7 @@ const menuEntries = [
   ['import', 'Import Asset'],
   ['camera', 'Create Camera'],
   ['light', 'Create Light'],
+  ['ui', 'Create UI'],
   ['script', 'Create Script'],
   ['texture', 'Create Texture'],
   ['upload-texture', 'Upload 2D Texture'],
@@ -103,6 +105,7 @@ export function HierarchyContextMenu(props: Props) {
               if (key === 'upload-texture') return run(props.onUploadTexture);
               if (key === 'camera') return run(props.onCreateCamera);
               if (key === 'light') return run(props.onCreateLight);
+              if (key === 'ui') return run(props.onCreateUI);
               if (key === 'script') return run(props.onCreateScript);
               if (key === 'texture') return run(props.onCreateTexture);
               if (key === 'timeline') return run(props.onOpenTimeline);

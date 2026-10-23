@@ -162,6 +162,7 @@ function HierarchyPanel({
           onUseAsset={actions.onUseAsset}
           onCreateCamera={actions.onCreateCamera}
           onCreateLight={actions.onCreateLight}
+          onCreateUI={actions.onCreateUI}
           onCreateScript={actions.onCreateScript}
           onCreateTexture={actions.onCreateTexture}
           onOpenTimeline={actions.onOpenTimeline}
@@ -181,6 +182,7 @@ type HierarchyActions = {
   onUseAsset: (asset: ProjectAsset) => void;
   onCreateCamera: () => void;
   onCreateLight: () => void;
+  onCreateUI: () => void;
   onCreateScript: () => void;
   onCreateTexture: () => void;
   onOpenTimeline: () => void;
@@ -479,6 +481,15 @@ export default function BlankWorkspace() {
     addEntity(entity);
   }, [addEntity, nextPosition]);
 
+  const createUIEntity = useCallback(() => {
+    const entity = createSceneEntity('UI Canvas', nextPosition(), null, false);
+    entity.components = [
+      ...entity.components,
+      { id: crypto.randomUUID(), type: 'uiCanvas', enabled: true, controlId: crypto.randomUUID() },
+    ];
+    addEntity(entity);
+  }, [addEntity, nextPosition]);
+
   const createScriptEntity = useCallback(() => {
     const entity = createSceneEntity('New Script', nextPosition(), null, false);
     entity.components = [
@@ -550,6 +561,7 @@ export default function BlankWorkspace() {
     onUseAsset: createAssetEntity,
     onCreateCamera: createCameraEntity,
     onCreateLight: createLightEntity,
+    onCreateUI: createUIEntity,
     onCreateScript: createScriptEntity,
     onCreateTexture: () => { void makeTexture(); },
     onOpenTimeline: openTimeline,
