@@ -141,6 +141,72 @@ body {
   background: #171123;
 }
 
+.fresh-hierarchy {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  padding: 40px 10px 10px;
+}
+
+.fresh-hierarchy-heading {
+  margin: 0 0 8px;
+  color: #e9deff;
+  font: 700 11px/1.3 Inter, system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fresh-hierarchy-list {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fresh-hierarchy-item {
+  display: flex;
+  width: 100%;
+  min-height: 29px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #d8cfea;
+  font: 500 11px/1.3 Inter, system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fresh-hierarchy-item .scene-object-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: #c797ff;
+}
+
+.fresh-hierarchy-item:hover {
+  border-color: rgb(154 97 230 / 40%);
+  background: rgb(115 54 191 / 13%);
+}
+
+.fresh-hierarchy-item:focus-visible {
+  outline: 2px solid #c58cff;
+  outline-offset: -2px;
+}
+
+.fresh-hierarchy-item[aria-pressed="true"] {
+  border-color: rgb(162 100 236 / 65%);
+  background: linear-gradient(90deg, rgb(122 57 204 / 25%), rgb(74 35 127 / 12%));
+  color: #f5efff;
+}
+
 .fresh-panel-1 {
   grid-column: 1 / 3;
   grid-row: 2 / 4;
