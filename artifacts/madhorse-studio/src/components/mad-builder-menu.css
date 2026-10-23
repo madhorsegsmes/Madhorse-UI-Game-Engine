@@ -1,4 +1,35 @@
 .browser-builder-panel { width: min(400px, calc(100vw - 24px)); }
+.mb-embedded-root {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+.browser-builder-panel.mb-embedded-panel,
+.mb-embedded-root .browser-builder-panel {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  display: flex;
+  width: 100%;
+  max-height: none;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #514b49;
+  box-shadow: none;
+}
+.mb-embedded-root .browser-panel-heading { flex: none; }
+.mb-embedded-root .mb-body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: #5b5552 #1b1b1d;
+  scrollbar-width: thin;
+}
 .mb-body { padding: 2px 13px 13px; font-size: 11px; color: #c7c3c1; }
 .mb-section { padding: 11px 0 10px; border-bottom: 1px solid #2f2d2f; }
 .mb-section:last-child { border-bottom: 0; }
@@ -51,6 +82,7 @@
 .mb-fine { color: #807976; font-size: 9.5px; line-height: 1.5; margin: 3px 0; }
 @media (max-width: 600px) {
   .workspace-browser-panel.browser-builder-panel { position: fixed; left: 8px; right: 8px; top: 102px; bottom: auto; width: auto; max-height: calc(100dvh - 114px); }
+  .mb-embedded-root .workspace-browser-panel.browser-builder-panel { position: relative; inset: auto; width: 100%; max-height: none; }
   .browser-builder-panel .browser-panel-heading { position: sticky; top: 0; z-index: 3; background: #242124; }
   .mb-body button { min-height: 36px; }
   .mb-textarea { font-size: 16px; }

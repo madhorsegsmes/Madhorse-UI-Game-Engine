@@ -3,12 +3,12 @@ name: Mad Builder
 description: Product placement, safe AI authoring boundaries, and reliable planner schema handling.
 ---
 
-Mad Builder belongs next to Data in Panel 2. It should use the engine's actual
-building tools to make editable project objects from requests, not merely return
-instructions or a picture.
+In the fresh Madhorse workspace, Mad Builder belongs in Panel 4. It should use
+the engine's actual building tools to make editable project objects from
+requests, not merely return instructions or a picture.
 
-**Why:** The user requested a builder bot integrated with the engine systems and
-code, with a “3D house with windows” as the example.
+**Why:** The user directed that Mad Builder be placed in Panel 4; this supersedes
+the earlier Panel 2 placement for the fresh workspace.
 
 **How to apply:** Expand its tool catalog through bounded engine operations.
 Keep AI output as validated construction data, not privileged host code. Review

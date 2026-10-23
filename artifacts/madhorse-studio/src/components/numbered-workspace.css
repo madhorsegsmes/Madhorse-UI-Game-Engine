@@ -878,6 +878,17 @@ body::-webkit-scrollbar-thumb,
 .fresh-panel-4 {
   grid-column: 1;
   grid-row: 4;
+  display: flex;
+  min-height: 380px;
+  flex-direction: column;
+}
+
+.fresh-panel-4 > .fresh-panel-number {
+  z-index: 2;
+}
+
+.fresh-panel-4 .mb-embedded-root .browser-panel-heading {
+  padding-left: 44px;
 }
 
 .fresh-panel-5 {
@@ -916,6 +927,7 @@ body::-webkit-scrollbar-thumb,
   .fresh-panel-4 {
     grid-column: 1;
     grid-row: 4;
+    min-height: 360px;
   }
 
   .fresh-panel-5 {

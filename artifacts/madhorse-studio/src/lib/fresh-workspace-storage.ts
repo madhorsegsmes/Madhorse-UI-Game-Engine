@@ -1,6 +1,11 @@
 import { isGameAnimationCollection, type GameAnimation } from './game-api';
 import { isGameCamera, type GameCamera } from './game-camera';
 import { isAssetCollection, isSceneGraph, type ProjectAsset, type SceneEntity } from './scene-model';
+import { isBuilderDraft, isBuilderHistory } from './mad-builder';
+import type { MadBuilderPlan } from '@workspace/api-client-react';
+import type { BuilderMessage } from '@/components/mad-builder-contract';
+import { isPrefabCollection, type ScenePrefab } from './scene-authoring';
+import { isUIControlCollection, type UIControlElement } from './ui-controls';
 
 export const FRESH_WORKSPACE_ID = 'madhorse-studio-fresh-workspace';
 const storageKey = 'madhorse-studio:fresh-workspace:v1';
@@ -10,6 +15,10 @@ export type FreshWorkspaceSnapshot = {
   camera: GameCamera;
   assets: ProjectAsset[];
   animations: GameAnimation[];
+  builderHistory: BuilderMessage[];
+  builderDraft: MadBuilderPlan | null;
+  prefabs: ScenePrefab[];
+  uiControls: UIControlElement[];
 };
 
 export function loadFreshWorkspace(): Partial<FreshWorkspaceSnapshot> {
@@ -23,6 +32,10 @@ export function loadFreshWorkspace(): Partial<FreshWorkspaceSnapshot> {
       ...(isGameCamera(value.camera) ? { camera: value.camera } : {}),
       ...(Array.isArray(value.assets) && isAssetCollection(value.assets) ? { assets: value.assets } : {}),
       ...(Array.isArray(value.animations) && isGameAnimationCollection(value.animations) ? { animations: value.animations } : {}),
+      ...(isBuilderHistory(value.builderHistory) ? { builderHistory: value.builderHistory } : {}),
+      ...(value.builderDraft !== undefined && isBuilderDraft(value.builderDraft) ? { builderDraft: value.builderDraft } : {}),
+      ...(Array.isArray(value.prefabs) && isPrefabCollection(value.prefabs) ? { prefabs: value.prefabs } : {}),
+      ...(Array.isArray(value.uiControls) && isUIControlCollection(value.uiControls) ? { uiControls: value.uiControls } : {}),
     };
   } catch {
     return {};

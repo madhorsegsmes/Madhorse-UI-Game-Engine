@@ -1,6 +1,6 @@
 /** Fresh workspace with local scene authoring and an intentionally blank panel layout. */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { KeyboardEvent, MouseEvent } from 'react';
+import type { Dispatch, KeyboardEvent, MouseEvent, SetStateAction } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { ScenePreview3D, type SceneTransformMode } from './scene-preview-3d';
 import {
@@ -32,6 +32,12 @@ import {
   saveFreshWorkspace,
 } from '@/lib/fresh-workspace-storage';
 import { loadLocalAsset, saveLocalAsset } from '@/lib/asset-vault';
+import { MadBuilderMenu } from './mad-builder-menu';
+import { useMadBuilder, type BuilderDocument } from '@/hooks/use-mad-builder';
+import type { BuilderMessage } from './mad-builder-contract';
+import type { MadBuilderPlan } from '@workspace/api-client-react';
+import type { ScenePrefab } from '@/lib/scene-authoring';
+import type { UIControlElement } from '@/lib/ui-controls';
 import './system-panel-tools.css';
 import './numbered-workspace.css';
 
@@ -356,6 +362,10 @@ export default function BlankWorkspace() {
   const [camera, setCamera] = useState<GameCamera>(savedWorkspace.camera ?? initialScene.camera);
   const [assets, setAssets] = useState<ProjectAsset[]>(savedWorkspace.assets ?? []);
   const [animations, setAnimations] = useState<GameAnimation[]>(savedWorkspace.animations ?? []);
+  const [builderHistory, setBuilderHistory] = useState<BuilderMessage[]>(savedWorkspace.builderHistory ?? []);
+  const [builderDraft, setBuilderDraft] = useState<MadBuilderPlan | null>(savedWorkspace.builderDraft ?? null);
+  const [prefabs, setPrefabs] = useState<ScenePrefab[]>(savedWorkspace.prefabs ?? []);
+  const [uiControls, setUIControls] = useState<UIControlElement[]>(savedWorkspace.uiControls ?? []);
   const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
   const [selection, setSelection] = useState<string | null>('starter-cube');
   const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
@@ -367,14 +377,51 @@ export default function BlankWorkspace() {
   const editingEntity = editingEntityId === PRIMARY_CAMERA_ID
     ? primaryCameraEntity(camera)
     : entities.find(entity => entity.id === editingEntityId) ?? null;
+  const builderProject: BuilderDocument = {
+    id: FRESH_WORKSPACE_ID,
+    entities,
+    assets,
+    prefabs,
+    uiControls,
+    scripts: [],
+    builderHistory,
+    builderDraft,
+  };
+  const builderProjectRef = useRef(builderProject);
+  builderProjectRef.current = builderProject;
+
+  const setBuilderProjects: Dispatch<SetStateAction<BuilderDocument[]>> = useCallback(update => {
+    const projects = typeof update === 'function' ? update([builderProjectRef.current]) : update;
+    const next = projects.find(project => project.id === FRESH_WORKSPACE_ID);
+    if (!next) return;
+    builderProjectRef.current = next;
+    setEntities(next.entities);
+    setAssets(next.assets);
+    setBuilderHistory(next.builderHistory ?? []);
+    setBuilderDraft(next.builderDraft ?? null);
+    setPrefabs(next.prefabs ?? []);
+    setUIControls(next.uiControls ?? []);
+  }, []);
+
+  const madBuilder = useMadBuilder({
+    project: builderProject,
+    activeProjectRef: builderProjectRef,
+    setProjects: setBuilderProjects,
+    readOnly: false,
+    onBuilt: rootId => {
+      setSelection(rootId);
+      setEditingEntityId(null);
+      setStatus('Mad Builder added the new scene objects. They are ready to edit in the hierarchy.');
+    },
+  });
 
   useEffect(() => {
     try {
-      saveFreshWorkspace({ entities, camera, assets, animations });
+      saveFreshWorkspace({ entities, camera, assets, animations, builderHistory, builderDraft, prefabs, uiControls });
     } catch {
       setStatus('Could not save the scene data in this browser. Check available storage.');
     }
-  }, [entities, camera, assets, animations]);
+  }, [entities, camera, assets, animations, builderHistory, builderDraft, prefabs, uiControls]);
 
   useEffect(() => {
     let disposed = false;
@@ -744,6 +791,11 @@ export default function BlankWorkspace() {
               onReturnToSettings={() => setEditingEntityId(null)}
               onSaveEntity={updateEntitySettings}
             />
+          ) : number === 4 ? (
+            <>
+              <span className="fresh-panel-number" aria-hidden="true">4</span>
+              <MadBuilderMenu key={FRESH_WORKSPACE_ID} embedded {...madBuilder} />
+            </>
           ) : <span className="fresh-panel-number" aria-hidden="true">{number}</span>}
         </section>
       ))}

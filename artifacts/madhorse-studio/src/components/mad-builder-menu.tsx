@@ -6,7 +6,8 @@ import './mad-builder-menu.css';
 
 const EXAMPLE = 'Build a small 3D house with four walls, a pitched roof, a front door, glass windows on each side, a ground plane around it and a warm point light inside.';
 
-export function MadBuilderMenu(props: MadBuilderProps) {
+export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean }) {
+  const { embedded = false } = props;
   const { history, plan, phase, error, readOnly, onPlan, onCancel, onDiscard, onApply } = props;
   const [prompt, setPrompt] = useState('');
   const [asPrefab, setAsPrefab] = useState(false);
@@ -20,14 +21,12 @@ export function MadBuilderMenu(props: MadBuilderProps) {
   const close = (e: MouseEvent<HTMLButtonElement>) => { e.currentTarget.closest('details')?.removeAttribute('open'); };
   const submit = () => { if (canPlan) void onPlan(prompt.trim()).catch(() => undefined); };
 
-  return (
-    <details className="workspace-browser-menu" name="workspace-browser" data-testid="menu-mad-builder">
-      <summary className="control-button" data-testid="button-open-mad-builder">Mad Builder</summary>
-      <section className="workspace-browser-panel browser-builder-panel" aria-label="Mad Builder" data-testid="panel-mad-builder">
+  const panel = (
+    <section className="workspace-browser-panel browser-builder-panel" aria-label="Mad Builder" data-testid="panel-mad-builder">
         <header className="browser-panel-heading">
           <div><span className="browser-eyebrow">AI SCENE ASSEMBLY</span><h2>Mad Builder</h2></div>
           <span className="browser-count" data-testid="status-builder-phase">{readOnly ? 'READ-ONLY' : phase.toUpperCase()}</span>
-          <button type="button" className="browser-panel-close" onClick={close} data-testid="button-close-mad-builder">Close</button>
+          {!embedded && <button type="button" className="browser-panel-close" onClick={close} data-testid="button-close-mad-builder">Close</button>}
         </header>
         <div className="mb-body">
           <div className="mb-section">
@@ -121,6 +120,16 @@ export function MadBuilderMenu(props: MadBuilderProps) {
           </div>
         </div>
       </section>
+  );
+
+  if (embedded) {
+    return <div className="mb-embedded-root" data-testid="mad-builder-panel">{panel}</div>;
+  }
+
+  return (
+    <details className="workspace-browser-menu" name="workspace-browser" data-testid="menu-mad-builder">
+      <summary className="control-button" data-testid="button-open-mad-builder">Mad Builder</summary>
+      {panel}
     </details>
   );
 }
