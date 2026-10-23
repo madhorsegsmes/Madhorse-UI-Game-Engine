@@ -101,6 +101,7 @@ export const PlanMadBuilderResponse = zod.object({
   "key": zod.string().min(1).max(planMadBuilderResponsePartsItemKeyMax),
   "parentKey": zod.string().max(planMadBuilderResponsePartsItemParentKeyMax).nullable(),
   "kind": zod.enum(['group', 'box', 'plane', 'terrain', 'sprite', 'model', 'light', 'camera', 'ui-panel', 'ui-text', 'ui-button', 'ui-health']),
+  "shape": zod.enum(['cube', 'sphere', 'capsule', 'cylinder', 'cone', 'circle', 'ring', 'torus', 'torus-knot', 'icosahedron', 'dodecahedron', 'octahedron', 'tetrahedron', 'pyramid', 'triangular-prism', 'wedge', 'tube', 'hollow-cylinder', 'rounded-cube']).optional(),
   "name": zod.string().min(1).max(planMadBuilderResponsePartsItemNameMax),
   "position": zod.object({
   "x": zod.number().min(planMadBuilderResponsePartsItemPositionXMin).max(planMadBuilderResponsePartsItemPositionXMax),

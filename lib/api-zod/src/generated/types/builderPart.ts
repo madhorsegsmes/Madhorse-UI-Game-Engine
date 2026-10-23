@@ -7,6 +7,7 @@
  */
 import type { BuilderPartKind } from './builderPartKind';
 import type { BuilderPartLightKind } from './builderPartLightKind';
+import type { BuilderPartShape } from './builderPartShape';
 import type { BuilderRotation } from './builderRotation';
 import type { BuilderSize } from './builderSize';
 import type { BuilderVector } from './builderVector';
@@ -23,6 +24,7 @@ export interface BuilderPart {
      */
   parentKey: string | null;
   kind: BuilderPartKind;
+  shape?: BuilderPartShape;
   /**
      * @minLength 1
      * @maxLength 80

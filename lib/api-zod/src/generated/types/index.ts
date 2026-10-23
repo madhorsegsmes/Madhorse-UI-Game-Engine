@@ -11,6 +11,7 @@ export * from './builderAssetKind';
 export * from './builderPart';
 export * from './builderPartKind';
 export * from './builderPartLightKind';
+export * from './builderPartShape';
 export * from './builderRotation';
 export * from './builderSize';
 export * from './builderVector';

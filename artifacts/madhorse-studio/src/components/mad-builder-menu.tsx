@@ -78,7 +78,7 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; on
                   <details className="mb-parts">
                     <summary data-testid="button-toggle-plan-parts">Show parts</summary>
                     <ul>
-                      {plan.parts.map((p) => <li key={p.key} data-testid={`row-plan-part-${p.key}`}><span>{p.name}</span><code>{p.kind}</code></li>)}
+                      {plan.parts.map((p) => <li key={p.key} data-testid={`row-plan-part-${p.key}`}><span>{p.name}</span><code>{p.kind}{p.shape ? ` · ${p.shape}` : ''}</code></li>)}
                     </ul>
                   </details>
                 )}

@@ -410,6 +410,7 @@ export default function BlankWorkspace() {
     activeProjectRef: builderProjectRef,
     setProjects: setBuilderProjects,
     readOnly: false,
+    selectedEntityId: selection,
     onBuilt: rootId => {
       setSelection(rootId);
       setEditingEntityId(null);

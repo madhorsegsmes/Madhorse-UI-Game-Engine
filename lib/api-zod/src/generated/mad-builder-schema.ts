@@ -71,6 +71,30 @@ export const builderPlanJsonSchema: Record<string, unknown> = {
               "ui-health"
             ]
           },
+          "shape": {
+            "type": "string",
+            "enum": [
+              "cube",
+              "sphere",
+              "capsule",
+              "cylinder",
+              "cone",
+              "circle",
+              "ring",
+              "torus",
+              "torus-knot",
+              "icosahedron",
+              "dodecahedron",
+              "octahedron",
+              "tetrahedron",
+              "pyramid",
+              "triangular-prism",
+              "wedge",
+              "tube",
+              "hollow-cylinder",
+              "rounded-cube"
+            ]
+          },
           "name": {
             "type": "string",
             "minLength": 1,

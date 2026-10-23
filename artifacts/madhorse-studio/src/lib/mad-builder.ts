@@ -22,6 +22,9 @@ export function compileBuilderPlan(input: unknown, existing: SceneEntity[], asse
   if (!plan.parts.length) throw new Error('This plan does not contain any buildable objects.');
   const byKey = new Map(plan.parts.map((part) => [part.key, part]));
   if (byKey.size !== plan.parts.length) throw new Error('The plan contains duplicate object keys.');
+  if (plan.parts.some((part) => part.shape && part.kind !== 'box')) {
+    throw new Error('A shape can only be assigned to a 3D object.');
+  }
   for (const [kind, limit] of [['terrain', 2], ['light', 8], ['camera', 4], ['model', 4]] as const) {
     if (plan.parts.filter((part) => part.kind === kind).length > limit) throw new Error(`Too many ${kind} objects in one build.`);
   }
@@ -59,7 +62,7 @@ export function compileBuilderPlan(input: unknown, existing: SceneEntity[], asse
       if (part.kind === 'plane') transform.scale = { x: part.size.x / 10, y: part.size.z / 10, z: 1 };
       if (part.kind === 'terrain') transform.scale = { x: part.size.x / 20, y: part.size.z / 20, z: part.size.y / 1.3 };
       entity.components.push({ id: crypto.randomUUID(), type: 'primitive', enabled: true,
-        shape: part.kind === 'box' ? 'cube' : part.kind as 'plane' | 'terrain',
+        shape: part.kind === 'box' ? part.shape ?? 'cube' : part.kind as 'plane' | 'terrain',
         color: part.color, opacity: part.opacity ?? 1, textureAssetId: part.assetId ?? null });
     } else if (part.kind === 'sprite') {
       transform.scale = { x: 1, y: 1, z: 1 };

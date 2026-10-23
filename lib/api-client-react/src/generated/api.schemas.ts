@@ -105,6 +105,31 @@ export const BuilderPartKind = {
   'ui-health': 'ui-health',
 } as const;
 
+export type BuilderPartShape = typeof BuilderPartShape[keyof typeof BuilderPartShape];
+
+
+export const BuilderPartShape = {
+  cube: 'cube',
+  sphere: 'sphere',
+  capsule: 'capsule',
+  cylinder: 'cylinder',
+  cone: 'cone',
+  circle: 'circle',
+  ring: 'ring',
+  torus: 'torus',
+  'torus-knot': 'torus-knot',
+  icosahedron: 'icosahedron',
+  dodecahedron: 'dodecahedron',
+  octahedron: 'octahedron',
+  tetrahedron: 'tetrahedron',
+  pyramid: 'pyramid',
+  'triangular-prism': 'triangular-prism',
+  wedge: 'wedge',
+  tube: 'tube',
+  'hollow-cylinder': 'hollow-cylinder',
+  'rounded-cube': 'rounded-cube',
+} as const;
+
 export type BuilderPartLightKind = typeof BuilderPartLightKind[keyof typeof BuilderPartLightKind];
 
 
@@ -126,6 +151,7 @@ export interface BuilderPart {
      */
   parentKey: string | null;
   kind: BuilderPartKind;
+  shape?: BuilderPartShape;
   /**
      * @minLength 1
      * @maxLength 80

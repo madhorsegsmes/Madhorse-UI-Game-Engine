@@ -8,9 +8,9 @@ import type { BuilderMessage, MadBuilderProps } from '@/components/mad-builder-c
 import type { AuthoringDocument } from './use-scene-authoring';
 
 export type BuilderDocument = AuthoringDocument & { builderHistory?: BuilderMessage[]; builderDraft?: MadBuilderPlan | null };
-export function useMadBuilder<T extends BuilderDocument>({ project, activeProjectRef, setProjects, readOnly, onBuilt }: {
+export function useMadBuilder<T extends BuilderDocument>({ project, activeProjectRef, setProjects, readOnly, onBuilt, selectedEntityId }: {
   project: T; activeProjectRef: MutableRefObject<T>; setProjects: Dispatch<SetStateAction<T[]>>;
-  readOnly: boolean; onBuilt: (rootId: string) => void;
+  readOnly: boolean; onBuilt: (rootId: string) => void; selectedEntityId?: string | null;
 }): MadBuilderProps {
   const [phase, setPhase] = useState<MadBuilderProps['phase']>(project.builderDraft ? 'ready' : 'idle');
   const [plan, setPlan] = useState<MadBuilderPlan | null>(project.builderDraft ?? null);
@@ -48,8 +48,10 @@ export function useMadBuilder<T extends BuilderDocument>({ project, activeProjec
       setError(''); setPlan(null); setPhase('planning');
       message(prompt, 'user');
       try {
+        const contextEntity = project.entities.find((entity) => entity.id === selectedEntityId) ??
+          project.entities.find((entity) => entity.id === 'player');
         const result = PlanMadBuilderResponse.parse(await planMadBuilder({
-          prompt, selectedName: project.entities.find((entity) => entity.id === 'player')?.name ?? '',
+          prompt, selectedName: contextEntity?.name ?? '',
           assets: project.assets.slice(0, 40).map(({ id, name, kind }) => ({ id, name: name.slice(0, 160), kind })),
         }, { signal: controller.signal }));
         if (token !== session.current || activeProjectRef.current.id !== project.id) return;

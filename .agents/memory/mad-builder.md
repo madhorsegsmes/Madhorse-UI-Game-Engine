@@ -15,6 +15,14 @@ Keep AI output as validated construction data, not privileged host code. Review
 before applying; preserve existing scene objects. Any future script execution
 must use the separately isolated language runtimes and explicit run controls.
 
+Favor visually detailed, proportionate builds that explicitly include the
+features named in the request rather than generic box-only blockouts.
+
+**Why:** The user asked for more graphics and more accurate Mad Builder results.
+
+**How to apply:** Use the engine's supported geometry types, deliberate colors,
+and purposeful subparts; keep dimensions and requested counts faithful.
+
 Keep the visibly labeled request composer first when Mad Builder opens.
 
 **Why:** The user asked for a text prompt after the bot already had one; placing

@@ -413,6 +413,7 @@ function Home() {
   const madBuilder = useMadBuilder({
     project: activeProject, activeProjectRef, setProjects,
     readOnly: !loadedProjects.canOverwrite || isPlayMode || Boolean(activeAnimationPreview),
+    selectedEntityId: sceneEditor.selectedEntityId,
     onBuilt: (rootId) => {
       sceneEditor.onSelectCreatedEntity(rootId);
       selectPreview('3d');

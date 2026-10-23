@@ -101,6 +101,9 @@ components:
         kind:
           type: string
           enum: [group, box, plane, terrain, sprite, model, light, camera, ui-panel, ui-text, ui-button, ui-health]
+        shape:
+          type: string
+          enum: [cube, sphere, capsule, cylinder, cone, circle, ring, torus, torus-knot, icosahedron, dodecahedron, octahedron, tetrahedron, pyramid, triangular-prism, wedge, tube, hollow-cylinder, rounded-cube]
         name: { type: string, minLength: 1, maxLength: 80 }
         position: { $ref: "#/components/schemas/BuilderVector" }
         rotation: { $ref: "#/components/schemas/BuilderRotation" }
