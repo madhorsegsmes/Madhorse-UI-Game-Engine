@@ -116,6 +116,20 @@ body::-webkit-scrollbar-thumb,
   text-shadow: 0 0 8px rgb(193 139 255 / 48%);
 }
 
+.fresh-panel-heading {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  width: calc(100% - 52px);
+  margin: 0;
+  transform: translateX(-50%);
+  color: #e9deff;
+  font: 700 11px/1.35 Inter, system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
 .fresh-viewport {
   position: absolute;
   inset: 0;
