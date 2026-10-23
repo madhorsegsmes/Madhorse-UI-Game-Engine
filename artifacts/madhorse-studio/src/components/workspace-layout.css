@@ -1,0 +1,154 @@
+.workspace .shell {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 100dvh;
+}
+.workspace-board {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-flow: row;
+  align-content: start;
+  align-items: start;
+  gap: 12px;
+  flex: 1 0 auto;
+  min-width: 0;
+}
+.workspace-board > [data-workspace-panel] { min-width: 0; }
+.workspace-board > [data-workspace-panel="main"],
+.workspace-board > [data-workspace-panel="scene"],
+.workspace-board > [data-workspace-panel="camera"] { grid-column: span 12; }
+.workspace-board > [data-workspace-panel="tools-left"],
+.workspace-board > [data-workspace-panel="tools-right"] { grid-column: span 6; }
+.workspace-board > [data-workspace-panel="system"],
+.workspace-board > [data-workspace-panel="play"],
+.workspace-board > [data-workspace-panel="errors"] { grid-column: span 4; }
+.workspace-board:has(> [data-workspace-panel="main"] + [data-workspace-panel="scene"])
+  > [data-workspace-panel="main"] { margin-bottom: 32px; }
+.workspace-board > [data-workspace-panel="scene"]:not([data-user-sized]) { min-height: clamp(920px, calc(88dvh + 120px), 1600px); }
+.workspace-board > [data-workspace-panel="scene"][data-user-sized] { min-height: 0; }
+.workspace-panel-handle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 3px;
+  border: 1px solid #554947;
+  border-radius: 3px;
+  background: #211f20;
+  color: #c6b4b0;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.workspace-panel-handle:active { cursor: grabbing; }
+.workspace-panel-handle:hover,
+.workspace-panel-handle:focus-visible { color: #fff; border-color: #c65349; outline: 1px solid #c65349; }
+.workspace-panel-handle svg { width: 14px; height: 14px; fill: currentColor; }
+.workspace-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.workspace-panel-heading .panel-label { min-width: 0; }
+.workspace-panel-handle-scene { position: absolute; z-index: 13; top: 40px; right: 10px; }
+.workspace-camera-panel { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.workspace-camera-panel > .mh-camctl { flex: 1; min-width: 0; }
+.workspace-layout-reset {
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid #514645;
+  background: #211f20;
+  color: #c9c6c1;
+  font: 10px/1.2 'DM Mono', monospace;
+  cursor: pointer;
+}
+.workspace-layout-reset:hover,
+.workspace-layout-reset:focus-visible { border-color: #c65349; color: #fff; outline: 1px solid #c65349; }
+[data-panel-dragging="true"] { opacity: .58; }
+[data-panel-drop-target="true"] { outline: 1px dashed #de7469; outline-offset: 3px; }
+.panel-label { color: #c9c6c1; font: 600 10px/1.3 'DM Mono', monospace; letter-spacing: .12em; text-transform: uppercase; overflow-wrap: anywhere; }
+.main-panel {
+  position: relative; z-index: 40; display: grid; grid-template-columns: auto 1px 1fr; align-items: center; gap: 10px;
+  padding: 5px 10px; border: 1px solid #4a4546; border-top: 2px solid #b43a32;
+  background: linear-gradient(90deg, #242325, #1b1b1d 50%, #242325);
+}
+.main-panel-identity { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.main-panel .brand::before, .main-panel .brand::after { display: none; }
+.main-panel-divider { align-self: stretch; width: 1px; background: linear-gradient(#8a3a35, #5a5859); }
+.main-panel-controls { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.main-menu .main-menu-panel { left: auto; right: 0; }
+.scene-tab.is-active { border-color: #cf4a40; background: #2a1d1d; box-shadow: inset 0 -2px 0 #cf4a40; }
+.stage:focus-visible { outline: 1px solid #cf4a40; }
+.toolbar-group { min-width: 0; display: grid; gap: 7px; padding: 8px 10px; border: 1px solid #6b3a36; background: linear-gradient(155deg, #292729, #141416 76%); }
+.toolbar-buttons { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.toolbar-buttons > * { min-width: 0; }
+.toolbar-group-right .toolbar-buttons .project-menu-panel,
+.toolbar-group-right .toolbar-buttons .script-menu-panel { left: auto; right: 0; }
+.toolbar-group-right .script-menu { position: static; }
+.toolbar-group-right .toolbar-buttons { position: relative; }
+.panel { clip-path: none !important; padding: 10px 12px 14px; display: grid; align-content: start; gap: 8px; }
+.panel-play-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.panel-play-actions .control-button:disabled { opacity: .45; cursor: not-allowed; }
+.panel-text { color: #aaa5a2; font: 10px/1.45 'DM Mono', monospace; overflow-wrap: anywhere; white-space: pre-wrap; max-height: 120px; overflow: auto; }
+.panel-text.is-error { color: #e26a5f; }
+@media (min-width: 601px) and (max-width: 999px) {
+  .workspace-board > [data-workspace-panel="scene"]:not([data-user-sized]) { min-height: clamp(800px, calc(82dvh + 120px), 1400px); }
+  .workspace-board > [data-workspace-panel="system"],
+  .workspace-board > [data-workspace-panel="play"],
+  .workspace-board > [data-workspace-panel="errors"] { grid-column: span 6; }
+}
+@media (min-width: 1000px) {
+  .workspace .shell {
+    width: 100%;
+    padding: clamp(14px, 1.1vw, 26px);
+    gap: 12px;
+  }
+  .workspace .main-panel { row-gap: 3px; gap: 8px; padding: 3px 8px; }
+  .workspace-board:has(> [data-workspace-panel="main"] + [data-workspace-panel="scene"])
+    > [data-workspace-panel="main"] { margin-bottom: 48px; }
+  .workspace-board > [data-workspace-panel="scene"]:not([data-user-sized]) { min-height: clamp(920px, calc(88dvh + 120px), 1600px); }
+  .workspace .main-panel-identity { gap: 6px; }
+  .workspace .main-panel .brand { padding: 3px 12px 4px; gap: 7px; }
+  .workspace .main-panel .brand-mark { width: 26px; height: 26px; }
+  .workspace .main-panel .brand-name { font-size: 18px; }
+  .workspace .game-scene { inset: 20px; }
+  .workspace .main-panel .control-button { min-height: 28px; padding: 4px 8px; font-size: 10px; }
+  .workspace .toolbar-buttons .control-button,
+  .workspace .panel .control-button { min-height: 36px; padding: 8px 12px; font-size: 12px; }
+  .workspace .scene-view-tabs button { min-height: 34px; padding: 7px 12px; font-size: 12px; }
+  .workspace .scene-view-status, .workspace .panel-text { font-size: 12px; }
+  .workspace .panel-label { font-size: 11px; }
+  .workspace .toolbar-group { padding: 10px 12px; }
+  .workspace .panel { padding: 12px 14px 16px; }
+  .workspace .mh-camctl { font-size: 12px; }
+  .workspace .mh-camctl summary { min-height: 34px; padding: 8px 12px; }
+  .workspace .mh-camctl__body { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 12px; }
+  .workspace .mh-camctl label span, .workspace .mh-camctl__row b { font-size: 10px; }
+  .workspace .mh-camctl input { padding: 8px; }
+  .workspace .mh-camctl__actions, .workspace .mh-camctl__error { grid-column: 1 / -1; }
+}
+@media (max-width: 600px) {
+  .workspace-board { gap: 8px; }
+  .workspace-board > [data-workspace-panel="tools-left"],
+  .workspace-board > [data-workspace-panel="tools-right"],
+  .workspace-board > [data-workspace-panel="system"],
+  .workspace-board > [data-workspace-panel="play"],
+  .workspace-board > [data-workspace-panel="errors"] { grid-column: span 12; }
+  .workspace-board > [data-workspace-panel="scene"]:not([data-user-sized]) { min-height: clamp(620px, calc(70dvh + 120px), 920px); }
+  .main-panel { grid-template-columns: 1fr 1px auto; gap: 6px; padding: 4px 6px; }
+  .main-panel-identity { flex-direction: column; align-items: flex-start; gap: 3px; }
+  .main-panel .brand { padding: 2px 0; gap: 3px; border: 0; background: transparent; clip-path: none; }
+  .main-panel .brand-name { font-size: 11px; }
+  .main-panel .brand-mark { width: 18px; height: 18px; }
+  .main-panel-controls { flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 4px; }
+  .main-panel-controls .control-button { min-height: 26px; font-size: 8px; letter-spacing: .02em; padding: 4px; gap: 3px; white-space: nowrap; }
+  .toolbar-group { padding: 6px; }
+  .toolbar-buttons { flex-direction: column; }
+  .toolbar-buttons .control-button, .toolbar-buttons .game-type-wrap, .toolbar-buttons .game-type-button { width: 100%; }
+  .toolbar-group-right .project-menu { position: static; }
+  .workspace-browser-panel { width: min(200px, calc(50vw - 24px)); }
+  .workspace-camera-panel { gap: 4px; }
+  .workspace-layout-reset { min-height: 26px; padding: 4px; font-size: 8px; }
+  .panel { padding: 8px 6px 10px; }
+  .panel-label { font-size: 9px; letter-spacing: .06em; }
+  .panel-play-actions { flex-direction: column; }
+}

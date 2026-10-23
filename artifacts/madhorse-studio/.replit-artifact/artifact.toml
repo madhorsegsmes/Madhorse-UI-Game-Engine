@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/madhorse-studio/"
+title = "Madhorse Studio"
+description = "The selected Madhorse workspace rebuilt as a functional game editor, preserving browser-local projects, 3D scenes, assets, animations, scripts, Mad Builder and system debugging."
+version = "1.0.0"
+id = "artifacts/madhorse-studio"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/madhorse-studio/" ]
+localPort = 21520
+
+[services.development]
+run = "pnpm --filter @workspace/madhorse-studio run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/madhorse-studio", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/madhorse-studio/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21520"
+BASE_PATH = "/madhorse-studio/"

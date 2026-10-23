@@ -7,6 +7,12 @@ The engine's system reference library is maintained by the system and is not use
 
 Saved project data stays in this browser; do not sync it to a server or other devices unless the user changes this choice.
 
+The separate Studio artifact must not write to the original editor's saved-project or asset stores. Existing content may be copied into Studio, never moved or deleted from the original as part of that process.
+
+**Why:** The user requested a new functional artifact from the approved design while keeping the previous app and saved projects intact.
+
+**How to apply:** Preserve independent save ownership for the two editors. Any future migration, shared engine extraction or asset cleanup must keep the original records unchanged unless the user explicitly requests otherwise.
+
 Animation clips are saved with their project. Playback should apply temporary scene transforms only; stopping or leaving preview restores the saved scene without changing project transforms or script-runtime state.
 
 **Why:** The user defined separate system knowledge and editable project data for Madhorse Engine.
