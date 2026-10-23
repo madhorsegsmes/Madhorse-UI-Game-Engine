@@ -48,6 +48,54 @@ workflow as a reusable job (`uses: ./.github/workflows/script-runtime.yml`) and
 make publishing depend on that job with `needs`, without an `always()` bypass.
 Tag-triggered checks alone cannot block an independent publishing workflow.
 
+### Future publishing and dry-run verification
+
+There is still **no automated publisher**. The manual-only
+`.github/workflows/release-dry-run.yml` is a safe integration reference:
+`runtime-gate` calls `./.github/workflows/script-runtime.yml`, and
+`publish-dry-run` has `needs: runtime-gate`. It only records approval; it has
+read-only permissions, no publishing credentials, and no deployment command.
+Neither publishing jobs nor publishing steps may use `always()`,
+`continue-on-error`, or another failure bypass.
+
+The reusable gate and dry-run checkout both pin `ref: ${{ github.sha }}`.
+The gate returns the actual checked `tested-sha`; the dry-run requires that it
+matches both the event SHA and its own checkout before approval. For a tag,
+this tests the commit selected by that event, not whatever the tag points to
+later. A future publisher must build/upload that same checked commit (or consume
+artifacts built from it), never fetch a moving branch/tag or approve a different
+commit based on an earlier successful workflow. Keep the SHA assertions before
+any side effect. Do not add a free-form release ref without resolving it once
+and sharing that immutable SHA between the gate and publisher.
+
+Verification without deployment:
+
+```sh
+pnpm --filter @workspace/scripts run test:release-gate
+```
+
+These local contract tests parse the real workflows, execute the failing and
+passing fixture commands, model default dependency scheduling, check bypass
+mutations, and execute the actual approval shell against matching/mismatched
+commits. They do **not** run GitHub's scheduler or claim browser compatibility.
+The real runtime gate also runs them after dependency installation and preserves
+their output in `release-gate-test.log`.
+
+On GitHub, manually run **Verify release dependency blocking (no deployment)**
+from `.github/workflows/release-gate-verification.yml`. Expected job results:
+`passing-gate: success`, `failing-gate: failure`, `allowed-publish: success`,
+`blocked-publish: skipped`, `verify: success`. The overall workflow is
+**intentionally red** because its negative gate genuinely fails; do not make
+it green with `continue-on-error` or require this negative-control workflow
+as a protected-branch check. Only the final verification observer uses
+`always()` to inspect results; neither publishing sentinel uses it.
+
+Then manually run **Release readiness (no deployment)** on the exact release
+branch/tag. Real browser-check failures must skip `publish-dry-run`; passing
+checks allow its approval message. Both workflows are non-deploying. Preserve
+the run links/results as release evidence. Local checks alone are not evidence
+that either workflow has run on GitHub or that the browser matrix passed.
+
 ## Local setup and coverage
 
 In Replit, the suite uses `REPLIT_PLAYWRIGHT_CHROMIUM_EXECUTABLE` when supplied

@@ -1,0 +1,35 @@
+name: Release readiness (no deployment)
+
+# Manual only. This is the wiring for a future publisher, not a publisher.
+# Selecting a branch/tag fixes github.sha for this entire run.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-gate:
+    uses: ./.github/workflows/script-runtime.yml
+
+  publish-dry-run:
+    needs: runtime-gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Verify release source and record dry-run approval
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          TESTED_SHA: ${{ needs.runtime-gate.outputs.tested-sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$TESTED_SHA" = "$EXPECTED_SHA"
+          test "$(git rev-parse HEAD)" = "$TESTED_SHA"
+          echo "DRY RUN ONLY: browser checks permit publishing $TESTED_SHA"
+          echo "No build upload, release, or deployment was performed." >> "$GITHUB_STEP_SUMMARY"
+          # A future publish command belongs AFTER these assertions.

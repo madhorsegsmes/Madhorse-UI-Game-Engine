@@ -1,0 +1,61 @@
+name: Verify release dependency blocking (no deployment)
+
+# Intentionally separate from the real browser gate: this verifies scheduling,
+# not browser compatibility. The failed job makes the overall run red by design.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  passing-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Passing gate fixture
+        run: exit 0
+
+  failing-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Intentionally failing gate fixture
+        run: exit 1
+
+  allowed-publish:
+    needs: passing-gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Harmless publishing sentinel
+        run: echo "DRY RUN ONLY — passing gate allowed this sentinel"
+
+  blocked-publish:
+    needs: failing-gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Must never run
+        run: exit 99
+
+  verify:
+    # always() is allowed ONLY on this observer, never a publishing job.
+    if: ${{ always() }}
+    needs: [passing-gate, failing-gate, allowed-publish, blocked-publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Assert both publishing decisions
+        env:
+          PASS_GATE: ${{ needs.passing-gate.result }}
+          FAIL_GATE: ${{ needs.failing-gate.result }}
+          ALLOWED: ${{ needs.allowed-publish.result }}
+          BLOCKED: ${{ needs.blocked-publish.result }}
+        run: |
+          set -euo pipefail
+          test "$PASS_GATE" = success
+          test "$FAIL_GATE" = failure
+          test "$ALLOWED" = success
+          test "$BLOCKED" = skipped
+          echo "Verified: failure blocked publishing; success allowed the dry-run sentinel." >> "$GITHUB_STEP_SUMMARY"
