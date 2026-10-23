@@ -5,6 +5,59 @@ import { createGameCamera, isGameCamera, makeGameViewCamera } from '../../src/li
 import { createDefaultPlayer, getTransform } from '../../src/lib/scene-model';
 import { test } from './fixtures';
 
+test('Panel 3 validates and saves custom camera pose and zoom on phones without moving objects', async ({ page }) => {
+  await page.setViewportSize({ width: 402, height: 874 });
+  await page.goto('/');
+  const view = page.getByTestId('scene-game-view');
+  const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('madhorse-ui-projects')!)[0]);
+  await expect(view).toBeVisible();
+  const before = await saved();
+  await page.getByTestId('button-game-camera').click();
+  const field = (name: string) => page.getByTestId(`game-camera-${name}`);
+  for (const [name, value] of Object.entries({ px: '3.5', py: '7', pz: '-12', tx: '1', ty: '2', tz: '-1', fov: '35' })) {
+    await field(name).fill(value);
+  }
+  const bounds = await field('px').boundingBox();
+  expect(bounds!.height).toBeGreaterThanOrEqual(44);
+  await expect(view).toHaveAttribute('data-camera-fov', String(before.gameCamera.fov));
+  await page.getByTestId('apply-game-camera').click();
+  await expect(view).toHaveAttribute('data-camera-position', '{"x":3.5,"y":7,"z":-12}');
+  await expect(view).toHaveAttribute('data-camera-target', '{"x":1,"y":2,"z":-1}');
+  await expect(view).toHaveAttribute('data-camera-fov', '35');
+  expect((await saved()).entities).toEqual(before.entities);
+  for (const invalid of ['', '101', '9']) {
+    await field('fov').fill(invalid);
+    await page.getByTestId('apply-game-camera').click();
+    await expect(page.locator('.game-camera-settings [role="alert"]')).toBeVisible();
+    await expect(view).toHaveAttribute('data-camera-fov', '35');
+  }
+  await field('fov').fill('35');
+  await field('px').fill('100001');
+  await page.getByTestId('apply-game-camera').click();
+  await expect(page.locator('.game-camera-settings [role="alert"]')).toBeVisible();
+  await field('px').fill('3.5');
+  for (const [name, value] of Object.entries({ tx: '3.5', ty: '7', tz: '-12' })) await field(name).fill(value);
+  await page.getByTestId('apply-game-camera').click();
+  await expect(page.locator('.game-camera-settings [role="alert"]')).toBeVisible();
+  await expect(view).toHaveAttribute('data-camera-target', '{"x":1,"y":2,"z":-1}');
+  await page.reload();
+  await expect(view).toHaveAttribute('data-camera-fov', '35');
+  await expect(view).toHaveAttribute('data-camera-position', '{"x":3.5,"y":7,"z":-12}');
+  await page.getByLabel('Project actions').click();
+  const original = await page.getByLabel('Choose project').inputValue();
+  page.once('dialog', (dialog) => dialog.accept('Custom camera isolation'));
+  await page.getByRole('button', { name: 'New project', exact: true }).click();
+  await expect(view).toHaveAttribute('data-camera-fov', '50');
+  await page.getByLabel('Choose project').selectOption(original);
+  await expect(view).toHaveAttribute('data-camera-fov', '35');
+  await page.getByLabel('Project actions').click();
+  await page.getByTestId('button-game-camera').click();
+  await page.getByTestId('aim-game-camera').click();
+  await expect(view).toHaveAttribute('data-camera-fov', '50');
+  await expect(view).toHaveAttribute('data-camera-position', JSON.stringify(createGameCamera(before.entities).position));
+  expect((await saved()).entities).toEqual(before.entities);
+});
+
 test('game camera points at the square and projects it to the exact center', () => {
   const player = createDefaultPlayer();
   getTransform(player).position = { x: 70, y: 30, z: 20 };

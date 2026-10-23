@@ -5,8 +5,13 @@ import { AnimationEditor } from '@/components/animation-editor';
 import type { GameAnimation } from '@/lib/game-api';
 import type { SceneEntity } from '@/lib/scene-model';
 import type { UIControlElement, UIControlType } from '@/lib/ui-controls';
+import type { GameCamera } from '@/lib/game-camera';
+import { GameCameraSettings } from '@/components/game-camera-settings';
 
 export function SystemPanelTools({
+  gameCamera,
+  cameraReadOnly,
+  onCameraChange,
   onAimCamera,
   onShowGameView,
   readOnly,
@@ -22,6 +27,9 @@ export function SystemPanelTools({
   onUpdateUIControl,
   onDeleteUIControl,
 }: {
+  gameCamera: GameCamera;
+  cameraReadOnly: boolean;
+  onCameraChange: (camera: GameCamera) => void;
   onAimCamera: () => void;
   onShowGameView: () => void;
   readOnly: boolean;
@@ -229,9 +237,8 @@ export function SystemPanelTools({
         <summary className="control-button system-tool-button" data-testid="button-game-camera">Game Camera</summary>
         <div className="system-tool-content game-camera-tools" aria-label="Game Camera controls">
           <span>Canvas shows this camera’s view of your 3D scene.</span>
-          <button type="button" onClick={onAimCamera} disabled={readOnly} data-testid="aim-game-camera">
-            Aim at square
-          </button>
+          <GameCameraSettings camera={gameCamera} readOnly={cameraReadOnly}
+            onChange={onCameraChange} onReset={onAimCamera} />
           <button type="button" onClick={onShowGameView} data-testid="show-game-view">
             Show game view
           </button>

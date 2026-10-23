@@ -43,6 +43,14 @@
 .game-camera-tools button { padding: 7px; border: 1px solid #6a3d38; background: #282023; color: #e1d7d3; cursor: pointer; }
 .game-camera-tools button:disabled { opacity: .5; cursor: not-allowed; }
 .game-camera-tools button:focus-visible { outline: 2px solid #cf4a40; outline-offset: 2px; }
+.game-camera-settings { display: grid; gap: 8px; min-width: 0; }
+.game-camera-settings fieldset { border: 1px solid #383435; padding: 8px; min-width: 0; }
+.game-camera-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; }
+.game-camera-settings label { display: grid; gap: 4px; min-width: 0; }
+.game-camera-settings input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; padding: 6px; border: 1px solid #65524e; background: #201e20; color: #eee; font-size: 16px; }
+.game-camera-settings button { min-height: 44px; }
+.game-camera-settings input:focus-visible { outline: 2px solid #cf4a40; outline-offset: 2px; }
+.game-camera-settings [role="alert"] { color: #ffada5; }
 
 .ui-controls-editor {
   position: fixed;

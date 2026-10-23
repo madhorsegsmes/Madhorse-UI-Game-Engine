@@ -933,6 +933,13 @@ function Home() {
               <WorkspacePanelHandle label="Panel 3 / System" />
             </div>
             <SystemPanelTools
+              key={activeProject.id}
+              gameCamera={gameCamera}
+              cameraReadOnly={isPlayMode || Boolean(activeAnimationPreview) || !loadedProjects.canOverwrite}
+              onCameraChange={(camera) => {
+                if (isPlayMode || activeAnimationPreview || !loadedProjects.canOverwrite || !isGameCamera(camera)) return;
+                updateActiveProject({ gameCamera: camera, activeCameraId: null });
+              }}
               readOnly={isPlayMode}
               animations={activeProject.animations ?? []}
               entities={sceneEditor.entities}
@@ -946,7 +953,8 @@ function Home() {
               onUpdateUIControl={updateUIControl}
               onDeleteUIControl={deleteUIControl}
               onAimCamera={() => {
-                updateActiveProject({ gameCamera: createGameCamera(activeProject.entities) });
+                if (isPlayMode || activeAnimationPreview || !loadedProjects.canOverwrite) return;
+                updateActiveProject({ gameCamera: createGameCamera(activeProject.entities), activeCameraId: null });
                 selectPreview('2d');
                 setSaveMessage('Game camera aimed at the square and saved in this browser.');
                 stageRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
