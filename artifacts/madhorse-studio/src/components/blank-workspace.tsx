@@ -1,5 +1,6 @@
 /** Fresh layout surface. Engine modules remain intact and inactive. */
 import { useCallback, useState } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { ScenePreview3D, type SceneTransformMode } from './scene-preview-3d';
 import {
   createStarterCube, getTransform, type SceneEntity, type TransformComponent,
@@ -61,26 +62,47 @@ function HierarchyPanel({
   selection: string | null;
   onSelect: (id: string) => void;
 }) {
-  const entries = [primaryCameraEntity(camera), ...entities];
+  const [sceneExpanded, setSceneExpanded] = useState(true);
+  const sceneEntities = [primaryCameraEntity(camera), ...entities];
+
+  function ObjectRows({ parentId = null, depth = 0 }: { parentId?: string | null; depth?: number }) {
+    const rows = sceneEntities.filter(entity => entity.parentId === parentId);
+
+    return (
+      <ul className="fresh-hierarchy-list" role={depth === 0 ? 'group' : undefined}>
+        {rows.map(entity => (
+          <li key={entity.id} className="fresh-hierarchy-row">
+            <div className="fresh-hierarchy-row-content" style={{ paddingLeft: 4 + depth * 14 }}>
+              <SceneObjectGlyph entity={entity} />
+              <button
+                type="button"
+                className="fresh-hierarchy-item"
+                aria-pressed={selection === entity.id}
+                onClick={() => onSelect(entity.id)}
+              >
+                <span>{entity.name}</span>
+              </button>
+            </div>
+            <ObjectRows parentId={entity.id} depth={depth + 1} />
+          </li>
+        ))}
+      </ul>
+    );
+  }
 
   return (
     <aside className="fresh-hierarchy" aria-label="Hierarchy">
       <h2 className="fresh-hierarchy-heading">Hierarchy</h2>
-      <ul className="fresh-hierarchy-list">
-        {entries.map(entity => (
-          <li key={entity.id}>
-            <button
-              type="button"
-              className="fresh-hierarchy-item"
-              aria-pressed={selection === entity.id}
-              onClick={() => onSelect(entity.id)}
-            >
-              <SceneObjectGlyph entity={entity} />
-              <span>{entity.name}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
+      <button
+        type="button"
+        className="fresh-scene-root"
+        aria-expanded={sceneExpanded}
+        onClick={() => setSceneExpanded(value => !value)}
+      >
+        {sceneExpanded ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
+        <span>Scene 1</span>
+      </button>
+      {sceneExpanded && <ObjectRows />}
     </aside>
   );
 }
