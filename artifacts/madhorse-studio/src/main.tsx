@@ -1,14 +1,12 @@
 import { createRoot } from 'react-dom/client';
 
-import App from './App';
+import BlankWorkspace from './components/blank-workspace';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { installSystemDiagnostics } from '@/lib/system-diagnostics';
-import { initializeStudioStorage } from '@/lib/studio-storage';
 
 import './index.css';
 
 const stopDiagnostics = installSystemDiagnostics();
-initializeStudioStorage();
 if (import.meta.hot) import.meta.hot.dispose(stopDiagnostics);
 
 createRoot(document.getElementById('root')!, {
@@ -18,6 +16,6 @@ createRoot(document.getElementById('root')!, {
   },
 }).render(
   <ErrorBoundary>
-    <App />
+    <BlankWorkspace />
   </ErrorBoundary>,
 );
