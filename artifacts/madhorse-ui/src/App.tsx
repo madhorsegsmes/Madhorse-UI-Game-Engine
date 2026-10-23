@@ -19,6 +19,7 @@ import { useSceneAuthoring } from '@/hooks/use-scene-authoring';
 import { HierarchyCreationTools } from '@/components/hierarchy-creation-tools';
 import { MadBuilderMenu } from '@/components/mad-builder-menu';
 import { SceneCameraControls } from '@/components/scene-camera-controls';
+import { SceneResizeHandles } from '@/components/scene-resize-handles';
 import { useMadBuilder } from '@/hooks/use-mad-builder';
 import { isBuilderHistory, isBuilderDraft } from '@/lib/mad-builder';
 import type { MadBuilderPlan } from '@workspace/api-client-react';
@@ -606,10 +607,7 @@ function Home() {
             onMoveUIControl={moveUIControl}
           />
           <div className="frame-lines" aria-hidden="true" />
-          <span className="stage-corner tl" aria-hidden="true" />
-          <span className="stage-corner tr" aria-hidden="true" />
-          <span className="stage-corner bl" aria-hidden="true" />
-          <span className="stage-corner br" aria-hidden="true" />
+          <SceneResizeHandles stageRef={stageRef} />
         </section>
 
         <SceneCameraControls

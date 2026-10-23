@@ -60,6 +60,15 @@ media-query styles, leaving controls at the smaller base size.
 **How to apply:** Scope desktop rules beneath the workspace root so they have
 greater specificity than global base rules; check computed sizes at desktop widths.
 
+Restore a child control's saved panel sizing only after its ancestor host ref has
+attached.
+
+**Why:** Reading the ancestor ref in the child's layout effect returned null on
+fresh mount: dragging worked, but a reload silently ignored the saved dimensions.
+
+**How to apply:** Use a passive effect or another post-attachment mechanism for
+ancestor-ref restoration, and verify a fresh reload, not just interactive edits.
+
 Show a spinning cog and adjacent loading bar whenever the system refreshes or
 collects data, and keep the screen awake while the editor is being used.
 

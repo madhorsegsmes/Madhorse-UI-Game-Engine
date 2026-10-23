@@ -1,0 +1,31 @@
+.shell:has(> .stage[data-user-sized]):not(:has(> .stage.is-scene-expanded)) {
+  grid-template-rows: auto auto auto auto auto 10px !important;
+  align-content: start;
+}
+.stage[data-user-sized]:not(.is-scene-expanded) {
+  box-sizing: border-box;
+  width: var(--scene-width);
+  height: var(--scene-height);
+  max-width: 100%;
+  margin-left: var(--scene-left);
+  margin-top: var(--scene-top);
+  justify-self: start;
+}
+.stage .scene-resize-handle {
+  position: absolute; z-index: 12; width: 28px; height: 28px; padding: 6px;
+  border: 0; background: transparent; color: #d05b50; touch-action: none; user-select: none;
+}
+.scene-resize-handle span { display: block; width: 100%; height: 100%; border-color: currentColor; border-style: solid; }
+.scene-resize-handle.tl { top: 0; left: 0; cursor: nwse-resize; }
+.scene-resize-handle.tr { top: 0; right: 0; cursor: nesw-resize; }
+.scene-resize-handle.bl { bottom: 0; left: 0; cursor: nesw-resize; }
+.scene-resize-handle.br { bottom: 0; right: 0; cursor: nwse-resize; }
+.scene-resize-handle.tl span { border-width: 2px 0 0 2px; }
+.scene-resize-handle.tr span { border-width: 2px 2px 0 0; }
+.scene-resize-handle.bl span { border-width: 0 0 2px 2px; }
+.scene-resize-handle.br span { border-width: 0 2px 2px 0; }
+.scene-resize-handle:hover, .scene-resize-handle:focus-visible { color: #ffafa3; background: #7d302b44; outline: 1px solid #b4483e; }
+.stage.is-scene-expanded .scene-resize-handle, .stage.is-scene-expanded .scene-reset-size { display: none; }
+.stage .scene-reset-size { position: absolute; right: 34px; bottom: 5px; z-index: 10; padding: 3px 7px; border: 1px solid #59423f; background: #242123; color: #cdb7b2; font: 10px/1.3 'DM Mono', monospace; cursor: pointer; }
+.scene-size-notice { position: absolute; right: 32px; bottom: 27px; z-index: 10; max-width: 70%; padding: 4px; background: #242123; color: #f0b0a8; font-size: 10px; }
+@media (pointer: coarse) { .stage .scene-resize-handle { width: 36px; height: 36px; padding: 9px; } }
