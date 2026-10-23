@@ -22,13 +22,31 @@ body {
   inset: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(220px, 0.78fr);
-  grid-template-rows: minmax(220px, 2fr) minmax(165px, 1.45fr) minmax(120px, 1fr);
+  grid-template-rows: 34px minmax(220px, 2fr) minmax(165px, 1.45fr) minmax(120px, 1fr);
   gap: 10px;
   overflow: auto;
   padding: 14px;
   background:
     radial-gradient(ellipse at 84% 4%, rgb(102 47 198 / 12%), transparent 42%),
     #080710;
+}
+
+.fresh-toolbar {
+  grid-column: 1 / 4;
+  grid-row: 1;
+  min-width: 0;
+  border: 1px solid #65419e;
+  background: linear-gradient(90deg, rgb(116 53 204 / 12%), rgb(15 11 25 / 40%) 32%, #090710);
+  box-shadow: inset 0 1px 0 rgb(239 204 255 / 14%), 0 0 10px rgb(113 50 222 / 10%);
+}
+
+.fresh-toolbar::before {
+  display: block;
+  width: 18%;
+  height: 2px;
+  background: linear-gradient(90deg, #e342f5, #8f45fa, transparent);
+  content: '';
+  filter: drop-shadow(0 0 4px rgb(184 68 255 / 70%));
 }
 
 .fresh-panel {
@@ -76,59 +94,64 @@ body {
 
 .fresh-panel-1 {
   grid-column: 1 / 3;
-  grid-row: 1 / 3;
+  grid-row: 2 / 4;
 }
 
 .fresh-panel-2 {
   grid-column: 3;
-  grid-row: 1;
+  grid-row: 2;
 }
 
 .fresh-panel-3 {
   grid-column: 3;
-  grid-row: 2 / 4;
+  grid-row: 3 / 5;
 }
 
 .fresh-panel-4 {
   grid-column: 1;
-  grid-row: 3;
+  grid-row: 4;
 }
 
 .fresh-panel-5 {
   grid-column: 2;
-  grid-row: 3;
+  grid-row: 4;
 }
 
 @media (max-width: 680px) {
   .fresh-layout {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: minmax(270px, 1.5fr) minmax(180px, 1fr) minmax(145px, 0.82fr);
+    grid-template-rows: 32px minmax(270px, 1.5fr) minmax(180px, 1fr) minmax(145px, 0.82fr);
     gap: 8px;
     padding: 9px;
   }
 
-  .fresh-panel-1 {
+  .fresh-toolbar {
     grid-column: 1 / 3;
     grid-row: 1;
   }
 
+  .fresh-panel-1 {
+    grid-column: 1 / 3;
+    grid-row: 2;
+  }
+
   .fresh-panel-2 {
     grid-column: 1;
-    grid-row: 2;
+    grid-row: 3;
   }
 
   .fresh-panel-3 {
     grid-column: 2;
-    grid-row: 2;
+    grid-row: 3;
   }
 
   .fresh-panel-4 {
     grid-column: 1;
-    grid-row: 3;
+    grid-row: 4;
   }
 
   .fresh-panel-5 {
     grid-column: 2;
-    grid-row: 3;
+    grid-row: 4;
   }
 }

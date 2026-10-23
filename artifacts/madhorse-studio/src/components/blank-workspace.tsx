@@ -4,6 +4,7 @@ import './numbered-workspace.css';
 export default function BlankWorkspace() {
   return (
     <main className="fresh-layout" aria-label="Blank Madhorse workspace">
+      <div className="fresh-toolbar" role="toolbar" aria-label="Empty toolbar" />
       {[1, 2, 3, 4, 5].map((number) => (
         <section
           key={number}
