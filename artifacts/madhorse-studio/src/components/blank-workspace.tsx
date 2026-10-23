@@ -7,6 +7,7 @@ import {
   createPhysicsComponent,
   createSceneEntity,
   createStarterCube,
+  getCamera,
   getTransform,
   primitiveShapes,
   projectAssetKind,
@@ -19,8 +20,9 @@ import {
   type UIElementKind,
 } from '@/lib/scene-model';
 import { createGameCamera, type GameCamera } from '@/lib/game-camera';
-import { PRIMARY_CAMERA_ID, primaryCameraEntity } from '@/lib/camera-editor';
+import { cameraWithPose, PRIMARY_CAMERA_ID, primaryCameraEntity } from '@/lib/camera-editor';
 import { SceneObjectGlyph } from './scene-object-glyph';
+import { SceneObjectInspector } from './scene-object-inspector';
 import { HierarchyContextMenu, type HierarchyMenuPoint, type PlaneSettings } from './hierarchy-context-menu';
 import { AnimationEditor } from './animation-editor';
 import { isGameAnimationCollection, sampleGameAnimation, type GameAnimation } from '@/lib/game-api';
@@ -98,7 +100,9 @@ function HierarchyPanel({
 }) {
   const [sceneExpanded, setSceneExpanded] = useState(true);
   const [menuPoint, setMenuPoint] = useState<HierarchyMenuPoint | null>(null);
+  const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
   const sceneEntities = [primaryCameraEntity(camera), ...entities];
+  const editingEntity = sceneEntities.find(entity => entity.id === editingEntityId) ?? null;
 
   function openMenu(x: number, y: number) {
     setMenuPoint({
@@ -129,7 +133,7 @@ function HierarchyPanel({
 
   return (
     <aside className="fresh-hierarchy" aria-label="Hierarchy"
-      aria-description="Right-click to create scene objects, import assets, or open the animation timeline."
+      aria-description="Right-click to create scene objects, import assets, or open the animation timeline. Double-click or double-tap an object to rename it and edit its settings."
       onContextMenu={handleContextMenu} onKeyDown={handleKeyDown}>
       <h2 className="fresh-hierarchy-heading">Hierarchy</h2>
       <button
@@ -148,9 +152,10 @@ function HierarchyPanel({
           depth={0}
           selection={selection}
           onSelect={onSelect}
+          onEdit={entity => { onSelect(entity.id); setEditingEntityId(entity.id); }}
         />
       )}
-      <p className="fresh-hierarchy-help">Right-click here to add objects, assets, and tools.</p>
+      <p className="fresh-hierarchy-help">Right-click to add objects. Double-tap an object to rename it and edit its settings.</p>
       {menuPoint && (
         <HierarchyContextMenu
           point={menuPoint}
@@ -172,6 +177,20 @@ function HierarchyPanel({
           onCreateEmpty={actions.onCreateEmpty}
         />
       )}
+      {editingEntity && (
+        <SceneObjectInspector
+          key={editingEntity.id}
+          entity={editingEntity}
+          assets={assets}
+          canRename={editingEntity.id !== PRIMARY_CAMERA_ID}
+          canEditActive={editingEntity.id !== PRIMARY_CAMERA_ID}
+          onClose={() => setEditingEntityId(null)}
+          onSave={entity => {
+            actions.onUpdateEntity(entity);
+            setEditingEntityId(null);
+          }}
+        />
+      )}
     </aside>
   );
 }
@@ -186,6 +205,7 @@ type HierarchyActions = {
   onCreateCamera: () => void;
   onCreateLight: () => void;
   onCreateEffect: () => void;
+  onUpdateEntity: (entity: SceneEntity) => void;
   onCreateUI: (kind: UIElementKind) => void;
   onCreateScript: () => void;
   onCreateTexture: () => void;
@@ -199,12 +219,14 @@ function SceneObjectRows({
   depth,
   selection,
   onSelect,
+  onEdit,
 }: {
   entities: SceneEntity[];
   parentId: string | null;
   depth: number;
   selection: string | null;
   onSelect: (id: string) => void;
+  onEdit: (entity: SceneEntity) => void;
 }) {
   const rows = entities.filter(entity => entity.parentId === parentId);
   if (rows.length === 0) return null;
@@ -218,6 +240,7 @@ function SceneObjectRows({
           depth={depth}
           selection={selection}
           onSelect={onSelect}
+          onEdit={onEdit}
         />
       ))}
     </ul>
@@ -230,15 +253,18 @@ function SceneObjectRow({
   depth,
   selection,
   onSelect,
+  onEdit,
 }: {
   entity: SceneEntity;
   entities: SceneEntity[];
   depth: number;
   selection: string | null;
   onSelect: (id: string) => void;
+  onEdit: (entity: SceneEntity) => void;
 }) {
   const children = entities.some(candidate => candidate.parentId === entity.id);
   const [expanded, setExpanded] = useState(true);
+  const lastTouchTap = useRef(0);
   return (
     <li className="fresh-hierarchy-row" data-hierarchy-entity-id={entity.id}>
       <div className="fresh-hierarchy-row-content" style={{ paddingLeft: 4 + depth * 14 }}>
@@ -259,6 +285,18 @@ function SceneObjectRow({
           className="fresh-hierarchy-item"
           aria-pressed={selection === entity.id}
           onClick={() => onSelect(entity.id)}
+          onDoubleClick={() => { onSelect(entity.id); onEdit(entity); }}
+          onPointerUp={event => {
+            if (event.pointerType !== 'touch') return;
+            const now = Date.now();
+            if (now - lastTouchTap.current < 420) {
+              lastTouchTap.current = 0;
+              onSelect(entity.id);
+              onEdit(entity);
+            } else {
+              lastTouchTap.current = now;
+            }
+          }}
         >
           <span>{entity.name}</span>
         </button>
@@ -270,6 +308,7 @@ function SceneObjectRow({
           depth={depth + 1}
           selection={selection}
           onSelect={onSelect}
+          onEdit={onEdit}
         />
       )}
     </li>
@@ -347,6 +386,31 @@ export default function BlankWorkspace() {
       };
     }));
   }, []);
+
+  const updateEntitySettings = useCallback((updated: SceneEntity) => {
+    if (updated.id === PRIMARY_CAMERA_ID) {
+      const transform = getTransform(updated);
+      const lens = getCamera(updated);
+      const nextCamera = cameraWithPose(camera, {
+        position: {
+          x: (transform.position.x - 50) / 10,
+          y: transform.position.z / 10,
+          z: (transform.position.y - 50) / 10,
+        },
+        rotation: {
+          x: -transform.rotation.x,
+          y: -transform.rotation.z,
+          z: -transform.rotation.y,
+        },
+        fov: lens?.fov ?? camera.fov,
+      });
+      if (nextCamera) setCamera(nextCamera);
+      else setStatus('The camera settings could not be applied.');
+      return;
+    }
+    setEntities(current => current.map(entity => entity.id === updated.id ? updated : entity));
+    setStatus(`${updated.name} updated and saved in this browser.`);
+  }, [camera]);
 
   const addEntity = useCallback((entity: SceneEntity) => {
     setEntities(current => [...current, entity]);
@@ -576,6 +640,7 @@ export default function BlankWorkspace() {
     onCreateCamera: createCameraEntity,
     onCreateLight: createLightEntity,
     onCreateEffect: createEffectEntity,
+    onUpdateEntity: updateEntitySettings,
     onCreateUI: createUIEntity,
     onCreateScript: createScriptEntity,
     onCreateTexture: () => { void makeTexture(); },
