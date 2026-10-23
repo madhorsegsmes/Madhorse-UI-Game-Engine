@@ -45,9 +45,43 @@ export type PhysicsWorldSettings = {
   gravity: Vector3;
 };
 
+export const primitiveShapes = [
+  { value: 'cube', label: 'Cube' },
+  { value: 'sphere', label: 'Sphere' },
+  { value: 'capsule', label: 'Capsule' },
+  { value: 'cylinder', label: 'Cylinder' },
+  { value: 'cone', label: 'Cone' },
+  { value: 'plane', label: 'Plane' },
+  { value: 'circle', label: 'Circle' },
+  { value: 'ring', label: 'Ring' },
+  { value: 'torus', label: 'Torus' },
+  { value: 'torus-knot', label: 'Torus Knot' },
+  { value: 'icosahedron', label: 'Icosahedron' },
+  { value: 'dodecahedron', label: 'Dodecahedron' },
+  { value: 'octahedron', label: 'Octahedron' },
+  { value: 'tetrahedron', label: 'Tetrahedron' },
+  { value: 'pyramid', label: 'Pyramid' },
+  { value: 'triangular-prism', label: 'Triangular Prism' },
+  { value: 'wedge', label: 'Wedge' },
+  { value: 'tube', label: 'Tube' },
+  { value: 'hollow-cylinder', label: 'Hollow Cylinder' },
+  { value: 'rounded-cube', label: 'Rounded Cube' },
+] as const;
+
+export type PrimitiveShape = (typeof primitiveShapes)[number]['value'] | 'terrain';
+export type TerrainSettings = {
+  width: number;
+  depth: number;
+  height: number;
+  mountainHeight: number;
+  riverDepth: number;
+  riverCount: number;
+};
+
 export type PrimitiveComponent = {
   id: string; type: 'primitive'; enabled: boolean;
-  shape: 'cube' | 'plane' | 'terrain'; color: string; textureAssetId: string | null;
+  shape: PrimitiveShape; color: string; textureAssetId: string | null;
+  terrainSettings?: TerrainSettings;
   opacity?: number;
 };
 export type LightComponent = {
@@ -251,7 +285,10 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
       (item.assetId === null || typeof item.assetId === 'string');
   }
   if (item.type === 'primitive') {
-    return typeof item.enabled === 'boolean' && ['cube', 'plane', 'terrain'].includes(item.shape) &&
+    const validTerrain = item.terrainSettings === undefined || isTerrainSettings(item.terrainSettings);
+    return typeof item.enabled === 'boolean' &&
+      (item.shape === 'terrain' || primitiveShapes.some(({ value }) => value === item.shape)) &&
+      validTerrain && (item.shape === 'terrain' || item.terrainSettings === undefined) &&
       (item.opacity === undefined || Number.isFinite(item.opacity) && item.opacity >= .05 && item.opacity <= 1) &&
       /^#[0-9a-f]{6}$/i.test(item.color) && (item.textureAssetId === null || typeof item.textureAssetId === 'string');
   }
@@ -355,6 +392,17 @@ function isVector(value: unknown): value is Vector3 {
   if (!value || typeof value !== 'object') return false;
   const vector = value as Vector3;
   return Number.isFinite(vector.x) && Number.isFinite(vector.y) && Number.isFinite(vector.z);
+}
+
+function isTerrainSettings(value: unknown): value is TerrainSettings {
+  if (!value || typeof value !== 'object') return false;
+  const settings = value as TerrainSettings;
+  return Number.isFinite(settings.width) && settings.width >= 1 && settings.width <= 500 &&
+    Number.isFinite(settings.depth) && settings.depth >= 1 && settings.depth <= 500 &&
+    Number.isFinite(settings.height) && settings.height >= 0 && settings.height <= 100 &&
+    Number.isFinite(settings.mountainHeight) && settings.mountainHeight >= 0 && settings.mountainHeight <= 100 &&
+    Number.isFinite(settings.riverDepth) && settings.riverDepth >= 0 && settings.riverDepth <= 50 &&
+    Number.isInteger(settings.riverCount) && settings.riverCount >= 0 && settings.riverCount <= 10;
 }
 
 export function projectAssetKind(fileName: string, mimeType: string): SpriteAssetKind {

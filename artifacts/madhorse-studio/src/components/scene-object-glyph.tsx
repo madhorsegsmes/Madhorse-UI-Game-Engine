@@ -1,6 +1,6 @@
 import {
   getCamera, getLight, getModelRenderer, getPrimitive, getSpriteRenderer, getUICanvas,
-  type SceneEntity,
+  primitiveShapes, type SceneEntity,
 } from '@/lib/scene-model';
 import './scene-object-glyph.css';
 
@@ -9,9 +9,8 @@ export function getSceneObjectTypeLabel(entity: SceneEntity) {
   if (getLight(entity)) return 'Light';
   if (getUICanvas(entity)) return 'UI Canvas';
   const primitive = getPrimitive(entity);
-  if (primitive?.shape === 'cube') return '3D Cube';
-  if (primitive?.shape === 'plane') return '3D Plane';
   if (primitive?.shape === 'terrain') return 'Terrain';
+  if (primitive) return `3D ${primitiveShapes.find(shape => shape.value === primitive.shape)?.label ?? 'Shape'}`;
   if (getModelRenderer(entity)?.enabled) return '3D Model';
   if (getSpriteRenderer(entity)?.enabled) return 'Sprite';
   return 'Object';

@@ -28,7 +28,10 @@ export function SceneElementVisual({ entity, gameView, active, assetUrls, onErro
 
 function PrimitiveVisual({ primitive, url, onError, active }: { primitive: PrimitiveComponent; url?: string; active: boolean; onError: (message: string) => void }) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
-  const geometry = useMemo(() => createPrimitiveGeometry(primitive.shape), [primitive.shape]);
+  const geometry = useMemo(
+    () => createPrimitiveGeometry(primitive.shape, primitive.terrainSettings),
+    [primitive.shape, primitive.terrainSettings],
+  );
   useEffect(() => () => geometry.dispose(), [geometry]);
   useEffect(() => {
     setTexture(null);
