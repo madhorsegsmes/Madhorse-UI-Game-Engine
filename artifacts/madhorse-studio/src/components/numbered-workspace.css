@@ -1,0 +1,134 @@
+:root {
+  color-scheme: dark;
+  background: #080710;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background: #080710;
+}
+
+.fresh-layout {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(220px, 0.78fr);
+  grid-template-rows: minmax(220px, 2fr) minmax(165px, 1.45fr) minmax(120px, 1fr);
+  gap: 10px;
+  overflow: auto;
+  padding: 14px;
+  background:
+    radial-gradient(ellipse at 84% 4%, rgb(102 47 198 / 12%), transparent 42%),
+    #080710;
+}
+
+.fresh-panel {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #4d3290;
+  background:
+    linear-gradient(140deg, rgb(79 46 155 / 11%), transparent 44%),
+    linear-gradient(180deg, #0b0a12, #08070e);
+  box-shadow:
+    inset 0 0 0 1px rgb(182 121 255 / 8%),
+    inset 0 1px 0 rgb(232 200 255 / 20%),
+    0 0 13px rgb(113 50 222 / 13%);
+}
+
+.fresh-panel::after {
+  position: absolute;
+  top: 0;
+  left: 12px;
+  width: 27%;
+  height: 2px;
+  background: linear-gradient(90deg, #d264ff, #7434e5, transparent);
+  content: '';
+  filter: drop-shadow(0 0 4px rgb(177 70 255 / 75%));
+  pointer-events: none;
+}
+
+.fresh-panel-number {
+  position: absolute;
+  top: 11px;
+  left: 12px;
+  display: grid;
+  min-width: 24px;
+  height: 23px;
+  place-items: center;
+  padding: 0 7px;
+  border: 1px solid rgb(169 115 245 / 55%);
+  background: linear-gradient(135deg, rgb(105 55 182 / 35%), rgb(20 14 37 / 90%));
+  color: #eee4ff;
+  font: 700 12px/1 Inter, system-ui, sans-serif;
+  text-shadow: 0 0 8px rgb(193 139 255 / 48%);
+}
+
+.fresh-panel-1 {
+  grid-column: 1 / 3;
+  grid-row: 1 / 3;
+}
+
+.fresh-panel-2 {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.fresh-panel-3 {
+  grid-column: 3;
+  grid-row: 2 / 4;
+}
+
+.fresh-panel-4 {
+  grid-column: 1;
+  grid-row: 3;
+}
+
+.fresh-panel-5 {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+@media (max-width: 680px) {
+  .fresh-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(270px, 1.5fr) minmax(180px, 1fr) minmax(145px, 0.82fr);
+    gap: 8px;
+    padding: 9px;
+  }
+
+  .fresh-panel-1 {
+    grid-column: 1 / 3;
+    grid-row: 1;
+  }
+
+  .fresh-panel-2 {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .fresh-panel-3 {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .fresh-panel-4 {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .fresh-panel-5 {
+    grid-column: 2;
+    grid-row: 3;
+  }
+}
