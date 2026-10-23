@@ -92,8 +92,17 @@ export type CameraComponent = {
   id: string; type: 'camera'; enabled: boolean; fov: number; target: Vector3;
   useTransformRotation?: boolean;
 };
+export const uiElementKinds = [
+  { value: 'canvas', label: 'UI Canvas' },
+  { value: 'panel', label: 'UI Panel' },
+  { value: 'bar', label: 'UI Bar' },
+  { value: 'button', label: 'UI Button' },
+  { value: 'menu-screen', label: 'Full UI Menu Screen' },
+] as const;
+export type UIElementKind = (typeof uiElementKinds)[number]['value'];
 export type UICanvasComponent = {
-  id: string; type: 'uiCanvas'; enabled: boolean; controlId: string; frame?: boolean;
+  id: string; type: 'uiCanvas'; enabled: boolean; controlId: string;
+  kind?: UIElementKind; frame?: boolean;
 };
 export type ScriptComponent = {
   id: string; type: 'script'; enabled: boolean; scriptId: string;
@@ -302,6 +311,7 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
       item.fov >= 10 && item.fov <= 100 && isVector(item.target);
   }
   if (item.type === 'uiCanvas') return typeof item.enabled === 'boolean' && typeof item.controlId === 'string' &&
+    (item.kind === undefined || uiElementKinds.some(kind => kind.value === item.kind)) &&
     (item.frame === undefined || typeof item.frame === 'boolean');
   if (item.type === 'script') return typeof item.enabled === 'boolean' &&
     typeof item.scriptId === 'string' && item.scriptId.length > 0 && item.scriptId.length <= 128;

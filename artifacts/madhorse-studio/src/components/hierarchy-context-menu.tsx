@@ -1,5 +1,12 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
-import { primitiveShapes, type PrimitiveShape, type ProjectAsset, type TerrainSettings } from '@/lib/scene-model';
+import {
+  primitiveShapes,
+  uiElementKinds,
+  type PrimitiveShape,
+  type ProjectAsset,
+  type TerrainSettings,
+  type UIElementKind,
+} from '@/lib/scene-model';
 
 export type HierarchyMenuPoint = { x: number; y: number };
 export type PlaneSettings = { size: number; width: number; depth: number };
@@ -16,7 +23,7 @@ type Props = {
   onUseAsset: (asset: ProjectAsset) => void;
   onCreateCamera: () => void;
   onCreateLight: () => void;
-  onCreateUI: () => void;
+  onCreateUI: (kind: UIElementKind) => void;
   onCreateScript: () => void;
   onCreateTexture: () => void;
   onOpenTimeline: () => void;
@@ -40,6 +47,7 @@ const menuEntries = [
 export function HierarchyContextMenu(props: Props) {
   const [showShapes, setShowShapes] = useState(false);
   const [showAssets, setShowAssets] = useState(false);
+  const [showUIOptions, setShowUIOptions] = useState(false);
   const [dialog, setDialog] = useState<'plane' | 'terrain' | null>(null);
 
   function run(action: () => void) {
@@ -90,7 +98,40 @@ export function HierarchyContextMenu(props: Props) {
             ))}
           </div>
         )}
-        {menuEntries.map(([key, label]) => (
+        {menuEntries.map(([key, label]) => key === 'ui' ? (
+          <div
+            className="fresh-context-group"
+            key={key}
+            onMouseEnter={() => setShowUIOptions(true)}
+            onMouseLeave={() => setShowUIOptions(false)}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              className="fresh-context-action"
+              aria-haspopup="menu"
+              aria-expanded={showUIOptions}
+              onFocus={() => setShowUIOptions(true)}
+              onClick={() => setShowUIOptions(true)}
+            >
+              <span>{label}</span><span aria-hidden="true">{showUIOptions ? '⌄' : '›'}</span>
+            </button>
+            {showUIOptions && (
+              <div className="fresh-ui-submenu" role="menu" aria-label="Choose a UI element">
+                {uiElementKinds.map(kind => (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    key={kind.value}
+                    onClick={() => run(() => props.onCreateUI(kind.value))}
+                  >
+                    {kind.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
           <button
             type="button"
             role="menuitem"
@@ -105,7 +146,6 @@ export function HierarchyContextMenu(props: Props) {
               if (key === 'upload-texture') return run(props.onUploadTexture);
               if (key === 'camera') return run(props.onCreateCamera);
               if (key === 'light') return run(props.onCreateLight);
-              if (key === 'ui') return run(props.onCreateUI);
               if (key === 'script') return run(props.onCreateScript);
               if (key === 'texture') return run(props.onCreateTexture);
               if (key === 'timeline') return run(props.onOpenTimeline);

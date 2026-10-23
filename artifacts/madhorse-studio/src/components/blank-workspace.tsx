@@ -10,11 +10,13 @@ import {
   getTransform,
   primitiveShapes,
   projectAssetKind,
+  uiElementKinds,
   type PrimitiveShape,
   type ProjectAsset,
   type SceneEntity,
   type TerrainSettings,
   type TransformComponent,
+  type UIElementKind,
 } from '@/lib/scene-model';
 import { createGameCamera, type GameCamera } from '@/lib/game-camera';
 import { PRIMARY_CAMERA_ID, primaryCameraEntity } from '@/lib/camera-editor';
@@ -182,7 +184,7 @@ type HierarchyActions = {
   onUseAsset: (asset: ProjectAsset) => void;
   onCreateCamera: () => void;
   onCreateLight: () => void;
-  onCreateUI: () => void;
+  onCreateUI: (kind: UIElementKind) => void;
   onCreateScript: () => void;
   onCreateTexture: () => void;
   onOpenTimeline: () => void;
@@ -481,11 +483,12 @@ export default function BlankWorkspace() {
     addEntity(entity);
   }, [addEntity, nextPosition]);
 
-  const createUIEntity = useCallback(() => {
-    const entity = createSceneEntity('UI Canvas', nextPosition(), null, false);
+  const createUIEntity = useCallback((kind: UIElementKind) => {
+    const name = uiElementKinds.find(item => item.value === kind)?.label ?? 'UI Canvas';
+    const entity = createSceneEntity(name, nextPosition(), null, false);
     entity.components = [
       ...entity.components,
-      { id: crypto.randomUUID(), type: 'uiCanvas', enabled: true, controlId: crypto.randomUUID() },
+      { id: crypto.randomUUID(), type: 'uiCanvas', enabled: true, controlId: crypto.randomUUID(), kind },
     ];
     addEntity(entity);
   }, [addEntity, nextPosition]);

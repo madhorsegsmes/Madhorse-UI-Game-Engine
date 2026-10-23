@@ -20,9 +20,18 @@ export function SceneElementVisual({ entity, gameView, active, assetUrls, onErro
   if (gameView) return null;
   const camera = getCamera(entity);
   if (camera) return <CameraModel fov={camera.fov} selected={selected} primary={primary} active={active && camera.enabled} />;
-  if (getUICanvas(entity)) return <mesh rotation={[-Math.PI / 2, 0, 0]}>
-    <planeGeometry args={[3.2, 1.8]} /><meshBasicMaterial color="#72a7ad" wireframe side={THREE.DoubleSide} />
-  </mesh>;
+  const uiCanvas = getUICanvas(entity);
+  if (uiCanvas) {
+    const dimensions: [number, number] = uiCanvas.kind === 'bar' ? [3.2, .42]
+      : uiCanvas.kind === 'button' ? [1.2, .55]
+        : uiCanvas.kind === 'panel' ? [2.4, 1.4] : [3.2, 1.8];
+    const color = uiCanvas.kind === 'button' ? '#e89bf2'
+      : uiCanvas.kind === 'bar' ? '#cf83e8'
+        : uiCanvas.kind === 'panel' ? '#a986e2' : '#72a7ad';
+    return <mesh rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={dimensions} /><meshBasicMaterial color={color} wireframe side={THREE.DoubleSide} />
+    </mesh>;
+  }
   return null;
 }
 

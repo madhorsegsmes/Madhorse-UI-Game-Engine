@@ -323,6 +323,40 @@ body {
   color: #fff;
 }
 
+.fresh-context-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.fresh-ui-submenu {
+  display: grid;
+  gap: 3px;
+  margin: 2px 4px 5px 13px;
+  padding: 5px;
+  border: 1px solid rgb(136 87 179 / 40%);
+  background: linear-gradient(145deg, #21152e, #0a0810);
+  box-shadow: inset 2px 0 #8d4ec3;
+}
+
+.fresh-ui-submenu button {
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #dac9ed;
+  font: 500 10px/1.3 Inter, system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fresh-ui-submenu button:hover,
+.fresh-ui-submenu button:focus-visible {
+  border-color: rgb(169 107 235 / 55%);
+  outline: none;
+  background: rgb(121 60 183 / 22%);
+  color: #fff;
+}
+
 .fresh-shape-picker,
 .fresh-asset-picker {
   display: grid;

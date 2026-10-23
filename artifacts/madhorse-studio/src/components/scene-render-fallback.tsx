@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { SVGRenderer } from 'three/examples/jsm/renderers/SVGRenderer.js';
-import { getCamera, getLight, getPrimitive, getSpriteRenderer, getWorldTransform, type SceneEntity } from '@/lib/scene-model';
+import { getCamera, getLight, getPrimitive, getSpriteRenderer, getUICanvas, getWorldTransform, type SceneEntity } from '@/lib/scene-model';
 import { createPrimitiveGeometry } from '@/lib/scene-view-geometry';
 import type { GameCamera } from '@/lib/game-camera';
 import type { SceneRenderSettings } from '@/hooks/use-scene-render-settings';
@@ -120,8 +120,22 @@ export function SceneRenderFallback({
         geometries.add(geometry);
         materials.add(material);
       } else {
+        const uiCanvas = getUICanvas(entity);
         const sprite = getSpriteRenderer(entity);
-        if (sprite?.enabled) {
+        if (uiCanvas?.enabled) {
+          const dimensions = uiCanvas.kind === 'bar' ? [3.2, .42]
+            : uiCanvas.kind === 'button' ? [1.2, .55]
+              : uiCanvas.kind === 'panel' ? [2.4, 1.4] : [3.2, 1.8];
+          const geometry = new THREE.PlaneGeometry(dimensions[0], dimensions[1]);
+          geometry.rotateX(-Math.PI / 2);
+          const color = uiCanvas.kind === 'button' ? '#e89bf2'
+            : uiCanvas.kind === 'bar' ? '#cf83e8'
+              : uiCanvas.kind === 'panel' ? '#a986e2' : '#72a7ad';
+          const material = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, wireframe: true });
+          object.add(new THREE.Mesh(geometry, material));
+          geometries.add(geometry);
+          materials.add(material);
+        } else if (sprite?.enabled) {
           const geometry = new THREE.PlaneGeometry(
             Math.max(0.1, sprite.width / 10),
             Math.max(0.1, sprite.height / 10),
