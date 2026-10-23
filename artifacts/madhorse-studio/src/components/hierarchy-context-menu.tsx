@@ -14,7 +14,9 @@ export type PlaneSettings = { size: number; width: number; depth: number };
 type Props = {
   point: HierarchyMenuPoint;
   assets: ProjectAsset[];
+  deleteTarget: { id: string; name: string; childCount: number } | null;
   onClose: () => void;
+  onDeleteEntity: (entityId: string) => void;
   onCreateShape: (shape: PrimitiveShape) => void;
   onCreatePlane: (settings: PlaneSettings) => void;
   onCreateTerrain: (settings: TerrainSettings & { size: number }) => void;
@@ -195,6 +197,20 @@ export function HierarchyContextMenu(props: Props) {
                 </button>
               ))}
           </div>
+        )}
+        {props.deleteTarget && (
+          <>
+            <div className="fresh-context-separator" role="separator" />
+            <button
+              type="button"
+              role="menuitem"
+              className="fresh-context-action is-danger"
+              onClick={() => run(() => props.onDeleteEntity(props.deleteTarget!.id))}
+            >
+              <span>Delete {props.deleteTarget.name}</span>
+              {props.deleteTarget.childCount > 0 && <small>{props.deleteTarget.childCount} child{props.deleteTarget.childCount === 1 ? '' : 'ren'}</small>}
+            </button>
+          </>
         )}
       </div>
       {dialog === 'plane' && (

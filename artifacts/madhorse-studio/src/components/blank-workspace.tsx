@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Dispatch, KeyboardEvent, MouseEvent, SetStateAction } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
 import { ScenePreview3D, type SceneTransformMode } from './scene-preview-3d';
 import {
   createPhysicsComponent,
@@ -136,6 +136,21 @@ function SettingsPanel({
   );
 }
 
+function collectHierarchySubtreeIds(entities: SceneEntity[], rootId: string) {
+  const removedIds = new Set([rootId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const entity of entities) {
+      if (entity.parentId && removedIds.has(entity.parentId) && !removedIds.has(entity.id)) {
+        removedIds.add(entity.id);
+        changed = true;
+      }
+    }
+  }
+  return removedIds;
+}
+
 function HierarchyPanel({
   entities,
   camera,
@@ -155,9 +170,11 @@ function HierarchyPanel({
 }) {
   const [sceneExpanded, setSceneExpanded] = useState(true);
   const [menuPoint, setMenuPoint] = useState<HierarchyMenuPoint | null>(null);
+  const [menuEntityId, setMenuEntityId] = useState<string | null>(null);
   const sceneEntities = [primaryCameraEntity(camera), ...entities];
 
-  function openMenu(x: number, y: number) {
+  function openMenu(x: number, y: number, entityId: string | null = null) {
+    setMenuEntityId(entityId);
     setMenuPoint({
       x: Math.max(8, Math.min(x, window.innerWidth - 290)),
       y: Math.max(8, Math.min(y, window.innerHeight - 8)),
@@ -170,7 +187,7 @@ function HierarchyPanel({
     const row = target?.closest<HTMLElement>('[data-hierarchy-entity-id]');
     const entityId = row?.dataset.hierarchyEntityId;
     if (entityId) onSelect(entityId);
-    openMenu(event.clientX, event.clientY);
+    openMenu(event.clientX, event.clientY, entityId ?? null);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
@@ -181,12 +198,24 @@ function HierarchyPanel({
     const entityId = row?.dataset.hierarchyEntityId;
     if (entityId) onSelect(entityId);
     const bounds = (row ?? event.currentTarget).getBoundingClientRect();
-    openMenu(bounds.left, bounds.bottom);
+    openMenu(bounds.left, bounds.bottom, entityId ?? null);
   }
 
+  function requestDeleteEntity(entityId: string) {
+    const entity = entities.find(entry => entry.id === entityId);
+    if (!entity || entity.id === 'player') return;
+    const descendantCount = collectHierarchySubtreeIds(entities, entityId).size - 1;
+    const childNotice = descendantCount
+      ? ` This will also delete ${descendantCount} child object${descendantCount === 1 ? '' : 's'}.`
+      : '';
+    if (!window.confirm(`Delete "${entity.name}"?${childNotice} This cannot be undone.`)) return;
+    actions.onDeleteEntity(entityId);
+  }
+
+  const contextEntity = entities.find(entity => entity.id === menuEntityId);
   return (
     <aside className="fresh-hierarchy" aria-label="Hierarchy"
-      aria-description="Right-click to create scene objects, import assets, or open the animation timeline. Double-click or double-tap an object to rename it and edit its settings."
+      aria-description="Right-click to create scene objects, delete an object, import assets, or open the animation timeline. Use the trash button to delete an object. Double-click or double-tap an object to rename it and edit its settings."
       onContextMenu={handleContextMenu} onKeyDown={handleKeyDown}>
       <h2 className="fresh-hierarchy-heading">Hierarchy</h2>
       <button
@@ -206,14 +235,21 @@ function HierarchyPanel({
           selection={selection}
           onSelect={onSelect}
           onEdit={onEditEntity}
+          onDelete={requestDeleteEntity}
         />
       )}
-      <p className="fresh-hierarchy-help">Right-click to add objects. Double-tap an object to rename it and edit its settings.</p>
+      <p className="fresh-hierarchy-help">Right-click to add or delete objects. Use the trash icon to delete an object. Double-tap an object to rename it and edit its settings.</p>
       {menuPoint && (
         <HierarchyContextMenu
           point={menuPoint}
           assets={assets}
-          onClose={() => setMenuPoint(null)}
+          deleteTarget={contextEntity && contextEntity.id !== 'player' ? {
+            id: contextEntity.id,
+            name: contextEntity.name,
+            childCount: collectHierarchySubtreeIds(entities, contextEntity.id).size - 1,
+          } : null}
+          onClose={() => { setMenuPoint(null); setMenuEntityId(null); }}
+          onDeleteEntity={requestDeleteEntity}
           onCreateShape={actions.onCreateShape}
           onCreatePlane={actions.onCreatePlane}
           onCreateTerrain={actions.onCreateTerrain}
@@ -235,6 +271,7 @@ function HierarchyPanel({
 }
 
 type HierarchyActions = {
+  onDeleteEntity: (entityId: string) => void;
   onCreateShape: (shape: PrimitiveShape) => void;
   onCreatePlane: (settings: PlaneSettings) => void;
   onCreateTerrain: (settings: TerrainSettings & { size: number }) => void;
@@ -258,6 +295,7 @@ function SceneObjectRows({
   selection,
   onSelect,
   onEdit,
+  onDelete,
 }: {
   entities: SceneEntity[];
   parentId: string | null;
@@ -265,6 +303,7 @@ function SceneObjectRows({
   selection: string | null;
   onSelect: (id: string) => void;
   onEdit: (entity: SceneEntity) => void;
+  onDelete: (id: string) => void;
 }) {
   const rows = entities.filter(entity => entity.parentId === parentId);
   if (rows.length === 0) return null;
@@ -279,6 +318,7 @@ function SceneObjectRows({
           selection={selection}
           onSelect={onSelect}
           onEdit={onEdit}
+          onDelete={onDelete}
         />
       ))}
     </ul>
@@ -292,6 +332,7 @@ function SceneObjectRow({
   selection,
   onSelect,
   onEdit,
+  onDelete,
 }: {
   entity: SceneEntity;
   entities: SceneEntity[];
@@ -299,6 +340,7 @@ function SceneObjectRow({
   selection: string | null;
   onSelect: (id: string) => void;
   onEdit: (entity: SceneEntity) => void;
+  onDelete: (id: string) => void;
 }) {
   const children = entities.some(candidate => candidate.parentId === entity.id);
   const [expanded, setExpanded] = useState(true);
@@ -338,6 +380,17 @@ function SceneObjectRow({
         >
           <span>{entity.name}</span>
         </button>
+        {entity.id !== PRIMARY_CAMERA_ID && entity.id !== 'player' && (
+          <button
+            type="button"
+            className="fresh-hierarchy-delete"
+            aria-label={`Delete ${entity.name}`}
+            title={`Delete ${entity.name}`}
+            onClick={() => onDelete(entity.id)}
+          >
+            <Trash2 size={13} aria-hidden="true" />
+          </button>
+        )}
       </div>
       {expanded && (
         <SceneObjectRows
@@ -347,6 +400,7 @@ function SceneObjectRow({
           selection={selection}
           onSelect={onSelect}
           onEdit={onEdit}
+          onDelete={onDelete}
         />
       )}
     </li>
@@ -505,6 +559,27 @@ export default function BlankWorkspace() {
     setEntities(current => current.map(entity => entity.id === updated.id ? updated : entity));
     setStatus(`${updated.name} updated and saved in this browser.`);
   }, [camera]);
+
+  const removeEntityFromScene = useCallback((entityId: string) => {
+    if (entityId === PRIMARY_CAMERA_ID || entityId === 'player') return;
+    const target = entities.find(entity => entity.id === entityId);
+    if (!target) return;
+    const removedIds = collectHierarchySubtreeIds(entities, entityId);
+    const removedControlIds = new Set(entities
+      .filter(entity => removedIds.has(entity.id))
+      .flatMap(entity => entity.components.flatMap(component =>
+        component.type === 'uiCanvas' ? [component.controlId] : [],
+      )));
+
+    setEntities(current => current.filter(entity => !removedIds.has(entity.id)));
+    setUIControls(current => current.filter(control => !removedControlIds.has(control.id)));
+    setAnimations(current => current.filter(animation => !removedIds.has(animation.targetEntityId)));
+    setSelection(current => current && removedIds.has(current) ? target.parentId : current);
+    setEditingEntityId(current => current && removedIds.has(current) ? null : current);
+    setPreviewEntities(null);
+    const childCount = removedIds.size - 1;
+    setStatus(`Deleted ${target.name}${childCount ? ` and ${childCount} child object${childCount === 1 ? '' : 's'}` : ''}.`);
+  }, [entities]);
 
   const addEntity = useCallback((entity: SceneEntity) => {
     setEntities(current => [...current, entity]);
@@ -722,6 +797,7 @@ export default function BlankWorkspace() {
   }, [entities]);
 
   const hierarchyActions: HierarchyActions = {
+    onDeleteEntity: removeEntityFromScene,
     onCreateShape: shape => {
       const definition = primitiveShapes.find(item => item.value === shape);
       createPrimitiveEntity(shape, definition?.label ?? 'Object');
