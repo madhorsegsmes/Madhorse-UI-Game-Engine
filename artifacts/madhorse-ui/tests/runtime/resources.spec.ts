@@ -1,5 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import { test, openScripts, importSource, run, finished, status, output, frames, stopButton } from './fixtures';
+import logCases from './javascript-log-cases.json' with { type: 'json' };
 
 const outputLimit = 16_000;
 const outputLimitError = 'Script output exceeded the 16,000-character limit';
@@ -69,9 +70,42 @@ test('oversized JavaScript error messages stay bounded and allow a fresh run', a
   // Only 32 KB, not a host-memory stress test.
   await importSource(page, 'large-error.js', 'throw new Error("E".repeat(32000))');
   await run(page);
-  await failed(page, 'EEEE');
-  expect(await output(page).textContent()).toBe(`\n${'E'.repeat(32000)}`.slice(0, outputLimit));
+  await failed(page, 'Script error exceeded safe formatting limits');
+  expect((await output(page).textContent())!.length).toBeLessThan(200);
   await recover(page, 'after-large-error');
+});
+
+for (const example of logCases) {
+  test(`guest formatting rejects ${example.name} before host conversion and recovers`, async ({ page }) => {
+    await openScripts(page);
+    await importSource(page, 'formatting.js', example.source);
+    await run(page);
+    await expect(status(page)).toHaveText('Script stopped with an error.');
+    const diagnostic = await output(page).textContent();
+    // Check actual teardown and a new run even if the diagnostic regresses.
+    await expect(frames(page)).toHaveCount(0);
+    await expect(stopButton(page)).toBeDisabled();
+    await recover(page, 'after-formatting');
+    expect(diagnostic).toContain(example.error);
+    expect(diagnostic!.length).toBeLessThan(200);
+    expect(diagnostic).not.toMatch(/5-second|Aborted|Assertion failed|JS_FreeRuntime|Maximum call stack/i);
+  });
+}
+
+test('guest formatting preserves ordinary print and console values', async ({ page }) => {
+  await openScripts(page);
+  await importSource(page, 'ordinary-formatting.js', `
+    print("hello", 42, true, null, undefined);
+    console.info({a:[1,"two",null], skip:undefined});
+    console.warn([undefined,false]);
+    console.error("ordinary error");
+    console.log({toJSON(){return {ordinary:"custom"}}});
+  `);
+  await run(page);
+  await finished(page);
+  await expect(output(page)).toHaveText(
+    'hello 42 true null undefined\n{"a":[1,"two",null]}\n[null,false]\nordinary error\n{"ordinary":"custom"}\n',
+  );
 });
 
 for (const resource of [

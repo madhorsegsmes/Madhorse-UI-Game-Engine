@@ -153,8 +153,10 @@ These cases use the real Script panel and production runtime with one worker:
 
 - Exactly 16,000 output characters including the emitted newline; rejection of
   an oversized line, cumulative lines, and embedded newlines.
-- A 32,000-character thrown error, bounded to the editor's 16,000-character
-  console limit.
+- Oversized thrown errors rejected with a short diagnostic before host copying.
+- Shared finite log cases for source, minified bundle and Script panel: nested
+  strings/objects, wide arrays/objects, cycles, expanding shared graphs, escaping,
+  custom `toJSON`, replaced intrinsics and large error payloads.
 - Finite memory allocation (96 arrays of 65,536 slots, approximately 48 MiB of
   QuickJS values) and finite 20,000-level recursion against the configured
   32 MiB heap / 64 KiB stack limits. Never use unbounded host-memory stress.
@@ -355,11 +357,30 @@ It is not a general guarantee about every browser's native stack size.
 The 32 MiB physical WASM memory ceiling, opaque frame, worker boundary, output
 cap and wall-clock deadline are unchanged.
 
-Error handles are released in `finally`, including when dumping fails or consumes
-a thrown Promise. Logger/console setup handles are similarly protected. Both
+Error handles are released in `finally`, including when bounded guest formatting
+fails. Thrown Promise payloads are not unwrapped. Logger/console setup handles are similarly protected. Both
 context and runtime disposal are attempted; if cleanup also fails, an
 `AggregateError` retains the original failure first and includes every cleanup
 failure in its visible message. No assertion is caught and silently discarded.
+
+### Bounded JavaScript log/error conversion
+
+The trusted formatter runs inside QuickJS and retains captured intrinsics in a
+private closure. The only logging bridge receives an already bounded string;
+neither logs nor exceptions use host-side `context.dump` or graph serialization.
+The guest checks the remaining 16,000-character per-run allowance (including
+newlines) before crossing the bridge. Nested strings and keys are length-checked
+before escaping, then checked again for expansion. Traversal rejects more than
+32 levels, 1,024 visited values/keys or circular references. Shared acyclic
+values remain valid until they reach the traversal or character budget.
+
+Ordinary `print` and console methods, JSON-like objects/arrays, custom `toJSON`
+and Error diagnostics remain supported. Getters, proxy traps and `toJSON` execute
+only inside the guest, under the existing memory, stack and deadline limits.
+Oversized/unformattable uncaught errors get a fixed short diagnostic instead of
+dumping their payload; ordinary error messages remain readable. No guest
+reflection method or host API is added. The runner/editor output caps remain
+independent defenses; this is not a total host-JavaScript/RSS memory guarantee.
 
 Run the direct finite source/bundle checks with:
 

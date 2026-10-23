@@ -1,5 +1,6 @@
 import variant from '@jitl/quickjs-singlefile-browser-release-sync';
 import { newQuickJSWASMModuleFromVariant, newVariant } from 'quickjs-emscripten-core';
+import { createFormatting } from './javascript-format.mjs';
 
 const memoryLimit = 32 * 1024 * 1024;
 const wasmPageSize = 65536;
@@ -8,16 +9,19 @@ const wasmPageSize = 65536;
 // and leaving live GC objects behind. Keep the guest guard below that boundary.
 const stackLimit = 64 * 1024;
 
-function throwGuestError(context, handle) {
-  let error;
+function throwGuestError(context, formatter, handle) {
+  let message = 'Script error could not be formatted safely';
   try {
-    error = context.dump(handle);
+    const result = context.callFunction(formatter, context.undefined, handle);
+    if (result.error) result.error.dispose();
+    else {
+      try { message = context.getString(result.value); }
+      finally { result.value.dispose(); }
+    }
   } finally {
-    // dump can itself fail (or consume a thrown Promise). Never leave the
-    // exception rooted when the context/runtime are freed.
     if (handle.alive) handle.dispose();
   }
-  throw new Error(error?.message ?? String(error));
+  throw new Error(message);
 }
 
 export async function initialize() {
@@ -35,6 +39,7 @@ export async function initialize() {
   return (source, emit) => {
     const runtime = engine.newRuntime();
     let context;
+    let errorFormatter;
     const errors = [];
     try {
       runtime.setMemoryLimit(memoryLimit);
@@ -42,13 +47,30 @@ export async function initialize() {
       const deadline = Date.now() + 5000;
       runtime.setInterruptHandler(() => Date.now() > deadline);
       context = runtime.newContext();
-      const logger = context.newFunction('print', (...args) => {
-        emit(args.map((arg) => {
-          const value = context.dump(arg);
-          return typeof value === 'string' ? value : JSON.stringify(value) ?? String(value);
-        }).join(' '));
+      // The sink is private to the trusted guest closure. It never receives a
+      // project object or an unchecked string. Captured intrinsics also prevent
+      // source from replacing stringify/String/prototype methods at the boundary.
+      const sink = context.newFunction('sink', (text) => {
+        emit(context.getString(text));
       });
+      let logger;
       try {
+        const factory = context.evalCode(`(${createFormatting.toString()})`, 'log-formatter.js');
+        if (factory.error) {
+          factory.error.dispose();
+          throw new Error('JavaScript safe formatter could not be installed');
+        }
+        let installed;
+        try { installed = context.callFunction(factory.value, context.undefined, sink); }
+        finally { factory.value.dispose(); }
+        if (installed.error) {
+          installed.error.dispose();
+          throw new Error('JavaScript safe formatter could not be installed');
+        }
+        try {
+          logger = context.getProp(installed.value, 'log');
+          errorFormatter = context.getProp(installed.value, 'error');
+        } finally { installed.value.dispose(); }
         context.setProp(context.global, 'print', logger);
         const consoleObject = context.newObject();
         try {
@@ -58,20 +80,22 @@ export async function initialize() {
           consoleObject.dispose();
         }
       } finally {
-        logger.dispose();
+        logger?.dispose();
+        sink.dispose();
       }
       const result = context.evalCode(source, 'project-script.js');
-      if (result.error) throwGuestError(context, result.error);
+      if (result.error) throwGuestError(context, errorFormatter, result.error);
       result.value.dispose();
       while (runtime.hasPendingJob()) {
         const jobs = runtime.executePendingJobs(1);
-        if (jobs.error) throwGuestError(jobs.error.context, jobs.error);
+        if (jobs.error) throwGuestError(jobs.error.context, errorFormatter, jobs.error);
       }
     } catch (error) {
       errors.push(error);
     } finally {
       // Attempt both disposals, but never replace the execution failure with
       // a cleanup failure. Additional failures must remain visible, too.
+      try { errorFormatter?.dispose(); } catch (error) { errors.push(error); }
       try { context?.dispose(); } catch (error) { errors.push(error); }
       try { runtime.dispose(); } catch (error) { errors.push(error); }
     }

@@ -1,0 +1,97 @@
+[
+  {
+    "name": "large string",
+    "source": "console.log('x'.repeat(256000))",
+    "error": "16,000-character limit"
+  },
+  {
+    "name": "large nested string",
+    "source": "console.log({nested:{text:'x'.repeat(256000)}})",
+    "error": "16,000-character limit"
+  },
+  {
+    "name": "large object key",
+    "source": "console.log({['x'.repeat(256000)]:1})",
+    "error": "16,000-character limit"
+  },
+  {
+    "name": "wide array",
+    "source": "console.log(new Array(20000).fill(0))",
+    "error": "safe formatting limits"
+  },
+  {
+    "name": "wide object",
+    "source": "const value={}; for(let i=0;i<2000;i++) value[i]=i; console.log(value)",
+    "error": "safe formatting limits"
+  },
+  {
+    "name": "deep object",
+    "source": "let value={}; for(let i=0;i<100;i++) value={nested:value}; console.log(value)",
+    "error": "safe formatting limits"
+  },
+  {
+    "name": "object cycle",
+    "source": "const value={}; value.self=value; console.log(value)",
+    "error": "circular reference"
+  },
+  {
+    "name": "array cycle",
+    "source": "const value=[]; value[0]=value; print(value)",
+    "error": "circular reference"
+  },
+  {
+    "name": "combined arguments",
+    "source": "console.log('x'.repeat(9000),'y'.repeat(9000))",
+    "error": "16,000-character limit"
+  },
+  {
+    "name": "escaped nested string",
+    "source": "console.log({text:'\\u0000'.repeat(3000)})",
+    "error": "16,000-character limit"
+  },
+  {
+    "name": "large thrown error",
+    "source": "throw new Error('E'.repeat(256000))",
+    "error": "Script error exceeded safe formatting limits"
+  },
+  {
+    "name": "large thrown array",
+    "source": "throw new Array(20000).fill(0)",
+    "error": "Script error exceeded safe formatting limits"
+  },
+  {
+    "name": "deep thrown object",
+    "source": "let value={}; for(let i=0;i<100;i++) value={nested:value}; throw value",
+    "error": "Script error exceeded safe formatting limits"
+  },
+  {
+    "name": "cyclic thrown object",
+    "source": "const value={}; value.self=value; throw value",
+    "error": "Script error exceeded safe formatting limits"
+  },
+  {
+    "name": "throwing error getter",
+    "source": "throw {get message(){throw 'x'.repeat(256000)}}",
+    "error": "Script error exceeded safe formatting limits"
+  },
+  {
+    "name": "expanding shared graph",
+    "source": "let value={n:1}; for(let i=0;i<20;i++) value={a:value,b:value}; console.log(value)",
+    "error": "safe formatting limits"
+  },
+  {
+    "name": "large toJSON result",
+    "source": "console.log({toJSON(){return {text:'x'.repeat(256000)}}})",
+    "error": "16,000-character limit"
+  },
+  {
+    "name": "large logged Error",
+    "source": "console.error(new Error('x'.repeat(256000)))",
+    "error": "16,000-character limit"
+  },
+  {
+    "name": "replaced intrinsics",
+    "source": "JSON.stringify=()=> 'x'.repeat(256000); globalThis.String=()=> 'x'.repeat(256000); WeakSet.prototype.has=()=>false; const value={}; value.self=value; console.log(value)",
+    "error": "circular reference"
+  }
+]
