@@ -3,6 +3,7 @@ import { startScriptRuntime, type RuntimeScript } from '@/lib/script-runtime';
 import { gameExample, type GamePosition } from '@/lib/game-api';
 import { beginSystemActivity } from '@/lib/system-activity';
 import { getScriptComponent, getWorldTransform, type SceneEntity } from '@/lib/scene-model';
+import { publishDiagnostic } from '@/lib/system-diagnostics';
 
 export type ScriptRunnerHandle = { run: () => void; stop: () => void };
 export type ScriptRunnerState = { ready: boolean; running: boolean; status: string; scriptName: string };
@@ -72,9 +73,13 @@ export const ScriptRunner = forwardRef<ScriptRunnerHandle, {
       if (event.type === 'game' && event.entityId === target.entityId) {
         onEntityPosition(target.entityId, event.position);
       }
-      if (event.type === 'output') setOutput((text) => `${text}${event.text}\n`.slice(0, 16000));
+      if (event.type === 'output') {
+        setOutput((text) => `${text}${event.text}\n`.slice(0, 16000));
+        publishDiagnostic('script', 'info', event.text, `${target.script.name} · ${target.entityName}`);
+      }
       if (event.type === 'phase') setStatus(target.assigned ? `${target.entityName}: ${event.message}` : event.message);
       if (event.type === 'complete') {
+        publishDiagnostic('script', 'info', `Finished ${target.script.name}`, target.entityName);
         handle.current = null;
         startNext(targetCount);
       }
@@ -87,6 +92,7 @@ export const ScriptRunner = forwardRef<ScriptRunnerHandle, {
         setStatus('Script stopped with an error.');
         setOutput((text) => `${text}\n${message}`.slice(0, 16000));
         onErrorRef.current?.(message);
+        publishDiagnostic('script', 'error', message, `${target.script.name} · ${target.entityName}\n${event.message}`);
         setRunning(false);
       }
     }, target.position, target.entityId);
@@ -111,6 +117,7 @@ export const ScriptRunner = forwardRef<ScriptRunnerHandle, {
     setOutput('');
     onErrorRef.current?.('');
     setRunning(true);
+    publishDiagnostic('script', 'info', 'Starting isolated script execution.');
     startNext(queue.current.length);
   }
   function stop() {
@@ -119,6 +126,7 @@ export const ScriptRunner = forwardRef<ScriptRunnerHandle, {
     handle.current = null;
     setRunning(false);
     setStatus('Script stopped.');
+    publishDiagnostic('script', 'info', 'Script execution stopped.');
   }
   const runRef = useRef(run);
   runRef.current = run;

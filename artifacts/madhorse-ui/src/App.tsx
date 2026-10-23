@@ -9,6 +9,8 @@ import './components/workspace-layout.css';
 import { WorkspaceBrowserMenus } from '@/components/workspace-browser-menus';
 import { SystemPanelTools } from '@/components/system-panel-tools';
 import { SystemStatus } from '@/components/system-status';
+import { SystemDebugger } from '@/components/system-debugger';
+import { publishDiagnostic, publishStatus } from '@/lib/system-diagnostics';
 import { withSystemActivity } from '@/lib/system-activity';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import { GameScene } from '@/components/game-scene';
@@ -416,6 +418,14 @@ function Home() {
       stageRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     },
   });
+  useEffect(() => { publishStatus('storage', saveMessage); }, [saveMessage]);
+  useEffect(() => { publishStatus('script', scriptMessage); }, [scriptMessage]);
+  useEffect(() => { publishStatus('assets', sceneEditor.assetStatus); }, [sceneEditor.assetStatus]);
+  useEffect(() => { publishStatus('editor', sceneEditor.physicsStatus); }, [sceneEditor.physicsStatus]);
+  useEffect(() => { publishStatus('editor', authoring.status); }, [authoring.status]);
+  useEffect(() => {
+    if (madBuilder.error) publishDiagnostic('mad-builder', 'error', madBuilder.error);
+  }, [madBuilder.error]);
   useEffect(() => {
     setRuntimeError('');
     setPhysicsPlaying(false);
@@ -988,12 +998,10 @@ function Home() {
           <WorkspacePanel id="errors">
           <div className="panel" role="region" aria-labelledby="panel-5-label">
             <div className="workspace-panel-heading">
-              <span className="panel-label" id="panel-5-label">PANEL 5 / Error Displayer</span>
-              <WorkspacePanelHandle label="Panel 5 / Error Displayer" />
+              <span className="panel-label" id="panel-5-label">PANEL 5 / System Debugger</span>
+              <WorkspacePanelHandle label="Panel 5 / System Debugger" />
             </div>
-            <span className={`panel-text${runtimeError ? ' is-error' : ''}`} role="alert" data-testid="text-runtime-error">
-              {runtimeError || 'No errors.'}
-            </span>
+            <SystemDebugger runtimeError={runtimeError} />
           </div>
           </WorkspacePanel>
         </WorkspacePanelLayout>

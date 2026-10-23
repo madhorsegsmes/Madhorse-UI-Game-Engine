@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { beginSystemActivity } from '@/lib/system-activity';
+import { publishDiagnostic } from '@/lib/system-diagnostics';
 
 export const projectStorageKey = 'madhorse-ui-projects';
 const activeProjectKey = 'madhorse-ui-active-project';
@@ -25,6 +26,7 @@ export function saveProjectSnapshotNow(projects: unknown[], activeProjectId: str
     localStorage.setItem(activeProjectKey, activeProjectId);
     return '';
   } catch {
+    publishDiagnostic('storage', 'error', 'Browser storage is full or unavailable. Latest changes may not survive a refresh.');
     return 'Browser storage is full or unavailable. Latest changes may not survive a refresh.';
   } finally {
     finish();

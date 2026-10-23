@@ -1,0 +1,29 @@
+.system-debugger { display: grid; gap: 8px; min-width: 0; margin-top: 9px; color: #d7d4d0; font: 10px/1.45 'DM Mono', ui-monospace, monospace; }
+.system-debugger__counts { display: flex; flex-wrap: wrap; gap: 5px; }
+.system-debugger__count { padding: 2px 6px; border: 1px solid #4d4d50; background: #242427; }
+.system-debugger__count.is-error { color: #ff9286; border-color: #713d37; }
+.system-debugger__count.is-warning { color: #e5c482; border-color: #71613f; }
+.system-debugger__count.is-info { color: #a5c6d6; }
+.system-debugger__filters { display: flex; flex-wrap: wrap; gap: 5px; }
+.system-debugger__filters select, .system-debugger__filters input { min-width: 0; max-width: 100%; border: 1px solid #575457; background: #171719; color: #e0dcd7; padding: 5px 6px; font: inherit; }
+.system-debugger__filters select { flex: 1 1 90px; }
+.system-debugger__filters input { flex: 1 1 100%; }
+.system-debugger__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: #aaa4a1; }
+.system-debugger__actions span { margin-right: auto; }
+.system-debugger__actions button { padding: 5px 6px; border: 1px solid #754840; background: #2b1f20; color: #e2d7d1; font: inherit; cursor: pointer; }
+.system-debugger__actions button:disabled { opacity: .4; cursor: default; }
+.system-debugger__entries { max-height: 280px; min-height: 75px; overflow: auto; border: 1px solid #49464a; background: #141416; overscroll-behavior: contain; }
+.system-debugger__entry { border-bottom: 1px solid #363337; border-left: 3px solid #648899; }
+.system-debugger__entry.is-error { border-left-color: #da6558; }
+.system-debugger__entry.is-warning { border-left-color: #c5a45e; }
+.system-debugger__entry summary { padding: 7px; cursor: pointer; overflow-wrap: anywhere; }
+.system-debugger__entry-meta { display: inline-flex; flex-wrap: wrap; gap: 6px; color: #b1abaa; font-size: 9px; }
+.system-debugger__entry-meta b { text-transform: uppercase; color: #c9c3be; }
+.system-debugger__entry.is-error b { color: #f18a7d; }
+.system-debugger__entry.is-warning b { color: #e5c482; }
+.system-debugger__message { display: block; padding-top: 3px; white-space: pre-wrap; }
+.system-debugger__entry pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; padding: 8px; margin: 0; border-top: 1px solid #383337; background: #1e1b1e; }
+.system-debugger__empty { padding: 12px; color: #a9a29f; }
+.system-debugger__runtime { color: #a9a29f; overflow-wrap: anywhere; }
+.system-debugger__runtime.is-error { color: #f18a7d; }
+.system-debugger__note { color: #99918d; font-size: 9px; margin: 0; }

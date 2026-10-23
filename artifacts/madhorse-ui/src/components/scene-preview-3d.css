@@ -273,12 +273,15 @@
 .mh-scene3d__unavailable button { align-self: flex-start; margin-top: 8px; padding: 7px 10px; border: 1px solid #92514a; background: #30201f; color: #eee0dc; cursor: pointer; }
 .mh-scene3d__unavailable-preview { flex: 0 0 auto; width: 100%; min-height: 220px; height: min(360px, 48vh); margin: 7px 0; border: 1px solid #565b61; overflow: hidden; }
 .mh-scene3d__soft-preview { position: relative; width: 100%; height: 100%; min-height: 220px; background: #1d1f22; }
-.mh-scene3d__soft-preview svg { display: block; width: 100%; height: 100%; min-height: 220px; }
+.mh-scene3d__software-canvas { width: 100%; height: 100%; min-height: 220px; }
+.mh-scene3d__software-canvas svg { display: block; width: 100% !important; height: 100% !important; min-height: 220px; }
 .mh-scene3d__soft-preview [role="button"] { cursor: pointer; }
 .mh-scene3d__soft-preview [role="button"].is-selected { filter: drop-shadow(0 0 6px #ff7469); }
 .mh-scene3d__soft-preview [role="button"]:focus-visible { outline: 2px solid #df6257; outline-offset: 2px; }
-.mh-scene3d__soft-label { fill: #e4e1dc; font: 13px 'DM Mono', ui-monospace, monospace; text-anchor: middle; paint-order: stroke; stroke: #171819; stroke-width: 4px; stroke-linejoin: round; }
-.mh-scene3d__soft-note { position: absolute; right: 7px; bottom: 6px; color: #c1c4c8; font-size: 8px; letter-spacing: .06em; text-shadow: 0 1px 3px #000; }
+.mh-scene3d__geometry-note, .mh-scene3d__software-camera, .mh-scene3d__soft-note { position: absolute; padding: 4px 6px; border: 1px solid #50545a; background: #171819d9; color: #e4e1dc; font-size: 8px; letter-spacing: .04em; text-shadow: 0 1px 3px #000; }
+.mh-scene3d__geometry-note { left: 7px; bottom: 7px; }
+.mh-scene3d__software-camera { left: 7px; top: 7px; color: #ead4ac; border-color: #8a744f; }
+.mh-scene3d__soft-note { right: 7px; bottom: 7px; color: #c1c4c8; }
 
 .mh-scene3d__axis-key {
   position: absolute;

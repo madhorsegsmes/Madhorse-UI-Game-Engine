@@ -32,3 +32,15 @@ an intentional removal or overwrite their customized camera and physics.
 
 **How to apply:** Seed only unmodified starter projects and persist the
 initialization marker in browser-local project data. Preserve customized scenes.
+
+Debugger history is transient engine-session data, not saved game content or
+protected system-reference knowledge. Persist or upload diagnostic reports only
+after an explicit user choice.
+
+**Why:** Logs can contain creator script output, error details, and transient
+failures; silently embedding them in project saves risks privacy and unnecessary
+project growth.
+
+**How to apply:** Keep diagnostic collection bounded and session-local. Offer
+explicit report downloads, sanitize credential-like strings, and never include
+request bodies, headers, or browser-storage dumps in automatic capture.

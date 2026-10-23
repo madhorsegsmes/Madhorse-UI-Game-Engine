@@ -37,7 +37,7 @@ const panelLabels: Record<WorkspacePanelId, string> = {
   'tools-right': 'Panel 1 tools',
   system: 'Panel 3 / System',
   play: 'Panel 4 / Play and Test Game',
-  errors: 'Panel 5 / Error Displayer',
+  errors: 'Panel 5 / System Debugger',
 };
 
 type DragSession = {

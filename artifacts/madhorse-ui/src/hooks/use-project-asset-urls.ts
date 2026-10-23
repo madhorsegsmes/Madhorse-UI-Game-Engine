@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { loadLocalAsset } from '@/lib/asset-vault';
 import type { ProjectAsset } from '@/lib/scene-model';
+import { publishDiagnostic } from '@/lib/system-diagnostics';
 
 export function useProjectAssetUrls(
   projectId: string,
@@ -35,6 +36,7 @@ export function useProjectAssetUrls(
       for (const { asset, blob, error } of results) {
         if (error || !blob) {
           missing.push(asset.name);
+          publishDiagnostic('assets', 'error', `Could not read local asset: ${asset.name}`);
           continue;
         }
         const url = URL.createObjectURL(blob);

@@ -1,15 +1,28 @@
-import { getCamera, getPrimitive, getSpriteRenderer, getWorldTransform, type SceneEntity } from '@/lib/scene-model';
+import { useEffect, useRef } from 'react';
+import * as THREE from 'three';
+import { SVGRenderer } from 'three/examples/jsm/renderers/SVGRenderer.js';
+import { getCamera, getLight, getPrimitive, getSpriteRenderer, getWorldTransform, type SceneEntity } from '@/lib/scene-model';
+import { createPrimitiveGeometry } from '@/lib/scene-view-geometry';
 import type { GameCamera } from '@/lib/game-camera';
 import type { SceneRenderSettings } from '@/hooks/use-scene-render-settings';
 
-type Point = { x: number; y: number };
-const screenPoint = (x: number, y: number, z: number): Point => ({
-  x: 500 + (x - z) * 26,
-  y: 312 + (x + z) * 14 - y * 34,
-});
+function makeSceneCamera(source: GameCamera, aspect: number) {
+  const camera = new THREE.PerspectiveCamera(source.fov || 50, aspect, 0.1, 24);
+  camera.position.set(source.position.x, source.position.y, source.position.z);
+  if (source.rotation) {
+    camera.rotation.set(
+      THREE.MathUtils.degToRad(source.rotation.x),
+      THREE.MathUtils.degToRad(source.rotation.y),
+      THREE.MathUtils.degToRad(source.rotation.z),
+    );
+  } else {
+    camera.lookAt(source.target.x, source.target.y, source.target.z);
+  }
+  return camera;
+}
 
 export function SceneRenderFallback({
-  entities, camera, settings, zoom, selectedEntityId, onSelectEntity,
+  entities, camera, settings, zoom,
 }: {
   entities: SceneEntity[];
   camera?: GameCamera;
@@ -18,89 +31,185 @@ export function SceneRenderFallback({
   selectedEntityId: string | null;
   onSelectEntity: (id: string) => void;
 }) {
-  const zoomScale = zoom / 100;
-  const gridLines = Array.from({ length: 19 }, (_, index) => index - 9);
-  const drawables = entities
-    .filter((entity) => entity.active && (getPrimitive(entity) || getSpriteRenderer(entity)))
-    .map((entity) => {
-      const world = getWorldTransform(entities, entity.id);
-      if (!world) return null;
-      const point = screenPoint((world.position.x - 50) / 10, world.position.z / 10, (world.position.y - 50) / 10);
-      return { entity, point, size: Math.max(12, 34 * zoomScale * Math.max(world.scale.x, world.scale.y, world.scale.z)) };
-    })
-    .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
-  const cameraPoint = camera
-    ? screenPoint(camera.position.x, camera.position.y, camera.position.z)
-    : screenPoint(0, 6, -8);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const hasCube = entities.some((entity) => entity.active && getPrimitive(entity)?.shape === 'cube');
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(settings.background);
+    const viewCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+    const renderer = new SVGRenderer();
+    renderer.setQuality('high');
+    renderer.setClearColor(new THREE.Color(settings.background), 1);
+    renderer.domElement.setAttribute('role', 'img');
+    renderer.domElement.setAttribute('aria-label', 'Rendered 3D scene with solid mesh geometry');
+    renderer.domElement.dataset.testid = 'scene3d-software-renderer';
+
+    const geometries = new Set<THREE.BufferGeometry>();
+    const materials = new Set<THREE.Material>();
+    const exposure = settings.exposure;
+
+    scene.add(new THREE.AmbientLight('#d5d9df', exposure * (settings.studioLighting ? 0.55 : 0.3)));
+    if (settings.studioLighting) {
+      const key = new THREE.DirectionalLight('#fff3dd', 1.05 * exposure);
+      key.position.set(7, 12, 6);
+      scene.add(key);
+      const fill = new THREE.DirectionalLight('#9daec4', 0.75 * exposure);
+      fill.position.set(-7, 5, -8);
+      scene.add(fill);
+    }
+    if (settings.showGrid) {
+      const grid = new THREE.GridHelper(160, 160, '#a4abb4', '#727982');
+      grid.position.y = -0.012;
+      const gridMaterial = grid.material as THREE.Material;
+      gridMaterial.transparent = true;
+      gridMaterial.opacity = 0.62;
+      scene.add(grid);
+      if (grid.geometry) geometries.add(grid.geometry);
+      if (Array.isArray(grid.material)) grid.material.forEach((material) => materials.add(material));
+      else materials.add(grid.material);
+      const axes = new THREE.AxesHelper(3);
+      scene.add(axes);
+      geometries.add(axes.geometry);
+      if (Array.isArray(axes.material)) axes.material.forEach((material) => materials.add(material));
+      else materials.add(axes.material);
+    }
+
+    for (const entity of entities) {
+      if (!entity.active || entity.isGroup) continue;
+      const transform = getWorldTransform(entities, entity.id);
+      if (!transform) continue;
+      const object = new THREE.Group();
+      object.position.set(
+        (transform.position.x - 50) / 10,
+        transform.position.z / 10,
+        (transform.position.y - 50) / 10,
+      );
+      object.rotation.set(
+        THREE.MathUtils.degToRad(-transform.rotation.x),
+        THREE.MathUtils.degToRad(-transform.rotation.z),
+        THREE.MathUtils.degToRad(-transform.rotation.y),
+        'XYZ',
+      );
+      object.scale.set(transform.scale.x, transform.scale.z, transform.scale.y);
+      object.name = entity.name;
+      scene.add(object);
+
+      const primitive = getPrimitive(entity);
+      if (primitive?.enabled) {
+        const geometry = createPrimitiveGeometry(primitive.shape);
+        const material = new THREE.MeshStandardMaterial({
+          color: primitive.color,
+          roughness: 0.58,
+          metalness: 0.08,
+          transparent: (primitive.opacity ?? 1) < 1,
+          opacity: primitive.opacity ?? 1,
+          side: THREE.DoubleSide,
+        });
+        object.add(new THREE.Mesh(geometry, material));
+        if (primitive.shape === 'cube') {
+          const edgeGeometry = new THREE.EdgesGeometry(geometry);
+          const edgeMaterial = new THREE.LineBasicMaterial({ color: '#6a737c', transparent: true, opacity: 0.85 });
+          object.add(new THREE.LineSegments(edgeGeometry, edgeMaterial));
+          geometries.add(edgeGeometry);
+          materials.add(edgeMaterial);
+        }
+        geometries.add(geometry);
+        materials.add(material);
+      } else {
+        const sprite = getSpriteRenderer(entity);
+        if (sprite?.enabled) {
+          const geometry = new THREE.PlaneGeometry(
+            Math.max(0.1, sprite.width / 10),
+            Math.max(0.1, sprite.height / 10),
+          );
+          geometry.rotateX(-Math.PI / 2);
+          const material = new THREE.MeshBasicMaterial({ color: sprite.tint, side: THREE.DoubleSide, transparent: true, opacity: 0.08 });
+          object.add(new THREE.Mesh(geometry, material));
+          geometries.add(geometry);
+          materials.add(material);
+        } else if (!getCamera(entity) && !getLight(entity)) {
+          const geometry = new THREE.BoxGeometry(1, 1, 1);
+          const material = new THREE.MeshStandardMaterial({ color: '#aab0b4', roughness: 0.68 });
+          object.add(new THREE.Mesh(geometry, material));
+          geometries.add(geometry);
+          materials.add(material);
+        }
+      }
+
+      const cameraComponent = getCamera(entity);
+      if (cameraComponent?.enabled) {
+        const entityCamera = new THREE.PerspectiveCamera(cameraComponent.fov, 16 / 9, 0.1, 8);
+        entityCamera.position.copy(object.position);
+        if (cameraComponent.useTransformRotation) {
+          entityCamera.rotation.copy(object.rotation);
+        } else {
+          entityCamera.lookAt(
+            cameraComponent.target.x,
+            cameraComponent.target.y,
+            cameraComponent.target.z,
+          );
+        }
+        const helper = new THREE.CameraHelper(entityCamera);
+        scene.add(helper);
+        geometries.add(helper.geometry);
+        if (Array.isArray(helper.material)) helper.material.forEach((material) => materials.add(material));
+        else materials.add(helper.material);
+      }
+    }
+
+    const mainCamera = camera ?? {
+      position: { x: 0, y: 6, z: -8 },
+      target: { x: 0, y: 0, z: 0 },
+      fov: 50,
+    };
+    const cameraMarker = new THREE.CameraHelper(makeSceneCamera(mainCamera, 16 / 9));
+    scene.add(cameraMarker);
+    geometries.add(cameraMarker.geometry);
+    if (Array.isArray(cameraMarker.material)) cameraMarker.material.forEach((material) => materials.add(material));
+    else materials.add(cameraMarker.material);
+
+    const draw = () => {
+      if (!host.isConnected) return;
+      const width = Math.max(1, host.clientWidth);
+      const height = Math.max(1, host.clientHeight);
+      renderer.setSize(width, height);
+      viewCamera.aspect = width / height;
+      viewCamera.updateProjectionMatrix();
+      const distance = 5.5 * (100 / Math.max(30, zoom));
+      viewCamera.position.set(distance * 0.58, distance * 0.52, distance * 0.63);
+      viewCamera.lookAt(0, 0, 0);
+      renderer.render(scene, viewCamera);
+      renderer.domElement.dataset.renderedFaces = String(renderer.info.render.faces);
+      if (renderer.domElement.parentElement !== host) {
+        host.replaceChildren(renderer.domElement);
+      }
+    };
+
+    const observer = new ResizeObserver(draw);
+    observer.observe(host);
+    draw();
+    return () => {
+      observer.disconnect();
+      renderer.domElement.remove();
+      geometries.forEach((geometry) => geometry.dispose());
+      materials.forEach((material) => material.dispose());
+    };
+  }, [camera, entities, settings, zoom]);
 
   return (
     <div className="mh-scene3d__soft-preview" data-testid="scene3d-soft-preview">
-      <svg viewBox="0 0 1000 600" role="img" aria-label="Simplified scene preview. Full 3D rendering requires WebGL 2.">
-        <rect width="1000" height="600" fill={settings.background} />
-        {settings.showGrid && (
-          <>
-            <path d="M500 155 L60 565 M500 155 L940 565" stroke="#a4abb4" strokeWidth="1.5" opacity=".7" />
-            {gridLines.map((line) => {
-              const t = line / 9;
-              return <path key={`grid-${line}`} d={`M500 155 L${500 + t * 440} 565`}
-                stroke={line % 5 === 0 ? '#a4abb4' : '#727982'} strokeWidth={line % 5 === 0 ? 1.4 : 0.8} opacity={line % 5 === 0 ? 0.7 : 0.45} />;
-            })}
-            {Array.from({ length: 12 }, (_, index) => {
-              const t = (index + 1) / 12;
-              const y = 155 + t * 410;
-              const halfWidth = t * 440;
-              return <path key={`section-${index}`} d={`M${500 - halfWidth} ${y} L${500 + halfWidth} ${y}`}
-                stroke={index % 5 === 4 ? '#a4abb4' : '#727982'} strokeWidth={index % 5 === 4 ? 1.4 : 0.8} opacity={index % 5 === 4 ? 0.7 : 0.45} />;
-            })}
-            <path d="M500 155 L500 565" stroke="#8ccc91" strokeWidth="2" opacity=".8" />
-            <path d="M60 565 L940 565" stroke="#df6257" strokeWidth="2" opacity=".8" />
-          </>
-        )}
-        <g opacity={settings.studioLighting ? 1 : 0.65} style={{ filter: `brightness(${settings.exposure})` }}>
-          {drawables.filter(({ entity }) => getSpriteRenderer(entity)).map(({ entity, point, size }) => (
-            <g key={`sprite-${entity.id}`} transform={`translate(${point.x} ${point.y})`}
-              className={selectedEntityId === entity.id ? 'is-selected' : undefined}
-              role="button" tabIndex={0} aria-label={`Select ${entity.name}`}
-              onClick={() => onSelectEntity(entity.id)}
-              onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelectEntity(entity.id); }}>
-              <rect x={-size / 2} y={-size / 2} width={size} height={size} fill="#b73d34" fillOpacity=".55" stroke="#e77a6f" strokeDasharray="5 4" />
-              <text y={size / 2 + 18} className="mh-scene3d__soft-label">{entity.name} · 2D</text>
-            </g>
-          ))}
-          {drawables.filter(({ entity }) => getPrimitive(entity)).map(({ entity, point, size }) => {
-            const primitive = getPrimitive(entity)!;
-            const dx = size * (primitive.shape === 'plane' ? 5 : 0.55);
-            const dy = size * (primitive.shape === 'plane' ? 2.4 : 0.31);
-            const height = size * (primitive.shape === 'plane' ? 0.15 : 1.15);
-            const color = primitive.color;
-            return (
-              <g key={entity.id} transform={`translate(${point.x} ${point.y})`} data-testid={`scene3d-soft-object-${entity.id}`}
-                className={selectedEntityId === entity.id ? 'is-selected' : undefined}
-                role="button" tabIndex={0} aria-label={`Select ${entity.name}`}
-                onClick={() => onSelectEntity(entity.id)}
-                onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelectEntity(entity.id); }}>
-                <ellipse cy={height + 6} rx={dx * 0.9} ry={dy * 0.8} fill="#08090a" opacity=".45" />
-                <polygon points={`0,${-height} ${dx},${-height + dy} 0,${-height + 2 * dy} ${-dx},${-height + dy}`}
-                  fill={settings.studioLighting ? color : '#73777b'} stroke="#e0e4e7" strokeWidth="1.5" />
-                {primitive.shape !== 'plane' && <>
-                  <polygon points={`${-dx},${-height + dy} 0,${-height + 2 * dy} 0,${2 * dy} ${-dx},${dy}`}
-                    fill={settings.studioLighting ? '#8d969e' : '#666a6e'} stroke="#bdc3c9" strokeWidth="1.3" />
-                  <polygon points={`${dx},${-height + dy} 0,${-height + 2 * dy} 0,${2 * dy} ${dx},${dy}`}
-                    fill={settings.studioLighting ? '#b0b8bf' : '#818589'} stroke="#d4d9dd" strokeWidth="1.3" />
-                </>}
-                <text y={height + dy * 2 + 20} className="mh-scene3d__soft-label">{entity.name}</text>
-              </g>
-            );
-          })}
-        </g>
-        {camera && <g data-testid="scene3d-soft-camera" transform={`translate(${cameraPoint.x} ${cameraPoint.y})`}>
-          <path d={`M0 0 L${500 - cameraPoint.x} ${312 - cameraPoint.y}`} stroke="#e2c28b" strokeDasharray="5 4" opacity=".85" />
-          <rect x="-15" y="-10" width="24" height="20" rx="3" fill="#25211b" stroke="#e2c28b" strokeWidth="2" />
-          <circle cx="-3" cy="0" r="5" fill="none" stroke="#e2c28b" strokeWidth="2" />
-          <text y="25" className="mh-scene3d__soft-label">Main Camera</text>
-        </g>}
-      </svg>
-      <span className="mh-scene3d__soft-note">SOFTWARE SCENE PREVIEW · EDITOR REFERENCE</span>
+      <div ref={hostRef} className="mh-scene3d__software-canvas" />
+      {hasCube && <span className="mh-scene3d__geometry-note" data-testid="scene3d-soft-object-starter-cube">
+        Cube · solid 3D box mesh
+      </span>}
+      {camera && <span className="mh-scene3d__software-camera" data-testid="scene3d-soft-camera">
+        Main Camera · 3D frustum
+      </span>}
+      <span className="mh-scene3d__soft-note">SOFTWARE 3D PREVIEW · SVG MESH RENDERER</span>
     </div>
   );
 }

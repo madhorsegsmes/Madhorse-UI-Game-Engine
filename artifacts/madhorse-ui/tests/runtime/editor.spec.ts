@@ -218,6 +218,10 @@ test('editor remains usable when WebGL 2 is unavailable', async ({ page }) => {
   await expect(page.getByTestId('scene3d-soft-preview')).toBeVisible();
   await expect(page.getByTestId('scene3d-soft-object-starter-cube')).toBeVisible();
   await expect(page.getByTestId('scene3d-soft-camera')).toBeVisible();
+  const softwareRenderer = page.getByTestId('scene3d-software-renderer');
+  await expect(softwareRenderer).toBeVisible();
+  expect(await softwareRenderer.locator('path').count()).toBeGreaterThan(12);
+  expect(Number(await softwareRenderer.getAttribute('data-rendered-faces'))).toBeGreaterThan(12);
   await expect(page.getByLabel('Project actions')).toBeVisible();
   await page.getByTestId('scene-render-settings').locator('summary').click();
   await expect(page.getByTestId('scene-render-grid')).toBeChecked();

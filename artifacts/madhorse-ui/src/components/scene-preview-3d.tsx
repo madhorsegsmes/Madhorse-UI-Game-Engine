@@ -12,6 +12,7 @@ import { SceneWebGLBoundary } from './scene-webgl-boundary';
 import { SceneRenderFallback } from './scene-render-fallback';
 import { SceneRenderSettingsPanel } from './scene-render-settings';
 import { useSceneRenderSettings } from '@/hooks/use-scene-render-settings';
+import { publishDiagnostic } from '@/lib/system-diagnostics';
 import { getSceneObjectTypeLabel, SceneObjectGlyph } from './scene-object-glyph';
 import { beginSystemActivity } from '@/lib/system-activity';
 import { hasRenderableModelGeometry } from '@/lib/scene-model-validation';
@@ -163,6 +164,7 @@ export function ScenePreview3D({
   }, []);
 
   const reportError = useCallback((id: string, message: string) => {
+    publishDiagnostic('assets', 'error', message, `Scene asset/object: ${id}`);
     setErrors((current) => current.some((entry) => entry.id === id && entry.message === message)
       ? current
       : [...current.filter((entry) => entry.id !== id), { id, message }]);
@@ -175,6 +177,7 @@ export function ScenePreview3D({
     onGraphicsReady?.();
   }, [onGraphicsReady]);
   const markGraphicsUnavailable = useCallback(() => {
+    publishDiagnostic('rendering', 'warning', 'WebGL 2 unavailable. Using the software scene preview.', 'Enable hardware acceleration or use a WebGL 2-capable browser for interactive 3D controls.');
     setGraphicsAvailable(false);
     onGraphicsUnavailable?.();
   }, [onGraphicsUnavailable]);
@@ -716,6 +719,7 @@ function EntityNode(props: SceneWorldProps & { entity: SceneEntity; onSelectedOb
           tint={sprite.tint}
           active={effective}
           missing={Boolean(sprite.assetId && !spriteUrl)}
+          opacity={props.gameView ? 1 : 0.1}
         />
       ) : (
         <mesh>
@@ -772,13 +776,14 @@ function SelectionMarker() {
   </mesh>;
 }
 
-function SpriteVisual({ url, width, height, tint, active, missing }: {
+function SpriteVisual({ url, width, height, tint, active, missing, opacity = 1 }: {
   url?: string;
   width: number;
   height: number;
   tint: string;
   active: boolean;
   missing: boolean;
+  opacity?: number;
 }) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   useEffect(() => {
@@ -807,7 +812,7 @@ function SpriteVisual({ url, width, height, tint, active, missing }: {
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[width, height]} />
-        <meshBasicMaterial color={texture ? '#ffffff' : tint} map={texture ?? undefined} transparent opacity={active ? 1 : 0.4} side={THREE.DoubleSide} />
+        <meshBasicMaterial color={texture ? '#ffffff' : tint} map={texture ?? undefined} transparent opacity={active ? opacity : 0.4} side={THREE.DoubleSide} />
       </mesh>
       {missing && <mesh>
         <planeGeometry args={[width * 0.72, height * 0.72]} />
