@@ -12,7 +12,10 @@ import { SystemStatus } from '@/components/system-status';
 import { withSystemActivity } from '@/lib/system-activity';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import { GameScene } from '@/components/game-scene';
-import { createGameCamera, isGameCamera, type GameCamera } from '@/lib/game-camera';
+import { cameraForEntity, createGameCamera, isGameCamera, type GameCamera } from '@/lib/game-camera';
+import { isPrefabCollection, type ScenePrefab } from '@/lib/scene-authoring';
+import { useSceneAuthoring } from '@/hooks/use-scene-authoring';
+import { HierarchyCreationTools } from '@/components/hierarchy-creation-tools';
 import {
   initialGamePosition,
   isGameAnimationCollection,
@@ -51,6 +54,8 @@ type Project = {
   uiControls?: UIControlElement[];
   initialPosition?: GamePosition;
   gameCamera?: GameCamera;
+  prefabs?: ScenePrefab[];
+  activeCameraId?: string | null;
 };
 
 function isSavedScript(script: unknown): script is ScriptFile {
@@ -73,7 +78,9 @@ function isSavedProject(project: unknown): project is Project {
     (value.assets === undefined || Array.isArray(value.assets) && isAssetCollection(value.assets)) &&
     (value.animations === undefined || isGameAnimationCollection(value.animations)) &&
     (value.uiControls === undefined || isUIControlCollection(value.uiControls)) &&
-    (value.gameCamera === undefined || isGameCamera(value.gameCamera));
+    (value.gameCamera === undefined || isGameCamera(value.gameCamera)) &&
+    (value.prefabs === undefined || isPrefabCollection(value.prefabs)) &&
+    (value.activeCameraId === undefined || value.activeCameraId === null || typeof value.activeCameraId === 'string');
 }
 
 function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: string } {
@@ -109,7 +116,7 @@ function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: 
           uiControls: project.uiControls ?? [],
         })).map((project) => ({
           ...project,
-          gameCamera: project.gameCamera ?? createGameCamera(project.entities),
+          gameCamera: project.gameCamera?.placement ? project.gameCamera : createGameCamera(project.entities),
         })),
         canOverwrite: true,
         warning: '',
@@ -212,7 +219,9 @@ function Home() {
     projectId: '', mode: '2d',
   });
   const viewMode = previewSelection.projectId === activeProject.id ? previewSelection.mode : '2d';
-  const gameCamera = activeProject.gameCamera ?? createGameCamera(activeProject.entities);
+  const primaryGameCamera = activeProject.gameCamera?.placement === 'custom'
+    ? activeProject.gameCamera : createGameCamera(activeProject.entities);
+  const gameCamera = cameraForEntity(activeProject.entities, activeProject.activeCameraId) ?? primaryGameCamera;
   const selectPreview = (mode: '3d' | '2d') => setPreviewSelection({ projectId: activeProject.id, mode });
   const activeProjectRef = useRef(activeProject);
   activeProjectRef.current = activeProject;
@@ -257,6 +266,15 @@ function Home() {
     canOverwriteSavedData: loadedProjects.canOverwrite,
     isRunning: runnerState.running,
     onPreviewPosition: (nextPosition) => setScene({ projectId: activeProject.id, position: nextPosition }),
+  });
+  const authoring = useSceneAuthoring({
+    project: activeProject, activeProjectRef, setProjects,
+    selectedEntityId: sceneEditor.selectedEntityId,
+    onSelectCreatedEntity: sceneEditor.onSelectCreatedEntity,
+    onSetParent: sceneEditor.onSetParent, onImportAssets: sceneEditor.onImportAssets,
+    readOnly: runnerState.running || Boolean(activeAnimationPreview),
+    canOverwrite: loadedProjects.canOverwrite,
+    onUICanvasCreated: (controlId) => { setSelectedUIControlId(controlId); selectPreview('2d'); },
   });
   useEffect(() => {
     setRuntimeError('');
@@ -483,6 +501,7 @@ function Home() {
 
         <section className="stage" id="scene-preview" ref={stageRef} tabIndex={-1} role="tabpanel" aria-labelledby="scene-preview-tab">
           <GameScene
+            primaryCamera={primaryGameCamera}
             key={activeProject.id}
             viewMode={viewMode}
             onViewModeChange={selectPreview}
@@ -513,7 +532,7 @@ function Home() {
         <div className="toolbar-row" role="group" aria-label="Workspace toolbars">
           <div className="toolbar-group" role="group" aria-labelledby="panel-2-label">
             <span className="panel-label" id="panel-2-label">PANEL 2</span>
-            <div className="toolbar-buttons"><WorkspaceBrowserMenus {...sceneEditor} /></div>
+            <div className="toolbar-buttons"><WorkspaceBrowserMenus {...sceneEditor} creationTools={<HierarchyCreationTools {...authoring} />} /></div>
           </div>
           <div className="toolbar-group toolbar-group-right" role="group" aria-labelledby="panel-1-label">
             <span className="panel-label" id="panel-1-label">PANEL 1</span>

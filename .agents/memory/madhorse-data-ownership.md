@@ -12,3 +12,13 @@ Animation clips are saved with their project. Playback should apply temporary sc
 **Why:** The user defined separate system knowledge and editable project data for Madhorse Engine.
 
 **How to apply:** Keep reference catalogs, per-game rules, and saved project content distinct in storage and UI. Users should edit game rules through projects, not directly edit system reference data. Keep saved projects browser-local. Treat animation playback as a view over saved scene data, not a scene edit or script command.
+
+Prefab definitions are reusable snapshots; placed instances are independent.
+Removing or changing a library definition must not silently change existing
+scene instances.
+
+**Why:** Creators may customize placed instances; template management must not
+discard their project edits.
+
+**How to apply:** Any future source-to-instance update needs an explicit user
+action and must preserve or clearly resolve instance-specific edits.

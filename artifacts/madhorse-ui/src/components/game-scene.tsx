@@ -7,6 +7,7 @@ import type { SceneTransformMode } from '@/components/scene-preview-3d';
 import { isGamePosition, type GamePosition } from '@/lib/game-api';
 import {
   getModelRenderer,
+  getPrimitive, getCamera, getLight, getUICanvas,
   getSpriteRenderer,
   getWorldTransform,
   type ProjectAsset,
@@ -16,6 +17,7 @@ import {
 import type { UIControlElement } from '@/lib/ui-controls';
 
 type GameSceneProps = {
+  primaryCamera: GameCamera;
   viewMode: '3d' | '2d';
   onViewModeChange: (mode: '3d' | '2d') => void;
   gameCamera: GameCamera;
@@ -40,6 +42,7 @@ type GameSceneProps = {
 };
 
 export function GameScene({
+  primaryCamera,
   viewMode,
   onViewModeChange,
   gameCamera,
@@ -60,6 +63,22 @@ export function GameScene({
   onUpdateTransform,
 }: GameSceneProps) {
   const [transformMode, setTransformMode] = useState<SceneTransformMode>('translate');
+  const [expanded, setExpanded] = useState(false);
+  const sceneRootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!expanded) return;
+    const stage = sceneRootRef.current?.closest('.stage');
+    const previousOverflow = document.body.style.overflow;
+    stage?.classList.add('is-scene-expanded');
+    document.body.style.overflow = 'hidden';
+    const escape = (event: globalThis.KeyboardEvent) => { if (event.key === 'Escape') setExpanded(false); };
+    window.addEventListener('keydown', escape);
+    return () => {
+      stage?.classList.remove('is-scene-expanded');
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', escape);
+    };
+  }, [expanded]);
   const [gameGraphicsUnavailable, setGameGraphicsUnavailable] = useState(false);
   const onGraphicsUnavailable = useCallback(() => setGameGraphicsUnavailable(true), []);
   const onGraphicsReady = useCallback(() => setGameGraphicsUnavailable(false), []);
@@ -92,7 +111,9 @@ export function GameScene({
   };
 
   return (
-    <div className="game-scene">
+    <div ref={sceneRootRef} className="game-scene">
+      <button type="button" className="scene-expand-button" data-testid="scene-expand" aria-pressed={expanded}
+        onClick={() => setExpanded((value) => !value)}>{expanded ? 'Restore view' : 'Expand view'}</button>
       <div className="scene-view-tabs" role="tablist" aria-label="Scene preview mode">
         <button
           type="button"
@@ -114,6 +135,7 @@ export function GameScene({
       </div>
       <div className={`scene-preview-shell scene-preview-${viewMode}`} data-testid="scene-preview">
           <ScenePreview3D
+            primaryCamera={primaryCamera}
             key={viewMode}
             gameView={viewMode === '2d'}
             gameCamera={gameCamera}
@@ -144,13 +166,24 @@ export function GameScene({
           />
           {viewMode === '2d' && uiControls.length > 0 && (
             <div className="game-ui-overlay" aria-label="Game interface preview" data-testid="game-ui-overlay">
-              {uiControls.map((element, index) => (
+              {uiControls.filter((control) => {
+                let owner = entities.find((entity) => getUICanvas(entity)?.controlId === control.id);
+                if (owner && !getUICanvas(owner)?.enabled) return false;
+                const visited = new Set<string>();
+                while (owner) {
+                  if (!owner.active || visited.has(owner.id)) return false;
+                  visited.add(owner.id);
+                  owner = entities.find((entity) => entity.id === owner!.parentId);
+                }
+                return true;
+              }).map((element, index) => (
                 <button
                   key={element.id}
                   type="button"
                   className={[
                     'game-ui-element',
                     `is-${element.type}`,
+                    entities.some((entity) => getUICanvas(entity)?.controlId === element.id) ? 'is-canvas-root' : '',
                     selectedUIControlId === element.id ? 'is-selected' : '',
                     readOnly ? 'is-read-only' : '',
                   ].filter(Boolean).join(' ')}
@@ -327,7 +360,8 @@ function ScenePreview2D({
           const projected = new Vector3(
             (previewPosition.x - 50) / 10, world.position.z / 10, (previewPosition.y - 50) / 10,
           ).project(camera);
-          if (projected.z < -1 || projected.z > 1 || getModelRenderer(entity)?.enabled) return null;
+          if (projected.z < -1 || projected.z > 1 || getModelRenderer(entity)?.enabled ||
+              getPrimitive(entity) || getCamera(entity) || getLight(entity) || getUICanvas(entity)) return null;
           const x = (projected.x + 1) * 50;
           const y = (1 - projected.y) * 50;
           const visibleHeight = 2 * Math.max(0.1, gameCamera.position.y - world.position.z / 10) *

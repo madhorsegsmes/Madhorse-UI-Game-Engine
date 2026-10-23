@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import './workspace-browser-menus.css';
 import type { WorkspaceBrowserProps } from './workspace-browser-contract';
 import type { ProjectAsset, SceneEntity, Vector3 } from '../lib/scene-model';
-import { getModelRenderer, getSpriteRenderer, getTransform, isDescendant } from '../lib/scene-model';
+import { getModelRenderer, getSpriteRenderer, getTransform, getPrimitive, getCamera, getLight, getUICanvas, isDescendant } from '../lib/scene-model';
 
 const formatSize = (bytes: number) => {
   if (bytes < 1024) return `${bytes} B`;
@@ -54,6 +54,7 @@ export function WorkspaceBrowserMenus(): ReactElement;
 export function WorkspaceBrowserMenus(props: WorkspaceBrowserProps): ReactElement;
 export function WorkspaceBrowserMenus(props?: WorkspaceBrowserProps) {
   const {
+    creationTools,
     entities = [],
     assets = [],
     assetUrls = {},
@@ -119,7 +120,7 @@ export function WorkspaceBrowserMenus(props?: WorkspaceBrowserProps) {
             data-testid={`select-object-${entity.id}`}
           >
             <span className="browser-tree-branch" aria-hidden="true">{children.length ? '›' : '·'}</span>
-            <span className="browser-object-glyph" aria-hidden="true">{getSpriteRenderer(entity) ? 'S' : 'O'}</span>
+            <span className="browser-object-glyph" aria-hidden="true">{getCamera(entity) ? 'C' : getLight(entity) ? 'L' : getUICanvas(entity) ? 'UI' : getPrimitive(entity) ? '3D' : getSpriteRenderer(entity) ? 'S' : 'O'}</span>
             <span className="browser-tree-name">{entity.name}</span>
             {!entity.active && <span className="browser-inactive-tag">OFF</span>}
           </button>
@@ -201,6 +202,8 @@ export function WorkspaceBrowserMenus(props?: WorkspaceBrowserProps) {
           <div className="browser-panel-heading">
             <div><span className="browser-eyebrow">PANEL 2 / OBJECTS</span><h2>Hierarchy</h2></div>
             <span className="browser-count">{entities.length.toString().padStart(2, '0')}</span>
+            <button type="button" className="browser-panel-close" data-testid="close-hierarchy" aria-label="Close hierarchy"
+              onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}>Close</button>
           </div>
           <div className="browser-action-row">
             <button type="button" onClick={() => onCreateEntity?.(null, true)} aria-label="Add sprite object" data-testid="add-sprite-object">+ Sprite</button>
@@ -226,6 +229,7 @@ export function WorkspaceBrowserMenus(props?: WorkspaceBrowserProps) {
               <span>Add a sprite or an empty object to begin.</span>
             </div>
           )}
+          {creationTools}
         </div>
       </details>
 

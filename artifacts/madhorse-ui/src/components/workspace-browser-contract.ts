@@ -5,8 +5,10 @@ import type {
   SpriteRendererComponent,
   TransformComponent,
 } from '@/lib/scene-model';
+import type { ReactNode } from 'react';
 
 export type WorkspaceBrowserProps = {
+  creationTools?: ReactNode;
   entities: SceneEntity[];
   assets: ProjectAsset[];
   assetUrls: Record<string, string>;

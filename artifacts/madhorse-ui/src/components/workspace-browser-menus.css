@@ -1,3 +1,8 @@
+.browser-panel-close { padding: 5px 7px; border: 1px solid #65514c; background: #282124; color: #dfcfc3; font: inherit; font-size: 10px; cursor: pointer; }
+.workspace-browser-hierarchy .browser-panel-heading { position: sticky; top: 0; z-index: 3; background: #242124; }
+@media (max-width: 600px) {
+  .workspace-browser-hierarchy .workspace-browser-panel { position: fixed; left: 12px; right: 12px; top: 102px; width: auto !important; max-height: calc(100dvh - 122px); }
+}
 .workspace-browser-menu { position: relative; min-width: 0; }
 .workspace-browser-menu > summary { list-style: none; width: 100%; cursor: pointer; }
 .workspace-browser-menu > summary::-webkit-details-marker { display: none; }

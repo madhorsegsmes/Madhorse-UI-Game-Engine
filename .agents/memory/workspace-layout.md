@@ -33,6 +33,15 @@ through the game camera.
 **How to apply:** Preserve shared scene data and keep editor-only guides and
 transform handles out of the camera output.
 
+The primary game camera sits **north of the square, looking back toward it**,
+not south of it looking north. North is negative world Z, with world Y up.
+
+**Why:** The user explicitly clarified this camera placement.
+
+**How to apply:** Preserve the north placement as the square is edited, keep its
+Scene View marker visible during navigation, and keep Scene View zoom independent
+from game-camera settings and object scale.
+
 Show a spinning cog and adjacent loading bar whenever the system refreshes or
 collects data, and keep the screen awake while the editor is being used.
 

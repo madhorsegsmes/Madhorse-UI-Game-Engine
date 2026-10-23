@@ -23,6 +23,12 @@ export function GameCameraRig({ settings }: { settings: GameCamera }) {
 }
 
 export function GameCameraFrustum({ settings }: { settings: GameCamera }) {
-  const camera = useMemo(() => makeGameViewCamera(settings, 16 / 9), [settings]);
+  const camera = useMemo(() => {
+    const preview = makeGameViewCamera(settings, 16 / 9);
+    preview.far = Math.hypot(settings.position.x - settings.target.x,
+      settings.position.y - settings.target.y, settings.position.z - settings.target.z) + 2;
+    preview.updateProjectionMatrix();
+    return preview;
+  }, [settings]);
   return <cameraHelper args={[camera]} />;
 }

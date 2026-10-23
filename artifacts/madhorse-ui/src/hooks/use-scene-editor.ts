@@ -8,6 +8,7 @@ import {
   createSceneEntity,
   createSpriteRendererComponent,
   getModelRenderer,
+  getPrimitive,
   getSpriteRenderer,
   getTransform,
   getWorldTransform,
@@ -15,6 +16,8 @@ import {
   localTransformFromWorld,
   projectAssetKind,
 } from '@/lib/scene-model';
+import type { ScenePrefab } from '@/lib/scene-authoring';
+import type { UIControlElement } from '@/lib/ui-controls';
 import type {
   ProjectAsset,
   ModelRendererComponent,
@@ -28,6 +31,8 @@ export type ProjectSceneDocument = {
   id: string;
   entities: SceneEntity[];
   assets: ProjectAsset[];
+  prefabs?: ScenePrefab[];
+  uiControls?: UIControlElement[];
 };
 
 type SceneEditorOptions<T extends ProjectSceneDocument> = {
@@ -107,16 +112,17 @@ export function useSceneEditor<T extends ProjectSceneDocument>({
   }, [project.id]);
 
   const referencedAssetIds = useMemo(() => [...new Set(
-    project.entities
+    [...project.entities, ...(project.prefabs ?? []).flatMap((prefab) => prefab.entities)]
       .flatMap((entity) => [
         getSpriteRenderer(entity)?.assetId,
         getModelRenderer(entity)?.assetId,
+        getPrimitive(entity)?.textureAssetId,
       ])
       .filter((assetId): assetId is string => Boolean(assetId)),
-  )], [project.entities]);
+  )], [project.entities, project.prefabs]);
   const assetUrls = useProjectAssetUrls(project.id, project.assets, referencedAssetIds, setAssetStatus);
 
-  function updateProjectScene(updates: Partial<Pick<T, 'entities' | 'assets'>>) {
+  function updateProjectScene(updates: Partial<Pick<T, 'entities' | 'assets' | 'uiControls'>>) {
     const nextProject = { ...project, ...updates };
     const nextProjects = projects.map((entry) => entry.id === project.id ? nextProject : entry);
     setProjects(nextProjects);
@@ -158,7 +164,12 @@ export function useSceneEditor<T extends ProjectSceneDocument>({
         }
       }
     }
-    updateProjectScene({ entities: project.entities.filter((entry) => !removedIds.has(entry.id)) });
+    const removedControls = new Set(project.entities.filter((entry) => removedIds.has(entry.id))
+      .flatMap((entry) => entry.components.flatMap((component) => component.type === 'uiCanvas' ? [component.controlId] : [])));
+    updateProjectScene({
+      entities: project.entities.filter((entry) => !removedIds.has(entry.id)),
+      uiControls: project.uiControls?.filter((control) => !removedControls.has(control.id)),
+    });
     setSelectedEntityId(entity.parentId);
   }
 
@@ -330,6 +341,15 @@ export function useSceneEditor<T extends ProjectSceneDocument>({
   }
 
   function onAssignAsset(entityId: string, assetId: string | null) {
+    const target = project.entities.find((entity) => entity.id === entityId);
+    if (target && getPrimitive(target)) {
+      if (assetId && !project.assets.some((asset) => asset.id === assetId && asset.kind === 'image')) return;
+      updateProjectScene({ entities: project.entities.map((entity) => entity.id === entityId ? {
+        ...entity, components: entity.components.map((component) =>
+          component.type === 'primitive' ? { ...component, textureAssetId: assetId } : component),
+      } : entity) });
+      return;
+    }
     if (assetId && !project.assets.some((asset) => asset.id === assetId && asset.kind === 'image')) return;
     const entity = project.entities.find((entry) => entry.id === entityId);
     if (!entity) return;
@@ -444,6 +464,7 @@ export function useSceneEditor<T extends ProjectSceneDocument>({
     selectedEntityId,
     assetStatus,
     onSelectEntity,
+    onSelectCreatedEntity: setSelectedEntityId,
     onCreateEntity,
     onRemoveEntity,
     onRenameEntity,

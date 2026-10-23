@@ -26,7 +26,22 @@ export type ModelRendererComponent = {
   assetId: string | null;
 };
 
-export type SceneComponent = TransformComponent | SpriteRendererComponent | ModelRendererComponent;
+export type PrimitiveComponent = {
+  id: string; type: 'primitive'; enabled: boolean;
+  shape: 'cube' | 'plane' | 'terrain'; color: string; textureAssetId: string | null;
+};
+export type LightComponent = {
+  id: string; type: 'light'; enabled: boolean;
+  kind: 'point' | 'directional' | 'ambient'; color: string; intensity: number;
+};
+export type CameraComponent = {
+  id: string; type: 'camera'; enabled: boolean; fov: number; target: Vector3;
+};
+export type UICanvasComponent = {
+  id: string; type: 'uiCanvas'; enabled: boolean; controlId: string;
+};
+export type SceneComponent = TransformComponent | SpriteRendererComponent | ModelRendererComponent |
+  PrimitiveComponent | LightComponent | CameraComponent | UICanvasComponent;
 
 export type SceneEntity = {
   id: string;
@@ -125,6 +140,19 @@ export function getModelRenderer(entity: SceneEntity): ModelRendererComponent | 
   return entity.components.find((entry): entry is ModelRendererComponent => entry.type === 'modelRenderer');
 }
 
+export function getPrimitive(entity: SceneEntity) {
+  return entity.components.find((entry): entry is PrimitiveComponent => entry.type === 'primitive');
+}
+export function getLight(entity: SceneEntity) {
+  return entity.components.find((entry): entry is LightComponent => entry.type === 'light');
+}
+export function getCamera(entity: SceneEntity) {
+  return entity.components.find((entry): entry is CameraComponent => entry.type === 'camera');
+}
+export function getUICanvas(entity: SceneEntity) {
+  return entity.components.find((entry): entry is UICanvasComponent => entry.type === 'uiCanvas');
+}
+
 export function isSceneComponent(value: unknown): value is SceneComponent {
   if (!value || typeof value !== 'object') return false;
   const item = value as SceneComponent;
@@ -145,6 +173,19 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
     return typeof item.enabled === 'boolean' &&
       (item.assetId === null || typeof item.assetId === 'string');
   }
+  if (item.type === 'primitive') {
+    return typeof item.enabled === 'boolean' && ['cube', 'plane', 'terrain'].includes(item.shape) &&
+      /^#[0-9a-f]{6}$/i.test(item.color) && (item.textureAssetId === null || typeof item.textureAssetId === 'string');
+  }
+  if (item.type === 'light') {
+    return typeof item.enabled === 'boolean' && ['point', 'directional', 'ambient'].includes(item.kind) &&
+      /^#[0-9a-f]{6}$/i.test(item.color) && Number.isFinite(item.intensity) && item.intensity >= 0 && item.intensity <= 100;
+  }
+  if (item.type === 'camera') {
+    return typeof item.enabled === 'boolean' && Number.isFinite(item.fov) &&
+      item.fov >= 10 && item.fov <= 100 && isVector(item.target);
+  }
+  if (item.type === 'uiCanvas') return typeof item.enabled === 'boolean' && typeof item.controlId === 'string';
   return false;
 }
 
@@ -156,6 +197,7 @@ export function isSceneEntity(value: unknown): value is SceneEntity {
       typeof entity.active !== 'boolean' || !Array.isArray(entity.components) ||
       !entity.components.every(isSceneComponent)) return false;
   return entity.components.filter((component) => component.type === 'transform').length === 1 &&
+    ['primitive', 'light', 'camera', 'uiCanvas'].every((type) => entity.components.filter((component) => component.type === type).length <= 1) &&
     entity.components.filter((component) => component.type === 'spriteRenderer').length <= 1 &&
     entity.components.filter((component) => component.type === 'modelRenderer').length <= 1;
 }

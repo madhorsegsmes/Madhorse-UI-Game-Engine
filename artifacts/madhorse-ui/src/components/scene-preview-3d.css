@@ -17,6 +17,24 @@
   font-family: 'DM Mono', ui-monospace, monospace;
   isolation: isolate;
 }
+.mh-scene3d__navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 5px 8px; border-bottom: 1px solid #414142; color: #bdb7b0; font-size: 9px; }
+.mh-scene3d__navigation button { border: 1px solid #584541; background: #282123; color: #e3d7ce; padding: 5px 7px; cursor: pointer; font: inherit; }
+.mh-scene3d__navigation button:disabled { opacity: .4; cursor: default; }
+.mh-scene3d__navigation label { display: flex; align-items: center; gap: 4px; }
+.mh-scene3d__navigation input { width: 65px; accent-color: #bd4037; }
+.mh-scene3d__navigation output { min-width: 31px; }
+.mh-scene3d__navigation > span { margin-left: auto; color: #88817d; }
+.mh-scene3d__camera-marker { position: absolute; top: 17px; left: 50%; transform: translate(-50%, -50%); z-index: 3; display: flex; align-items: center; gap: 4px; padding: 4px 6px; border: 1px solid #b18d55; color: #ead4ac; background: #211d18ed; font: 9px/1.2 'DM Mono', monospace; white-space: nowrap; cursor: pointer; max-width: calc(100% - 8px); }
+.mh-scene3d__camera-marker svg { width: 18px; height: 13px; flex: none; }
+.mh-scene3d__camera-marker[data-offscreen="true"] { border-style: dashed; }
+.mh-scene3d__navigation button:focus-visible, .mh-scene3d__camera-marker:focus-visible { outline: 2px solid #cf4a40; outline-offset: 2px; }
+.scene-expand-button { position: absolute; top: 0; right: 0; z-index: 5; border: 1px solid #6b4540; padding: 6px; background: #251f20; color: #d5c9bf; font: 9px/1.2 'DM Mono', monospace; cursor: pointer; }
+.scene-view-tabs { padding-right: 80px; }
+.scene-expand-button:focus-visible { outline: 2px solid #cf4a40; outline-offset: 2px; }
+.stage.is-scene-expanded { position: fixed !important; inset: 8px; z-index: 90; height: calc(100dvh - 16px); min-height: 0; margin: 0; clip-path: none; }
+.stage.is-scene-expanded .game-scene { inset: 16px; }
+.game-ui-element.is-canvas-root { background: transparent !important; border: 1px dashed #72a7ad; color: #a4cbd0; }
+.game-ui-element.is-canvas-root:disabled { visibility: hidden; }
 
 .mh-scene3d__toolbar {
   min-height: 53px;

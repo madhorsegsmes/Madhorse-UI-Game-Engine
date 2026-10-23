@@ -13,8 +13,12 @@ import { beginSystemActivity } from '@/lib/system-activity';
 import { hasRenderableModelGeometry } from '@/lib/scene-model-validation';
 import { GameCameraFrustum, GameCameraRig } from './game-camera-rig';
 import type { GameCamera } from '@/lib/game-camera';
+import { cameraForEntity } from '@/lib/game-camera';
+import { SceneElementVisual } from './scene-element-visuals';
+import { SceneNavigation } from './scene-navigation';
 import {
   getModelRenderer,
+  getPrimitive, getCamera, getLight, getUICanvas,
   getSpriteRenderer,
   getTransform,
   type ProjectAsset,
@@ -25,6 +29,7 @@ import './scene-preview-3d.css';
 
 export type SceneTransformMode = 'translate' | 'rotate' | 'scale';
 export type ScenePreview3DProps = {
+  primaryCamera?: GameCamera;
   gameView?: boolean;
   gameCamera?: GameCamera;
   graphicsFallback?: ReactNode;
@@ -91,6 +96,7 @@ function isEffectivelyActive(entity: SceneEntity, byId: Map<string, SceneEntity>
 }
 
 export function ScenePreview3D({
+  primaryCamera,
   gameView = false,
   gameCamera,
   graphicsFallback,
@@ -111,6 +117,11 @@ export function ScenePreview3D({
   const [modelStatuses, setModelStatuses] = useState<Record<string, string>>({});
   const [mobile, setMobile] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const cameraMarkerRef = useRef<HTMLButtonElement>(null);
+  const [zoom, setZoom] = useState(100);
+  const [frameToken, setFrameToken] = useState(0);
+  const editorCamera = primaryCamera ?? gameCamera;
+  const frameCamera = () => { setZoom(100); setFrameToken((value) => value + 1); };
   useEffect(() => {
     const media = window.matchMedia('(max-width: 700px), (pointer: coarse)');
     const update = () => setMobile(media.matches);
@@ -163,7 +174,8 @@ export function ScenePreview3D({
     <section className={`mh-scene3d ${gameView ? 'is-game-view' : ''}`} data-testid={gameView ? 'scene-game-view' : 'scene-preview-3d'} aria-label={gameView ? 'Game camera view' : '3D scene preview'}
       data-camera-target={gameView && gameCamera ? JSON.stringify(gameCamera.target) : undefined}
       data-camera-position={gameView && gameCamera ? JSON.stringify(gameCamera.position) : undefined}
-      data-scene-entity-count={entities.length}>
+      data-camera-fov={gameView ? gameCamera?.fov : undefined}
+      data-scene-entity-count={entities.length} data-scene-zoom={gameView ? undefined : zoom}>
       {!gameView && <header className="mh-scene3d__toolbar">
         <div className="mh-scene3d__heading">
           <span className="mh-scene3d__eyebrow">VIEWPORT / 01</span>
@@ -191,6 +203,14 @@ export function ScenePreview3D({
         </div>
         <div className="mh-scene3d__view-label"><i aria-hidden="true" /> {readOnly ? 'RUNTIME PREVIEW' : 'PERSPECTIVE'}</div>
       </header>}
+      {!gameView && <div className="mh-scene3d__navigation" role="group" aria-label="Scene view navigation">
+        <button type="button" onClick={() => setZoom((value) => Math.max(25, value - 25))} disabled={zoom <= 25} data-testid="scene-zoom-out" aria-label="Zoom scene out">−</button>
+        <label>Zoom <input type="range" min={25} max={200} step={5} value={zoom} onChange={(event) => setZoom(Number(event.target.value))} aria-label="Scene zoom" data-testid="scene-zoom" /></label>
+        <output data-testid="scene-zoom-value">{zoom}%</output>
+        <button type="button" onClick={() => setZoom((value) => Math.min(200, value + 25))} disabled={zoom >= 200} data-testid="scene-zoom-in" aria-label="Zoom scene in">+</button>
+        <button type="button" onClick={frameCamera} data-testid="scene-frame-camera">Frame square + camera</button>
+        <span title="World north is negative Z">N = −Z</span>
+      </div>}
       <div
         ref={rootRef}
         className="mh-scene3d__viewport"
@@ -202,7 +222,7 @@ export function ScenePreview3D({
       >
         <SceneWebGLBoundary fallback={graphicsFallback} onUnavailable={onGraphicsUnavailable}>
         <Canvas
-          camera={{ position: [10, 8, 12], fov: 48, near: 0.1, far: 300 }}
+          camera={{ position: [10, 8, 12], fov: 48, near: 0.1, far: 3000 }}
           dpr={mobile ? 1 : [1, 1.5]}
           frameloop="demand"
           gl={{ antialias: !mobile, powerPreference: 'low-power', alpha: false }}
@@ -214,6 +234,10 @@ export function ScenePreview3D({
           }}
         >
         <SceneWorld
+            primaryCamera={editorCamera}
+            sceneZoom={zoom}
+            frameToken={frameToken}
+            cameraMarkerRef={cameraMarkerRef}
             gameView={gameView}
             gameCamera={gameCamera}
             entities={entities}
@@ -234,6 +258,12 @@ export function ScenePreview3D({
           />
         </Canvas>
         </SceneWebGLBoundary>
+        {!gameView && editorCamera && <button ref={cameraMarkerRef} type="button" className="mh-scene3d__camera-marker"
+          onClick={frameCamera} data-testid="scene-camera-marker" aria-label="Frame the square and north game camera"
+          title="Game Camera is north of the square. Click to frame both. This marker stays visible when the camera is off screen.">
+          <svg viewBox="0 0 20 14" aria-hidden="true"><path d="M1 2h11v10H1zM12 5l6-3v10l-6-3z" fill="none" stroke="currentColor" /></svg>
+          Game Camera · North
+        </button>}
         {entities.length === 0 && (
           <div className="mh-scene3d__empty" data-testid="scene3d-empty-state">
             <span className="mh-scene3d__empty-mark" aria-hidden="true" />
@@ -271,6 +301,10 @@ export function ScenePreview3D({
 }
 
 type SceneWorldProps = {
+  primaryCamera?: GameCamera;
+  sceneZoom: number;
+  frameToken: number;
+  cameraMarkerRef: React.RefObject<HTMLButtonElement | null>;
   gameView?: boolean;
   gameCamera?: GameCamera;
   entities: SceneEntity[];
@@ -303,7 +337,11 @@ function SceneWorld(props: SceneWorldProps) {
       <directionalLight position={[7, 12, 6]} intensity={2.2} />
       <directionalLight position={[-7, 5, -8]} intensity={0.75} color="#b3c0cf" />
       {props.gameView && props.gameCamera && <GameCameraRig settings={props.gameCamera} />}
-      {!props.gameView && props.gameCamera && <GameCameraFrustum settings={props.gameCamera} />}
+      {!props.gameView && props.primaryCamera && <GameCameraFrustum settings={props.primaryCamera} />}
+      {!props.gameView && props.entities.map((entity) => {
+        const settings = cameraForEntity(props.entities, entity.id);
+        return settings ? <GameCameraFrustum key={entity.id} settings={settings} /> : null;
+      })}
       {!props.gameView && <Grid args={[160, 160]} cellSize={1} cellThickness={0.48} cellColor="#43474a" sectionSize={5}
         sectionThickness={0.9} sectionColor="#777b7d" fadeDistance={72} fadeStrength={1.5} infiniteGrid
         position={[0, -0.012, 0]} />}
@@ -313,13 +351,15 @@ function SceneWorld(props: SceneWorldProps) {
         makeDefault
         enableDamping
         dampingFactor={props.mobile ? 0.12 : 0.08}
-        minDistance={2.3}
-        maxDistance={100}
+        minDistance={1}
+        maxDistance={2000}
         maxPolarAngle={Math.PI * 0.495}
         enablePan
         screenSpacePanning={false}
         touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
       />}
+      {!props.gameView && props.primaryCamera && <SceneNavigation settings={props.primaryCamera}
+        zoom={props.sceneZoom} frameToken={props.frameToken} controls={orbitRef} marker={props.cameraMarkerRef} />}
       <Suspense fallback={null}>
         {(props.childrenByParent.get(null) ?? []).map((entity) => (
           <EntityNode key={entity.id} {...props} entity={entity} onSelectedObject={setSelectedObject} />
@@ -380,7 +420,10 @@ function EntityNode(props: SceneWorldProps & { entity: SceneEntity; onSelectedOb
       onPointerOut={() => { document.body.style.cursor = ''; }}
     >
       {selectedEntity && <SelectionOutline active={effective} />}
-      {model?.enabled ? (
+      {!model?.enabled && (getPrimitive(entity) || getLight(entity) || getCamera(entity) || getUICanvas(entity)) ? (
+        <SceneElementVisual entity={entity} gameView={Boolean(props.gameView)} active={effective}
+          assetUrls={props.assetUrls} onError={(message) => props.onModelError(entity.id, message)} />
+      ) : model?.enabled ? (
         modelUrl && modelAsset ? (
           <ModelAssetView
             key={`${model.assetId}:${modelUrl}`}
