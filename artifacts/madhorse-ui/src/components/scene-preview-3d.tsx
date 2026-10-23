@@ -9,6 +9,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { TextureLoader } from 'three';
 import { SceneWebGLBoundary } from './scene-webgl-boundary';
+import { SceneRenderFallback } from './scene-render-fallback';
+import { SceneRenderSettingsPanel } from './scene-render-settings';
+import { useSceneRenderSettings } from '@/hooks/use-scene-render-settings';
 import { getSceneObjectTypeLabel, SceneObjectGlyph } from './scene-object-glyph';
 import { beginSystemActivity } from '@/lib/system-activity';
 import { hasRenderableModelGeometry } from '@/lib/scene-model-validation';
@@ -130,6 +133,7 @@ export function ScenePreview3D({
 }: ScenePreview3DProps) {
   const [errors, setErrors] = useState<ErrorEntry[]>([]);
   const [modelStatuses, setModelStatuses] = useState<Record<string, string>>({});
+  const [renderSettings, setRenderSettings] = useSceneRenderSettings();
   const [mobile, setMobile] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const cameraMarkerRef = useRef<HTMLButtonElement>(null);
@@ -281,7 +285,8 @@ export function ScenePreview3D({
             </button>
           ))}
         </div>
-        <div className="mh-scene3d__view-label"><i aria-hidden="true" /> {readOnly ? 'RUNTIME PREVIEW' : 'PERSPECTIVE'}</div>
+        <div className="mh-scene3d__view-label"><i aria-hidden="true" /> {readOnly ? 'RUNTIME PREVIEW' : 'RENDER ON'}</div>
+        {!readOnly && <SceneRenderSettingsPanel settings={renderSettings} onChange={setRenderSettings} />}
       </header>}
       {!gameView && <div className="mh-scene3d__navigation" role="group" aria-label="Scene view navigation">
         <button type="button" onClick={() => setZoom((value) => Math.max(MIN_SCENE_ZOOM, value - 25))} disabled={zoom <= MIN_SCENE_ZOOM} data-testid="scene-zoom-out" aria-label="Zoom scene out">−</button>
@@ -336,19 +341,36 @@ export function ScenePreview3D({
               aria-label="Reset Game Camera to north">Reset north</button>
           </div>
         )}
-        <SceneWebGLBoundary fallback={graphicsFallback} onUnavailable={markGraphicsUnavailable}>
+        <SceneWebGLBoundary
+          fallback={graphicsFallback}
+          fallbackContent={!gameView ? (
+            <SceneRenderFallback
+              entities={entities}
+              camera={editorCamera}
+              settings={renderSettings}
+              zoom={zoom}
+              selectedEntityId={effectiveSelectedId}
+              onSelectEntity={selectEntity}
+            />
+          ) : undefined}
+          onUnavailable={markGraphicsUnavailable}
+        >
         <Canvas
           camera={{ position: [10, 8, 12], fov: 48, near: 0.1, far: 3000 }}
           dpr={mobile ? 1 : [1, 1.5]}
           frameloop={gameView ? 'always' : 'demand'}
           gl={{ antialias: !mobile, powerPreference: 'low-power', alpha: false }}
           onCreated={({ gl, scene }) => {
-            const background = gameView ? '#333538' : '#1d1f22';
+            const background = gameView ? '#333538' : renderSettings.background;
             gl.setClearColor(background);
             scene.background = new THREE.Color(background);
             markGraphicsReady();
           }}
         >
+        <SceneRendererSettings
+          background={gameView ? '#333538' : renderSettings.background}
+          exposure={gameView ? 1 : renderSettings.exposure}
+        />
         <SceneWorld
             primaryCamera={editorCamera}
             sceneZoom={zoom}
@@ -377,6 +399,7 @@ export function ScenePreview3D({
             onModelStatus={reportModelStatus}
             clearError={clearError}
             mobile={mobile}
+            renderSettings={renderSettings}
           />
         </Canvas>
         </SceneWebGLBoundary>
@@ -450,7 +473,19 @@ type SceneWorldProps = {
   onModelStatus: (id: string, message: string) => void;
   clearError: (id: string) => void;
   mobile: boolean;
+  renderSettings: ReturnType<typeof useSceneRenderSettings>[0];
 };
+
+function SceneRendererSettings({ background, exposure }: { background: string; exposure: number }) {
+  const { gl, scene, invalidate } = useThree();
+  useEffect(() => {
+    gl.setClearColor(background);
+    scene.background = new THREE.Color(background);
+    gl.toneMappingExposure = exposure;
+    invalidate();
+  }, [background, exposure, gl, invalidate, scene]);
+  return null;
+}
 
 function SceneWorld(props: SceneWorldProps) {
   const orbitRef = useRef<any>(null);
@@ -528,7 +563,12 @@ function SceneWorld(props: SceneWorldProps) {
     <>
       {props.gameView
         ? <AutomaticGameLighting target={props.gameCamera?.target ?? { x: 0, y: 0, z: 0 }} />
-        : <SceneEditorEnvironment mobile={props.mobile} />}
+        : <SceneEditorEnvironment
+          mobile={props.mobile}
+          showGrid={props.renderSettings.showGrid}
+          studioLighting={props.renderSettings.studioLighting}
+          exposure={props.renderSettings.exposure}
+        />}
       {props.gameView && props.gameCamera && <GameCameraRig settings={props.gameCamera} />}
       {props.gameView && props.gameCamera && <OrbitControls
         ref={orbitRef}
