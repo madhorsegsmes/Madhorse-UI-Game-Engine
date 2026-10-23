@@ -3,6 +3,12 @@ name: Numbered workspace panels
 description: User-defined panel numbering, control grouping, and placement in Madhorse UI.
 ---
 
+The user approved replacing the entire interface while keeping all features and saved data. Earlier placement notes below describe the original layout, not a requirement to retain its visual composition.
+
+**Why:** The user chose “Replace the entire interface; keep all features and saved data” when clarifying what to wipe and redo.
+
+**How to apply:** Redesign the presentation without deleting functionality or browser-saved projects. Keep feature groups recognizable; review the separate design proposal before integrating it into the working app.
+
 Workspace panels use a shared snap grid and can be dragged or keyboard-reordered; the initial arrangement is **Main Panel**, **Scene View**, camera controls, **Panel 2**, **Panel 1**, then Panels 3–5. Keep panel names, numbers, and control groupings intact when they move. Layout order is saved in the current browser, and Reset restores the initial arrangement.
 
 **Why:** The user asked to move all panels to suit each user's preference and chose a flexible snap grid.
