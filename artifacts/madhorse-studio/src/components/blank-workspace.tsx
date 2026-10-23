@@ -1,5 +1,6 @@
 /** Fresh workspace with local scene authoring and an intentionally blank panel layout. */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Dispatch, KeyboardEvent, MouseEvent, SetStateAction } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { ScenePreview3D, type SceneTransformMode } from './scene-preview-3d';
@@ -369,6 +370,7 @@ export default function BlankWorkspace() {
   const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
   const [selection, setSelection] = useState<string | null>('starter-cube');
   const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
+  const [madBuilderOpen, setMadBuilderOpen] = useState(false);
   const [previewEntities, setPreviewEntities] = useState<SceneEntity[] | null>(null);
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [status, setStatus] = useState('');
@@ -414,6 +416,15 @@ export default function BlankWorkspace() {
       setStatus('Mad Builder added the new scene objects. They are ready to edit in the hierarchy.');
     },
   });
+
+  useEffect(() => {
+    if (!madBuilderOpen) return;
+    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') setMadBuilderOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [madBuilderOpen]);
 
   useEffect(() => {
     try {
@@ -794,11 +805,35 @@ export default function BlankWorkspace() {
           ) : number === 4 ? (
             <>
               <span className="fresh-panel-number" aria-hidden="true">4</span>
-              <MadBuilderMenu key={FRESH_WORKSPACE_ID} embedded {...madBuilder} />
+              <div className="fresh-panel-builder-entry">
+                <button type="button" className="fresh-builder-open" onClick={() => setMadBuilderOpen(true)}>
+                  <strong>Mad Builder</strong>
+                  <span>Open builder</span>
+                </button>
+              </div>
             </>
           ) : <span className="fresh-panel-number" aria-hidden="true">{number}</span>}
         </section>
       ))}
+      {madBuilderOpen && createPortal(
+        <div
+          className="fresh-mad-builder-backdrop"
+          role="presentation"
+          onClick={event => {
+            if (event.target === event.currentTarget) setMadBuilderOpen(false);
+          }}
+        >
+          <section className="fresh-mad-builder-dialog" role="dialog" aria-modal="true" aria-label="Mad Builder">
+            <MadBuilderMenu
+              key={FRESH_WORKSPACE_ID}
+              embedded
+              onClose={() => setMadBuilderOpen(false)}
+              {...madBuilder}
+            />
+          </section>
+        </div>,
+        document.body,
+      )}
       {status && <div className="fresh-status" role="status">{status}<button type="button" onClick={() => setStatus('')} aria-label="Dismiss status">×</button></div>}
       {timelineOpen && (
         <div className="fresh-timeline-backdrop" role="presentation" onMouseDown={event => {

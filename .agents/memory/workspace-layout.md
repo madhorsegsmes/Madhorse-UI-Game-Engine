@@ -9,6 +9,17 @@ The user rejected the rebuilt Studio layout and asked to remove everything visib
 
 **How to apply:** Do not restore the rejected layout or create another preset redesign unasked. Earlier placement notes below are historical context, not instructions to populate the fresh layout.
 
+When adding content to an existing panel, preserve the other panel sizes by
+default. Use contained scrolling or an overlay for larger tools instead of
+expanding a shared grid row.
+
+**Why:** The user reported that placing Mad Builder changed the size of all
+panels and asked to fix the layout.
+
+**How to apply:** Keep the workspace grid dimensions unchanged unless the user
+asks to resize a panel; constrain new content within its panel or open it in an
+overlay.
+
 Workspace panels use a shared snap grid and can be dragged or keyboard-reordered; the initial arrangement is **Main Panel**, **Scene View**, camera controls, **Panel 2**, **Panel 1**, then Panels 3–5. Keep panel names, numbers, and control groupings intact when they move. Layout order is saved in the current browser, and Reset restores the initial arrangement.
 
 **Why:** The user asked to move all panels to suit each user's preference and chose a flexible snap grid.

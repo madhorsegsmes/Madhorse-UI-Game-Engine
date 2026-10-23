@@ -6,7 +6,7 @@ import './mad-builder-menu.css';
 
 const EXAMPLE = 'Build a small 3D house with four walls, a pitched roof, a front door, glass windows on each side, a ground plane around it and a warm point light inside.';
 
-export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean }) {
+export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; onClose?: () => void }) {
   const { embedded = false } = props;
   const { history, plan, phase, error, readOnly, onPlan, onCancel, onDiscard, onApply } = props;
   const [prompt, setPrompt] = useState('');
@@ -26,7 +26,11 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean }) 
         <header className="browser-panel-heading">
           <div><span className="browser-eyebrow">AI SCENE ASSEMBLY</span><h2>Mad Builder</h2></div>
           <span className="browser-count" data-testid="status-builder-phase">{readOnly ? 'READ-ONLY' : phase.toUpperCase()}</span>
-          {!embedded && <button type="button" className="browser-panel-close" onClick={close} data-testid="button-close-mad-builder">Close</button>}
+          {embedded && props.onClose ? (
+            <button type="button" className="browser-panel-close" onClick={props.onClose} data-testid="button-close-mad-builder">Close</button>
+          ) : !embedded ? (
+            <button type="button" className="browser-panel-close" onClick={close} data-testid="button-close-mad-builder">Close</button>
+          ) : null}
         </header>
         <div className="mb-body">
           <div className="mb-section">
@@ -34,7 +38,8 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean }) 
             <label className="mb-prompt-label" htmlFor="mad-builder-prompt">Tell Mad Bot what to build</label>
             <textarea
               id="mad-builder-prompt" className="mb-textarea" value={prompt} maxLength={2000} rows={4}
-              disabled={readOnly || busy} placeholder="Example: Build a 3D house with windows, a red roof and a front door."
+              disabled={readOnly || busy} autoFocus={embedded && Boolean(props.onClose)}
+              placeholder="Example: Build a 3D house with windows, a red roof and a front door."
               aria-invalid={prompt.length > 0 && !valid}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); } }}
