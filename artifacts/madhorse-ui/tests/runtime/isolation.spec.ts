@@ -59,6 +59,24 @@ except ImportError:
   await expect(output(page)).toContainText('Python network unavailable');
 });
 
+test('Lua exposes only the restricted standard libraries, not Wasmoon host bridges', async ({ page }) => {
+  await openScripts(page);
+  await importSource(page, 'host-probe.lua', `
+for _, name in ipairs({"io", "os", "package", "debug", "require", "dofile", "loadfile",
+                      "js", "javascript", "globalThis", "fetch", "Promise"}) do
+  assert(_G[name] == nil, "HOST LEAK: " .. name)
+end
+local thread = coroutine.create(function() return math.floor(2.5) end)
+local ok, value = coroutine.resume(thread)
+assert(ok and value == 2)
+assert(string.upper("safe") == "SAFE" and utf8.len("Lua") == 3)
+print("Lua host globals absent")
+`);
+  await run(page);
+  await finished(page);
+  await expect(output(page)).toHaveText('Lua host globals absent\n');
+});
+
 test('opaque sandbox denies app storage, parent DOM, private API and external requests', async ({ page }) => {
   await openScripts(page);
   await page.evaluate(() => localStorage.setItem('runtime-private-sentinel', 'must-stay-private'));

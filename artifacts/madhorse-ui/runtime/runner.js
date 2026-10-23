@@ -57,6 +57,16 @@ self.onmessage = async ({ data }) => {
   try {
     const { language, source, filename, files = [] } = data;
     if (typeof source !== 'string' || source.length > 262144) throw new Error('Invalid script or script too large');
+    // Bound companion-file copies as well as the main source, before any
+    // interpreter or compiler allocates its own representation.
+    if (!Array.isArray(files) || files.length > 64) throw new Error('Too many script support files');
+    let sourceSize = source.length;
+    for (const file of files) {
+      if (!file || typeof file.name !== 'string' || file.name.length > 255 ||
+          typeof file.content !== 'string') throw new Error('Invalid script support file');
+      sourceSize += file.content.length;
+      if (sourceSize > 1048576) throw new Error('Script sources exceeded the 1,048,576-character limit');
+    }
     phase('loading', `Loading ${language} runtime…`);
     if (language === 'JavaScript' || language === 'TypeScript') {
       const { initialize } = await import('./javascript.js');
@@ -67,7 +77,8 @@ self.onmessage = async ({ data }) => {
       phase('running', 'Running script…');
       run(code, emit);
     } else if (language === 'Lua') {
-      const { run } = await import('./lua.js');
+      const { initialize } = await import('./lua.js');
+      const run = await initialize(new URL('lua/glue.wasm', runtimeRoot).href);
       networkLocked = true;
       phase('running', 'Running script…');
       run(source, emit);
@@ -132,6 +143,14 @@ self.onmessage = async ({ data }) => {
       const result = await compilation.run();
       if (result.stdOut) emit(result.stdOut);
       if (result.stdErr) emit(result.stdErr);
+      // wasmsharp 0.10.2's `success` means compilation success: RunAsync
+      // catches guest exceptions, writes them to stderr, then returns true.
+      // Do not present an uncaught allocation failure as successful execution.
+      // The package has no structured runtime-exception field; stderr is a
+      // conservative diagnostic signal, not the memory enforcement boundary.
+      if (/System\.OutOfMemoryException:/.test(result.stdErr ?? '')) {
+        throw new Error('C# out of memory (256 MiB WebAssembly memory limit).');
+      }
       if (!result.success) {
         const diagnostics = (result.diagnostics ?? []).map((item) => `${item.id}: ${item.message}`).join('\n');
         throw new Error(diagnostics || String(result.errorMessage ?? result.exception ?? 'C# script did not complete successfully.'));

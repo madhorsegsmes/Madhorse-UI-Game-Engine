@@ -158,6 +158,118 @@ test('repeated completion, failure and Stop tear down each sandbox without poiso
   await expect(frames(page)).toHaveCount(0);
 });
 
+for (const resource of [
+  {
+    name: 'Python single allocation', extension: 'py',
+    source: 'x = bytearray(80*1024*1024)\nprint("memory guard failed")',
+    error: /MemoryError/,
+    hello: 'print("same language recovered")',
+  },
+  {
+    name: 'Python retained allocations', extension: 'py',
+    source: 'x = [bytearray(1024*1024) for _ in range(80)]\nprint("memory guard failed")',
+    error: /MemoryError/,
+    hello: 'print("same language recovered")',
+  },
+  {
+    name: 'Lua single allocation', extension: 'lua',
+    source: 'local x = string.rep("x", 20*1024*1024); print("memory guard failed")',
+    error: /not enough memory/i,
+    hello: 'print("same language recovered")',
+  },
+  {
+    name: 'Lua retained allocations', extension: 'lua',
+    source: 'local x = {}; for i=1,24 do x[i] = string.rep("x",1024*1024)..i end; print("memory guard failed")',
+    error: /not enough memory/i,
+    hello: 'print("same language recovered")',
+  },
+  {
+    name: 'C# single allocation', extension: 'cs',
+    source: 'var x = new byte[272*1024*1024]; System.Console.WriteLine(x.Length);',
+    error: /OutOfMemoryException|out of memory/i,
+    hello: 'System.Console.WriteLine("same language recovered");',
+  },
+  {
+    name: 'C# retained allocations', extension: 'cs',
+    source: 'var x = new System.Collections.Generic.List<byte[]>(); for (int i=0; i<72; i++) x.Add(new byte[4*1024*1024]); System.Console.WriteLine("memory guard failed");',
+    error: /OutOfMemoryException|out of memory/i,
+    hello: 'System.Console.WriteLine("same language recovered");',
+  },
+]) {
+  test(`${resource.name} is rejected independently of timeout and recovers`, async ({ page }, testInfo) => {
+    await openScripts(page);
+    await importSource(page, `memory.${resource.extension}`, resource.source);
+    await run(page);
+    await expect(status(page)).toHaveText(/^(Script finished\.|Script stopped with an error\.)$/, { timeout: 180_000 });
+    const terminalStatus = await status(page).textContent();
+    const text = await output(page).textContent();
+    // Preserve evidence even if enforcement regresses but cleanup still works.
+    await expect(frames(page)).toHaveCount(0);
+    await expect(stopButton(page)).toBeDisabled();
+    await importSource(page, `recovery.${resource.extension}`, resource.hello);
+    await run(page);
+    await finished(page);
+    await expect(output(page)).toHaveText('same language recovered\n');
+    await testInfo.attach('interpreter-memory-observation', {
+      contentType: 'application/json',
+      body: JSON.stringify({ resource: resource.name, terminalStatus, output: text, recovered: true }, null, 2),
+    });
+    expect(terminalStatus).toBe('Script stopped with an error.');
+    expect(text).toMatch(resource.error);
+    expect(text!.length).toBeLessThanOrEqual(outputLimit);
+    expect(text).not.toMatch(/5-second|could not start|memory guard failed/i);
+  });
+}
+
+for (const extension of ['c', 'cpp']) {
+  test(`${extension} linker memory maximum rejects growth and malloc without a timeout`, async ({ page }) => {
+    await openScripts(page);
+    await importSource(page, `memory.${extension}`, `
+#include <stdio.h>
+#include <stdlib.h>
+int main(void) {
+  size_t old = __builtin_wasm_memory_grow(0, 1024);
+  if (old != (size_t)-1) return 1;
+  void *p = malloc(72*1024*1024);
+  if (p) { free(p); return 2; }
+  p = malloc(1024);
+  if (!p) return 3;
+  free(p);
+  puts("native memory rejected");
+  return 0;
+}`);
+    await run(page);
+    await finished(page);
+    await expect(output(page)).toHaveText('native memory rejected\n');
+    await recover(page, `after-${extension}-memory`);
+  });
+}
+
+test('C# caught allocation failures cannot bypass the ceiling and useful work still fits', async ({ page }) => {
+  await openScripts(page);
+  await importSource(page, 'caught.cs', `
+var blocks = new System.Collections.Generic.List<byte[]>();
+int rejected = 0;
+for (int i=0; i<72; i++) {
+  try { blocks.Add(new byte[4*1024*1024]); }
+  catch (System.OutOfMemoryException) { rejected++; }
+}
+System.Console.WriteLine(blocks.Count > 0 && blocks.Count < 64 && rejected > 0 ? "bounded" : "guard failed");
+System.GC.KeepAlive(blocks);
+`);
+  await run(page);
+  await finished(page);
+  await expect(output(page)).toHaveText('bounded\n');
+  await importSource(page, 'useful.cs', `
+var block = new byte[8*1024*1024];
+block[block.Length-1] = 42;
+System.Console.WriteLine(block[block.Length-1]);
+`);
+  await run(page);
+  await finished(page);
+  await expect(output(page)).toHaveText('42\n');
+});
+
 for (const initialization of [
   { asset: 'runner.js', status: 'Starting JavaScript sandbox…' },
   { asset: 'javascript.js', status: 'Loading JavaScript runtime…' },

@@ -396,9 +396,6 @@ importers:
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
-      fengari:
-        specifier: 0.1.5
-        version: 0.1.5
       framer-motion:
         specifier: 'catalog:'
         version: 12.43.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -462,6 +459,9 @@ importers:
       vite:
         specifier: 'catalog:'
         version: 7.3.7(@types/node@25.9.9)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.9.1)
+      wasmoon:
+        specifier: 1.16.0
+        version: 1.16.0
       wouter:
         specifier: ^3.3.5
         version: 3.13.0(react@19.1.0)
@@ -1829,6 +1829,9 @@ packages:
   '@types/draco3d@1.4.10':
     resolution: {integrity: sha512-AX22jp8Y7wwaBgAixaSvkoG4M/+PlAcm3Qs4OW8yT9DM4xUpWKeFhLueTAyZF39pviAdcDdeJoACapiAceqNcw==}
 
+  '@types/emscripten@1.39.10':
+    resolution: {integrity: sha512-TB/6hBkYQJxsZHSqyeuO1Jt0AB/bW6G7rHt9g7lML7SOF6lbgcHvw/Lr+69iqN0qxgXLhWKScAon73JNnptuDw==}
+
   '@types/emscripten@1.41.6':
     resolution: {integrity: sha512-uN+9i8bFT5CUcZfyIEYDrSueACEyKGbUs5kC/72DGlZZoinh84sJfVV0i8UOJD1asdzkvLPBRrKs41kZ8MdEXg==}
 
@@ -2384,9 +2387,6 @@ packages:
     peerDependenciesMeta:
       picomatch:
         optional: true
-
-  fengari@0.1.5:
-    resolution: {integrity: sha512-0DS4Nn4rV8qyFlQCpKK8brT61EUtswynrpfFTcgLErcilBIBskSMQ86fO2WVuybr14ywyKdRjv91FiRZwnEuvQ==}
 
   fflate@0.6.11:
     resolution: {integrity: sha512-3JyEFWGjFn7zHmoa9+zG1BmW7X2okcmAB+0Cnu9UFbVs/jCBnl2A8o065ZlXiw145K3eBM3uLuzrYXC0RK7eDg==}
@@ -3054,10 +3054,6 @@ packages:
     resolution: {integrity: sha512-Kko+Y5XQ6fM+Ce3dq3m9YGxnacYZYl9cA1wZjaF3Vbry2L3i1qVg8+CAgNPsXRArPMUMCaOR7oa9Nqntc43JKA==}
     engines: {node: '>= 20.19.0'}
 
-  readline-sync@1.4.10:
-    resolution: {integrity: sha512-gNva8/6UAe8QYepIQH/jQ2qn91Qj0B9sYjMBBs3QOB8F2CXcKgLxQaJRP76sWVRQt+QU+8fAkCbCvjjMFu7Ycw==}
-    engines: {node: '>= 0.8.0'}
-
   real-require@0.2.0:
     resolution: {integrity: sha512-57frrGM/OCTLqLOAh0mhVA9VBMHd+9U7Zb2THMGdBUoZVOtGbJzjxsYGDJ3A9AYYCP4hn6y1TVbaOfzWtm5GFg==}
     engines: {node: '>= 12.13.0'}
@@ -3183,9 +3179,6 @@ packages:
     resolution: {integrity: sha512-UcjcJOWknrNkF6PLX83qcHM6KHgVKNkV62Y8a5uYDVv9ydGQVwAHMKqHdJje1VTWpljG0WYpCDhrCdAOYH4TWg==}
     engines: {node: '>= 10.x'}
 
-  sprintf-js@1.1.3:
-    resolution: {integrity: sha512-Oo+0REFV59/rz3gfJNKQiBlwfHaSESl1pcGyABQsnnIfWOFt6JNj5gCog2U6MLZ//IGYD+nA8nI+mTShREReaA==}
-
   stats-gl@2.4.2:
     resolution: {integrity: sha512-g5O9B0hm9CvnM36+v7SFl39T7hmAlv541tU81ME8YeSb3i1CIP5/QdDeSB3A0la0bKNHpxpwxOVRo2wFTYEosQ==}
     peerDependencies:
@@ -3257,10 +3250,6 @@ packages:
   tinyglobby@0.2.17:
     resolution: {integrity: sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==}
     engines: {node: '>=12.0.0'}
-
-  tmp@0.2.7:
-    resolution: {integrity: sha512-e0votIpp4Uo2AJYSzVHV6xCcawuiez3DzqDAbrTc3YxBkplN6e+dM13ZeIcZnDg/QpSuU2zfZ3rzwY8ukEnaXw==}
-    engines: {node: '>=14.14'}
 
   to-regex-range@5.0.1:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}
@@ -3415,6 +3404,10 @@ packages:
         optional: true
       yaml:
         optional: true
+
+  wasmoon@1.16.0:
+    resolution: {integrity: sha512-FlRLb15WwAOz1A9OQDbf6oOKKSiefi5VK0ZRF2wgH9xk3o5SnU11tNPaOnQuAh1Ucr66cwwvVXaeVRaFdRBt5g==}
+    hasBin: true
 
   webgl-constants@1.1.1:
     resolution: {integrity: sha512-LkBXKjU5r9vAW7Gcu3T5u+5cvSvh5WwINdr0C+9jpzVB41cjQAP5ePArDtk/WHYdVj0GefCgM73BA7FlIiNtdg==}
@@ -4727,6 +4720,8 @@ snapshots:
 
   '@types/draco3d@1.4.10': {}
 
+  '@types/emscripten@1.39.10': {}
+
   '@types/emscripten@1.41.6': {}
 
   '@types/estree@1.0.9': {}
@@ -5200,12 +5195,6 @@ snapshots:
   fdir@6.5.0(picomatch@4.0.7):
     optionalDependencies:
       picomatch: 4.0.7
-
-  fengari@0.1.5:
-    dependencies:
-      readline-sync: 1.4.10
-      sprintf-js: 1.1.3
-      tmp: 0.2.7
 
   fflate@0.6.11: {}
 
@@ -5816,8 +5805,6 @@ snapshots:
 
   readdirp@5.1.1: {}
 
-  readline-sync@1.4.10: {}
-
   real-require@0.2.0: {}
 
   recharts-scale@0.4.5:
@@ -5961,8 +5948,6 @@ snapshots:
 
   split2@4.2.0: {}
 
-  sprintf-js@1.1.3: {}
-
   stats-gl@2.4.2(@types/three@0.186.0)(three@0.186.1):
     dependencies:
       '@types/three': 0.186.0
@@ -6020,8 +6005,6 @@ snapshots:
     dependencies:
       fdir: 6.5.0(picomatch@4.0.7)
       picomatch: 4.0.7
-
-  tmp@0.2.7: {}
 
   to-regex-range@5.0.1:
     dependencies:
@@ -6153,6 +6136,10 @@ snapshots:
       lightningcss: 1.32.0
       tsx: 4.23.15
       yaml: 2.9.1
+
+  wasmoon@1.16.0:
+    dependencies:
+      '@types/emscripten': 1.39.10
 
   webgl-constants@1.1.1: {}
 

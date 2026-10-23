@@ -25,7 +25,9 @@ CI never uses the Replit Chromium override or substitutes one engine for another
 
 The gate first runs `pnpm --filter @workspace/madhorse-ui run test:runtime:memory`
 and `pnpm --filter @workspace/madhorse-ui run test:runtime:stack`
-against the source adapter and generated browser bundle, then runs
+against the source adapter and generated browser bundle, and
+`pnpm --filter @workspace/madhorse-ui run test:runtime:interpreters` for Python,
+Lua and .NET memory boundaries, then runs
 `pnpm --filter @workspace/madhorse-ui run test:runtime` once.
 The config keeps one worker, disables parallel mode and retries, and rejects
 focused (`test.only`) tests in CI. Do not add browser matrices, shards, skips,
@@ -166,6 +168,113 @@ Each case checks teardown and successful subsequent execution. Resource cases
 also attach the original status/output and successful recovery as
 `resource-limit-observation`. Stop locators explicitly target the Script panel,
 not the separate game Stop control.
+
+### Python, Lua, C# and native memory budgets
+
+| Runtime | Enforced boundary | Notes |
+| --- | --- | --- |
+| Python / Pyodide 0.29.4 | 64 MiB total WASM linear memory | Less is available to Python objects after interpreter overhead |
+| Lua / Wasmoon 1.16.0 (Lua 5.4) | 16 MiB live Lua allocator budget; 32 MiB total WASM linear memory | Raw Lua C API only; no JS proxies or object injection |
+| C# / wasmsharp 0.10.2 | 256 MiB total WASM linear memory | Includes .NET, loaded assemblies, Roslyn compilation and guest heap |
+| C / C++ | Existing 64 MiB guest WASM linker maximum | Native compiler's own memory is separate; this does not cap compilation |
+
+Fengari 0.1.5 has no usable allocator control: `lua_getallocf` and
+`lua_setallocf` only warn that they are unavailable. Its tables and strings
+are browser JavaScript allocations, and instruction hooks cannot stop a single
+large native string/table allocation. Polling heap usage, replacing a few
+library functions or limiting the worker lifetime would not provide a memory
+boundary. Lua therefore uses a WASM-backed interpreter instead of pretending
+Fengari is bounded. This changes Lua 5.3 / Fengari's 32-bit integer semantics
+to Lua 5.4's 64-bit integers. Existing restricted libraries remain `_G`, table,
+string, math, utf8 and coroutine. io, os, package, debug, require, dofile,
+loadfile and Wasmoon JS bridges are not exposed. The outer five-second worker
+deadline still governs execution; it is not allocation enforcement.
+
+Preparation makes guarded changes to **cached runtime assets**, never
+`node_modules` package sources or checked-in binaries:
+
+- Pyodide imports its memory. Its generated loader creates a bounded memory
+  with maximum 1,024 pages. The exact pinned constructor must match once or
+  preparation fails, rather than silently shipping an uncapped loader.
+- .NET and Lua **define/export** their memory. `Module.wasmMemory` cannot
+  override it. Preparation rewrites only the WASM memory section to maxima of
+  4,096 and 512 pages, respectively. It validates the input/output modules and
+  rejects missing/multiple memories, shared/memory64 layouts, incompatible
+  initial sizes and unexpectedly smaller upstream maxima.
+- Lua additionally uses `lua_newstate` with an allocator that checks live
+  malloc/realloc sizes before allocating, including native library operations.
+  Freeing an allocation returns its budget. Catching a Lua allocation error
+  cannot increase either ceiling.
+- C/C++ keep the existing `-Wl,--max-memory=67108864` flags; browser tests
+  exercise real `memory.grow` and `malloc` rejection without replacing them.
+
+Wasmsharp's `success` flag indicates **compilation** success, not successful
+execution. The pinned runtime catches guest exceptions and prints their stack
+to stderr while returning `success: true`. The adapter conservatively recognizes
+`System.OutOfMemoryException:` in stderr and reports a failed run. This is only
+diagnostic classification, not the enforcement mechanism; guest-written stderr
+can mimic that diagnostic. A guest-caught OutOfMemoryException can finish
+normally and still cannot exceed the physical ceiling.
+
+None of these numbers is a total browser/worker RSS limit. Download buffers,
+compiled WASM code, JS adapters, filesystem backing storage and compiler
+overhead outside WASM remain outside the physical ceiling. No new guest host
+APIs, network access or additional workers are added. Each execution still uses
+one fresh worker in the opaque-origin frame, so memory is not shared across
+runs. Main source is capped at 262,144 UTF-16 code units; at most 64 companion
+files with names of at most 255 code units are accepted, and source plus copied
+companion contents are capped at 1,048,576 code units before interpreter loading.
+These are character limits, not byte/RSS measurements.
+
+Run direct checks with:
+
+```sh
+pnpm --filter @workspace/madhorse-ui run test:runtime:interpreters
+```
+
+They instantiate the actual prepared Lua/.NET binaries, grow exported memory
+to the ceiling and assert that one additional page fails. Python's test captures
+the real memory created during initialization, verifies the interpreter uses
+it, and tests its physical maximum after finite guest allocations. Python and
+Lua single allocations, retained allocations, strings/tables, caught failures,
+small useful allocations and recovery are checked independently. Source-set
+rejection is checked before runtime loading. Layout changes fail closed.
+
+The browser resource suite exercises the prepared production adapters with
+single and retained allocation failures and same-language fresh-run recovery
+for Python, Lua and C#. Probes remain finite even if a guard regresses:
+Python requests at most 80 MiB; Lua 20 MiB in one request or 24 retained 1 MiB
+strings; C# 272 MiB in one request or 72 retained 4 MiB blocks (288 MiB).
+Assertions distinguish memory diagnostics from the five-second timeout,
+startup errors, bounded editor output, frame removal and recovery. Additional
+C# coverage catches failures repeatedly and performs useful work in a fresh run.
+Ordinary execution, syntax errors, Stop, timeout and isolation remain separate
+required browser tests. The .NET baseline needs a larger budget because Roslyn
+and assemblies share the same linear memory as the guest; this is not a promise
+of 256 MiB usable guest heap.
+
+Pinned implementation references:
+- Pyodide: installed `pyodide/pyodide.asm.js` (`initMemory`, resize heap) and
+  https://github.com/pyodide/pyodide/tree/0.29.4
+- Fengari: https://github.com/fengari-lua/fengari/blob/v0.1.5/src/lapi.js
+- Wasmoon: installed `wasmoon/dist/index.js` (`Global` allocator and `LuaWasm`)
+  and https://github.com/ceifa/wasmoon
+- wasmsharp: installed `@wasmsharp/core/dotnet.native.js` (`receiveInstance`,
+  `growMemory`) and https://github.com/JakeYallop/WasmSharp
+
+Verification on 2026-10-23: five direct interpreter/source-input checks passed,
+as did the four existing JavaScript source/bundle memory and stack checks,
+application and browser-test TypeScript checks, and five release-gate contract
+checks. The focused Chromium production run passed **40/40** tests across
+`resources.spec.ts`, `execution.spec.ts` and `isolation.spec.ts`, including all
+seven languages' execution/syntax/Stop/timeout checks, every new allocation
+probe, same-language recovery, caught C# failures and native growth/malloc
+rejection. The app workflow restarted cleanly and the editor loaded. The
+preview browser still reported the existing WebGL-context environment failure;
+no graphics claim is made. Firefox/WebKit and the complete unrelated editor
+suite were not rerun for this change; this is not full cross-engine release
+approval. Matching browser builds/host libraries are still required as described
+below.
 
 ### Enforced JavaScript memory budget
 

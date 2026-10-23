@@ -1,46 +1,58 @@
-import fengari from 'fengari';
+import { LuaWasm } from 'wasmoon';
+import { memoryLimits } from './memory-limits.mjs';
 
-export function run(source, emit) {
-  const { lua, lauxlib, lualib, to_luastring, to_jsstring } = fengari;
-  const state = lauxlib.luaL_newstate();
-  try {
-    // Do not open io, os, package, debug, or JavaScript interoperability.
-    for (const [name, open] of [
-      ['_G', lualib.luaopen_base],
-      ['table', lualib.luaopen_table],
-      ['string', lualib.luaopen_string],
-      ['math', lualib.luaopen_math],
-      ['utf8', lualib.luaopen_utf8],
-      ['coroutine', lualib.luaopen_coroutine],
-    ]) {
-      lauxlib.luaL_requiref(state, to_luastring(name), open, 1);
-      lua.lua_pop(state, 1);
-    }
-    for (const name of ['dofile', 'loadfile']) {
-      lua.lua_pushnil(state);
-      lua.lua_setglobal(state, to_luastring(name));
-    }
-    lua.lua_pushjsfunction(state, (L) => {
-      const parts = [];
-      for (let i = 1; i <= lua.lua_gettop(L); i++) {
-        const value = lauxlib.luaL_tolstring(L, i);
-        parts.push(to_jsstring(value));
-        lua.lua_pop(L, 1);
+export async function initialize(wasmURL) {
+  // Use the C API only: no Wasmoon object proxies, JS globals, promises or
+  // standard-library filesystem/network bridge is installed in the guest.
+  const lua = await LuaWasm.initialize(wasmURL);
+  return (source, emit) => {
+    let used = 0;
+    const module = lua.module;
+    const allocator = module.addFunction((_, pointer, oldSize, newSize) => {
+      if (!newSize) {
+        if (pointer) { used -= oldSize; module._free(pointer); }
+        return 0;
       }
-      emit(parts.join('\t'));
-      return 0;
-    });
-    lua.lua_setglobal(state, to_luastring('print'));
-    const deadline = Date.now() + 5000;
-    lua.lua_sethook(state, (L) => {
-      if (Date.now() > deadline) lauxlib.luaL_error(L, to_luastring('Script exceeded the 5-second time limit'));
-    }, lua.LUA_MASKCOUNT, 10000);
-    const loaded = lauxlib.luaL_loadstring(state, to_luastring(source));
-    if (loaded !== lua.LUA_OK) throw new Error(lua.lua_tojsstring(state, -1));
-    if (lua.lua_pcall(state, 0, lua.LUA_MULTRET, 0) !== lua.LUA_OK) {
-      throw new Error(lua.lua_tojsstring(state, -1));
+      const next = used + newSize - (pointer ? oldSize : 0);
+      if (next > memoryLimits.luaHeap) return 0;
+      const result = module._realloc(pointer, newSize);
+      if (result) used = next;
+      return result;
+    }, 'iiiii');
+    const state = lua.lua_newstate(allocator, null);
+    let printer;
+    try {
+      if (!state) throw new Error('Lua out of memory');
+      for (const [name, open] of [
+        ['_G', 'base'], ['table', 'table'], ['string', 'string'],
+        ['math', 'math'], ['utf8', 'utf8'], ['coroutine', 'coroutine'],
+      ]) {
+        lua[`luaopen_${open}`](state);
+        lua.lua_setglobal(state, name);
+      }
+      for (const name of ['dofile', 'loadfile']) {
+        lua.lua_pushnil(state);
+        lua.lua_setglobal(state, name);
+      }
+      printer = module.addFunction((L) => {
+        const parts = [];
+        for (let i = 1; i <= lua.lua_gettop(L); i++) {
+          parts.push(lua.luaL_tolstring(L, i, null));
+          lua.lua_settop(L, -2);
+        }
+        emit(parts.join('\t'));
+        return 0;
+      }, 'ii');
+      lua.lua_pushcclosure(state, printer, 0);
+      lua.lua_setglobal(state, 'print');
+      const loaded = lua.luaL_loadstring(state, source);
+      if (loaded || lua.lua_pcallk(state, 0, 0, 0, 0, null)) {
+        throw new Error(lua.lua_tolstring(state, -1, null) || 'Lua out of memory');
+      }
+    } finally {
+      if (state) lua.lua_close(state);
+      if (printer !== undefined) module.removeFunction(printer);
+      module.removeFunction(allocator);
     }
-  } finally {
-    lua.lua_close(state);
-  }
+  };
 }

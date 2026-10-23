@@ -2,6 +2,7 @@ import { build } from 'esbuild';
 import { createRequire } from 'node:module';
 import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { capDefinedMemory, capPythonLoader, memoryLimits } from './memory-limits.mjs';
 
 const require = createRequire(import.meta.url);
 const appRoot = path.resolve(import.meta.dirname, '..');
@@ -27,6 +28,15 @@ export async function prepareRuntimes() {
       recursive: true,
     }),
   ]);
+
+  const pythonPath = path.join(runtimeDirectory, 'python/pyodide.asm.js');
+  await writeFile(pythonPath, capPythonLoader(await readFile(pythonPath, 'utf8')));
+  const csharpWasm = path.join(runtimeDirectory, 'csharp/dotnet.native.wasm');
+  await writeFile(csharpWasm, capDefinedMemory(await readFile(csharpWasm), memoryLimits.csharp));
+  await mkdir(path.join(runtimeDirectory, 'lua'), { recursive: true });
+  const luaWasm = path.join(packageDirectory('wasmoon'), 'glue.wasm');
+  await writeFile(path.join(runtimeDirectory, 'lua/glue.wasm'),
+    capDefinedMemory(await readFile(luaWasm), memoryLimits.lua));
 
   // The distribution uses bundler-style binary imports; preserve its directory
   // layout while converting those imports to ordinary browser asset URLs.
@@ -74,11 +84,11 @@ export async function prepareRuntimes() {
       ...common,
       entryPoints: [path.join(import.meta.dirname, 'lua.mjs')],
       outfile: path.join(runtimeDirectory, 'lua.js'),
-      define: { process: 'undefined', 'process.env.FENGARICONF': 'undefined' },
+      define: { process: 'undefined' },
       plugins: [{
         name: 'deny-node-lua-io',
         setup(builder) {
-          builder.onResolve({ filter: /^(node:)?(fs|path|os|child_process|readline-sync|tmp)$/ }, () => ({
+          builder.onResolve({ filter: /^(node:)?(fs|path|os|child_process|url|module)$/ }, () => ({
             path: 'unavailable', namespace: 'no-host-io',
           }));
           builder.onLoad({ filter: /.*/, namespace: 'no-host-io' }, () => ({

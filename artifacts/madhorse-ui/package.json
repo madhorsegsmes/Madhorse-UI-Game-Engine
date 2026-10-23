@@ -10,6 +10,7 @@
     "test:runtime": "playwright test",
     "test:runtime:memory": "node runtime/prepare.mjs && node --test tests/runtime/javascript-memory.test.mjs",
     "test:runtime:stack": "node runtime/prepare.mjs && node --test tests/runtime/javascript-stack.test.mjs",
+    "test:runtime:interpreters": "node runtime/prepare.mjs && node --test tests/runtime/interpreter-memory.test.mjs",
     "test:runtime:install": "playwright install chromium firefox webkit",
     "test:runtime:typecheck": "tsc -p tests/runtime/tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit"
@@ -65,7 +66,6 @@
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.6.0",
     "esbuild": "0.28.2",
-    "fengari": "0.1.5",
     "framer-motion": "catalog:",
     "input-otp": "^1.4.2",
     "lucide-react": "catalog:",
@@ -87,6 +87,7 @@
     "typescript": "~5.9.3",
     "vaul": "^1.1.2",
     "vite": "catalog:",
+    "wasmoon": "1.16.0",
     "wouter": "^3.3.5",
     "zod": "catalog:"
   },

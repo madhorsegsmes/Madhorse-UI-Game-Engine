@@ -1,6 +1,7 @@
 - [Game script safety](game-script-safety.md) — imported scripts must stay data until a properly isolated game runtime exists.
 - [JavaScript memory boundary](javascript-memory-boundary.md) — use a physical WASM memory ceiling; interpreter accounting and worker teardown do not prove enforcement.
 - [JavaScript stack boundary](javascript-stack-boundary.md) — guest linear-stack limits must trip before native WASM call-stack exhaustion prevents clean unwinding.
+- [Interpreted memory boundaries](interpreted-memory-boundaries.md) — Lua needs a real allocator; defined WASM memories ignore injected memory; wasmsharp success is not execution success.
 - [Runtime browser environment](runtime-browser-environment.md) — browser library and WebGL limitations; distinguish environment failures without weakening checks.
 - [Workspace panel layout](workspace-layout.md) — user-defined panel numbering, left/right control groups, and top Main Panel.
 - [Project identity](project-identity.md) — this is Madhorse Engine, not Blackboxradiomusic; keep unrelated branding out.
