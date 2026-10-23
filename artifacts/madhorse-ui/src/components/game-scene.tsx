@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent } from 'react';
 import { Plane, Raycaster, Vector2, Vector3 } from 'three';
-import { makeGameViewCamera, type GameCamera } from '@/lib/game-camera';
+import { createGameCamera, makeGameViewCamera, type GameCamera } from '@/lib/game-camera';
+import { PRIMARY_CAMERA_ID } from '@/lib/camera-editor';
+import { SceneCameraControls } from '@/components/scene-camera-controls';
 import { ScenePreview3D } from '@/components/scene-preview-3d';
 import type { SceneTransformMode } from '@/components/scene-preview-3d';
 import { isGamePosition, type GamePosition } from '@/lib/game-api';
@@ -39,6 +41,12 @@ type GameSceneProps = {
     entityId: string,
     changes: Partial<Pick<TransformComponent, 'position' | 'rotation' | 'scale'>>,
   ) => void;
+  onPrimaryCameraChange?: (camera: GameCamera) => void;
+  onCameraEntityTransform?: (
+    entityId: string,
+    changes: Partial<Pick<TransformComponent, 'position' | 'rotation' | 'scale'>>,
+  ) => void;
+  onSelectPrimaryCamera?: () => void;
 };
 
 export function GameScene({
@@ -61,6 +69,9 @@ export function GameScene({
   onSelectUIControl,
   onMoveUIControl,
   onUpdateTransform,
+  onPrimaryCameraChange,
+  onCameraEntityTransform,
+  onSelectPrimaryCamera,
 }: GameSceneProps) {
   const [transformMode, setTransformMode] = useState<SceneTransformMode>('translate');
   const [expanded, setExpanded] = useState(false);
@@ -82,7 +93,7 @@ export function GameScene({
   const [gameGraphicsUnavailable, setGameGraphicsUnavailable] = useState(false);
   const onGraphicsUnavailable = useCallback(() => setGameGraphicsUnavailable(true), []);
   const onGraphicsReady = useCallback(() => setGameGraphicsUnavailable(false), []);
-  const selectedName = entities.find((entity) => entity.id === selectedEntityId)?.name ?? 'No selection';
+  const selectedName = selectedEntityId === PRIMARY_CAMERA_ID ? 'Game Camera' : entities.find((entity) => entity.id === selectedEntityId)?.name ?? 'No selection';
   const uiDragging = useRef<{ id: string; pointerId: number } | null>(null);
 
   const moveUIControlFromPointer = (event: PointerEvent<HTMLButtonElement>, id: string) => {
@@ -163,7 +174,22 @@ export function GameScene({
             onSelectEntity={onSelectEntity}
             onTransformCommit={onUpdateTransform}
             onTransformModeChange={setTransformMode}
+            onPrimaryCameraChange={readOnly ? undefined : onPrimaryCameraChange}
+            onCameraEntityTransform={onCameraEntityTransform}
+            onSelectPrimaryCamera={onSelectPrimaryCamera}
           />
+          {viewMode === '3d' && onPrimaryCameraChange && (
+            <SceneCameraControls camera={primaryCamera} readOnly={readOnly}
+              selected={selectedEntityId === PRIMARY_CAMERA_ID}
+              onSelect={onSelectPrimaryCamera}
+              onChange={onPrimaryCameraChange}
+              onViewThrough={() => {
+                if (readOnly) return;
+                onPrimaryCameraChange(primaryCamera);
+                onViewModeChange('2d');
+              }}
+              onResetNorth={() => onPrimaryCameraChange(createGameCamera(entities))} />
+          )}
           {viewMode === '2d' && uiControls.length > 0 && (
             <div className="game-ui-overlay" aria-label="Game interface preview" data-testid="game-ui-overlay">
               {uiControls.filter((control) => {
@@ -183,7 +209,10 @@ export function GameScene({
                   className={[
                     'game-ui-element',
                     `is-${element.type}`,
-                    entities.some((entity) => getUICanvas(entity)?.controlId === element.id) ? 'is-canvas-root' : '',
+                    entities.some((entity) => {
+                      const canvas = getUICanvas(entity);
+                      return canvas?.controlId === element.id && canvas.frame !== false;
+                    }) ? 'is-canvas-root' : '',
                     selectedUIControlId === element.id ? 'is-selected' : '',
                     readOnly ? 'is-read-only' : '',
                   ].filter(Boolean).join(' ')}
@@ -360,7 +389,7 @@ function ScenePreview2D({
           const projected = new Vector3(
             (previewPosition.x - 50) / 10, world.position.z / 10, (previewPosition.y - 50) / 10,
           ).project(camera);
-          if (projected.z < -1 || projected.z > 1 || getModelRenderer(entity)?.enabled ||
+          if (entity.isGroup || projected.z < -1 || projected.z > 1 || getModelRenderer(entity)?.enabled ||
               getPrimitive(entity) || getCamera(entity) || getLight(entity) || getUICanvas(entity)) return null;
           const x = (projected.x + 1) * 50;
           const y = (1 - projected.y) * 50;

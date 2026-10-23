@@ -29,6 +29,7 @@ export type ModelRendererComponent = {
 export type PrimitiveComponent = {
   id: string; type: 'primitive'; enabled: boolean;
   shape: 'cube' | 'plane' | 'terrain'; color: string; textureAssetId: string | null;
+  opacity?: number;
 };
 export type LightComponent = {
   id: string; type: 'light'; enabled: boolean;
@@ -36,9 +37,10 @@ export type LightComponent = {
 };
 export type CameraComponent = {
   id: string; type: 'camera'; enabled: boolean; fov: number; target: Vector3;
+  useTransformRotation?: boolean;
 };
 export type UICanvasComponent = {
-  id: string; type: 'uiCanvas'; enabled: boolean; controlId: string;
+  id: string; type: 'uiCanvas'; enabled: boolean; controlId: string; frame?: boolean;
 };
 export type SceneComponent = TransformComponent | SpriteRendererComponent | ModelRendererComponent |
   PrimitiveComponent | LightComponent | CameraComponent | UICanvasComponent;
@@ -49,6 +51,8 @@ export type SceneEntity = {
   parentId: string | null;
   active: boolean;
   components: SceneComponent[];
+  generatedBy?: 'mad-builder';
+  isGroup?: boolean;
 };
 
 export type ProjectAsset = {
@@ -175,6 +179,7 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
   }
   if (item.type === 'primitive') {
     return typeof item.enabled === 'boolean' && ['cube', 'plane', 'terrain'].includes(item.shape) &&
+      (item.opacity === undefined || Number.isFinite(item.opacity) && item.opacity >= .05 && item.opacity <= 1) &&
       /^#[0-9a-f]{6}$/i.test(item.color) && (item.textureAssetId === null || typeof item.textureAssetId === 'string');
   }
   if (item.type === 'light') {
@@ -183,9 +188,11 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
   }
   if (item.type === 'camera') {
     return typeof item.enabled === 'boolean' && Number.isFinite(item.fov) &&
+      (item.useTransformRotation === undefined || typeof item.useTransformRotation === 'boolean') &&
       item.fov >= 10 && item.fov <= 100 && isVector(item.target);
   }
-  if (item.type === 'uiCanvas') return typeof item.enabled === 'boolean' && typeof item.controlId === 'string';
+  if (item.type === 'uiCanvas') return typeof item.enabled === 'boolean' && typeof item.controlId === 'string' &&
+    (item.frame === undefined || typeof item.frame === 'boolean');
   return false;
 }
 

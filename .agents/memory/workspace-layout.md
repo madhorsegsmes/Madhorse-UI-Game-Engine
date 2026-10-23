@@ -38,9 +38,11 @@ not south of it looking north. North is negative world Z, with world Y up.
 
 **Why:** The user explicitly clarified this camera placement.
 
-**How to apply:** Preserve the north placement as the square is edited, keep its
-Scene View marker visible during navigation, and keep Scene View zoom independent
-from game-camera settings and object scale.
+**How to apply:** North is the default/automatic placement, not a permanent lock.
+The user subsequently requested a draggable, movable, rotatable scene camera.
+Manual edits should preserve a custom camera pose rather than snapping back
+north when the square changes; Reset north restores automatic placement. Keep
+the Scene View marker visible and editor navigation independent of camera edits.
 
 Show a spinning cog and adjacent loading bar whenever the system refreshes or
 collects data, and keep the screen awake while the editor is being used.

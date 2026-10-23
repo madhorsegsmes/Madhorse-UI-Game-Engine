@@ -2,45 +2,54 @@ import { useLayoutEffect, useRef, type RefObject } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { PerspectiveCamera, Vector3 } from 'three';
 import type { GameCamera } from '@/lib/game-camera';
-import { sceneFrameDistance } from '@/lib/scene-view-geometry';
+import { sceneFrameDistance, type SceneFocus } from '@/lib/scene-view-geometry';
 
 type Controls = { target: Vector3; update: () => void };
-export function SceneNavigation({ settings, zoom, frameToken, controls, marker }: {
+/**
+ * Frames the editor view only on first mount, explicit Frame (frameToken), focus change or resize.
+ * Primary camera pose changes never reframe the orbit.
+ */
+export function SceneNavigation({ settings, zoom, frameToken, controls, marker, focus }: {
   settings: GameCamera; zoom: number; frameToken: number;
+  focus?: SceneFocus | null;
   controls: RefObject<Controls | null>; marker: RefObject<HTMLButtonElement | null>;
 }) {
   const { camera, size, invalidate } = useThree();
   const lastZoom = useRef(zoom);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
   useLayoutEffect(() => {
     if (!(camera instanceof PerspectiveCamera)) return;
+    const current = settingsRef.current;
     const center = new Vector3(
-      (settings.position.x + settings.target.x) / 2,
-      (settings.position.y + settings.target.y) / 2,
-      (settings.position.z + settings.target.z) / 2,
+      focus?.center.x ?? (current.position.x + current.target.x) / 2,
+      focus?.center.y ?? (current.position.y + current.target.y) / 2,
+      focus?.center.z ?? (current.position.z + current.target.z) / 2,
     );
-    const distance = sceneFrameDistance(settings, size.width / Math.max(1, size.height), camera.fov) / (zoom / 100);
+    const aspect = size.width / Math.max(1, size.height);
+    const angle = Math.min(camera.fov * Math.PI / 360, Math.atan(Math.tan(camera.fov * Math.PI / 360) * Math.max(.1, aspect)));
+    const distance = (focus ? (focus.radius + .5) / Math.sin(angle) * 1.1 : sceneFrameDistance(current, aspect, camera.fov)) / (lastZoom.current / 100);
     const direction = new Vector3(1, .9, 1.2).normalize();
     camera.position.copy(center).addScaledVector(direction, distance);
     camera.lookAt(center);
     camera.updateMatrixWorld();
     if (controls.current) { controls.current.target.copy(center); controls.current.update(); }
-    lastZoom.current = zoom;
     invalidate();
-  }, [camera, controls, settings.position.x, settings.position.y, settings.position.z,
-    settings.target.x, settings.target.y, settings.target.z, frameToken, size.width, size.height, invalidate]);
+  }, [camera, controls, frameToken, focus, size.width, size.height, invalidate]);
   useLayoutEffect(() => {
     if (lastZoom.current === zoom) return;
-    const center = controls.current?.target ?? new Vector3(settings.target.x, settings.target.y, settings.target.z);
+    const center = controls.current?.target ?? new Vector3();
     const offset = camera.position.clone().sub(center).multiplyScalar(lastZoom.current / zoom);
     camera.position.copy(center).add(offset);
     camera.updateMatrixWorld();
     controls.current?.update();
     lastZoom.current = zoom;
     invalidate();
-  }, [zoom, camera, controls, invalidate, settings.target.x, settings.target.y, settings.target.z]);
+  }, [zoom, camera, controls, invalidate]);
   useFrame(() => {
     if (!marker.current) return;
-    const point = new Vector3(settings.position.x, settings.position.y, settings.position.z).project(camera);
+    const s = settingsRef.current;
+    const point = new Vector3(s.position.x, s.position.y, s.position.z).project(camera);
     const width = marker.current.offsetWidth;
     const x = (point.x + 1) * size.width / 2;
     const y = (1 - point.y) * size.height / 2;

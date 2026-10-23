@@ -13,9 +13,15 @@ import { withSystemActivity } from '@/lib/system-activity';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import { GameScene } from '@/components/game-scene';
 import { cameraForEntity, createGameCamera, isGameCamera, type GameCamera } from '@/lib/game-camera';
+import { PRIMARY_CAMERA_ID, updateCameraEntityTransform } from '@/lib/camera-editor';
 import { isPrefabCollection, type ScenePrefab } from '@/lib/scene-authoring';
 import { useSceneAuthoring } from '@/hooks/use-scene-authoring';
 import { HierarchyCreationTools } from '@/components/hierarchy-creation-tools';
+import { MadBuilderMenu } from '@/components/mad-builder-menu';
+import { useMadBuilder } from '@/hooks/use-mad-builder';
+import { isBuilderHistory, isBuilderDraft } from '@/lib/mad-builder';
+import type { MadBuilderPlan } from '@workspace/api-client-react';
+import type { BuilderMessage } from '@/components/mad-builder-contract';
 import {
   initialGamePosition,
   isGameAnimationCollection,
@@ -56,6 +62,8 @@ type Project = {
   gameCamera?: GameCamera;
   prefabs?: ScenePrefab[];
   activeCameraId?: string | null;
+  builderHistory?: BuilderMessage[];
+  builderDraft?: MadBuilderPlan | null;
 };
 
 function isSavedScript(script: unknown): script is ScriptFile {
@@ -80,7 +88,9 @@ function isSavedProject(project: unknown): project is Project {
     (value.uiControls === undefined || isUIControlCollection(value.uiControls)) &&
     (value.gameCamera === undefined || isGameCamera(value.gameCamera)) &&
     (value.prefabs === undefined || isPrefabCollection(value.prefabs)) &&
-    (value.activeCameraId === undefined || value.activeCameraId === null || typeof value.activeCameraId === 'string');
+    (value.activeCameraId === undefined || value.activeCameraId === null || typeof value.activeCameraId === 'string') &&
+    (value.builderHistory === undefined || isBuilderHistory(value.builderHistory)) &&
+    (value.builderDraft === undefined || isBuilderDraft(value.builderDraft));
 }
 
 function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: string } {
@@ -275,6 +285,16 @@ function Home() {
     readOnly: runnerState.running || Boolean(activeAnimationPreview),
     canOverwrite: loadedProjects.canOverwrite,
     onUICanvasCreated: (controlId) => { setSelectedUIControlId(controlId); selectPreview('2d'); },
+  });
+  const madBuilder = useMadBuilder({
+    project: activeProject, activeProjectRef, setProjects,
+    readOnly: !loadedProjects.canOverwrite || runnerState.running || Boolean(activeAnimationPreview),
+    onBuilt: (rootId) => {
+      sceneEditor.onSelectCreatedEntity(rootId);
+      selectPreview('3d');
+      document.querySelector('[data-testid="menu-mad-builder"]')?.removeAttribute('open');
+      stageRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    },
   });
   useEffect(() => {
     setRuntimeError('');
@@ -515,10 +535,21 @@ function Home() {
             position={scenePosition}
             startingPosition={startingPosition}
             onSaveStartingPosition={saveStartingPosition}
-            readOnly={runnerState.running}
+            readOnly={runnerState.running || Boolean(activeAnimationPreview) || !loadedProjects.canOverwrite}
             onSelectEntity={sceneEditor.onSelectEntity}
             onMoveEntity={sceneEditor.onMoveEntity}
             onUpdateTransform={sceneEditor.onUpdateTransform}
+            onPrimaryCameraChange={(camera) => {
+              if (runnerState.running || activeAnimationPreview || !loadedProjects.canOverwrite) return;
+              updateActiveProject({ gameCamera: camera, activeCameraId: null });
+            }}
+            onCameraEntityTransform={(id, changes) => {
+              if (runnerState.running || activeAnimationPreview || !loadedProjects.canOverwrite) return;
+              setProjects((current) => current.map((project) => project.id === activeProjectId
+                ? { ...project, entities: updateCameraEntityTransform(project.entities, id, changes) ?? project.entities }
+                : project));
+            }}
+            onSelectPrimaryCamera={() => sceneEditor.onSelectCreatedEntity(PRIMARY_CAMERA_ID)}
             onSelectUIControl={setSelectedUIControlId}
             onMoveUIControl={moveUIControl}
           />
@@ -532,7 +563,10 @@ function Home() {
         <div className="toolbar-row" role="group" aria-label="Workspace toolbars">
           <div className="toolbar-group" role="group" aria-labelledby="panel-2-label">
             <span className="panel-label" id="panel-2-label">PANEL 2</span>
-            <div className="toolbar-buttons"><WorkspaceBrowserMenus {...sceneEditor} creationTools={<HierarchyCreationTools {...authoring} />} /></div>
+            <div className="toolbar-buttons">
+              <WorkspaceBrowserMenus {...sceneEditor} creationTools={<HierarchyCreationTools {...authoring} />} />
+              <MadBuilderMenu key={activeProject.id} {...madBuilder} />
+            </div>
           </div>
           <div className="toolbar-group toolbar-group-right" role="group" aria-labelledby="panel-1-label">
             <span className="panel-label" id="panel-1-label">PANEL 1</span>

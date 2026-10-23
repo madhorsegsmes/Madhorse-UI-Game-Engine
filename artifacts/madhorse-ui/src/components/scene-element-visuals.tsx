@@ -3,9 +3,10 @@ import * as THREE from 'three';
 import { getCamera, getLight, getPrimitive, getUICanvas, type SceneEntity, type PrimitiveComponent } from '@/lib/scene-model';
 import { beginSystemActivity } from '@/lib/system-activity';
 import { createPrimitiveGeometry } from '@/lib/scene-view-geometry';
+import { CameraModel } from './camera-model';
 
-export function SceneElementVisual({ entity, gameView, active, assetUrls, onError }: {
-  entity: SceneEntity; gameView: boolean; active: boolean; assetUrls: Record<string, string>; onError: (message: string) => void;
+export function SceneElementVisual({ entity, gameView, active, assetUrls, onError, selected = false, primary = false }: {
+  entity: SceneEntity; gameView: boolean; active: boolean; selected?: boolean; primary?: boolean; assetUrls: Record<string, string>; onError: (message: string) => void;
 }) {
   const primitive = getPrimitive(entity);
   const light = getLight(entity);
@@ -17,10 +18,8 @@ export function SceneElementVisual({ entity, gameView, active, assetUrls, onErro
     {!gameView && <mesh><sphereGeometry args={[.22, 12, 8]} /><meshBasicMaterial color={light.color} wireframe /></mesh>}
   </> : null;
   if (gameView) return null;
-  if (getCamera(entity)) return <group>
-    <mesh><boxGeometry args={[.7, .45, .5]} /><meshBasicMaterial color="#d0a45a" wireframe /></mesh>
-    <mesh position={[0, 0, .45]} rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[.35, .45, 4]} /><meshBasicMaterial color="#d0a45a" wireframe /></mesh>
-  </group>;
+  const camera = getCamera(entity);
+  if (camera) return <CameraModel fov={camera.fov} selected={selected} primary={primary} active={active && camera.enabled} />;
   if (getUICanvas(entity)) return <mesh rotation={[-Math.PI / 2, 0, 0]}>
     <planeGeometry args={[3.2, 1.8]} /><meshBasicMaterial color="#72a7ad" wireframe side={THREE.DoubleSide} />
   </mesh>;
@@ -57,6 +56,8 @@ function PrimitiveVisual({ primitive, url, onError, active }: { primitive: Primi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
   return <mesh geometry={geometry}>
-    <meshStandardMaterial color={primitive.color} map={texture} roughness={.78} side={THREE.DoubleSide} transparent={!active} opacity={active ? 1 : .35} />
+    <meshStandardMaterial color={primitive.color} map={texture} roughness={.78} side={THREE.DoubleSide}
+      transparent={!active || (primitive.opacity ?? 1) < 1} opacity={active ? primitive.opacity ?? 1 : .35}
+      depthWrite={(primitive.opacity ?? 1) >= 1} />
   </mesh>;
 }

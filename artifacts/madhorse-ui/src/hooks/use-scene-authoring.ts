@@ -96,6 +96,7 @@ export function useSceneAuthoring<T extends AuthoringDocument>(options: {
     },
     onUpdatePrimitive: (id, changes) => editComponent(id, 'primitive', changes),
     onUpdateLight: (id, changes) => editComponent(id, 'light', changes),
-    onUpdateCamera: (id, changes) => editComponent(id, 'camera', changes),
+    onUpdateCamera: (id, changes) => editComponent(id, 'camera',
+      changes.target ? { ...changes, useTransformRotation: false } : changes),
   };
 }

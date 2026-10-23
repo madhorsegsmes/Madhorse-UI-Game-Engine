@@ -1,7 +1,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Grid, OrbitControls, TransformControls } from '@react-three/drei';
+import { OrbitControls, TransformControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
@@ -11,11 +11,13 @@ import { TextureLoader } from 'three';
 import { SceneWebGLBoundary } from './scene-webgl-boundary';
 import { beginSystemActivity } from '@/lib/system-activity';
 import { hasRenderableModelGeometry } from '@/lib/scene-model-validation';
-import { GameCameraFrustum, GameCameraRig } from './game-camera-rig';
+import { GameCameraRig } from './game-camera-rig';
+import { SceneEditorEnvironment } from './scene-editor-environment';
+import { PRIMARY_CAMERA_ID, cameraDisplayEntity, cameraFromEditorTransform, primaryCameraEntity } from '@/lib/camera-editor';
 import type { GameCamera } from '@/lib/game-camera';
-import { cameraForEntity } from '@/lib/game-camera';
 import { SceneElementVisual } from './scene-element-visuals';
 import { SceneNavigation } from './scene-navigation';
+import { sceneEntityFocus, type SceneFocus } from '@/lib/scene-view-geometry';
 import {
   getModelRenderer,
   getPrimitive, getCamera, getLight, getUICanvas,
@@ -45,6 +47,12 @@ export type ScenePreview3DProps = {
   onSelectEntity: (entityId: string) => void;
   onTransformCommit: (entityId: string, changes: Partial<Pick<TransformComponent, 'position' | 'rotation' | 'scale'>>) => void;
   onTransformModeChange: (mode: SceneTransformMode) => void;
+  /** Commit a new primary game camera pose. Omit to keep the primary camera read-only. */
+  onPrimaryCameraChange?: (camera: GameCamera) => void;
+  /** Commit move/rotate of an additional camera entity. Falls back to onTransformCommit. */
+  onCameraEntityTransform?: ScenePreview3DProps['onTransformCommit'];
+  /** Select the virtual primary camera (selectedEntityId becomes PRIMARY_CAMERA_ID). */
+  onSelectPrimaryCamera?: () => void;
 };
 
 type ErrorEntry = { id: string; message: string };
@@ -112,6 +120,9 @@ export function ScenePreview3D({
   onSelectEntity,
   onTransformCommit,
   onTransformModeChange,
+  onPrimaryCameraChange,
+  onCameraEntityTransform,
+  onSelectPrimaryCamera,
 }: ScenePreview3DProps) {
   const [errors, setErrors] = useState<ErrorEntry[]>([]);
   const [modelStatuses, setModelStatuses] = useState<Record<string, string>>({});
@@ -120,8 +131,16 @@ export function ScenePreview3D({
   const cameraMarkerRef = useRef<HTMLButtonElement>(null);
   const [zoom, setZoom] = useState(100);
   const [frameToken, setFrameToken] = useState(0);
+  const [sceneFocus, setSceneFocus] = useState<SceneFocus | null>(null);
   const editorCamera = primaryCamera ?? gameCamera;
-  const frameCamera = () => { setZoom(100); setFrameToken((value) => value + 1); };
+  const frameCamera = () => { setSceneFocus(null); setZoom(100); setFrameToken((value) => value + 1); };
+  const frameBuild = () => {
+    if (selectedEntityId) setSceneFocus(sceneEntityFocus(entities, selectedEntityId));
+    setZoom(100); setFrameToken((value) => value + 1);
+  };
+  useEffect(() => {
+    if (!gameView && entities.some((entity) => entity.id === selectedEntityId && entity.generatedBy === 'mad-builder')) frameBuild();
+  }, [selectedEntityId, gameView]);
   useEffect(() => {
     const media = window.matchMedia('(max-width: 700px), (pointer: coarse)');
     const update = () => setMobile(media.matches);
@@ -154,7 +173,37 @@ export function ScenePreview3D({
     entities.forEach((entity) => result.set(entity.parentId, [...(result.get(entity.parentId) ?? []), entity]));
     return result;
   }, [entities]);
-  const selected = selectedEntityId ? byId.get(selectedEntityId) : undefined;
+  const primaryEntity = useMemo(() => (!gameView && editorCamera ? primaryCameraEntity(editorCamera) : null), [gameView, editorCamera]);
+  const primarySelected = Boolean(primaryEntity && selectedEntityId === PRIMARY_CAMERA_ID);
+  const effectiveSelectedId = primarySelected ? PRIMARY_CAMERA_ID : selectedEntityId;
+  const selected = primarySelected ? primaryEntity ?? undefined : selectedEntityId ? byId.get(selectedEntityId) : undefined;
+  const selectedIsCamera = Boolean(selected && getCamera(selected));
+  const effectiveMode: SceneTransformMode = selectedIsCamera && transformMode === 'scale' ? 'translate' : transformMode;
+  const renderEntities = useMemo(() => primaryEntity ? [...entities, primaryEntity] : entities, [entities, primaryEntity]);
+  const renderChildren = useMemo(() => {
+    if (!primaryEntity) return childrenByParent;
+    const next = new Map(childrenByParent);
+    next.set(null, [...(childrenByParent.get(null) ?? []), primaryEntity]);
+    return next;
+  }, [childrenByParent, primaryEntity]);
+  const selectEntity = useCallback((id: string) => {
+    if (id === PRIMARY_CAMERA_ID) { onSelectPrimaryCamera?.(); return; }
+    onSelectEntity(id);
+  }, [onSelectEntity, onSelectPrimaryCamera]);
+  const commitTransform = useCallback<ScenePreview3DProps['onTransformCommit']>((id, changes) => {
+    if (id === PRIMARY_CAMERA_ID) {
+      if (!editorCamera || !onPrimaryCameraChange) return;
+      const next = cameraFromEditorTransform(editorCamera, { position: changes.position, rotation: changes.rotation });
+      if (next) onPrimaryCameraChange(next);
+      return;
+    }
+    const entity = byId.get(id);
+    if (entity && getCamera(entity)) {
+      (onCameraEntityTransform ?? onTransformCommit)(id, { position: changes.position, rotation: changes.rotation });
+      return;
+    }
+    onTransformCommit(id, changes);
+  }, [editorCamera, onPrimaryCameraChange, byId, onCameraEntityTransform, onTransformCommit]);
   const modeButtons: { mode: SceneTransformMode; label: string; shortcut: string; icon: string }[] = [
     { mode: 'translate', label: 'Move', shortcut: 'W', icon: '↔' },
     { mode: 'rotate', label: 'Rotate', shortcut: 'E', icon: '⟳' },
@@ -166,6 +215,7 @@ export function ScenePreview3D({
     const key = event.key.toLowerCase();
     if (key === 'w' || key === 'e' || key === 'r') {
       event.preventDefault();
+      if (key === 'r' && selectedIsCamera) return;
       onTransformModeChange(key === 'w' ? 'translate' : key === 'e' ? 'rotate' : 'scale');
     }
   };
@@ -189,12 +239,12 @@ export function ScenePreview3D({
             <button
               key={mode}
               type="button"
-              className={`mh-scene3d__tool ${transformMode === mode ? 'is-active' : ''}`}
-              aria-pressed={transformMode === mode}
+              className={`mh-scene3d__tool ${effectiveMode === mode ? 'is-active' : ''}`}
+              aria-pressed={effectiveMode === mode}
               aria-label={`${label} tool (${shortcut})`}
               title={`${label} · ${shortcut}`}
               data-testid={`scene3d-mode-${mode}`}
-              disabled={readOnly}
+              disabled={readOnly || (mode === 'scale' && selectedIsCamera)}
               onClick={() => onTransformModeChange(mode)}
             >
               <span aria-hidden="true">{icon}</span><small>{label}</small>
@@ -209,6 +259,9 @@ export function ScenePreview3D({
         <output data-testid="scene-zoom-value">{zoom}%</output>
         <button type="button" onClick={() => setZoom((value) => Math.min(200, value + 25))} disabled={zoom >= 200} data-testid="scene-zoom-in" aria-label="Zoom scene in">+</button>
         <button type="button" onClick={frameCamera} data-testid="scene-frame-camera">Frame square + camera</button>
+        {editorCamera && onSelectPrimaryCamera && <button type="button" data-testid="scene3d-select-game-camera" aria-pressed={primarySelected}
+          onClick={onSelectPrimaryCamera}>{primarySelected ? 'Camera selected' : 'Select Game Camera'}</button>}
+        {selected?.generatedBy === 'mad-builder' && <button type="button" onClick={frameBuild} data-testid="scene-frame-build">Frame build</button>}
         <span title="World north is negative Z">N = −Z</span>
       </div>}
       <div
@@ -227,7 +280,7 @@ export function ScenePreview3D({
           frameloop="demand"
           gl={{ antialias: !mobile, powerPreference: 'low-power', alpha: false }}
           onCreated={({ gl, scene }) => {
-            const background = gameView ? '#333538' : '#171819';
+            const background = gameView ? '#333538' : '#1d1f22';
             gl.setClearColor(background);
             scene.background = new THREE.Color(background);
             onGraphicsReady?.();
@@ -237,20 +290,23 @@ export function ScenePreview3D({
             primaryCamera={editorCamera}
             sceneZoom={zoom}
             frameToken={frameToken}
+            sceneFocus={sceneFocus}
             cameraMarkerRef={cameraMarkerRef}
             gameView={gameView}
             gameCamera={gameCamera}
-            entities={entities}
+            entities={renderEntities}
+            realEntities={entities}
+            primaryEntityId={primaryEntity ? PRIMARY_CAMERA_ID : null}
           assets={assets}
-            childrenByParent={childrenByParent}
+            childrenByParent={renderChildren}
             byId={byId}
             assetUrls={assetUrls}
-            selectedEntityId={selectedEntityId}
+            selectedEntityId={effectiveSelectedId}
             playerPreviewPosition={playerPreviewPosition}
-            transformMode={transformMode}
-            readOnly={readOnly}
-            onSelectEntity={onSelectEntity}
-            onTransformCommit={onTransformCommit}
+            transformMode={effectiveMode}
+            readOnly={readOnly || (primarySelected && !onPrimaryCameraChange)}
+            onSelectEntity={selectEntity}
+            onTransformCommit={commitTransform}
             onModelError={reportError}
             onModelStatus={reportModelStatus}
             clearError={clearError}
@@ -259,10 +315,10 @@ export function ScenePreview3D({
         </Canvas>
         </SceneWebGLBoundary>
         {!gameView && editorCamera && <button ref={cameraMarkerRef} type="button" className="mh-scene3d__camera-marker"
-          onClick={frameCamera} data-testid="scene-camera-marker" aria-label="Frame the square and north game camera"
-          title="Game Camera is north of the square. Click to frame both. This marker stays visible when the camera is off screen.">
+          onClick={() => { if (onSelectPrimaryCamera) onSelectPrimaryCamera(); else frameCamera(); }} data-testid="scene-camera-marker" aria-label="Select the game camera" data-selected={primarySelected}
+          title="Game Camera. Click to select it, then move (W) or rotate (E). This marker stays visible when the camera is off screen.">
           <svg viewBox="0 0 20 14" aria-hidden="true"><path d="M1 2h11v10H1zM12 5l6-3v10l-6-3z" fill="none" stroke="currentColor" /></svg>
-          Game Camera · North
+          Game Camera{primarySelected ? ' · Selected' : ''}
         </button>}
         {entities.length === 0 && (
           <div className="mh-scene3d__empty" data-testid="scene3d-empty-state">
@@ -304,10 +360,13 @@ type SceneWorldProps = {
   primaryCamera?: GameCamera;
   sceneZoom: number;
   frameToken: number;
+  sceneFocus: SceneFocus | null;
   cameraMarkerRef: React.RefObject<HTMLButtonElement | null>;
   gameView?: boolean;
   gameCamera?: GameCamera;
   entities: SceneEntity[];
+  realEntities: SceneEntity[];
+  primaryEntityId: string | null;
   assets: ProjectAsset[];
   childrenByParent: Map<string | null, SceneEntity[]>;
   byId: Map<string, SceneEntity>;
@@ -333,19 +392,12 @@ function SceneWorld(props: SceneWorldProps) {
     : undefined;
   return (
     <>
-      <ambientLight intensity={1.15} />
-      <directionalLight position={[7, 12, 6]} intensity={2.2} />
-      <directionalLight position={[-7, 5, -8]} intensity={0.75} color="#b3c0cf" />
+      {props.gameView ? <>
+        <ambientLight intensity={1.15} />
+        <directionalLight position={[7, 12, 6]} intensity={2.2} />
+        <directionalLight position={[-7, 5, -8]} intensity={0.75} color="#b3c0cf" />
+      </> : <SceneEditorEnvironment mobile={props.mobile} />}
       {props.gameView && props.gameCamera && <GameCameraRig settings={props.gameCamera} />}
-      {!props.gameView && props.primaryCamera && <GameCameraFrustum settings={props.primaryCamera} />}
-      {!props.gameView && props.entities.map((entity) => {
-        const settings = cameraForEntity(props.entities, entity.id);
-        return settings ? <GameCameraFrustum key={entity.id} settings={settings} /> : null;
-      })}
-      {!props.gameView && <Grid args={[160, 160]} cellSize={1} cellThickness={0.48} cellColor="#43474a" sectionSize={5}
-        sectionThickness={0.9} sectionColor="#777b7d" fadeDistance={72} fadeStrength={1.5} infiniteGrid
-        position={[0, -0.012, 0]} />}
-      {!props.gameView && <Axes />}
       {!props.gameView && <OrbitControls
         ref={orbitRef}
         makeDefault
@@ -359,7 +411,7 @@ function SceneWorld(props: SceneWorldProps) {
         touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
       />}
       {!props.gameView && props.primaryCamera && <SceneNavigation settings={props.primaryCamera}
-        zoom={props.sceneZoom} frameToken={props.frameToken} controls={orbitRef} marker={props.cameraMarkerRef} />}
+        zoom={props.sceneZoom} frameToken={props.frameToken} focus={props.sceneFocus} controls={orbitRef} marker={props.cameraMarkerRef} />}
       <Suspense fallback={null}>
         {(props.childrenByParent.get(null) ?? []).map((entity) => (
           <EntityNode key={entity.id} {...props} entity={entity} onSelectedObject={setSelectedObject} />
@@ -371,6 +423,8 @@ function SceneWorld(props: SceneWorldProps) {
           entity={selected}
           object={selectedObject}
           mode={props.transformMode}
+          camera={Boolean(getCamera(selected))}
+          mobile={props.mobile}
           onCommit={props.onTransformCommit}
           onDragging={(dragging) => {
             if (orbitRef.current) orbitRef.current.enabled = !dragging;
@@ -383,7 +437,9 @@ function SceneWorld(props: SceneWorldProps) {
 }
 
 function EntityNode(props: SceneWorldProps & { entity: SceneEntity; onSelectedObject: (object: THREE.Group | null) => void }) {
-  const { entity } = props;
+  const rawEntity = props.entity;
+  const isPrimary = rawEntity.id === props.primaryEntityId;
+  const entity = !isPrimary && getCamera(rawEntity) ? cameraDisplayEntity(props.realEntities, rawEntity) : rawEntity;
   const transform = getTransform(entity);
   const position = vectorToThree(entity, transform.position);
   if (entity.id === 'player' && !entity.parentId) {
@@ -419,9 +475,10 @@ function EntityNode(props: SceneWorldProps & { entity: SceneEntity; onSelectedOb
       }}
       onPointerOut={() => { document.body.style.cursor = ''; }}
     >
-      {selectedEntity && <SelectionOutline active={effective} />}
-      {!model?.enabled && (getPrimitive(entity) || getLight(entity) || getCamera(entity) || getUICanvas(entity)) ? (
+      {selectedEntity && !getCamera(entity) && <SelectionOutline active={effective} />}
+      {entity.isGroup ? null : !model?.enabled && (getPrimitive(entity) || getLight(entity) || getCamera(entity) || getUICanvas(entity)) ? (
         <SceneElementVisual entity={entity} gameView={Boolean(props.gameView)} active={effective}
+          selected={selectedEntity} primary={isPrimary}
           assetUrls={props.assetUrls} onError={(message) => props.onModelError(entity.id, message)} />
       ) : model?.enabled ? (
         modelUrl && modelAsset ? (
@@ -459,7 +516,7 @@ function EntityNode(props: SceneWorldProps & { entity: SceneEntity; onSelectedOb
           <meshStandardMaterial color={effective ? (entity.id === 'player' ? '#bd4037' : '#aab0b4') : '#595b5d'} roughness={0.68} transparent={!effective} opacity={effective ? 1 : 0.38} />
         </mesh>
       )}
-      {selectedEntity && <SelectionMarker />}
+      {selectedEntity && !getCamera(entity) && <SelectionMarker />}
       {(props.childrenByParent.get(entity.id) ?? []).map((child) => (
         <EntityNode key={child.id} {...props} entity={child} />
       ))}
@@ -467,19 +524,21 @@ function EntityNode(props: SceneWorldProps & { entity: SceneEntity; onSelectedOb
   );
 }
 
-function SelectedGizmo({ entity, object, mode, onCommit, onDragging }: {
+function SelectedGizmo({ entity, object, mode, camera, mobile, onCommit, onDragging }: {
   entity: SceneEntity;
   object: THREE.Group;
   mode: SceneTransformMode;
+  camera: boolean;
+  mobile: boolean;
   onCommit: ScenePreview3DProps['onTransformCommit'];
   onDragging: (dragging: boolean) => void;
 }) {
   return (
     <TransformControls
       object={object}
-      mode={mode}
-      space="local"
-      size={0.82}
+      mode={camera && mode === 'scale' ? 'translate' : mode}
+      space={camera && mode === 'translate' ? 'world' : 'local'}
+      size={mobile ? 1.25 : camera ? 1 : 0.82}
       showX
       showY
       showZ
@@ -490,23 +549,6 @@ function SelectedGizmo({ entity, object, mode, onCommit, onDragging }: {
       }}
     />
   );
-}
-
-function Axes() {
-  return (
-    <group position={[0, 0.012, 0]} renderOrder={2}>
-      <AxisLine points={[[0, 0, 0], [8, 0, 0]]} color="#c94b43" />
-      <AxisLine points={[[0, 0, 0], [0, 8, 0]]} color="#72ae79" />
-      <AxisLine points={[[0, 0, 0], [0, 0, 8]]} color="#638bc5" />
-    </group>
-  );
-}
-
-function AxisLine({ points, color }: { points: [number, number, number][]; color: string }) {
-  return <line>
-    <bufferGeometry><bufferAttribute attach="attributes-position" args={[new Float32Array(points.flat()), 3]} /></bufferGeometry>
-    <lineBasicMaterial color={color} transparent opacity={0.85} depthWrite={false} />
-  </line>;
 }
 
 function SelectionOutline({ active }: { active: boolean }) {

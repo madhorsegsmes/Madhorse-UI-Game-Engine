@@ -38,3 +38,12 @@ to initialize a GPU or software WebGL renderer in this environment.
 3D viewport to scene code. Keep graphics failures local to the viewport so
 project tools remain usable. Report graphics verification as blocked when no
 context can be created; DOM-only editor checks do not prove 3D rendering works.
+
+Changing a custom hook's hook count during a live Vite session can leave an
+existing component with its old layout and cause a hook-order error.
+
+**Why:** Adding a ref during a running browser check triggered this error;
+restarting and reloading restored a healthy fresh mount.
+
+**How to apply:** Keep source stable during browser verification. After changing
+hook layouts, reload before diagnosing normal navigation as broken.
