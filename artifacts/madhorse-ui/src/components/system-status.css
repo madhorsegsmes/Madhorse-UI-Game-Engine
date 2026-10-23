@@ -1,4 +1,4 @@
-.main-panel { row-gap: 6px; }
+.main-panel { row-gap: 4px; }
 .system-status { grid-column: 1 / -1; display: flex; align-items: center; gap: 7px; min-width: 0; color: #aaa6a3; font: 9px/1.4 'DM Mono', ui-monospace, monospace; }
 .system-status-cog { flex: none; width: 16px; height: 16px; color: #c2bdb7; }
 .system-status[data-busy="true"] .system-status-cog { animation: system-cog-turn 1.5s linear infinite; color: #d45a4e; }

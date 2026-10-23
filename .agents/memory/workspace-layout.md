@@ -3,17 +3,23 @@ name: Numbered workspace panels
 description: User-defined panel numbering, control grouping, and placement in Madhorse UI.
 ---
 
-The left toolbar is **Panel 2**, containing **Hierarchy, Assets, Data**. The right toolbar is **Panel 1**, containing **Project, Game Type, Script**. Keep visible space between these two panels.
+Workspace panels use a shared snap grid and can be dragged or keyboard-reordered; the initial arrangement is **Main Panel**, **Scene View**, camera controls, **Panel 2**, **Panel 1**, then Panels 3–5. Keep panel names, numbers, and control groupings intact when they move. Layout order is saved in the current browser, and Reset restores the initial arrangement.
 
-The lower panels run left to right: **Panel 3 — System**, **Panel 4 — Play/Test Game**, **Panel 5 — Error Displayer**.
+**Why:** The user asked to move all panels to suit each user's preference and chose a flexible snap grid.
+
+**How to apply:** Keep every workspace panel a direct grid item with an accessible move handle. Preserve its contents when reordered, persist layout separately from game data, and keep a reset path.
+
+Panel 2 contains **Hierarchy, Assets, Data**. Panel 1 contains **Project, Game Type, Script**.
+
+The default lower-panel order is **Panel 3 — System**, **Panel 4 — Play/Test Game**, **Panel 5 — Error Displayer**.
 
 Panel 3 has an **Animations** button, with **UI Controls** underneath it.
 
-At the very top is one long bordered **Main Panel**, with a column divider and **File, Tools, Scene Preview** controls at its right corner.
+At the very top is one compact, long bordered **Main Panel**, with a column divider and **File, Tools, Scene Preview** controls at its right corner.
 
-**Why:** The user explicitly corrected the control placement and assigned these panel numbers.
+**Why:** The user explicitly corrected the control placement and panel numbers, then asked for a smaller Main Panel.
 
-**How to apply:** Use these names and sides when interpreting future layout requests. Preserve the grouping on phone layouts rather than combining all six toolbar controls into one box.
+**How to apply:** Keep its height compact with restrained padding and button sizing. Use the names and default placement when interpreting future layout requests; keep each toolbar's controls grouped on phone layouts.
 
 The visual preview's default appearance should be a blank canvas with a centered
 square, like Unity. Keep the surrounding numbered panels unchanged.
@@ -33,6 +39,27 @@ through the game camera.
 **How to apply:** Preserve shared scene data and keep editor-only guides and
 transform handles out of the camera output.
 
+The Canvas game-camera view should render continuously and use automatic lighting
+centered on the current camera target.
+
+**Why:** The user asked Canvas to use automatic rendering and lighting.
+
+**How to apply:** Keep the auto render loop scoped to Canvas, not the editable
+Scene View, and keep lighting aligned when the Game Camera target moves.
+
+Canvas drag-to-orbit changes the Game Camera pose around its existing target,
+without rotating or moving scene objects. Canvas offers free 360°, Y-axis, and
+X-axis orbit modes; movement eases after dragging and saves after it settles.
+Every mode must preserve the exact target and camera-to-target distance. Reset
+north restores the default pose.
+
+**Why:** The user asked to orbit only the camera and then requested axis controls
+and smoother motion.
+
+**How to apply:** Persist camera orbit changes to the project camera and keep the
+scene target and orbit radius fixed. Keep axis modes separate from scene-object
+transforms and commit the final pose after damping completes.
+
 The primary game camera sits **north of the square, looking back toward it**,
 not south of it looking north. North is negative world Z, with world Y up.
 
@@ -43,6 +70,42 @@ The user subsequently requested a draggable, movable, rotatable scene camera.
 Manual edits should preserve a custom camera pose rather than snapping back
 north when the square changes; Reset north restores automatic placement. Keep
 the Scene View marker visible and editor navigation independent of camera edits.
+
+The 3D Scene View should navigate like a 3D editor viewport: scroll-wheel zoom,
+middle-button drag to pan, and a wider continuous zoom range. These controls
+change only the editor view, not the saved Game Camera or scene objects.
+
+**Why:** The user asked for the Scene View to be scalable like Unity's Scene view.
+
+**How to apply:** Keep editor zoom/pan separate from game-camera pose and object
+transforms. Preserve touch navigation and direct zoom controls alongside mouse
+navigation.
+
+The scene viewport should be large by default on desktop; users should not need
+to resize it before they can work comfortably.
+
+**Why:** The user clarified that the scene view remained too small even after
+manual resizing.
+
+**How to apply:** Give the viewport priority in desktop workspace layout while
+keeping supporting panels available below it.
+
+Resizing the Scene View height must be possible independently of changing its
+width; provide top and bottom edge handles in addition to corner handles.
+
+**Why:** The user clarified that vertical resizing should not require dragging a
+corner.
+
+**How to apply:** Edge drags adjust height only and retain keyboard accessibility.
+
+Leave a clear gap below the Main Panel so the Scene View's top edge can grow
+upward into that space without covering the panel.
+
+**Why:** The user requested space between the Main Panel and Scene View to allow
+more vertical scaling.
+
+**How to apply:** Keep the Main Panel stationary and constrain upward scene
+resizing to the available gap.
 
 Keep CAM / Game Camera controls in their own bordered box outside the preview
 frame, not overlaid on the 2D canvas.

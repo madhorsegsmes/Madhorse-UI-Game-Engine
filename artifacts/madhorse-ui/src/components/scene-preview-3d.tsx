@@ -13,8 +13,8 @@ import { beginSystemActivity } from '@/lib/system-activity';
 import { hasRenderableModelGeometry } from '@/lib/scene-model-validation';
 import { GameCameraRig } from './game-camera-rig';
 import { SceneEditorEnvironment } from './scene-editor-environment';
-import { PRIMARY_CAMERA_ID, cameraDisplayEntity, cameraFromEditorTransform, primaryCameraEntity } from '@/lib/camera-editor';
-import type { GameCamera } from '@/lib/game-camera';
+import { PRIMARY_CAMERA_ID, cameraDisplayEntity, cameraFromEditorTransform, cameraWithOrbitPose, cameraWithPose, primaryCameraEntity } from '@/lib/camera-editor';
+import { createGameCamera, type GameCamera } from '@/lib/game-camera';
 import { SceneElementVisual } from './scene-element-visuals';
 import { SceneNavigation } from './scene-navigation';
 import { sceneEntityFocus, type SceneFocus } from '@/lib/scene-view-geometry';
@@ -30,6 +30,9 @@ import {
 import './scene-preview-3d.css';
 
 export type SceneTransformMode = 'translate' | 'rotate' | 'scale';
+type CanvasOrbitMode = 'free' | 'y' | 'x';
+const MIN_SCENE_ZOOM = 25;
+const MAX_SCENE_ZOOM = 400;
 export type ScenePreview3DProps = {
   primaryCamera?: GameCamera;
   gameView?: boolean;
@@ -132,7 +135,12 @@ export function ScenePreview3D({
   const [zoom, setZoom] = useState(100);
   const [frameToken, setFrameToken] = useState(0);
   const [sceneFocus, setSceneFocus] = useState<SceneFocus | null>(null);
+  const [graphicsAvailable, setGraphicsAvailable] = useState(false);
+  const [gameViewRotated, setGameViewRotated] = useState(false);
+  const [cameraOrbitMode, setCameraOrbitMode] = useState<CanvasOrbitMode>('free');
   const editorCamera = primaryCamera ?? gameCamera;
+  const canOrbitGameCamera = Boolean(gameView && gameCamera && primaryCamera === gameCamera &&
+    onPrimaryCameraChange && !readOnly);
   const frameCamera = () => { setSceneFocus(null); setZoom(100); setFrameToken((value) => value + 1); };
   const frameBuild = () => {
     if (selectedEntityId) setSceneFocus(sceneEntityFocus(entities, selectedEntityId));
@@ -157,6 +165,21 @@ export function ScenePreview3D({
   const clearError = useCallback((id: string) => {
     setErrors((current) => current.filter((entry) => entry.id !== id));
   }, []);
+  const markGraphicsReady = useCallback(() => {
+    setGraphicsAvailable(true);
+    onGraphicsReady?.();
+  }, [onGraphicsReady]);
+  const markGraphicsUnavailable = useCallback(() => {
+    setGraphicsAvailable(false);
+    onGraphicsUnavailable?.();
+  }, [onGraphicsUnavailable]);
+  const resetGameCamera = useCallback(() => {
+    if (!canOrbitGameCamera) return;
+    setGameViewRotated(false);
+    setCameraOrbitMode('free');
+    onPrimaryCameraChange?.(createGameCamera(entities));
+  }, [canOrbitGameCamera, entities, onPrimaryCameraChange]);
+  const noteGameViewOrbit = useCallback(() => setGameViewRotated(true), []);
   const reportModelStatus = useCallback((id: string, message: string) => {
     setModelStatuses((current) => {
       if (current[id] === message) return current;
@@ -225,6 +248,10 @@ export function ScenePreview3D({
       data-camera-target={gameView && gameCamera ? JSON.stringify(gameCamera.target) : undefined}
       data-camera-position={gameView && gameCamera ? JSON.stringify(gameCamera.position) : undefined}
       data-camera-fov={gameView ? gameCamera?.fov : undefined}
+      data-render-mode={gameView ? 'automatic' : 'on-demand'}
+      data-lighting-mode={gameView ? 'automatic' : undefined}
+      data-view-rotated={gameView ? String(gameViewRotated) : undefined}
+      data-orbit-mode={gameView ? cameraOrbitMode : undefined}
       data-scene-entity-count={entities.length} data-scene-zoom={gameView ? undefined : zoom}>
       {!gameView && <header className="mh-scene3d__toolbar">
         <div className="mh-scene3d__heading">
@@ -254,10 +281,10 @@ export function ScenePreview3D({
         <div className="mh-scene3d__view-label"><i aria-hidden="true" /> {readOnly ? 'RUNTIME PREVIEW' : 'PERSPECTIVE'}</div>
       </header>}
       {!gameView && <div className="mh-scene3d__navigation" role="group" aria-label="Scene view navigation">
-        <button type="button" onClick={() => setZoom((value) => Math.max(25, value - 25))} disabled={zoom <= 25} data-testid="scene-zoom-out" aria-label="Zoom scene out">−</button>
-        <label>Zoom <input type="range" min={25} max={200} step={5} value={zoom} onChange={(event) => setZoom(Number(event.target.value))} aria-label="Scene zoom" data-testid="scene-zoom" /></label>
+        <button type="button" onClick={() => setZoom((value) => Math.max(MIN_SCENE_ZOOM, value - 25))} disabled={zoom <= MIN_SCENE_ZOOM} data-testid="scene-zoom-out" aria-label="Zoom scene out">−</button>
+        <label>Zoom <input type="range" min={MIN_SCENE_ZOOM} max={MAX_SCENE_ZOOM} step={5} value={zoom} onChange={(event) => setZoom(Number(event.target.value))} aria-label="Scene zoom" data-testid="scene-zoom" /></label>
         <output data-testid="scene-zoom-value">{zoom}%</output>
-        <button type="button" onClick={() => setZoom((value) => Math.min(200, value + 25))} disabled={zoom >= 200} data-testid="scene-zoom-in" aria-label="Zoom scene in">+</button>
+        <button type="button" onClick={() => setZoom((value) => Math.min(MAX_SCENE_ZOOM, value + 25))} disabled={zoom >= MAX_SCENE_ZOOM} data-testid="scene-zoom-in" aria-label="Zoom scene in">+</button>
         <button type="button" onClick={frameCamera} data-testid="scene-frame-camera">Frame square + camera</button>
         {editorCamera && onSelectPrimaryCamera && <button type="button" data-testid="scene3d-select-game-camera" aria-pressed={primarySelected}
           onClick={onSelectPrimaryCamera}>{primarySelected ? 'Camera selected' : 'Select Game Camera'}</button>}
@@ -270,20 +297,52 @@ export function ScenePreview3D({
         data-testid="scene3d-viewport"
         tabIndex={0}
         role="application"
-        aria-label={gameView ? 'Canvas: live game camera view of the 3D scene' : '3D scene viewport. Select objects, use W to move, E to rotate, R to scale. Drag to orbit and use two fingers to pan or zoom.'}
+        aria-label={gameView ? 'Canvas: live Game Camera view. Drag to orbit around its target; choose free, Y-axis, or X-axis rotation.' : '3D scene viewport. Scroll to zoom, middle-drag to pan, and drag to orbit. Select objects, use W to move, E to rotate, R to scale.'}
         onKeyDown={gameView ? undefined : handleViewportKeyDown}
+        onWheel={gameView ? undefined : (event) => {
+          if (event.deltaY === 0) return;
+          event.preventDefault();
+          setZoom((value) => Math.min(
+            MAX_SCENE_ZOOM,
+            Math.max(MIN_SCENE_ZOOM, Math.round((value * Math.exp(-event.deltaY * 0.0015)) / 5) * 5),
+          ));
+        }}
       >
-        <SceneWebGLBoundary fallback={graphicsFallback} onUnavailable={onGraphicsUnavailable}>
+        {gameView && graphicsAvailable && canOrbitGameCamera && (
+          <div className="mh-scene3d__game-controls" role="group" aria-label="Canvas view controls">
+            <span className="mh-scene3d__orbit-hint">ORBIT</span>
+            <div className="mh-scene3d__orbit-modes" role="group" aria-label="Camera orbit axis">
+              <button type="button" className={cameraOrbitMode === 'free' ? 'is-active' : ''}
+                aria-label="Free 360 degree orbit" aria-pressed={cameraOrbitMode === 'free'}
+                title="Free 360° orbit" data-testid="canvas-orbit-free" onClick={() => setCameraOrbitMode('free')}>
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.8 7.7A7 7 0 1 0 17 11.5" /><path d="M14 3.8h3.6v3.6" /></svg>
+              </button>
+              <button type="button" className={cameraOrbitMode === 'y' ? 'is-active' : ''}
+                aria-label="Orbit around Y axis" aria-pressed={cameraOrbitMode === 'y'}
+                title="Orbit around Y axis" data-testid="canvas-orbit-y" onClick={() => setCameraOrbitMode('y')}>
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v15M5 7.5c0-2.8 10-2.8 10 0s-10 2.8-10 0ZM5 12.5c0-2.8 10-2.8 10 0s-10 2.8-10 0Z" /></svg>
+              </button>
+              <button type="button" className={cameraOrbitMode === 'x' ? 'is-active' : ''}
+                aria-label="Orbit around X axis" aria-pressed={cameraOrbitMode === 'x'}
+                title="Orbit around X axis" data-testid="canvas-orbit-x" onClick={() => setCameraOrbitMode('x')}>
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2 10h16M7.5 5c2.8 0 2.8 10 0 10s-2.8-10 0-10ZM12.5 5c2.8 0 2.8 10 0 10s-2.8-10 0-10Z" /></svg>
+              </button>
+            </div>
+            <button type="button" className="mh-scene3d__reset-camera" onClick={resetGameCamera} data-testid="canvas-reset-camera"
+              aria-label="Reset Game Camera to north">Reset north</button>
+          </div>
+        )}
+        <SceneWebGLBoundary fallback={graphicsFallback} onUnavailable={markGraphicsUnavailable}>
         <Canvas
           camera={{ position: [10, 8, 12], fov: 48, near: 0.1, far: 3000 }}
           dpr={mobile ? 1 : [1, 1.5]}
-          frameloop="demand"
+          frameloop={gameView ? 'always' : 'demand'}
           gl={{ antialias: !mobile, powerPreference: 'low-power', alpha: false }}
           onCreated={({ gl, scene }) => {
             const background = gameView ? '#333538' : '#1d1f22';
             gl.setClearColor(background);
             scene.background = new THREE.Color(background);
-            onGraphicsReady?.();
+            markGraphicsReady();
           }}
         >
         <SceneWorld
@@ -294,6 +353,9 @@ export function ScenePreview3D({
             cameraMarkerRef={cameraMarkerRef}
             gameView={gameView}
             gameCamera={gameCamera}
+            cameraOrbitMode={cameraOrbitMode}
+            onGameCameraChange={canOrbitGameCamera ? onPrimaryCameraChange : undefined}
+            onGameViewOrbit={noteGameViewOrbit}
             entities={renderEntities}
             realEntities={entities}
             primaryEntityId={primaryEntity ? PRIMARY_CAMERA_ID : null}
@@ -364,6 +426,9 @@ type SceneWorldProps = {
   cameraMarkerRef: React.RefObject<HTMLButtonElement | null>;
   gameView?: boolean;
   gameCamera?: GameCamera;
+  cameraOrbitMode: CanvasOrbitMode;
+  onGameCameraChange?: (camera: GameCamera) => void;
+  onGameViewOrbit: () => void;
   entities: SceneEntity[];
   realEntities: SceneEntity[];
   primaryEntityId: string | null;
@@ -385,29 +450,112 @@ type SceneWorldProps = {
 
 function SceneWorld(props: SceneWorldProps) {
   const orbitRef = useRef<any>(null);
+  const gameOrbitStart = useRef<{ position: THREE.Vector3; quaternion: THREE.Quaternion } | null>(null);
+  const gameOrbitDragging = useRef(false);
+  const gameOrbitCommitTimer = useRef<number | null>(null);
   const [selectedObject, setSelectedObject] = useState<THREE.Group | null>(null);
-  const { invalidate } = useThree();
+  const { camera, invalidate } = useThree();
   const selected = props.selectedEntityId
     ? props.entities.find((entity) => entity.id === props.selectedEntityId)
     : undefined;
+  const cameraOrbitDistance = props.gameCamera
+    ? Math.max(.1, Math.hypot(
+      props.gameCamera.position.x - props.gameCamera.target.x,
+      props.gameCamera.position.y - props.gameCamera.target.y,
+      props.gameCamera.position.z - props.gameCamera.target.z,
+    ))
+    : 10;
+  const commitGameOrbit = useCallback(() => {
+    gameOrbitCommitTimer.current = null;
+    const start = gameOrbitStart.current;
+    gameOrbitStart.current = null;
+    if (!start || !props.gameCamera || !props.onGameCameraChange) return;
+    const moved = camera.position.distanceToSquared(start.position) > 1e-8 ||
+      1 - Math.abs(camera.quaternion.dot(start.quaternion)) > 1e-8;
+    if (!moved) return;
+    const rotation = new THREE.Euler().setFromQuaternion(camera.quaternion, 'XYZ');
+    const updated = cameraWithOrbitPose(props.gameCamera, {
+      position: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+      rotation: {
+        x: THREE.MathUtils.radToDeg(rotation.x),
+        y: THREE.MathUtils.radToDeg(rotation.y),
+        z: THREE.MathUtils.radToDeg(rotation.z),
+      },
+    });
+    if (updated) {
+      props.onGameCameraChange(updated);
+      props.onGameViewOrbit();
+    }
+  }, [camera, props.gameCamera, props.onGameCameraChange, props.onGameViewOrbit]);
+  const scheduleGameOrbitCommit = useCallback(() => {
+    if (!gameOrbitStart.current || gameOrbitDragging.current) return;
+    if (gameOrbitCommitTimer.current !== null) window.clearTimeout(gameOrbitCommitTimer.current);
+    gameOrbitCommitTimer.current = window.setTimeout(commitGameOrbit, 180);
+  }, [commitGameOrbit]);
+  const handleGameOrbitStart = useCallback(() => {
+    if (!props.onGameCameraChange) return;
+    if (gameOrbitCommitTimer.current !== null) window.clearTimeout(gameOrbitCommitTimer.current);
+    gameOrbitCommitTimer.current = null;
+    gameOrbitDragging.current = true;
+    gameOrbitStart.current = { position: camera.position.clone(), quaternion: camera.quaternion.clone() };
+  }, [camera, props.onGameCameraChange]);
+  const handleGameOrbitChange = useCallback(() => {
+    scheduleGameOrbitCommit();
+  }, [scheduleGameOrbitCommit]);
+  const handleGameOrbitEnd = useCallback(() => {
+    gameOrbitDragging.current = false;
+    scheduleGameOrbitCommit();
+  }, [scheduleGameOrbitCommit]);
+  useEffect(() => () => {
+    if (gameOrbitCommitTimer.current !== null) window.clearTimeout(gameOrbitCommitTimer.current);
+  }, []);
+  useEffect(() => {
+    const controls = orbitRef.current;
+    if (!props.gameView || !controls) return;
+    const azimuth = controls.getAzimuthalAngle();
+    const polar = controls.getPolarAngle();
+    controls.minAzimuthAngle = props.cameraOrbitMode === 'x' ? azimuth : -Infinity;
+    controls.maxAzimuthAngle = props.cameraOrbitMode === 'x' ? azimuth : Infinity;
+    controls.minPolarAngle = props.cameraOrbitMode === 'y' ? polar : 0.01;
+    controls.maxPolarAngle = props.cameraOrbitMode === 'y' ? polar : Math.PI - 0.01;
+    controls.update();
+  }, [props.cameraOrbitMode, props.gameView]);
   return (
     <>
-      {props.gameView ? <>
-        <ambientLight intensity={1.15} />
-        <directionalLight position={[7, 12, 6]} intensity={2.2} />
-        <directionalLight position={[-7, 5, -8]} intensity={0.75} color="#b3c0cf" />
-      </> : <SceneEditorEnvironment mobile={props.mobile} />}
+      {props.gameView
+        ? <AutomaticGameLighting target={props.gameCamera?.target ?? { x: 0, y: 0, z: 0 }} />
+        : <SceneEditorEnvironment mobile={props.mobile} />}
       {props.gameView && props.gameCamera && <GameCameraRig settings={props.gameCamera} />}
+      {props.gameView && props.gameCamera && <OrbitControls
+        ref={orbitRef}
+        makeDefault
+        target={[props.gameCamera.target.x, props.gameCamera.target.y, props.gameCamera.target.z]}
+        enableRotate={Boolean(props.onGameCameraChange)}
+        enableDamping
+        dampingFactor={0.07}
+        enableZoom={false}
+        enablePan={false}
+        minDistance={cameraOrbitDistance}
+        maxDistance={cameraOrbitDistance}
+        minPolarAngle={0.01}
+        maxPolarAngle={Math.PI - 0.01}
+        touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.ROTATE }}
+        onStart={handleGameOrbitStart}
+        onChange={handleGameOrbitChange}
+        onEnd={handleGameOrbitEnd}
+      />}
       {!props.gameView && <OrbitControls
         ref={orbitRef}
         makeDefault
         enableDamping
         dampingFactor={props.mobile ? 0.12 : 0.08}
+        enableZoom={false}
         minDistance={1}
         maxDistance={2000}
         maxPolarAngle={Math.PI * 0.495}
         enablePan
-        screenSpacePanning={false}
+        screenSpacePanning
+        mouseButtons={{ LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.PAN }}
         touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
       />}
       {!props.gameView && props.primaryCamera && <SceneNavigation settings={props.primaryCamera}
@@ -434,6 +582,21 @@ function SceneWorld(props: SceneWorldProps) {
       )}
     </>
   );
+}
+
+function AutomaticGameLighting({ target }: { target: GameCamera['target'] }) {
+  const lightTarget = useMemo(() => {
+    const object = new THREE.Object3D();
+    object.position.set(target.x, target.y, target.z);
+    return object;
+  }, [target.x, target.y, target.z]);
+
+  return <>
+    <primitive object={lightTarget} />
+    <ambientLight intensity={1.15} />
+    <directionalLight target={lightTarget} position={[target.x + 7, target.y + 12, target.z + 6]} intensity={2.2} />
+    <directionalLight target={lightTarget} position={[target.x - 7, target.y + 5, target.z - 8]} intensity={0.75} color="#b3c0cf" />
+  </>;
 }
 
 function EntityNode(props: SceneWorldProps & { entity: SceneEntity; onSelectedObject: (object: THREE.Group | null) => void }) {

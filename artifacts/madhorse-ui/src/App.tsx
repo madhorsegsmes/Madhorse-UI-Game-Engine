@@ -20,6 +20,12 @@ import { HierarchyCreationTools } from '@/components/hierarchy-creation-tools';
 import { MadBuilderMenu } from '@/components/mad-builder-menu';
 import { SceneCameraControls } from '@/components/scene-camera-controls';
 import { SceneResizeHandles } from '@/components/scene-resize-handles';
+import {
+  WorkspaceLayoutResetButton,
+  WorkspacePanel,
+  WorkspacePanelHandle,
+  WorkspacePanelLayout,
+} from '@/components/workspace-panel-layout';
 import { useMadBuilder } from '@/hooks/use-mad-builder';
 import { isBuilderHistory, isBuilderDraft } from '@/lib/mad-builder';
 import type { MadBuilderPlan } from '@workspace/api-client-react';
@@ -46,6 +52,7 @@ import {
   getSpriteRenderer,
   getTransform,
   getWorldTransform,
+  localTransformFromWorld,
   isAssetCollection,
   isPhysicsComponent,
   isPhysicsWorldSettings,
@@ -616,9 +623,12 @@ function Home() {
   return (
     <main className="workspace" aria-label="Madhorse game creation workspace">
       <div className="shell">
+        <WorkspacePanelLayout>
+          <WorkspacePanel id="main">
         <header className="main-panel" aria-label="Main panel">
           <div className="main-panel-identity">
             <span className="panel-label">MAIN PANEL</span>
+            <WorkspacePanelHandle label="Main Panel" />
             <div className="brand" aria-label="Madhorse UI">
               <HorseMark />
               <span className="brand-name">MADHORSE<span>UI</span></span>
@@ -651,11 +661,15 @@ function Home() {
               Scene Preview
             </button>
             </div>
+            <WorkspaceLayoutResetButton />
           </div>
           <SystemStatus />
         </header>
+          </WorkspacePanel>
 
+          <WorkspacePanel id="scene">
         <section className="stage" id="scene-preview" ref={stageRef} tabIndex={-1} role="tabpanel" aria-labelledby="scene-preview-tab">
+          <WorkspacePanelHandle label="Scene View" className="workspace-panel-handle-scene" />
           <GameScene
             primaryCamera={primaryGameCamera}
             key={activeProject.id}
@@ -692,7 +706,11 @@ function Home() {
           <div className="frame-lines" aria-hidden="true" />
           <SceneResizeHandles stageRef={stageRef} />
         </section>
+          </WorkspacePanel>
 
+          <WorkspacePanel id="camera">
+            <div className="workspace-camera-panel">
+              <WorkspacePanelHandle label="Game Camera controls" />
         <SceneCameraControls
           key={activeProject.id}
           camera={primaryGameCamera}
@@ -716,10 +734,16 @@ function Home() {
             updateActiveProject({ gameCamera: createGameCamera(activeProject.entities), activeCameraId: null });
           }}
         />
+            </div>
+          </WorkspacePanel>
 
-        <div className="toolbar-row" role="group" aria-label="Workspace toolbars">
+
+          <WorkspacePanel id="tools-left">
           <div className="toolbar-group" role="group" aria-labelledby="panel-2-label">
-            <span className="panel-label" id="panel-2-label">PANEL 2</span>
+            <div className="workspace-panel-heading">
+              <span className="panel-label" id="panel-2-label">PANEL 2</span>
+              <WorkspacePanelHandle label="Panel 2 tools" />
+            </div>
             <div className="toolbar-buttons">
               <WorkspaceBrowserMenus
                 {...sceneEditor}
@@ -729,8 +753,13 @@ function Home() {
               <MadBuilderMenu key={activeProject.id} {...madBuilder} />
             </div>
           </div>
+          </WorkspacePanel>
+          <WorkspacePanel id="tools-right">
           <div className="toolbar-group toolbar-group-right" role="group" aria-labelledby="panel-1-label">
-            <span className="panel-label" id="panel-1-label">PANEL 1</span>
+            <div className="workspace-panel-heading">
+              <span className="panel-label" id="panel-1-label">PANEL 1</span>
+              <WorkspacePanelHandle label="Panel 1 tools" />
+            </div>
             <div className="toolbar-buttons">
             <details className="project-menu">
               <summary className="control-button project-button" aria-label="Project actions">
@@ -884,11 +913,15 @@ function Home() {
             </details>
             </div>
           </div>
-        </div>
+          </WorkspacePanel>
 
-        <section className="panel-row" aria-label="Workspace panels">
+
+          <WorkspacePanel id="system">
           <div className="panel" role="region" aria-labelledby="panel-3-label">
-            <span className="panel-label" id="panel-3-label">PANEL 3 / System</span>
+            <div className="workspace-panel-heading">
+              <span className="panel-label" id="panel-3-label">PANEL 3 / System</span>
+              <WorkspacePanelHandle label="Panel 3 / System" />
+            </div>
             <SystemPanelTools
               readOnly={isPlayMode}
               animations={activeProject.animations ?? []}
@@ -914,8 +947,13 @@ function Home() {
               }}
             />
           </div>
+          </WorkspacePanel>
+          <WorkspacePanel id="play">
           <div className="panel" role="region" aria-labelledby="panel-4-label">
-            <span className="panel-label" id="panel-4-label">PANEL 4 / Play/Test Game</span>
+            <div className="workspace-panel-heading">
+              <span className="panel-label" id="panel-4-label">PANEL 4 / Play/Test Game</span>
+              <WorkspacePanelHandle label="Panel 4 / Play and Test Game" />
+            </div>
             <div className="panel-play-actions">
               <button
                 type="button"
@@ -946,13 +984,19 @@ function Home() {
                     : 'Play starts physics; scripts run when a script is ready.'}
             </span>
           </div>
+          </WorkspacePanel>
+          <WorkspacePanel id="errors">
           <div className="panel" role="region" aria-labelledby="panel-5-label">
-            <span className="panel-label" id="panel-5-label">PANEL 5 / Error Displayer</span>
+            <div className="workspace-panel-heading">
+              <span className="panel-label" id="panel-5-label">PANEL 5 / Error Displayer</span>
+              <WorkspacePanelHandle label="Panel 5 / Error Displayer" />
+            </div>
             <span className={`panel-text${runtimeError ? ' is-error' : ''}`} role="alert" data-testid="text-runtime-error">
               {runtimeError || 'No errors.'}
             </span>
           </div>
-        </section>
+          </WorkspacePanel>
+        </WorkspacePanelLayout>
 
         <div className="shell-footer" aria-hidden="true">
           <span className="footer-line" />

@@ -5,6 +5,9 @@ test('all four corners resize Scene View, preserve camera data and remember the 
   await page.goto('/');
   const stage = page.locator('.stage');
   await expect.poll(() => page.evaluate(() => localStorage.getItem('madhorse-ui-projects'))).not.toBeNull();
+  await expect.poll(async () => (await stage.boundingBox())!.height).toBeGreaterThan(700);
+  await page.getByTestId('tab-scene-3d').click();
+  await expect.poll(async () => (await page.getByTestId('scene3d-viewport').boundingBox())!.height).toBeGreaterThan(520);
   const projectData = await page.evaluate(() => {
     const project = JSON.parse(localStorage.getItem('madhorse-ui-projects')!)[0];
     return JSON.stringify({ camera: project.gameCamera, entities: project.entities });
@@ -57,6 +60,7 @@ test('keyboard resizing and cancelled pointer drags leave a usable automatic lay
   await expect.poll(async () => Math.round((await stage.boundingBox())!.width)).toBe(Math.round(original.width - 25));
   await handle.press('Home');
   await expect(stage).not.toHaveAttribute('data-user-sized');
+  await handle.scrollIntoViewIfNeeded();
   const point = (await handle.boundingBox())!;
   await page.mouse.move(point.x + 14, point.y + 14);
   await page.mouse.down();
@@ -66,4 +70,33 @@ test('keyboard resizing and cancelled pointer drags leave a usable automatic lay
   await page.mouse.up();
   await expect(stage).not.toHaveAttribute('data-user-sized');
   expect(await page.evaluate(() => localStorage.getItem('madhorse-scene-view-size'))).toBeNull();
+});
+
+test('top and bottom edge handles resize vertically without changing width or covering Main Panel', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto('/');
+  const stage = page.locator('.stage');
+  const original = (await stage.boundingBox())!;
+  const mainPanel = (await page.locator('.main-panel').boundingBox())!;
+
+  const top = (await page.getByTestId('scene-resize-top').boundingBox())!;
+  await page.mouse.move(top.x + top.width / 2, top.y + top.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(top.x + top.width / 2, top.y + top.height / 2 - 40, { steps: 5 });
+  await page.mouse.up();
+
+  await expect.poll(async () => Math.round((await stage.boundingBox())!.height)).toBe(Math.round(original.height + 40));
+  expect((await stage.boundingBox())!.y).toBeGreaterThanOrEqual(mainPanel.y + mainPanel.height + 12);
+  expect(Math.abs((await stage.boundingBox())!.width - original.width)).toBeLessThanOrEqual(1);
+
+  const afterTop = (await stage.boundingBox())!;
+  await page.getByTestId('scene-resize-bottom').scrollIntoViewIfNeeded();
+  const bottom = (await page.getByTestId('scene-resize-bottom').boundingBox())!;
+  await page.mouse.move(bottom.x + bottom.width / 2, bottom.y + bottom.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(bottom.x + bottom.width / 2, bottom.y + bottom.height / 2 + 35, { steps: 5 });
+  await page.mouse.up();
+
+  await expect.poll(async () => Math.round((await stage.boundingBox())!.height)).toBe(Math.round(afterTop.height + 35));
+  expect(Math.abs((await stage.boundingBox())!.width - original.width)).toBeLessThanOrEqual(1);
 });

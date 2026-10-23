@@ -87,8 +87,14 @@ test('scene zoom, expansion, all creation actions and camera selection work and 
   await page.goto('/');
   await page.getByTestId('tab-scene-3d').click();
   await expect(page.getByTestId('scene-camera-marker')).toBeVisible();
+  const viewport = page.getByTestId('scene3d-viewport');
+  await viewport.hover();
+  await page.mouse.wheel(0, -180);
+  await expect(page.getByTestId('scene-zoom-value')).not.toHaveText('100%');
+  const wheelZoom = Number((await page.getByTestId('scene-zoom-value').textContent())?.replace('%', ''));
+  expect(wheelZoom).toBeGreaterThan(100);
   await page.getByTestId('scene-zoom-in').click();
-  await expect(page.getByTestId('scene-zoom-value')).toHaveText('125%');
+  await expect(page.getByTestId('scene-zoom-value')).toHaveText(`${wheelZoom + 25}%`);
   await page.getByTestId('scene-frame-camera').click();
   await expect(page.getByTestId('scene-zoom-value')).toHaveText('100%');
   await page.getByTestId('scene-expand').click();

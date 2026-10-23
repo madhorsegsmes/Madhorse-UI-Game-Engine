@@ -27,6 +27,19 @@ export function cameraWithPose(previous: GameCamera, changes: { position?: Vecto
   return isGameCamera(next) ? next : null;
 }
 
+export function cameraWithOrbitPose(previous: GameCamera, changes: { position?: Vector3; rotation?: Vector3 }): GameCamera | null {
+  const position = changes.position ?? previous.position;
+  const rotation = changes.rotation ?? cameraEuler(previous);
+  const next: GameCamera = {
+    ...previous,
+    position: { ...position },
+    rotation: { ...rotation },
+    target: { ...previous.target },
+    placement: 'custom',
+  };
+  return isGameCamera(next) ? next : null;
+}
+
 export function primaryCameraEntity(settings: GameCamera): SceneEntity {
   const rotation = cameraEuler(settings);
   return {
