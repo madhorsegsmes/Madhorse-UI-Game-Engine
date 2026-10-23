@@ -59,6 +59,9 @@ export function HierarchyContextMenu(props: Props) {
         role="menu"
         aria-label="Hierarchy actions"
         onContextMenu={event => event.preventDefault()}
+        onKeyDown={event => {
+          if (event.key === 'Escape') props.onClose();
+        }}
       >
         <button
           type="button"
@@ -218,7 +221,16 @@ function SettingsDialog({ title, children, onCancel, onSubmit }: {
     <div className="fresh-dialog-backdrop" role="presentation" onMouseDown={event => {
       if (event.target === event.currentTarget) onCancel();
     }}>
-      <form className="fresh-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="fresh-dialog-title" onSubmit={onSubmit}>
+      <form
+        className="fresh-settings-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="fresh-dialog-title"
+        onSubmit={onSubmit}
+        onKeyDown={event => {
+          if (event.key === 'Escape') onCancel();
+        }}
+      >
         <h3 id="fresh-dialog-title">{title}</h3>
         {children}
         <div className="fresh-dialog-actions">
