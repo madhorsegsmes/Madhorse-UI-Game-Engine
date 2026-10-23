@@ -700,10 +700,7 @@ export default function BlankWorkspace() {
               actions={hierarchyActions}
             />
           ) : number === 3 ? (
-            <>
-              <span className="fresh-panel-number" aria-hidden="true">3</span>
-              <h2 className="fresh-panel-heading">Settings Functions and Controls</h2>
-            </>
+            <h2 className="fresh-panel-heading">Settings Functions and Controls</h2>
           ) : <span className="fresh-panel-number" aria-hidden="true">{number}</span>}
         </section>
       ))}
