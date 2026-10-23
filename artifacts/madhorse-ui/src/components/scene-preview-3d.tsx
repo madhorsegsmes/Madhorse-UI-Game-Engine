@@ -9,6 +9,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { TextureLoader } from 'three';
 import { SceneWebGLBoundary } from './scene-webgl-boundary';
+import { getSceneObjectTypeLabel, SceneObjectGlyph } from './scene-object-glyph';
 import { beginSystemActivity } from '@/lib/system-activity';
 import { hasRenderableModelGeometry } from '@/lib/scene-model-validation';
 import { GameCameraRig } from './game-camera-rig';
@@ -257,7 +258,9 @@ export function ScenePreview3D({
         <div className="mh-scene3d__heading">
           <span className="mh-scene3d__eyebrow">VIEWPORT / 01</span>
           <strong>Scene view</strong>
-          <span className="mh-scene3d__selection" data-testid="scene3d-selection">
+          <span className="mh-scene3d__selection" data-testid="scene3d-selection"
+            title={selected ? `${getSceneObjectTypeLabel(selected)} · ${selected.name}` : undefined}>
+            {selected && <SceneObjectGlyph entity={selected} />}
             {selected?.name ?? 'No selection'}
           </span>
         </div>
@@ -289,6 +292,7 @@ export function ScenePreview3D({
         {editorCamera && onSelectPrimaryCamera && <button type="button" data-testid="scene3d-select-game-camera" aria-pressed={primarySelected}
           onClick={onSelectPrimaryCamera}>{primarySelected ? 'Camera selected' : 'Select Game Camera'}</button>}
         {selected?.generatedBy === 'mad-builder' && <button type="button" onClick={frameBuild} data-testid="scene-frame-build">Frame build</button>}
+        <span className="mh-scene3d__grid-status" data-testid="scene-grid-status" title="Grid spacing: 1 world unit">GRID · 1 UNIT</span>
         <span title="World north is negative Z">N = −Z</span>
       </div>}
       <div
@@ -379,8 +383,8 @@ export function ScenePreview3D({
         {!gameView && editorCamera && <button ref={cameraMarkerRef} type="button" className="mh-scene3d__camera-marker"
           onClick={() => { if (onSelectPrimaryCamera) onSelectPrimaryCamera(); else frameCamera(); }} data-testid="scene-camera-marker" aria-label="Select the game camera" data-selected={primarySelected}
           title="Game Camera. Click to select it, then move (W) or rotate (E). This marker stays visible when the camera is off screen.">
-          <svg viewBox="0 0 20 14" aria-hidden="true"><path d="M1 2h11v10H1zM12 5l6-3v10l-6-3z" fill="none" stroke="currentColor" /></svg>
-          Game Camera{primarySelected ? ' · Selected' : ''}
+          {primaryEntity && <SceneObjectGlyph entity={primaryEntity} />}
+          Main Camera{primarySelected ? ' · Selected' : ''}
         </button>}
         {entities.length === 0 && (
           <div className="mh-scene3d__empty" data-testid="scene3d-empty-state">

@@ -108,7 +108,17 @@ test('scene zoom, expansion, all creation actions and camera selection work and 
   }
   await expect.poll(async () => (await saved(page)).entities.length).toBe(7);
   const project = await saved(page);
+  const cube = project.entities.find((entity) => entity.id === 'starter-cube')!;
   const camera = project.entities.find((entity) => entity.components.some((component) => component.type === 'camera'))!;
+  const plane = project.entities.find((entity) => getPrimitive(entity)?.shape === 'plane')!;
+  await expect(page.getByTestId(`select-object-${cube.id}`)).toHaveAccessibleName(`Select ${cube.name} (3D Cube)`);
+  await expect(page.getByTestId('select-object-starter-cube').locator('.scene-object-icon')).toHaveClass(/is-cube/);
+  await expect(page.getByTestId(`select-object-${plane.id}`)).toHaveAccessibleName(`Select ${plane.name} (3D Plane)`);
+  await expect(page.getByTestId(`select-object-${plane.id}`).locator('.scene-object-icon')).toHaveClass(/is-plane/);
+  await expect(page.getByTestId(`select-object-${camera.id}`)).toHaveAccessibleName(`Select ${camera.name} (Camera)`);
+  await expect(page.getByTestId(`select-object-${camera.id}`).locator('.scene-object-icon')).toHaveClass(/is-camera/);
+  await expect(page.getByTestId('scene-grid-status')).toHaveText('GRID · 1 UNIT');
+  await expect(page.getByTestId('scene-camera-marker')).toContainText('Main Camera');
   await page.getByTestId('select-active-camera').selectOption(camera.id);
   await page.getByTestId('close-hierarchy').click();
   await page.getByTestId('tab-scene-2d').click();

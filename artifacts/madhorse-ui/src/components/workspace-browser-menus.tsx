@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import './workspace-browser-menus.css';
+import { getSceneObjectTypeLabel, SceneObjectGlyph } from './scene-object-glyph';
 import type { WorkspaceBrowserProps } from './workspace-browser-contract';
 import { getModelRenderer, getPhysicsComponent, getSpriteRenderer, getTransform, getPrimitive, getCamera, getLight, getUICanvas, getScriptComponent, isDescendant } from '../lib/scene-model';
 import type { PhysicsComponent, ProjectAsset, SceneEntity, Vector3 } from '../lib/scene-model';
@@ -162,12 +163,13 @@ export function WorkspaceBrowserMenus(props?: WorkspaceBrowserProps) {
             type="button"
             className="browser-tree-select"
             onClick={() => onSelectEntity?.(entity.id)}
-            aria-label={`Select ${entity.name}`}
+            aria-label={`Select ${entity.name} (${getSceneObjectTypeLabel(entity)})`}
+            title={`${getSceneObjectTypeLabel(entity)} · ${entity.name}`}
             aria-pressed={selectedEntityId === entity.id}
             data-testid={`select-object-${entity.id}`}
           >
             <span className="browser-tree-branch" aria-hidden="true">{children.length ? '›' : '·'}</span>
-            <span className="browser-object-glyph" aria-hidden="true">{getCamera(entity) ? 'C' : getLight(entity) ? 'L' : getUICanvas(entity) ? 'UI' : getPrimitive(entity) ? '3D' : getSpriteRenderer(entity) ? 'S' : 'O'}</span>
+            <span className="browser-object-glyph"><SceneObjectGlyph entity={entity} /></span>
             <span className="browser-tree-name">{entity.name}</span>
             {!entity.active && <span className="browser-inactive-tag">OFF</span>}
           </button>

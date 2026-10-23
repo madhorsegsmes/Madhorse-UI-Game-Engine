@@ -1,0 +1,17 @@
+.scene-object-icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.scene-object-icon.is-plane,
+.scene-object-icon.is-terrain { color: #e77a6f; }
+.scene-object-icon.is-camera { color: #e2c28b; }
+.scene-object-icon.is-cube,
+.scene-object-icon.is-model { color: #d8dde2; }
+.scene-object-icon.is-light { color: #f0cf82; }
+.scene-object-icon.is-canvas { color: #83b8c2; }
+.scene-object-icon.is-sprite { color: #e77a6f; }

@@ -25,7 +25,7 @@
 .mh-scene3d__navigation output { min-width: 31px; }
 .mh-scene3d__navigation > span { margin-left: auto; color: #88817d; }
 .mh-scene3d__camera-marker { position: absolute; top: 17px; left: 50%; transform: translate(-50%, -50%); z-index: 3; display: flex; align-items: center; gap: 4px; padding: 4px 6px; border: 1px solid #b18d55; color: #ead4ac; background: #211d18ed; font: 9px/1.2 'DM Mono', monospace; white-space: nowrap; cursor: pointer; max-width: calc(100% - 8px); }
-.mh-scene3d__camera-marker svg { width: 18px; height: 13px; flex: none; }
+.mh-scene3d__camera-marker svg { width: 18px; height: 18px; flex: none; }
 .mh-scene3d__camera-marker[data-offscreen="true"] { border-style: dashed; }
 .mh-scene3d__navigation button:focus-visible, .mh-scene3d__camera-marker:focus-visible { outline: 2px solid #cf4a40; outline-offset: 2px; }
 .scene-expand-button { position: absolute; top: 0; right: 0; z-index: 5; border: 1px solid #6b4540; padding: 6px; background: #251f20; color: #d5c9bf; font: 9px/1.2 'DM Mono', monospace; cursor: pointer; }
@@ -70,6 +70,9 @@
 }
 
 .mh-scene3d__selection {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   max-width: 140px;
   overflow: hidden;
   color: #aaa9a6;
@@ -77,6 +80,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.mh-scene3d__selection .scene-object-icon { flex: none; }
+.mh-scene3d__grid-status { color: #d0d4d9; letter-spacing: .04em; }
+.mh-scene3d__camera-marker .scene-object-icon { width: 18px; height: 18px; color: #f0cf82; }
 
 .mh-scene3d__tools {
   display: flex;

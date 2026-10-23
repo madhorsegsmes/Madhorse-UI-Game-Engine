@@ -18,8 +18,8 @@ export function SceneEditorEnvironment({ mobile }: { mobile: boolean }) {
         <circleGeometry args={[6, 32]} />
         <meshBasicMaterial color="#121314" transparent opacity={0.35} depthWrite={false} />
       </mesh>
-      <Grid args={[160, 160]} cellSize={1} cellThickness={0.5} cellColor="#45494d" sectionSize={5}
-        sectionThickness={1} sectionColor="#7d8185" fadeDistance={mobile ? 60 : 90} fadeStrength={1.4} infiniteGrid
+      <Grid args={[160, 160]} cellSize={1} cellThickness={0.8} cellColor="#727982" sectionSize={5}
+        sectionThickness={1.3} sectionColor="#a4abb4" fadeDistance={mobile ? 60 : 90} fadeStrength={1.1} infiniteGrid
         position={[0, -0.012, 0]} />
       <group position={[0, 0.012, 0]}>
         <AxisLine points={[[-60, 0, 0], [60, 0, 0]]} color="#c94b43" />

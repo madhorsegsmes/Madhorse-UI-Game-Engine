@@ -148,14 +148,24 @@
   line-height: 1;
 }
 .browser-object-glyph {
-  width: 17px;
-  height: 17px;
+  width: 23px;
+  height: 23px;
   flex: none;
   display: grid;
   place-items: center;
-  border: 1px solid #6d433d;
-  color: #d8867c;
-  font: 9px ui-monospace, monospace;
+  border: 1px solid #55595e;
+  background: #18191b;
+  color: #cbd0d6;
+}
+.browser-tree-row.is-selected .browser-object-glyph {
+  border-color: #a44740;
+  background: #291b1a;
+  color: #ef8c80;
+}
+.browser-tree-row.is-selected .scene-object-icon { color: currentColor; }
+.browser-tree-select:focus-visible {
+  outline: 2px solid #cf4a40;
+  outline-offset: -2px;
 }
 .browser-tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .browser-inactive-tag {
