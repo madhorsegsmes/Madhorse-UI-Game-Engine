@@ -371,6 +371,7 @@ function ScenePreview2D({
           const world = worldByEntity.get(entity.id);
           if (!world) return null;
           const sprite = getSpriteRenderer(entity);
+          if (!sprite && !getModelRenderer(entity)) return null;
           const isPlayer = entity.id === 'player';
           const previewPosition = isPlayer ? position : world.position;
           const projected = new Vector3(

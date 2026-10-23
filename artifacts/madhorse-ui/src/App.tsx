@@ -40,6 +40,11 @@ import { useSceneEditor } from '@/hooks/use-scene-editor';
 import {
   createDefaultPlayer,
   createDefaultPhysicsWorldSettings,
+  createStarterCube,
+  getPhysicsComponent,
+  getPrimitive,
+  getSpriteRenderer,
+  getTransform,
   getWorldTransform,
   isAssetCollection,
   isPhysicsComponent,
@@ -72,7 +77,41 @@ type Project = {
   activeCameraId?: string | null;
   builderHistory?: BuilderMessage[];
   builderDraft?: MadBuilderPlan | null;
+  starterSceneInitialized?: boolean;
 };
+
+function isUnmodifiedStarterPlayer(project: Project) {
+  if (project.entities.length !== 1 || project.assets.length > 0 || (project.scripts?.length ?? 0) > 0 ||
+      (project.animations?.length ?? 0) > 0 || (project.uiControls?.length ?? 0) > 0 ||
+      (project.prefabs?.length ?? 0) > 0 || (project.builderHistory?.length ?? 0) > 0 ||
+      project.builderDraft != null || (project.activeCameraId != null) ||
+      project.gameCamera?.placement === 'custom' ||
+      project.physics.dimension !== '2d' || project.physics.gravity.x !== 0 ||
+      project.physics.gravity.y !== -9.81 || project.physics.gravity.z !== 0) return false;
+  const player = project.entities[0];
+  const transform = getTransform(player);
+  const sprite = getSpriteRenderer(player);
+  const physics = getPhysicsComponent(player);
+  return player.id === 'player' && player.name === 'Player' && player.active && !player.parentId &&
+    player.components.length === 3 && !!sprite && !!physics &&
+    transform.position.x === 50 && transform.position.y === 50 && transform.position.z === 0 &&
+    transform.rotation.x === 0 && transform.rotation.y === 0 && transform.rotation.z === 0 &&
+    transform.scale.x === 1 && transform.scale.y === 1 && transform.scale.z === 1 &&
+    sprite.enabled && sprite.assetId === null && sprite.tint === '#b73d34' && sprite.width === 24 && sprite.height === 24 &&
+    physics.enabled && physics.bodyType === 'kinematic' && physics.size.x === 24 &&
+    physics.size.y === 24 && physics.size.z === 24 && physics.mass === 1 &&
+    physics.gravityScale === 1 && physics.friction === 0.4 && physics.restitution === 0;
+}
+
+function initializeStarterScene(project: Project): Project {
+  if (project.starterSceneInitialized === true) return project;
+  const addCube = isUnmodifiedStarterPlayer(project);
+  return {
+    ...project,
+    ...(addCube ? { entities: [...project.entities, createStarterCube()] } : {}),
+    starterSceneInitialized: true,
+  };
+}
 
 function isSavedScript(script: unknown): script is ScriptFile {
   if (!script || typeof script !== 'object') return false;
@@ -99,7 +138,8 @@ function isSavedProject(project: unknown): project is Project {
     (value.prefabs === undefined || isPrefabCollection(value.prefabs)) &&
     (value.activeCameraId === undefined || value.activeCameraId === null || typeof value.activeCameraId === 'string') &&
     (value.builderHistory === undefined || isBuilderHistory(value.builderHistory)) &&
-    (value.builderDraft === undefined || isBuilderDraft(value.builderDraft));
+    (value.builderDraft === undefined || isBuilderDraft(value.builderDraft)) &&
+    (value.starterSceneInitialized === undefined || typeof value.starterSceneInitialized === 'boolean');
 }
 
 function hasInvalidSavedPhysics(projects: unknown[]): boolean {
@@ -127,8 +167,9 @@ function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: 
       return {
         projects: [{
           id: crypto.randomUUID(), name: 'Untitled Project', gameType: '', savedAt: '', scripts: [],
-          entities: [createDefaultPlayer()], assets: [], physics: createDefaultPhysicsWorldSettings(),
+          entities: [createDefaultPlayer(), createStarterCube()], assets: [], physics: createDefaultPhysicsWorldSettings(),
           animations: [], uiControls: [], gameCamera: createGameCamera([]),
+          starterSceneInitialized: true,
         }],
         canOverwrite: true,
         warning: '',
@@ -137,25 +178,28 @@ function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: 
     const projects: unknown = JSON.parse(stored);
     if (Array.isArray(projects) && projects.length > 0 && projects.every(isSavedProject)) {
       return {
-        projects: projects.map((project) => ({
-          ...project,
-          // Entity transforms own the saved start. Migrate starts saved before
-          // the scene editor existed without overriding its newer transforms.
-          entities: project.entities ?? [{
-            ...createDefaultPlayer(),
-            components: createDefaultPlayer().components.map((component) =>
-              component.type === 'transform' && isGamePosition(project.initialPosition)
-                ? { ...component, position: { ...component.position, ...project.initialPosition } }
-                : component),
-          }],
-          assets: project.assets ?? [],
-          physics: project.physics ?? createDefaultPhysicsWorldSettings(),
-          animations: project.animations ?? [],
-          uiControls: project.uiControls ?? [],
-        })).map((project) => ({
-          ...project,
-          gameCamera: project.gameCamera?.placement ? project.gameCamera : createGameCamera(project.entities),
-        })),
+        projects: projects.map((project) => {
+          const normalized: Project = {
+            ...project,
+            // Entity transforms own the saved start. Migrate starts saved before
+            // the scene editor existed without overriding its newer transforms.
+            entities: project.entities ?? [{
+              ...createDefaultPlayer(),
+              components: createDefaultPlayer().components.map((component) =>
+                component.type === 'transform' && isGamePosition(project.initialPosition)
+                  ? { ...component, position: { ...component.position, ...project.initialPosition } }
+                  : component),
+            }],
+            assets: project.assets ?? [],
+            physics: project.physics ?? createDefaultPhysicsWorldSettings(),
+            animations: project.animations ?? [],
+            uiControls: project.uiControls ?? [],
+          };
+          return initializeStarterScene({
+            ...normalized,
+            gameCamera: normalized.gameCamera?.placement ? normalized.gameCamera : createGameCamera(normalized.entities),
+          });
+        }),
         canOverwrite: true,
         warning: '',
       };
@@ -169,8 +213,9 @@ function loadProjects(): { projects: Project[]; canOverwrite: boolean; warning: 
   return {
     projects: [{
       id: crypto.randomUUID(), name: 'Untitled Project', gameType: '', savedAt: '', scripts: [],
-      entities: [createDefaultPlayer()], assets: [], physics: createDefaultPhysicsWorldSettings(),
+      entities: [createDefaultPlayer(), createStarterCube()], assets: [], physics: createDefaultPhysicsWorldSettings(),
       animations: [], uiControls: [], gameCamera: createGameCamera([]),
+      starterSceneInitialized: true,
     }],
     canOverwrite: false,
     warning: savedProjectsWarning,
@@ -364,12 +409,13 @@ function Home() {
       gameType: '',
       savedAt: '',
       scripts: [],
-      entities: [createDefaultPlayer()],
+      entities: [createDefaultPlayer(), createStarterCube()],
       assets: [],
       physics: createDefaultPhysicsWorldSettings(),
       animations: [],
       uiControls: [],
       gameCamera: createGameCamera([]),
+      starterSceneInitialized: true,
     };
     setProjects((current) => [...current, project]);
     setActiveProjectId(project.id);

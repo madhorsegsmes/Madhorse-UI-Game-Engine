@@ -49,11 +49,11 @@ test('Panel 3 camera aims at the square, saves per project and shows the shared 
   await page.getByTestId('tab-scene-3d').click();
   await page.locator('.workspace-browser-hierarchy > summary').click();
   await page.getByTestId('add-sprite-object').click();
-  await expect(page.getByTestId('scene-preview-3d')).toHaveAttribute('data-scene-entity-count', '2');
+  await expect(page.getByTestId('scene-preview-3d')).toHaveAttribute('data-scene-entity-count', '3');
   await page.locator('.workspace-browser-hierarchy > summary').click();
   await page.getByTestId('show-game-view').click();
   await expect(page.getByTestId('tab-scene-2d')).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByTestId('scene-game-view')).toHaveAttribute('data-scene-entity-count', '2');
+  await expect(page.getByTestId('scene-game-view')).toHaveAttribute('data-scene-entity-count', '3');
   await expect(page.getByTestId('scene3d-mode-translate')).toHaveCount(0);
 
   await page.reload();

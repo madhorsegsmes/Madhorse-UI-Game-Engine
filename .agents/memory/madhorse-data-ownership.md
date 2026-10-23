@@ -22,3 +22,13 @@ discard their project edits.
 
 **How to apply:** Any future source-to-instance update needs an explicit user
 action and must preserve or clearly resolve instance-specific edits.
+
+One-time starter-scene upgrades must not reseed an object the user removed.
+Mark projects as initialized even when their custom scene is ineligible for the
+new starter object.
+
+**Why:** Saved project content belongs to its creator; app updates must not undo
+an intentional removal or overwrite their customized camera and physics.
+
+**How to apply:** Seed only unmodified starter projects and persist the
+initialization marker in browser-local project data. Preserve customized scenes.

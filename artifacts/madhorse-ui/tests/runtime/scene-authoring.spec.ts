@@ -100,7 +100,7 @@ test('scene zoom, expansion, all creation actions and camera selection work and 
   for (const id of ['button-create-object', 'button-create-plane', 'button-create-terrain', 'button-add-lighting', 'button-create-camera']) {
     await page.getByTestId(id).click();
   }
-  await expect.poll(async () => (await saved(page)).entities.length).toBe(6);
+  await expect.poll(async () => (await saved(page)).entities.length).toBe(7);
   const project = await saved(page);
   const camera = project.entities.find((entity) => entity.components.some((component) => component.type === 'camera'))!;
   await page.getByTestId('select-active-camera').selectOption(camera.id);
@@ -111,7 +111,7 @@ test('scene zoom, expansion, all creation actions and camera selection work and 
   await hierarchy(page);
   await page.getByTestId('button-create-ui-canvas').click();
   await expect(page.locator('.game-ui-element.is-canvas-root')).toBeVisible();
-  await expect.poll(async () => (await saved(page)).entities.length).toBe(7);
+  await expect.poll(async () => (await saved(page)).entities.length).toBe(8);
   await page.reload();
   await hierarchy(page);
   const restored = await saved(page);
@@ -129,9 +129,9 @@ test('link, unlink, prefab cloning, texture creation and assignment are persiste
   await hierarchy(page);
   await page.getByTestId('button-create-object').click();
   await page.getByTestId('button-create-object').click();
-  await expect.poll(async () => (await saved(page)).entities.length).toBe(3);
+  await expect.poll(async () => (await saved(page)).entities.length).toBe(4);
   const initial = await saved(page);
-  const [parent, child] = initial.entities.filter((entity) => entity.id !== 'player');
+  const [parent, child] = initial.entities.filter((entity) => entity.id !== 'player' && entity.id !== 'starter-cube');
   const before = getWorldTransform(initial.entities, child.id);
   await page.getByTestId('select-link-parent').selectOption(parent.id);
   await page.getByTestId('button-link-objects').click();
@@ -159,7 +159,7 @@ test('link, unlink, prefab cloning, texture creation and assignment are persiste
   await expect.poll(async () => (await saved(page)).prefabs?.length).toBe(1);
   const prefab = (await saved(page)).prefabs![0];
   await page.getByTestId(`button-instantiate-prefab-${prefab.id}`).click();
-  await expect.poll(async () => (await saved(page)).entities.length).toBe(4);
+  await expect.poll(async () => (await saved(page)).entities.length).toBe(5);
   const instance = (await saved(page)).entities.find((e) => e.name === 'Textured cube instance')!;
   expect(instance.id).not.toBe(child.id);
   expect(getPrimitive(instance)?.textureAssetId).toBe(asset.id);
@@ -189,5 +189,5 @@ test('removing a UI canvas also removes its screen-space frame without touching 
   await page.getByTestId('confirm-remove-object-button').click();
   await expect.poll(async () => (await saved(page)).uiControls?.length).toBe(0);
   await expect(page.locator('.game-ui-element.is-canvas-root')).toHaveCount(0);
-  expect((await saved(page)).entities.map((entity: SceneEntity) => entity.id)).toEqual(['player']);
+  expect((await saved(page)).entities.map((entity: SceneEntity) => entity.id)).toEqual(['player', 'starter-cube']);
 });

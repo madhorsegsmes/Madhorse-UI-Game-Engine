@@ -150,6 +150,31 @@ export function createDefaultPlayer(): SceneEntity {
   };
 }
 
+export const STARTER_CUBE_ID = 'starter-cube';
+
+export function createStarterCube(): SceneEntity {
+  const physics = createPhysicsComponent('static');
+  physics.size = { x: 10, y: 10, z: 10 };
+  return {
+    id: STARTER_CUBE_ID,
+    name: 'Cube',
+    parentId: null,
+    active: true,
+    components: [
+      createTransformComponent(),
+      {
+        id: crypto.randomUUID(),
+        type: 'primitive',
+        enabled: true,
+        shape: 'cube',
+        color: '#c1c4cb',
+        textureAssetId: null,
+      },
+      physics,
+    ],
+  };
+}
+
 export function createSceneEntity(
   name: string,
   position: Vector3 = { x: 50, y: 50, z: 0 },

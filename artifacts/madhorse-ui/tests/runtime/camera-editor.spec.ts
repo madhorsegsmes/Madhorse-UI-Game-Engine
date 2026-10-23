@@ -84,7 +84,8 @@ test('phone camera controls save pose, update Canvas and reset north without cre
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('madhorse-ui-projects') ?? '[]')[0]);
   await expect.poll(async () => (await saved())?.gameCamera?.fov).toBe(65);
   const custom = await saved();
-  expect(custom.entities).toHaveLength(1);
+  expect(custom.entities).toHaveLength(2);
+  expect(custom.entities.find((entity: { id: string }) => entity.id === 'starter-cube')?.name).toBe('Cube');
   expect(custom.gameCamera.position.x).toBe(3);
   expect(custom.gameCamera.position.y).toBe(7);
   expect(custom.gameCamera.rotation.z).toBeCloseTo(30);
@@ -104,7 +105,7 @@ test('phone camera controls save pose, update Canvas and reset north without cre
   await page.getByTestId('scene-camera-reset-north').click();
   await expect.poll(async () => (await saved()).gameCamera.placement).toBe('north');
   expect((await saved()).gameCamera.position.z).toBeLessThan((await saved()).gameCamera.target.z);
-  expect((await saved()).entities).toHaveLength(1);
+  expect((await saved()).entities).toHaveLength(2);
   // Viewing the primary must not accidentally leave an additional camera active.
   await page.evaluate(() => {
     const projects = JSON.parse(localStorage.getItem('madhorse-ui-projects')!);
@@ -125,4 +126,5 @@ test('phone camera controls save pose, update Canvas and reset north without cre
   await page.getByTestId('scene-camera-view-through').click();
   await expect(page.locator('[data-camera-fov]')).toHaveAttribute('data-camera-fov', '50');
   await expect.poll(async () => (await saved()).activeCameraId).toBeNull();
+  expect((await saved()).entities).toHaveLength(3);
 });
