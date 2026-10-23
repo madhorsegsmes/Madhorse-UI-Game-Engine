@@ -17,7 +17,7 @@ test('starter cube is a centered, editable 3D solid with a matching static colli
   geometry.dispose();
 });
 
-test('fresh projects show the cube in 3D, keep the 2D player intact, and migrate only once', async ({ page }) => {
+test('fresh projects show the cube in 3D, keep the 2D player intact, and migrate only once', async ({ page, browser }) => {
   await page.goto('/');
   const project = () => page.evaluate(() => {
     const stored = localStorage.getItem('madhorse-ui-projects');
@@ -55,7 +55,8 @@ test('fresh projects show the cube in 3D, keep the 2D player intact, and migrate
   await expect.poll(async () => (await project()).starterSceneInitialized).toBe(true);
   expect((await project()).entities.map((entity: { id: string }) => entity.id)).toEqual(['player']);
 
-  const customPage = await page.context().newPage();
+  const customContext = await browser.newContext();
+  const customPage = await customContext.newPage();
   const customCameraProject = {
     id: 'custom-camera-project', name: 'Untitled Project', gameType: '', savedAt: '',
     scripts: [], entities: [createDefaultPlayer()], assets: [],
@@ -70,5 +71,5 @@ test('fresh projects show the cube in 3D, keep the 2D player intact, and migrate
   await expect.poll(async () => (await customProject()).starterSceneInitialized).toBe(true);
   expect((await customProject()).entities.map((entity: { id: string }) => entity.id)).toEqual(['player']);
   expect((await customProject()).gameCamera.placement).toBe('custom');
-  await customPage.close();
+  await customContext.close();
 });
