@@ -15,6 +15,7 @@ type Props = {
   assets: ProjectAsset[];
   canRename?: boolean;
   canEditActive?: boolean;
+  embedded?: boolean;
   onClose: () => void;
   onSave: (entity: SceneEntity) => void;
 };
@@ -73,7 +74,15 @@ function toDraft(entity: SceneEntity) {
   return values;
 }
 
-export function SceneObjectInspector({ entity, assets, canRename = true, canEditActive = true, onClose, onSave }: Props) {
+export function SceneObjectInspector({
+  entity,
+  assets,
+  canRename = true,
+  canEditActive = true,
+  embedded = false,
+  onClose,
+  onSave,
+}: Props) {
   const [name, setName] = useState(entity.name);
   const [values, setValues] = useState(() => toDraft(entity));
   const [error, setError] = useState('');
@@ -229,11 +238,9 @@ export function SceneObjectInspector({ entity, assets, canRename = true, canEdit
     ...items.map(asset => ({ value: asset.id, label: asset.name })),
   ];
 
-  return (
-    <div className="fresh-dialog-backdrop" role="presentation" onMouseDown={event => {
-      if (event.target === event.currentTarget) onClose();
-    }}>
-      <form className="fresh-settings-dialog fresh-object-inspector" role="dialog" aria-modal="true"
+  const form = (
+      <form className={`fresh-settings-dialog fresh-object-inspector${embedded ? ' is-embedded' : ''}`}
+        role={embedded ? 'region' : 'dialog'} aria-modal={embedded ? undefined : true}
         aria-labelledby="fresh-object-inspector-title" onSubmit={handleSubmit}
         onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); onClose(); } }}>
         <header className="fresh-object-inspector-header">
@@ -241,7 +248,7 @@ export function SceneObjectInspector({ entity, assets, canRename = true, canEdit
             <span className="fresh-dialog-kicker">OBJECT SETTINGS</span>
             <h3 id="fresh-object-inspector-title">{entity.name}</h3>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close object settings">×</button>
+          <button type="button" onClick={onClose} aria-label={embedded ? 'Back to settings' : 'Close object settings'}>×</button>
         </header>
         {canRename && (
           <label className="fresh-setting">
@@ -320,10 +327,17 @@ export function SceneObjectInspector({ entity, assets, canRename = true, canEdit
         </>)}
         {error && <p className="fresh-inspector-error" role="alert">{error}</p>}
         <div className="fresh-dialog-actions">
-          <button type="button" className="is-quiet" onClick={onClose}>Cancel</button>
+          <button type="button" className="is-quiet" onClick={onClose}>{embedded ? 'Back to Settings' : 'Cancel'}</button>
           <button type="submit">Save Changes</button>
         </div>
       </form>
+  );
+  if (embedded) return form;
+  return (
+    <div className="fresh-dialog-backdrop" role="presentation" onMouseDown={event => {
+      if (event.target === event.currentTarget) onClose();
+    }}>
+      {form}
     </div>
   );
 }

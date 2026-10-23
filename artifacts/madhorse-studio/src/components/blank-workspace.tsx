@@ -83,12 +83,59 @@ function SceneViewport({
   );
 }
 
+function SettingsPanel({
+  entity,
+  assets,
+  onReturnToSettings,
+  onSaveEntity,
+}: {
+  entity: SceneEntity | null;
+  assets: ProjectAsset[];
+  onReturnToSettings: () => void;
+  onSaveEntity: (entity: SceneEntity) => void;
+}) {
+  return (
+    <div className="fresh-settings-panel">
+      <button
+        type="button"
+        className="fresh-settings-panel-tab"
+        aria-pressed={!entity}
+        onClick={onReturnToSettings}
+      >
+        Settings
+      </button>
+      {entity ? (
+        <SceneObjectInspector
+          key={entity.id}
+          embedded
+          entity={entity}
+          assets={assets}
+          canRename={entity.id !== PRIMARY_CAMERA_ID}
+          canEditActive={entity.id !== PRIMARY_CAMERA_ID}
+          onClose={onReturnToSettings}
+          onSave={onSaveEntity}
+        />
+      ) : (
+        <div className="fresh-settings-sections">
+          <section className="fresh-settings-category">
+            <h2>Functions &amp; Controls</h2>
+          </section>
+          <section className="fresh-settings-category">
+            <h2>System Presets &amp; Data</h2>
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HierarchyPanel({
   entities,
   camera,
   assets,
   selection,
   onSelect,
+  onEditEntity,
   actions,
 }: {
   entities: SceneEntity[];
@@ -96,13 +143,12 @@ function HierarchyPanel({
   assets: ProjectAsset[];
   selection: string | null;
   onSelect: (id: string) => void;
+  onEditEntity: (entity: SceneEntity) => void;
   actions: HierarchyActions;
 }) {
   const [sceneExpanded, setSceneExpanded] = useState(true);
   const [menuPoint, setMenuPoint] = useState<HierarchyMenuPoint | null>(null);
-  const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
   const sceneEntities = [primaryCameraEntity(camera), ...entities];
-  const editingEntity = sceneEntities.find(entity => entity.id === editingEntityId) ?? null;
 
   function openMenu(x: number, y: number) {
     setMenuPoint({
@@ -152,7 +198,7 @@ function HierarchyPanel({
           depth={0}
           selection={selection}
           onSelect={onSelect}
-          onEdit={entity => { onSelect(entity.id); setEditingEntityId(entity.id); }}
+          onEdit={onEditEntity}
         />
       )}
       <p className="fresh-hierarchy-help">Right-click to add objects. Double-tap an object to rename it and edit its settings.</p>
@@ -177,20 +223,6 @@ function HierarchyPanel({
           onCreateEmpty={actions.onCreateEmpty}
         />
       )}
-      {editingEntity && (
-        <SceneObjectInspector
-          key={editingEntity.id}
-          entity={editingEntity}
-          assets={assets}
-          canRename={editingEntity.id !== PRIMARY_CAMERA_ID}
-          canEditActive={editingEntity.id !== PRIMARY_CAMERA_ID}
-          onClose={() => setEditingEntityId(null)}
-          onSave={entity => {
-            actions.onUpdateEntity(entity);
-            setEditingEntityId(null);
-          }}
-        />
-      )}
     </aside>
   );
 }
@@ -205,7 +237,6 @@ type HierarchyActions = {
   onCreateCamera: () => void;
   onCreateLight: () => void;
   onCreateEffect: () => void;
-  onUpdateEntity: (entity: SceneEntity) => void;
   onCreateUI: (kind: UIElementKind) => void;
   onCreateScript: () => void;
   onCreateTexture: () => void;
@@ -327,11 +358,15 @@ export default function BlankWorkspace() {
   const [animations, setAnimations] = useState<GameAnimation[]>(savedWorkspace.animations ?? []);
   const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
   const [selection, setSelection] = useState<string | null>('starter-cube');
+  const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
   const [previewEntities, setPreviewEntities] = useState<SceneEntity[] | null>(null);
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [status, setStatus] = useState('');
   const importInputRef = useRef<HTMLInputElement>(null);
   const textureInputRef = useRef<HTMLInputElement>(null);
+  const editingEntity = editingEntityId === PRIMARY_CAMERA_ID
+    ? primaryCameraEntity(camera)
+    : entities.find(entity => entity.id === editingEntityId) ?? null;
 
   useEffect(() => {
     try {
@@ -640,7 +675,6 @@ export default function BlankWorkspace() {
     onCreateCamera: createCameraEntity,
     onCreateLight: createLightEntity,
     onCreateEffect: createEffectEntity,
-    onUpdateEntity: updateEntitySettings,
     onCreateUI: createUIEntity,
     onCreateScript: createScriptEntity,
     onCreateTexture: () => { void makeTexture(); },
@@ -697,10 +731,19 @@ export default function BlankWorkspace() {
               assets={assets}
               selection={selection}
               onSelect={setSelection}
+              onEditEntity={entity => {
+                setSelection(entity.id);
+                setEditingEntityId(entity.id);
+              }}
               actions={hierarchyActions}
             />
           ) : number === 3 ? (
-            <h2 className="fresh-panel-heading">Settings Functions and Controls</h2>
+            <SettingsPanel
+              entity={editingEntity}
+              assets={assets}
+              onReturnToSettings={() => setEditingEntityId(null)}
+              onSaveEntity={updateEntitySettings}
+            />
           ) : <span className="fresh-panel-number" aria-hidden="true">{number}</span>}
         </section>
       ))}
