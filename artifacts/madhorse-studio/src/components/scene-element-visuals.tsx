@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
-import { getCamera, getLight, getPrimitive, getUICanvas, type SceneEntity, type PrimitiveComponent } from '@/lib/scene-model';
+import { getCamera, getEffect, getLight, getPrimitive, getUICanvas, type SceneEntity, type PrimitiveComponent } from '@/lib/scene-model';
 import { beginSystemActivity } from '@/lib/system-activity';
 import { createPrimitiveGeometry } from '@/lib/scene-view-geometry';
 import { CameraModel } from './camera-model';
@@ -10,6 +10,7 @@ export function SceneElementVisual({ entity, gameView, active, assetUrls, onErro
 }) {
   const primitive = getPrimitive(entity);
   const light = getLight(entity);
+  const effect = getEffect(entity);
   if (primitive) return primitive.enabled ? <PrimitiveVisual active={active} primitive={primitive} url={primitive.textureAssetId ? assetUrls[primitive.textureAssetId] : undefined} onError={onError} /> : null;
   if (light) return light.enabled ? <>
     {active && (light.kind === 'ambient' ? <ambientLight color={light.color} intensity={light.intensity} />
@@ -17,6 +18,16 @@ export function SceneElementVisual({ entity, gameView, active, assetUrls, onErro
       : <pointLight color={light.color} intensity={light.intensity} decay={2} />)}
     {!gameView && <mesh><sphereGeometry args={[.22, 12, 8]} /><meshBasicMaterial color={light.color} wireframe /></mesh>}
   </> : null;
+  if (effect?.enabled && !gameView) return <group>
+    <mesh>
+      <sphereGeometry args={[0.32, 12, 8]} />
+      <meshBasicMaterial color={effect.color} wireframe transparent opacity={0.85} />
+    </mesh>
+    <mesh rotation={[Math.PI / 2, 0, 0]}>
+      <torusGeometry args={[0.48, 0.025, 6, 24]} />
+      <meshBasicMaterial color={effect.color} transparent opacity={Math.min(1, effect.intensity / 2)} />
+    </mesh>
+  </group>;
   if (gameView) return null;
   const camera = getCamera(entity);
   if (camera) return <CameraModel fov={camera.fov} selected={selected} primary={primary} active={active && camera.enabled} />;

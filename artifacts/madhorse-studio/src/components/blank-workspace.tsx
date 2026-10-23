@@ -103,7 +103,7 @@ function HierarchyPanel({
   function openMenu(x: number, y: number) {
     setMenuPoint({
       x: Math.max(8, Math.min(x, window.innerWidth - 290)),
-      y: Math.max(8, Math.min(y, window.innerHeight - 90)),
+      y: Math.max(8, Math.min(y, window.innerHeight - 8)),
     });
   }
 
@@ -164,6 +164,7 @@ function HierarchyPanel({
           onUseAsset={actions.onUseAsset}
           onCreateCamera={actions.onCreateCamera}
           onCreateLight={actions.onCreateLight}
+          onCreateEffect={actions.onCreateEffect}
           onCreateUI={actions.onCreateUI}
           onCreateScript={actions.onCreateScript}
           onCreateTexture={actions.onCreateTexture}
@@ -184,6 +185,7 @@ type HierarchyActions = {
   onUseAsset: (asset: ProjectAsset) => void;
   onCreateCamera: () => void;
   onCreateLight: () => void;
+  onCreateEffect: () => void;
   onCreateUI: (kind: UIElementKind) => void;
   onCreateScript: () => void;
   onCreateTexture: () => void;
@@ -483,6 +485,15 @@ export default function BlankWorkspace() {
     addEntity(entity);
   }, [addEntity, nextPosition]);
 
+  const createEffectEntity = useCallback(() => {
+    const entity = createSceneEntity('Particle Effect', nextPosition(), null, false);
+    entity.components = [
+      ...entity.components.filter(component => component.type === 'transform'),
+      { id: crypto.randomUUID(), type: 'effect', enabled: true, color: '#ee72ff', intensity: 1 },
+    ];
+    addEntity(entity);
+  }, [addEntity, nextPosition]);
+
   const createUIEntity = useCallback((kind: UIElementKind) => {
     const name = uiElementKinds.find(item => item.value === kind)?.label ?? 'UI Canvas';
     const entity = createSceneEntity(name, nextPosition(), null, false);
@@ -564,6 +575,7 @@ export default function BlankWorkspace() {
     onUseAsset: createAssetEntity,
     onCreateCamera: createCameraEntity,
     onCreateLight: createLightEntity,
+    onCreateEffect: createEffectEntity,
     onCreateUI: createUIEntity,
     onCreateScript: createScriptEntity,
     onCreateTexture: () => { void makeTexture(); },

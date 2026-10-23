@@ -107,8 +107,11 @@ export type UICanvasComponent = {
 export type ScriptComponent = {
   id: string; type: 'script'; enabled: boolean; scriptId: string;
 };
+export type EffectComponent = {
+  id: string; type: 'effect'; enabled: boolean; color: string; intensity: number;
+};
 export type SceneComponent = TransformComponent | SpriteRendererComponent | ModelRendererComponent |
-  PrimitiveComponent | LightComponent | CameraComponent | UICanvasComponent | PhysicsComponent | ScriptComponent;
+  PrimitiveComponent | LightComponent | CameraComponent | UICanvasComponent | PhysicsComponent | ScriptComponent | EffectComponent;
 
 export type SceneEntity = {
   id: string;
@@ -272,6 +275,9 @@ export function getUICanvas(entity: SceneEntity) {
 export function getScriptComponent(entity: SceneEntity) {
   return entity.components.find((entry): entry is ScriptComponent => entry.type === 'script');
 }
+export function getEffect(entity: SceneEntity) {
+  return entity.components.find((entry): entry is EffectComponent => entry.type === 'effect');
+}
 
 export function isSceneComponent(value: unknown): value is SceneComponent {
   if (!value || typeof value !== 'object') return false;
@@ -315,6 +321,9 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
     (item.frame === undefined || typeof item.frame === 'boolean');
   if (item.type === 'script') return typeof item.enabled === 'boolean' &&
     typeof item.scriptId === 'string' && item.scriptId.length > 0 && item.scriptId.length <= 128;
+  if (item.type === 'effect') return typeof item.enabled === 'boolean' &&
+    /^#[0-9a-f]{6}$/i.test(item.color) && Number.isFinite(item.intensity) &&
+    item.intensity >= 0 && item.intensity <= 10;
   if (item.type === 'physics') return isPhysicsComponent(item);
   return false;
 }
@@ -366,7 +375,7 @@ export function isSceneEntity(value: unknown): value is SceneEntity {
       typeof entity.active !== 'boolean' || !Array.isArray(entity.components) ||
       !entity.components.every(isSceneComponent)) return false;
   return entity.components.filter((component) => component.type === 'transform').length === 1 &&
-    ['primitive', 'light', 'camera', 'uiCanvas', 'script'].every((type) => entity.components.filter((component) => component.type === type).length <= 1) &&
+    ['primitive', 'light', 'camera', 'uiCanvas', 'script', 'effect'].every((type) => entity.components.filter((component) => component.type === type).length <= 1) &&
     entity.components.filter((component) => component.type === 'spriteRenderer').length <= 1 &&
     entity.components.filter((component) => component.type === 'modelRenderer').length <= 1 &&
     entity.components.filter((component) => component.type === 'physics').length <= 1;

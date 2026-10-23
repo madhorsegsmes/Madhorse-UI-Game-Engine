@@ -1,5 +1,5 @@
 import {
-  getCamera, getLight, getModelRenderer, getPrimitive, getSpriteRenderer, getUICanvas,
+  getCamera, getEffect, getLight, getModelRenderer, getPrimitive, getSpriteRenderer, getUICanvas,
   primitiveShapes, type SceneEntity,
 } from '@/lib/scene-model';
 import './scene-object-glyph.css';
@@ -7,6 +7,7 @@ import './scene-object-glyph.css';
 export function getSceneObjectTypeLabel(entity: SceneEntity) {
   if (getCamera(entity)) return 'Camera';
   if (getLight(entity)) return 'Light';
+  if (getEffect(entity)) return 'Particle Effect';
   if (getUICanvas(entity)) return 'UI Canvas';
   const primitive = getPrimitive(entity);
   if (primitive?.shape === 'terrain') return 'Terrain';
@@ -20,6 +21,7 @@ export function SceneObjectGlyph({ entity }: { entity: SceneEntity }) {
   const primitive = getPrimitive(entity);
   const kind = getCamera(entity) ? 'camera'
     : getLight(entity) ? 'light'
+      : getEffect(entity) ? 'effect'
       : getUICanvas(entity) ? 'canvas'
         : primitive?.shape ?? (getModelRenderer(entity)?.enabled ? 'model' : getSpriteRenderer(entity)?.enabled ? 'sprite' : 'object');
 
@@ -42,6 +44,11 @@ export function SceneObjectGlyph({ entity }: { entity: SceneEntity }) {
         <>
           <circle cx="12" cy="10.5" r="4.1" />
           <path d="M9.7 14.1v3.2h4.6v-3.2M10.2 19h3.6M12 1.8v1.8M3.6 4.5 5 5.8M2 11h1.8m14.2-5.2 1.4-1.3M20.2 11H22" />
+        </>
+      ) : kind === 'effect' ? (
+        <>
+          <path d="m12 2 1.6 6.2L20 5l-3.2 6.4L23 13l-6.2 1.6L20 21l-6.4-3.2L12 24l-1.6-6.2L4 21l3.2-6.4L1 13l6.2-1.6L4 5l6.4 3.2L12 2Z" />
+          <circle cx="12" cy="13" r="2.2" />
         </>
       ) : kind === 'canvas' ? (
         <>

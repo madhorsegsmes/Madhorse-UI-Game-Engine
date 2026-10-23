@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { SVGRenderer } from 'three/examples/jsm/renderers/SVGRenderer.js';
-import { getCamera, getLight, getPrimitive, getSpriteRenderer, getUICanvas, getWorldTransform, type SceneEntity } from '@/lib/scene-model';
+import { getCamera, getEffect, getLight, getPrimitive, getSpriteRenderer, getUICanvas, getWorldTransform, type SceneEntity } from '@/lib/scene-model';
 import { createPrimitiveGeometry } from '@/lib/scene-view-geometry';
 import type { GameCamera } from '@/lib/game-camera';
 import type { SceneRenderSettings } from '@/hooks/use-scene-render-settings';
@@ -99,6 +99,7 @@ export function SceneRenderFallback({
       scene.add(object);
 
       const primitive = getPrimitive(entity);
+      const effect = getEffect(entity);
       if (primitive?.enabled) {
         const geometry = createPrimitiveGeometry(primitive.shape, primitive.terrainSettings);
         const material = new THREE.MeshStandardMaterial({
@@ -119,6 +120,21 @@ export function SceneRenderFallback({
         }
         geometries.add(geometry);
         materials.add(material);
+      } else if (effect?.enabled) {
+        const marker = new THREE.Mesh(
+          new THREE.SphereGeometry(0.32, 12, 8),
+          new THREE.MeshBasicMaterial({ color: effect.color, wireframe: true, transparent: true, opacity: 0.85 }),
+        );
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(0.48, 0.025, 6, 24),
+          new THREE.MeshBasicMaterial({ color: effect.color, transparent: true, opacity: Math.min(1, effect.intensity / 2) }),
+        );
+        ring.rotation.x = Math.PI / 2;
+        object.add(marker, ring);
+        geometries.add(marker.geometry);
+        materials.add(marker.material);
+        geometries.add(ring.geometry);
+        materials.add(ring.material);
       } else {
         const uiCanvas = getUICanvas(entity);
         const sprite = getSpriteRenderer(entity);

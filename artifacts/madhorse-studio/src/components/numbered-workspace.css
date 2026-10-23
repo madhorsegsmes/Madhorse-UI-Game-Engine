@@ -318,6 +318,7 @@ body::-webkit-scrollbar-thumb,
   flex-direction: column;
   gap: 2px;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 6px;
   border: 1px solid #7951a5;
   background: linear-gradient(160deg, #1b1227, #0d0b14 72%);

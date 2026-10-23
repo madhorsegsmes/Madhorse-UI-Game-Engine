@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
   primitiveShapes,
   uiElementKinds,
@@ -23,6 +23,7 @@ type Props = {
   onUseAsset: (asset: ProjectAsset) => void;
   onCreateCamera: () => void;
   onCreateLight: () => void;
+  onCreateEffect: () => void;
   onCreateUI: (kind: UIElementKind) => void;
   onCreateScript: () => void;
   onCreateTexture: () => void;
@@ -36,6 +37,7 @@ const menuEntries = [
   ['import', 'Import Asset'],
   ['camera', 'Create Camera'],
   ['light', 'Create Light'],
+  ['effect', 'Create Effect'],
   ['ui', 'Create UI'],
   ['script', 'Create Script'],
   ['texture', 'Create Texture'],
@@ -49,6 +51,17 @@ export function HierarchyContextMenu(props: Props) {
   const [showAssets, setShowAssets] = useState(false);
   const [showUIOptions, setShowUIOptions] = useState(false);
   const [dialog, setDialog] = useState<'plane' | 'terrain' | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState(props.point);
+
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    if (!menu) return;
+    const bounds = menu.getBoundingClientRect();
+    const left = Math.max(8, Math.min(props.point.x, window.innerWidth - bounds.width - 8));
+    const top = Math.max(8, Math.min(props.point.y, window.innerHeight - bounds.height - 8));
+    setPosition(current => current.x === left && current.y === top ? current : { x: left, y: top });
+  }, [props.point, showShapes, showAssets, showUIOptions]);
 
   function run(action: () => void) {
     props.onClose();
@@ -64,8 +77,9 @@ export function HierarchyContextMenu(props: Props) {
         onClick={props.onClose}
       />
       <div
+        ref={menuRef}
         className="fresh-context-menu"
-        style={{ left: props.point.x, top: props.point.y }}
+        style={{ left: position.x, top: position.y }}
         role="menu"
         aria-label="Hierarchy actions"
         onContextMenu={event => event.preventDefault()}
@@ -146,6 +160,7 @@ export function HierarchyContextMenu(props: Props) {
               if (key === 'upload-texture') return run(props.onUploadTexture);
               if (key === 'camera') return run(props.onCreateCamera);
               if (key === 'light') return run(props.onCreateLight);
+               if (key === 'effect') return run(props.onCreateEffect);
               if (key === 'script') return run(props.onCreateScript);
               if (key === 'texture') return run(props.onCreateTexture);
               if (key === 'timeline') return run(props.onOpenTimeline);
