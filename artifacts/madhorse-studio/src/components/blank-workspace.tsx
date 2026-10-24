@@ -70,6 +70,7 @@ import {
 } from '@/lib/fresh-workspace-storage';
 import { loadLocalAsset, saveLocalAsset } from '@/lib/asset-vault';
 import { MadBuilderMenu } from './mad-builder-menu';
+import { EgoAssistant } from './ego-assistant';
 import { useMadBuilder, type BuilderDocument } from '@/hooks/use-mad-builder';
 import type { BuilderMessage } from './mad-builder-contract';
 import type { MadBuilderPlan } from '@workspace/api-client-react';
@@ -77,6 +78,7 @@ import { capturePrefab, instantiatePrefab, type ScenePrefab } from '@/lib/scene-
 import { compileBuilderPlan } from '@/lib/mad-builder';
 import { createMadBuilderModulePlan, getMadBuilderModule, type MadBuilderModuleId } from '@/lib/mad-builder-modules';
 import type { UIControlElement } from '@/lib/ui-controls';
+import { createEgoUiKit as createEgoGameUiKit, egoPlayerActions, type EgoGameType, getEgoGameLabel } from '@/lib/ego-ui-kit';
 import { advanceSceneRuntime, createSceneRuntimeState } from '@/lib/scene-play-runtime';
 import { publishStatus } from '@/lib/system-diagnostics';
 import { playAudioPreview, stopAudioPlayback, unlockSceneAudio } from '@/lib/game-audio';
@@ -1599,6 +1601,7 @@ export default function BlankWorkspace() {
   const characterFrameToken = useRef(0);
   const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
   const [madBuilderOpen, setMadBuilderOpen] = useState(false);
+  const [egoOpen, setEgoOpen] = useState(false);
   const [starterKitsOpen, setStarterKitsOpen] = useState(false);
   const [storyboardOpen, setStoryboardOpen] = useState(false);
   const [modelingOpen, setModelingOpen] = useState(false);
@@ -1690,6 +1693,62 @@ export default function BlankWorkspace() {
     setUIControls(next.uiControls ?? []);
   }, []);
 
+  const buildEgoUiKit = useCallback((gameType: EgoGameType, gameVision: string) => {
+    const current = builderProjectRef.current;
+    const controls = createEgoGameUiKit(gameType, current.uiControls?.length ?? 0, gameVision);
+    setBuilderProjects([{
+      ...current,
+      uiControls: [...(current.uiControls ?? []), ...controls],
+    }]);
+    setStatus(`Ego added ${controls.length} editable ${getEgoGameLabel(gameType)} UI elements to the project.`);
+  }, [setBuilderProjects]);
+
+  const addEgoGameFunctions = useCallback((gameType: EgoGameType) => {
+    const current = builderProjectRef.current;
+    const existingPlayer = current.entities.find(entity =>
+      entity.components.some(component => component.type === 'characterController' && component.role === 'player'));
+    const player = existingPlayer ?? createSceneEntity('Player', { x: 0, y: 0, z: 0 }, null, false);
+    const components: SceneComponent[] = [...player.components];
+    const createdPlayer = !existingPlayer;
+    if (createdPlayer) {
+      components.push(createPluginComponent('character-controller-player', current.uiControls?.length ?? 0).component);
+    }
+    const usedKeys = new Set(components.flatMap(component =>
+      component.type === 'playerAction' && component.enabled ? [component.key]
+        : component.type === 'gameFeature' && component.enabled && component.kind === 'interact'
+          ? [String(component.settings.key)] : [],
+    ));
+    const addedActions: string[] = [];
+    for (const action of egoPlayerActions[gameType]) {
+      if (components.some(component => component.type === 'playerAction' && component.action === action)) continue;
+      const result = createPluginComponent(`action-${action}` as PluginComponentKind, current.uiControls?.length ?? 0);
+      if (result.component.type !== 'playerAction') continue;
+      if (usedKeys.has(result.component.key)) {
+        const freeKey = actionKeyOptions.find(key => !usedKeys.has(key));
+        if (!freeKey) continue;
+        result.component.key = freeKey;
+      }
+      usedKeys.add(result.component.key);
+      components.push(result.component);
+      addedActions.push(playerActionDefinitions[result.component.action].label);
+    }
+    if (createdPlayer && !components.some(component => component.type === 'physics')) {
+      components.push(createPluginComponent('physics', current.uiControls?.length ?? 0).component);
+    }
+    if (!createdPlayer && addedActions.length === 0) {
+      setStatus(`The Player already has the supported ${getEgoGameLabel(gameType)} functions.`);
+      return;
+    }
+    const updatedPlayer = { ...player, components };
+    const entities = existingPlayer
+      ? current.entities.map(entity => entity.id === player.id ? updatedPlayer : entity)
+      : [...current.entities, updatedPlayer];
+    setBuilderProjects([{ ...current, entities }]);
+    setSelection(player.id);
+    setEditingEntityId(null);
+    setStatus(`Ego added ${addedActions.length ? addedActions.join(', ') : 'a Player Controller'}${createdPlayer ? ' and created a Player object' : ''}.`);
+  }, [setBuilderProjects]);
+
   const addMadBuilderModule = useCallback((moduleId: MadBuilderModuleId) => {
     try {
       const current = builderProjectRef.current;
@@ -1769,8 +1828,10 @@ export default function BlankWorkspace() {
 
   useEffect(() => {
     const url = new URL(window.location.href);
-    if (url.searchParams.get('open') !== 'mad-builder') return;
-    setMadBuilderOpen(true);
+    const requestedTool = url.searchParams.get('open');
+    if (requestedTool === 'mad-builder') setMadBuilderOpen(true);
+    else if (requestedTool === 'ego') setEgoOpen(true);
+    else return;
     url.searchParams.delete('open');
     window.history.replaceState(
       window.history.state,
@@ -1780,13 +1841,16 @@ export default function BlankWorkspace() {
   }, []);
 
   useEffect(() => {
-    if (!madBuilderOpen) return;
+    if (!madBuilderOpen && !egoOpen) return;
     const closeOnEscape = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape') setMadBuilderOpen(false);
+      if (event.key === 'Escape') {
+        setMadBuilderOpen(false);
+        setEgoOpen(false);
+      }
     };
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [madBuilderOpen]);
+  }, [madBuilderOpen, egoOpen]);
 
   useEffect(() => {
     try {
@@ -2852,6 +2916,26 @@ export default function BlankWorkspace() {
               onClose={() => setMadBuilderOpen(false)}
               onAddModule={addMadBuilderModule}
               {...madBuilder}
+            />
+          </section>
+        </div>,
+        document.body,
+      )}
+      {egoOpen && createPortal(
+        <div
+          className="fresh-mad-builder-backdrop"
+          role="presentation"
+          onClick={event => {
+            if (event.target === event.currentTarget) setEgoOpen(false);
+          }}
+        >
+          <section className="fresh-mad-builder-dialog ego-dialog" role="dialog" aria-modal="true" aria-label="Ego assistant">
+            <EgoAssistant
+              project={builderProject}
+              animationsCount={animations.length}
+              onBuildUi={buildEgoUiKit}
+              onAddFunctions={addEgoGameFunctions}
+              onClose={() => setEgoOpen(false)}
             />
           </section>
         </div>,
