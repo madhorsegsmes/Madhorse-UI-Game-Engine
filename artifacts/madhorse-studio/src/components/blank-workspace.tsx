@@ -227,6 +227,8 @@ function SettingsPanel({
   assetUrls,
   builderBuildLogs,
   onReturnToSettings,
+  onOpenSceneStarterKits,
+  onOpenStoryboard,
   onOpenCharacterBuilder,
   onOpenTimeline,
   onCreateScriptableObject,
@@ -245,6 +247,8 @@ function SettingsPanel({
   assetUrls: Record<string, string>;
   builderBuildLogs: MadBuilderBuildLog[];
   onReturnToSettings: () => void;
+  onOpenSceneStarterKits: () => void;
+  onOpenStoryboard: () => void;
   onOpenCharacterBuilder: () => void;
   onOpenTimeline: () => void;
   onCreateScriptableObject: () => void;
@@ -530,6 +534,17 @@ function SettingsPanel({
               <ChevronDown size={14} aria-hidden="true" />
             </summary>
             <div className="fresh-settings-category-content">
+              <h3>Scene tools</h3>
+              <div className="fresh-panel-project-tools" role="group" aria-label="Scene tools">
+                <button type="button" data-testid="button-scene-starter-kits" onClick={onOpenSceneStarterKits}>
+                  <strong>Scene Starter Kits</strong>
+                  <span>FPS · RPG · Puzzle</span>
+                </button>
+                <button type="button" data-testid="button-open-storyboard" onClick={onOpenStoryboard}>
+                  <strong>Storyboard</strong>
+                  <span>Plan mission steps</span>
+                </button>
+              </div>
               <div className="fresh-plugin-tabs" role="group" aria-label="Plugin categories">
                 <button
                   type="button"
@@ -2683,6 +2698,8 @@ export default function BlankWorkspace() {
               assetUrls={assetUrls}
               builderBuildLogs={builderBuildLogs}
               onReturnToSettings={() => setEditingEntityId(null)}
+              onOpenSceneStarterKits={() => setStarterKitsOpen(true)}
+              onOpenStoryboard={() => setStoryboardOpen(true)}
               onOpenCharacterBuilder={openCharacterBuilder}
               onOpenTimeline={openTimeline}
               onCreateScriptableObject={createScriptableObject}
@@ -2698,16 +2715,6 @@ export default function BlankWorkspace() {
             <>
               <span className="fresh-panel-number" aria-hidden="true">4</span>
               <div className="fresh-panel-builder-entry">
-                <div className="fresh-panel-project-tools">
-                  <button type="button" data-testid="button-scene-starter-kits" onClick={() => setStarterKitsOpen(true)}>
-                    <strong>Scene Starter Kits</strong>
-                    <span>FPS · RPG · Puzzle</span>
-                  </button>
-                  <button type="button" data-testid="button-open-storyboard" onClick={() => setStoryboardOpen(true)}>
-                    <strong>Storyboard</strong>
-                    <span>Plan mission steps</span>
-                  </button>
-                </div>
                 <button type="button" className="fresh-builder-open" onClick={() => setMadBuilderOpen(true)}>
                   <strong>Mad Builder</strong>
                   <span>Open builder</span>
