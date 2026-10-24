@@ -119,7 +119,7 @@ function SettingsPanel({
     'game-system' | 'player-functions' | 'game-controls' | 'player-controls' | 'npc-functions' | 'npc-controls'
   >('game-system');
   const [activePluginTab, setActivePluginTab] = useState<
-    'game' | 'player-npc' | 'system' | 'lighting' | 'animation' | 'asset' | 'effect' | 'triggers' | 'trigger-zones' | 'skybox' | 'character-builder' | 'behavior-builder' | 'script'
+    'game' | 'player-npc' | 'system' | 'lighting' | 'animation' | 'asset' | 'effect' | 'triggers' | 'trigger-zones' | 'skybox' | 'character-builder' | 'behavior-builder' | 'script' | 'third-person-character'
   >('game');
   const [gameTypeLibraryPdfUrl, setGameTypeLibraryPdfUrl] = useState<string | null>(null);
   const gameTypeLibraryPdfUrlRef = useRef<string | null>(null);
@@ -473,6 +473,16 @@ function SettingsPanel({
                   onClick={() => setActivePluginTab('script')}
                 >
                   Script Plugin
+                </button>
+                <button
+                  type="button"
+                  className="fresh-plugin-tab"
+                  aria-pressed={activePluginTab === 'third-person-character'}
+                  data-active={activePluginTab === 'third-person-character'}
+                  data-testid="button-third-person-character-plugin"
+                  onClick={() => setActivePluginTab('third-person-character')}
+                >
+                  Third-Person Character Plugin
                 </button>
               </div>
             </div>
