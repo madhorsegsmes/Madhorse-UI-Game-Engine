@@ -94,6 +94,121 @@ export interface MadBuilderInput {
   assets: BuilderAsset[];
 }
 
+export interface MultiplayerPlayerInput {
+  /**
+     * @minLength 1
+     * @maxLength 32
+     */
+  playerName: string;
+}
+
+export interface MultiplayerSessionMember {
+  /** @pattern ^[A-Z2-9]{6}$ */
+  code: string;
+  playerId: string;
+  /**
+     * @minLength 40
+     * @maxLength 64
+     */
+  token: string;
+  /**
+     * @minLength 1
+     * @maxLength 32
+     */
+  playerName: string;
+  isHost: boolean;
+}
+
+export interface MultiplayerVector3 {
+  /**
+     * @minimum -10000
+     * @maximum 10000
+     */
+  x: number;
+  /**
+     * @minimum -10000
+     * @maximum 10000
+     */
+  y: number;
+  /**
+     * @minimum -10000
+     * @maximum 10000
+     */
+  z: number;
+}
+
+export interface MultiplayerTransform {
+  position: MultiplayerVector3;
+  rotation: MultiplayerVector3;
+  scale: MultiplayerVector3;
+}
+
+export interface MultiplayerObjectState {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  entityId: string;
+  transform: MultiplayerTransform;
+}
+
+export interface MultiplayerPlayerState {
+  id: string;
+  /**
+     * @minLength 1
+     * @maxLength 32
+     */
+  name: string;
+  isHost: boolean;
+  transform: MultiplayerTransform | null;
+}
+
+export interface MultiplayerGameEvent {
+  /** @minimum 1 */
+  sequence: number;
+  /**
+     * @minLength 1
+     * @maxLength 32
+     */
+  playerName: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  name: string;
+  /** @maxLength 300 */
+  payload: string;
+  /** @minimum 0 */
+  sentAt: number;
+}
+
+export interface MultiplayerEventInput {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  name: string;
+  /** @maxLength 300 */
+  payload?: string;
+}
+
+export interface MultiplayerStateUpdate {
+  playerTransform: MultiplayerTransform | null;
+  /** @maxItems 256 */
+  objects: MultiplayerObjectState[];
+}
+
+export interface MultiplayerSessionState {
+  /** @pattern ^[A-Z2-9]{6}$ */
+  code: string;
+  /** @maxItems 8 */
+  players: MultiplayerPlayerState[];
+  /** @maxItems 256 */
+  objects: MultiplayerObjectState[];
+  /** @maxItems 50 */
+  events: MultiplayerGameEvent[];
+}
+
 export interface BuilderVector {
   /**
      * @minimum -20

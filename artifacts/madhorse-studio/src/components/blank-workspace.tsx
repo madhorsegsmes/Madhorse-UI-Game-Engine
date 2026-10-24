@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import type { Dispatch, DragEvent as ReactDragEvent, KeyboardEvent, MouseEvent, SetStateAction } from 'react';
 import { Activity, ArrowDown, ArrowUp, Box, Check, ChevronDown, ChevronRight, Circle, Cone, Cylinder, Diamond, Donut, Droplets, FileDown, Folder, Grid2X2, ImagePlus, Mountain, Octagon, Palette, Pentagon, Shapes, Trash2, Triangle, Trees, Upload, Waves, Wrench } from 'lucide-react';
 import { ScenePreview3D, type SceneFrameRequest, type SceneTransformMode } from './scene-preview-3d';
+import { MultiplayerToolsPanel } from './multiplayer-tools-panel';
 import {
   createScriptableObjectAsset,
   createPhysicsComponent,
@@ -41,6 +42,13 @@ import {
   type WaterLevel,
 } from '@/lib/terrain-authoring';
 import { SceneObjectGlyph } from './scene-object-glyph';
+import {
+  getMultiplayerRoomState,
+  syncMultiplayerRoomState,
+  type MultiplayerRoomMember,
+  type MultiplayerRoomSnapshot,
+} from '@/lib/multiplayer-client';
+import { applyMultiplayerSnapshot, createMultiplayerUpdate } from '@/lib/multiplayer-runtime';
 import { SceneObjectInspector } from './scene-object-inspector';
 import { SystemDebugger } from './system-debugger';
 import {
@@ -217,6 +225,10 @@ function SettingsPanel({
   onEditScriptableObject,
   onAttachPlugin,
   onSaveEntity,
+  multiplayerMember,
+  multiplayerSnapshot,
+  onMultiplayerMemberChange,
+  onMultiplayerSnapshotChange,
 }: {
   entity: SceneEntity | null;
   selectedEntity: SceneEntity | null;
@@ -231,6 +243,10 @@ function SettingsPanel({
   onEditScriptableObject: (assetId: string) => void;
   onAttachPlugin: (entityId: string, kind: PluginComponentKind) => void;
   onSaveEntity: (entity: SceneEntity) => void;
+  multiplayerMember: MultiplayerRoomMember | null;
+  multiplayerSnapshot: MultiplayerRoomSnapshot | null;
+  onMultiplayerMemberChange: (member: MultiplayerRoomMember | null) => void;
+  onMultiplayerSnapshotChange: Dispatch<SetStateAction<MultiplayerRoomSnapshot | null>>;
 }) {
   const [activeFunctionTab, setActiveFunctionTab] = useState<FunctionTabId>('game-system');
   const [activePluginTab, setActivePluginTab] = useState<PluginCategory>('game');
@@ -527,6 +543,16 @@ function SettingsPanel({
                 <button
                   type="button"
                   className="fresh-plugin-tab"
+                  aria-pressed={activePluginTab === 'multiplayer'}
+                  data-active={activePluginTab === 'multiplayer'}
+                  data-testid="button-multiplayer-plugins"
+                  onClick={() => setActivePluginTab('multiplayer')}
+                >
+                  Multiplayer Plugins
+                </button>
+                <button
+                  type="button"
+                  className="fresh-plugin-tab"
                   aria-pressed={activePluginTab === 'player-npc'}
                   data-active={activePluginTab === 'player-npc'}
                   data-testid="button-player-npc-plugins"
@@ -669,6 +695,14 @@ function SettingsPanel({
                         : 'Pick an object name first. Then press Add or drag a tool onto it.'}
                     </>}
                 </p>
+                {activePluginTab === 'multiplayer' && (
+                  <MultiplayerToolsPanel
+                    member={multiplayerMember}
+                    snapshot={multiplayerSnapshot}
+                    onMemberChange={onMultiplayerMemberChange}
+                    onSnapshotChange={onMultiplayerSnapshotChange}
+                  />
+                )}
                 {pluginEntries.length ? (
                   <div className="fresh-plugin-cards" aria-live="polite">
                     {pluginEntries.map(entry => {
@@ -1536,6 +1570,16 @@ export default function BlankWorkspace() {
   const [runtimeEntities, setRuntimeEntities] = useState<SceneEntity[] | null>(null);
   const [runtimeCamera, setRuntimeCamera] = useState<GameCamera | null>(null);
   const [runtimeActionHud, setRuntimeActionHud] = useState<ActionHud | null>(null);
+  const [multiplayerMember, setMultiplayerMember] = useState<MultiplayerRoomMember | null>(null);
+  const [multiplayerSnapshot, setMultiplayerSnapshot] = useState<MultiplayerRoomSnapshot | null>(null);
+  const multiplayerMemberRef = useRef<MultiplayerRoomMember | null>(null);
+  const multiplayerSnapshotRef = useRef<MultiplayerRoomSnapshot | null>(null);
+  const runtimeEntitiesRef = useRef<SceneEntity[] | null>(null);
+  const playTestOnRef = useRef(false);
+  multiplayerMemberRef.current = multiplayerMember;
+  multiplayerSnapshotRef.current = multiplayerSnapshot;
+  runtimeEntitiesRef.current = runtimeEntities ?? entities;
+  playTestOnRef.current = playTestOn;
   const runtimeInputRef = useRef({ held: new Set<string>(), tapped: new Set<string>() });
   const playPlayerRef = useRef<string | null>(null);
   const onRuntimeKey = useCallback((key: string, down: boolean) => {
@@ -1784,7 +1828,11 @@ export default function BlankWorkspace() {
       };
       runtimeInput.tapped.clear();
       const result = advanceSceneRuntime(liveEntities, delta, elapsed, input, runtimeState);
-      liveEntities = result.entities;
+      liveEntities = applyMultiplayerSnapshot(
+        result.entities,
+        multiplayerSnapshotRef.current,
+        multiplayerMemberRef.current?.playerId ?? null,
+      );
       result.events.forEach(event => setStatus(event.message));
       result.audioEvents.forEach(event => {
         if (event.clipAssetId && !assetUrls[event.clipAssetId]) return;
@@ -1868,6 +1916,49 @@ export default function BlankWorkspace() {
       releaseKeys();
     };
   }, [assetUrls, camera, entities, onRuntimeKey, playTestOn]);
+
+  useEffect(() => {
+    if (!multiplayerMember) {
+      multiplayerSnapshotRef.current = null;
+      setMultiplayerSnapshot(null);
+      return;
+    }
+
+    let disposed = false;
+    let inFlight = false;
+    const syncRoom = async () => {
+      if (disposed || inFlight) return;
+      inFlight = true;
+      try {
+        const playing = playTestOnRef.current;
+        const sceneEntities = runtimeEntitiesRef.current ?? [];
+        const snapshot = playing
+          ? await syncMultiplayerRoomState(multiplayerMember, createMultiplayerUpdate(sceneEntities, true))
+          : await getMultiplayerRoomState(multiplayerMember);
+        if (!disposed) {
+          multiplayerSnapshotRef.current = snapshot;
+          setMultiplayerSnapshot(snapshot);
+        }
+      } catch (error) {
+        if (!disposed) {
+          const message = error instanceof Error ? error.message : "The room connection was interrupted.";
+          setStatus(`Multiplayer: ${message}`);
+          if (message.includes("room has ended") || message.includes("membership is no longer valid")) {
+            setMultiplayerMember(null);
+          }
+        }
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    void syncRoom();
+    const timer = window.setInterval(() => void syncRoom(), 500);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [multiplayerMember]);
 
   useEffect(() => {
     let disposed = false;
@@ -1978,7 +2069,7 @@ export default function BlankWorkspace() {
       return;
     }
     const existingController = target.components.find(component => component.type === 'characterController');
-    if ((kind === 'player-walk-audio' || kind.startsWith('action-') || kind === 'feature-interact' ||
+    if ((kind === 'player-walk-audio' || kind === 'multiplayer-player' || kind.startsWith('action-') || kind === 'feature-interact' ||
         kind === 'feature-inventory' || kind === 'feature-status-bar') && existingController?.role === 'npc') {
       setStatus('This plugin needs a player object. Select a player, or change this object’s controller role to Player.');
       return;
@@ -1990,7 +2081,7 @@ export default function BlankWorkspace() {
     }
     const created = createPluginComponent(kind, uiControls.length);
     const components: SceneComponent[] = [created.component];
-    const addPlayerController = (kind === 'player-walk-audio' || kind.startsWith('action-') ||
+    const addPlayerController = (kind === 'player-walk-audio' || kind === 'multiplayer-player' || kind.startsWith('action-') ||
       kind === 'feature-interact' || kind === 'feature-inventory' || kind === 'feature-status-bar') && !existingController;
     if (addPlayerController) {
       components.push(createPluginComponent(kind === 'action-race' ? 'character-controller-third-person' : 'character-controller-player', 0).component);
@@ -2510,6 +2601,10 @@ export default function BlankWorkspace() {
               onEditScriptableObject={setEditingScriptableObjectId}
               onAttachPlugin={attachPluginComponent}
               onSaveEntity={updateEntitySettings}
+              multiplayerMember={multiplayerMember}
+              multiplayerSnapshot={multiplayerSnapshot}
+              onMultiplayerMemberChange={setMultiplayerMember}
+              onMultiplayerSnapshotChange={setMultiplayerSnapshot}
             />
           ) : number === 4 ? (
             <>

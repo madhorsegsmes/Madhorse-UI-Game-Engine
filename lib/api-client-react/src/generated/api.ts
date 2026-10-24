@@ -27,7 +27,13 @@ import type {
 import type {
   HealthStatus,
   MadBuilderInput,
-  MadBuilderPlan
+  MadBuilderPlan,
+  MultiplayerEventInput,
+  MultiplayerGameEvent,
+  MultiplayerPlayerInput,
+  MultiplayerSessionMember,
+  MultiplayerSessionState,
+  MultiplayerStateUpdate
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -240,3 +246,539 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+
+
+
+
+
+
+export const getCreateMultiplayerSessionUrl = () => {
+
+
+
+
+  return `/api/multiplayer/sessions`
+}
+
+/**
+ * @summary Host a temporary multiplayer room
+ */
+export const createMultiplayerSession = async (multiplayerPlayerInput: MultiplayerPlayerInput, options?: Parameters<typeof customFetch>[1]): Promise<MultiplayerSessionMember> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<MultiplayerSessionMember>(getCreateMultiplayerSessionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(multiplayerPlayerInput)
+  }
+);}
+
+
+
+
+
+export const getCreateMultiplayerSessionMutationKey = () => ['createMultiplayerSession'] as const;
+
+export const getCreateMultiplayerSessionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMultiplayerSession>>, TError,CreateMultiplayerSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createMultiplayerSession>>, TError,CreateMultiplayerSessionMutationVariables, TContext> => {
+
+const mutationKey = getCreateMultiplayerSessionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createMultiplayerSession>>, CreateMultiplayerSessionMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createMultiplayerSession(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateMultiplayerSessionMutationResult = NonNullable<Awaited<ReturnType<typeof createMultiplayerSession>>>
+    export type CreateMultiplayerSessionMutationBody = BodyType<MultiplayerPlayerInput>
+    export type CreateMultiplayerSessionMutationError = ErrorType<void>
+    export type CreateMultiplayerSessionMutationVariables = {data: BodyType<MultiplayerPlayerInput>}
+
+    /**
+ * @summary Host a temporary multiplayer room
+ */
+export const useCreateMultiplayerSession = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMultiplayerSession>>, TError,CreateMultiplayerSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createMultiplayerSession>>,
+        TError,
+        CreateMultiplayerSessionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateMultiplayerSessionMutationOptions(options), queryClient);
+    }
+
+export const getJoinMultiplayerSessionUrl = (code: string,) => {
+
+
+
+
+  return `/api/multiplayer/sessions/${code}/join`
+}
+
+/**
+ * @summary Join a room using its invite code
+ */
+export const joinMultiplayerSession = async (code: string,
+    multiplayerPlayerInput: MultiplayerPlayerInput, options?: Parameters<typeof customFetch>[1]): Promise<MultiplayerSessionMember> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<MultiplayerSessionMember>(getJoinMultiplayerSessionUrl(code),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(multiplayerPlayerInput)
+  }
+);}
+
+
+
+
+
+export const getJoinMultiplayerSessionMutationKey = () => ['joinMultiplayerSession'] as const;
+
+export const getJoinMultiplayerSessionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinMultiplayerSession>>, TError,JoinMultiplayerSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof joinMultiplayerSession>>, TError,JoinMultiplayerSessionMutationVariables, TContext> => {
+
+const mutationKey = getJoinMultiplayerSessionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof joinMultiplayerSession>>, JoinMultiplayerSessionMutationVariables> = (props) => {
+          const {code,data} = props ?? {};
+
+          return  joinMultiplayerSession(code,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type JoinMultiplayerSessionMutationResult = NonNullable<Awaited<ReturnType<typeof joinMultiplayerSession>>>
+    export type JoinMultiplayerSessionMutationBody = BodyType<MultiplayerPlayerInput>
+    export type JoinMultiplayerSessionMutationError = ErrorType<void>
+    export type JoinMultiplayerSessionMutationVariables = {code: string;data: BodyType<MultiplayerPlayerInput>}
+
+    /**
+ * @summary Join a room using its invite code
+ */
+export const useJoinMultiplayerSession = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinMultiplayerSession>>, TError,JoinMultiplayerSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof joinMultiplayerSession>>,
+        TError,
+        JoinMultiplayerSessionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getJoinMultiplayerSessionMutationOptions(options), queryClient);
+    }
+
+export const getGetMultiplayerSessionStateUrl = (code: string,) => {
+
+
+
+
+  return `/api/multiplayer/sessions/${code}/state`
+}
+
+/**
+ * @summary Read the room roster, synchronized objects, and recent events
+ */
+export const getMultiplayerSessionState = async (code: string, options?: Parameters<typeof customFetch>[1]): Promise<MultiplayerSessionState> => {
+
+  return customFetch<MultiplayerSessionState>(getGetMultiplayerSessionStateUrl(code),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMultiplayerSessionStateQueryKey = (code: string,) => {
+    return [
+    `/api/multiplayer/sessions/${code}/state`
+    ] as const;
+    }
+
+
+export const getGetMultiplayerSessionStateQueryOptions = <TData = Awaited<ReturnType<typeof getMultiplayerSessionState>>, TError = ErrorType<void>>(code: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMultiplayerSessionState>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMultiplayerSessionStateQueryKey(code);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMultiplayerSessionState>>> = ({ signal }) => getMultiplayerSessionState(code, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: code !== null && code !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMultiplayerSessionState>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetMultiplayerSessionStateQueryResult = NonNullable<Awaited<ReturnType<typeof getMultiplayerSessionState>>>
+export type GetMultiplayerSessionStateQueryError = ErrorType<void>
+
+
+export function useGetMultiplayerSessionState<TData = Awaited<ReturnType<typeof getMultiplayerSessionState>>, TError = ErrorType<void>>(
+ code: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMultiplayerSessionState>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMultiplayerSessionState>>,
+          TError,
+          Awaited<ReturnType<typeof getMultiplayerSessionState>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMultiplayerSessionState<TData = Awaited<ReturnType<typeof getMultiplayerSessionState>>, TError = ErrorType<void>>(
+ code: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMultiplayerSessionState>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMultiplayerSessionState>>,
+          TError,
+          Awaited<ReturnType<typeof getMultiplayerSessionState>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMultiplayerSessionState<TData = Awaited<ReturnType<typeof getMultiplayerSessionState>>, TError = ErrorType<void>>(
+ code: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMultiplayerSessionState>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Read the room roster, synchronized objects, and recent events
+ */
+
+export function useGetMultiplayerSessionState<TData = Awaited<ReturnType<typeof getMultiplayerSessionState>>, TError = ErrorType<void>>(
+ code: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMultiplayerSessionState>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetMultiplayerSessionStateQueryOptions(code,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSyncMultiplayerSessionStateUrl = (code: string,) => {
+
+
+
+
+  return `/api/multiplayer/sessions/${code}/state`
+}
+
+/**
+ * @summary Update the current player's transform and synchronized objects
+ */
+export const syncMultiplayerSessionState = async (code: string,
+    multiplayerStateUpdate: MultiplayerStateUpdate, options?: Parameters<typeof customFetch>[1]): Promise<MultiplayerSessionState> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<MultiplayerSessionState>(getSyncMultiplayerSessionStateUrl(code),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(multiplayerStateUpdate)
+  }
+);}
+
+
+
+
+
+export const getSyncMultiplayerSessionStateMutationKey = () => ['syncMultiplayerSessionState'] as const;
+
+export const getSyncMultiplayerSessionStateMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncMultiplayerSessionState>>, TError,SyncMultiplayerSessionStateMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncMultiplayerSessionState>>, TError,SyncMultiplayerSessionStateMutationVariables, TContext> => {
+
+const mutationKey = getSyncMultiplayerSessionStateMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncMultiplayerSessionState>>, SyncMultiplayerSessionStateMutationVariables> = (props) => {
+          const {code,data} = props ?? {};
+
+          return  syncMultiplayerSessionState(code,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncMultiplayerSessionStateMutationResult = NonNullable<Awaited<ReturnType<typeof syncMultiplayerSessionState>>>
+    export type SyncMultiplayerSessionStateMutationBody = BodyType<MultiplayerStateUpdate>
+    export type SyncMultiplayerSessionStateMutationError = ErrorType<void>
+    export type SyncMultiplayerSessionStateMutationVariables = {code: string;data: BodyType<MultiplayerStateUpdate>}
+
+    /**
+ * @summary Update the current player's transform and synchronized objects
+ */
+export const useSyncMultiplayerSessionState = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncMultiplayerSessionState>>, TError,SyncMultiplayerSessionStateMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof syncMultiplayerSessionState>>,
+        TError,
+        SyncMultiplayerSessionStateMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSyncMultiplayerSessionStateMutationOptions(options), queryClient);
+    }
+
+export const getSendMultiplayerGameEventUrl = (code: string,) => {
+
+
+
+
+  return `/api/multiplayer/sessions/${code}/events`
+}
+
+/**
+ * @summary Send a small game event to everyone in the room
+ */
+export const sendMultiplayerGameEvent = async (code: string,
+    multiplayerEventInput: MultiplayerEventInput, options?: Parameters<typeof customFetch>[1]): Promise<MultiplayerGameEvent> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<MultiplayerGameEvent>(getSendMultiplayerGameEventUrl(code),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(multiplayerEventInput)
+  }
+);}
+
+
+
+
+
+export const getSendMultiplayerGameEventMutationKey = () => ['sendMultiplayerGameEvent'] as const;
+
+export const getSendMultiplayerGameEventMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendMultiplayerGameEvent>>, TError,SendMultiplayerGameEventMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendMultiplayerGameEvent>>, TError,SendMultiplayerGameEventMutationVariables, TContext> => {
+
+const mutationKey = getSendMultiplayerGameEventMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendMultiplayerGameEvent>>, SendMultiplayerGameEventMutationVariables> = (props) => {
+          const {code,data} = props ?? {};
+
+          return  sendMultiplayerGameEvent(code,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendMultiplayerGameEventMutationResult = NonNullable<Awaited<ReturnType<typeof sendMultiplayerGameEvent>>>
+    export type SendMultiplayerGameEventMutationBody = BodyType<MultiplayerEventInput>
+    export type SendMultiplayerGameEventMutationError = ErrorType<void>
+    export type SendMultiplayerGameEventMutationVariables = {code: string;data: BodyType<MultiplayerEventInput>}
+
+    /**
+ * @summary Send a small game event to everyone in the room
+ */
+export const useSendMultiplayerGameEvent = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendMultiplayerGameEvent>>, TError,SendMultiplayerGameEventMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof sendMultiplayerGameEvent>>,
+        TError,
+        SendMultiplayerGameEventMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSendMultiplayerGameEventMutationOptions(options), queryClient);
+    }
+
+export const getLeaveMultiplayerSessionUrl = (code: string,) => {
+
+
+
+
+  return `/api/multiplayer/sessions/${code}/leave`
+}
+
+/**
+ * @summary Leave a multiplayer room
+ */
+export const leaveMultiplayerSession = async (code: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getLeaveMultiplayerSessionUrl(code),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getLeaveMultiplayerSessionMutationKey = () => ['leaveMultiplayerSession'] as const;
+
+export const getLeaveMultiplayerSessionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof leaveMultiplayerSession>>, TError,LeaveMultiplayerSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof leaveMultiplayerSession>>, TError,LeaveMultiplayerSessionMutationVariables, TContext> => {
+
+const mutationKey = getLeaveMultiplayerSessionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof leaveMultiplayerSession>>, LeaveMultiplayerSessionMutationVariables> = (props) => {
+          const {code} = props ?? {};
+
+          return  leaveMultiplayerSession(code,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LeaveMultiplayerSessionMutationResult = NonNullable<Awaited<ReturnType<typeof leaveMultiplayerSession>>>
+
+    export type LeaveMultiplayerSessionMutationError = ErrorType<void>
+    export type LeaveMultiplayerSessionMutationVariables = {code: string}
+
+    /**
+ * @summary Leave a multiplayer room
+ */
+export const useLeaveMultiplayerSession = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof leaveMultiplayerSession>>, TError,LeaveMultiplayerSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof leaveMultiplayerSession>>,
+        TError,
+        LeaveMultiplayerSessionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getLeaveMultiplayerSessionMutationOptions(options), queryClient);
+    }

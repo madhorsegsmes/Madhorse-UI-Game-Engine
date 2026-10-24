@@ -138,6 +138,13 @@ export type EffectComponent = {
 export type SkyboxComponent = {
   id: string; type: 'skybox'; enabled: boolean; color: string;
 };
+export type MultiplayerPluginComponent = {
+  id: string;
+  type: 'multiplayerPlugin';
+  enabled: boolean;
+  mode: 'player' | 'object' | 'event';
+  eventName: string;
+};
 export type CharacterControllerComponent = {
   id: string;
   type: 'characterController';
@@ -162,7 +169,8 @@ export type TriggerZoneComponent = {
 };
 export type SceneComponent = TransformComponent | SpriteRendererComponent | ModelRendererComponent |
   PrimitiveComponent | LightComponent | CameraComponent | UICanvasComponent | PhysicsComponent | ScriptComponent |
-  GameAudioComponent | PlayerWalkAudioComponent | PlayerActionComponent | GameFeatureComponent | EffectComponent | SkyboxComponent | CharacterControllerComponent | TriggerZoneComponent;
+  GameAudioComponent | PlayerWalkAudioComponent | PlayerActionComponent | GameFeatureComponent | EffectComponent |
+  SkyboxComponent | MultiplayerPluginComponent | CharacterControllerComponent | TriggerZoneComponent;
 
 export type SceneEntity = {
   id: string;
@@ -415,6 +423,9 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
   if (item.type === 'effect') return typeof item.enabled === 'boolean' &&
     /^#[0-9a-f]{6}$/i.test(item.color) && Number.isFinite(item.intensity) &&
     item.intensity >= 0 && item.intensity <= 10;
+  if (item.type === 'multiplayerPlugin') return typeof item.enabled === 'boolean' &&
+    ['player', 'object', 'event'].includes(item.mode) &&
+    typeof item.eventName === 'string' && item.eventName.length <= 80;
   if (item.type === 'characterController') return typeof item.enabled === 'boolean' &&
     (item.role === 'player' || item.role === 'npc') &&
     (item.perspective === 'top-down' || item.perspective === 'third-person') &&

@@ -162,3 +162,500 @@ export const PlanMadBuilderResponse = zod.object({
 export const HealthCheckResponse = zod.object({
   "status": zod.string()
 })
+
+
+/**
+ * @summary Host a temporary multiplayer room
+ */
+export const createMultiplayerSessionBodyPlayerNameMax = 32;
+
+
+
+export const CreateMultiplayerSessionBody = zod.object({
+  "playerName": zod.string().min(1).max(createMultiplayerSessionBodyPlayerNameMax)
+})
+
+export const createMultiplayerSessionResponseCodeRegExp = new RegExp('^[A-Z2-9]{6}$');
+export const createMultiplayerSessionResponseTokenMin = 40;
+export const createMultiplayerSessionResponseTokenMax = 64;
+
+export const createMultiplayerSessionResponsePlayerNameMax = 32;
+
+
+
+export const CreateMultiplayerSessionResponse = zod.object({
+  "code": zod.string().regex(createMultiplayerSessionResponseCodeRegExp),
+  "playerId": zod.string().uuid(),
+  "token": zod.string().min(createMultiplayerSessionResponseTokenMin).max(createMultiplayerSessionResponseTokenMax),
+  "playerName": zod.string().min(1).max(createMultiplayerSessionResponsePlayerNameMax),
+  "isHost": zod.boolean()
+})
+
+
+/**
+ * @summary Join a room using its invite code
+ */
+export const joinMultiplayerSessionPathCodeRegExp = new RegExp('^[A-Z2-9]{6}$');
+
+
+export const JoinMultiplayerSessionParams = zod.object({
+  "code": zod.coerce.string().regex(joinMultiplayerSessionPathCodeRegExp)
+})
+
+export const joinMultiplayerSessionBodyPlayerNameMax = 32;
+
+
+
+export const JoinMultiplayerSessionBody = zod.object({
+  "playerName": zod.string().min(1).max(joinMultiplayerSessionBodyPlayerNameMax)
+})
+
+export const joinMultiplayerSessionResponseCodeRegExp = new RegExp('^[A-Z2-9]{6}$');
+export const joinMultiplayerSessionResponseTokenMin = 40;
+export const joinMultiplayerSessionResponseTokenMax = 64;
+
+export const joinMultiplayerSessionResponsePlayerNameMax = 32;
+
+
+
+export const JoinMultiplayerSessionResponse = zod.object({
+  "code": zod.string().regex(joinMultiplayerSessionResponseCodeRegExp),
+  "playerId": zod.string().uuid(),
+  "token": zod.string().min(joinMultiplayerSessionResponseTokenMin).max(joinMultiplayerSessionResponseTokenMax),
+  "playerName": zod.string().min(1).max(joinMultiplayerSessionResponsePlayerNameMax),
+  "isHost": zod.boolean()
+})
+
+
+/**
+ * @summary Read the room roster, synchronized objects, and recent events
+ */
+export const getMultiplayerSessionStatePathCodeRegExp = new RegExp('^[A-Z2-9]{6}$');
+
+
+export const GetMultiplayerSessionStateParams = zod.object({
+  "code": zod.coerce.string().regex(getMultiplayerSessionStatePathCodeRegExp)
+})
+
+export const getMultiplayerSessionStateResponseCodeRegExp = new RegExp('^[A-Z2-9]{6}$');
+export const getMultiplayerSessionStateResponsePlayersItemNameMax = 32;
+
+export const getMultiplayerSessionStateResponsePlayersItemTransformOnePositionXMin = -10000;
+export const getMultiplayerSessionStateResponsePlayersItemTransformOnePositionXMax = 10000;
+
+export const getMultiplayerSessionStateResponsePlayersItemTransformOnePositionYMin = -10000;
+export const getMultiplayerSessionStateResponsePlayersItemTransformOnePositionYMax = 10000;
+
+export const getMultiplayerSessionStateResponsePlayersItemTransformOnePositionZMin = -10000;
+export const getMultiplayerSessionStateResponsePlayersItemTransformOnePositionZMax = 10000;
+
+export const getMultiplayerSessionStateResponsePlayersItemTransformOneRotationXMin = -10000;
+export const getMultiplayerSessionStateResponsePlayersItemTransformOneRotationXMax = 10000;
+
+export const getMultiplayerSessionStateResponsePlayersItemTransformOneRotationYMin = -10000;
+export const getMultiplayerSessionStateResponsePlayersItemTransformOneRotationYMax = 10000;
+
+export const getMultiplayerSessionStateResponsePlayersItemTransformOneRotationZMin = -10000;
+export const getMultiplayerSessionStateResponsePlayersItemTransformOneRotationZMax = 10000;
+
+export const getMultiplayerSessionStateResponsePlayersItemTransformOneScaleXMin = -10000;
+export const getMultiplayerSessionStateResponsePlayersItemTransformOneScaleXMax = 10000;
+
+export const getMultiplayerSessionStateResponsePlayersItemTransformOneScaleYMin = -10000;
+export const getMultiplayerSessionStateResponsePlayersItemTransformOneScaleYMax = 10000;
+
+export const getMultiplayerSessionStateResponsePlayersItemTransformOneScaleZMin = -10000;
+export const getMultiplayerSessionStateResponsePlayersItemTransformOneScaleZMax = 10000;
+
+export const getMultiplayerSessionStateResponsePlayersMax = 8;
+
+export const getMultiplayerSessionStateResponseObjectsItemEntityIdMax = 100;
+
+export const getMultiplayerSessionStateResponseObjectsItemTransformPositionXMin = -10000;
+export const getMultiplayerSessionStateResponseObjectsItemTransformPositionXMax = 10000;
+
+export const getMultiplayerSessionStateResponseObjectsItemTransformPositionYMin = -10000;
+export const getMultiplayerSessionStateResponseObjectsItemTransformPositionYMax = 10000;
+
+export const getMultiplayerSessionStateResponseObjectsItemTransformPositionZMin = -10000;
+export const getMultiplayerSessionStateResponseObjectsItemTransformPositionZMax = 10000;
+
+export const getMultiplayerSessionStateResponseObjectsItemTransformRotationXMin = -10000;
+export const getMultiplayerSessionStateResponseObjectsItemTransformRotationXMax = 10000;
+
+export const getMultiplayerSessionStateResponseObjectsItemTransformRotationYMin = -10000;
+export const getMultiplayerSessionStateResponseObjectsItemTransformRotationYMax = 10000;
+
+export const getMultiplayerSessionStateResponseObjectsItemTransformRotationZMin = -10000;
+export const getMultiplayerSessionStateResponseObjectsItemTransformRotationZMax = 10000;
+
+export const getMultiplayerSessionStateResponseObjectsItemTransformScaleXMin = -10000;
+export const getMultiplayerSessionStateResponseObjectsItemTransformScaleXMax = 10000;
+
+export const getMultiplayerSessionStateResponseObjectsItemTransformScaleYMin = -10000;
+export const getMultiplayerSessionStateResponseObjectsItemTransformScaleYMax = 10000;
+
+export const getMultiplayerSessionStateResponseObjectsItemTransformScaleZMin = -10000;
+export const getMultiplayerSessionStateResponseObjectsItemTransformScaleZMax = 10000;
+
+export const getMultiplayerSessionStateResponseObjectsMax = 256;
+
+
+export const getMultiplayerSessionStateResponseEventsItemPlayerNameMax = 32;
+
+export const getMultiplayerSessionStateResponseEventsItemNameMax = 80;
+
+export const getMultiplayerSessionStateResponseEventsItemPayloadMax = 300;
+
+export const getMultiplayerSessionStateResponseEventsItemSentAtMin = 0;
+
+export const getMultiplayerSessionStateResponseEventsMax = 50;
+
+
+
+export const GetMultiplayerSessionStateResponse = zod.object({
+  "code": zod.string().regex(getMultiplayerSessionStateResponseCodeRegExp),
+  "players": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string().min(1).max(getMultiplayerSessionStateResponsePlayersItemNameMax),
+  "isHost": zod.boolean(),
+  "transform": zod.union([zod.object({
+  "position": zod.object({
+  "x": zod.number().min(getMultiplayerSessionStateResponsePlayersItemTransformOnePositionXMin).max(getMultiplayerSessionStateResponsePlayersItemTransformOnePositionXMax),
+  "y": zod.number().min(getMultiplayerSessionStateResponsePlayersItemTransformOnePositionYMin).max(getMultiplayerSessionStateResponsePlayersItemTransformOnePositionYMax),
+  "z": zod.number().min(getMultiplayerSessionStateResponsePlayersItemTransformOnePositionZMin).max(getMultiplayerSessionStateResponsePlayersItemTransformOnePositionZMax)
+}),
+  "rotation": zod.object({
+  "x": zod.number().min(getMultiplayerSessionStateResponsePlayersItemTransformOneRotationXMin).max(getMultiplayerSessionStateResponsePlayersItemTransformOneRotationXMax),
+  "y": zod.number().min(getMultiplayerSessionStateResponsePlayersItemTransformOneRotationYMin).max(getMultiplayerSessionStateResponsePlayersItemTransformOneRotationYMax),
+  "z": zod.number().min(getMultiplayerSessionStateResponsePlayersItemTransformOneRotationZMin).max(getMultiplayerSessionStateResponsePlayersItemTransformOneRotationZMax)
+}),
+  "scale": zod.object({
+  "x": zod.number().min(getMultiplayerSessionStateResponsePlayersItemTransformOneScaleXMin).max(getMultiplayerSessionStateResponsePlayersItemTransformOneScaleXMax),
+  "y": zod.number().min(getMultiplayerSessionStateResponsePlayersItemTransformOneScaleYMin).max(getMultiplayerSessionStateResponsePlayersItemTransformOneScaleYMax),
+  "z": zod.number().min(getMultiplayerSessionStateResponsePlayersItemTransformOneScaleZMin).max(getMultiplayerSessionStateResponsePlayersItemTransformOneScaleZMax)
+})
+}),zod.null()])
+})).max(getMultiplayerSessionStateResponsePlayersMax),
+  "objects": zod.array(zod.object({
+  "entityId": zod.string().min(1).max(getMultiplayerSessionStateResponseObjectsItemEntityIdMax),
+  "transform": zod.object({
+  "position": zod.object({
+  "x": zod.number().min(getMultiplayerSessionStateResponseObjectsItemTransformPositionXMin).max(getMultiplayerSessionStateResponseObjectsItemTransformPositionXMax),
+  "y": zod.number().min(getMultiplayerSessionStateResponseObjectsItemTransformPositionYMin).max(getMultiplayerSessionStateResponseObjectsItemTransformPositionYMax),
+  "z": zod.number().min(getMultiplayerSessionStateResponseObjectsItemTransformPositionZMin).max(getMultiplayerSessionStateResponseObjectsItemTransformPositionZMax)
+}),
+  "rotation": zod.object({
+  "x": zod.number().min(getMultiplayerSessionStateResponseObjectsItemTransformRotationXMin).max(getMultiplayerSessionStateResponseObjectsItemTransformRotationXMax),
+  "y": zod.number().min(getMultiplayerSessionStateResponseObjectsItemTransformRotationYMin).max(getMultiplayerSessionStateResponseObjectsItemTransformRotationYMax),
+  "z": zod.number().min(getMultiplayerSessionStateResponseObjectsItemTransformRotationZMin).max(getMultiplayerSessionStateResponseObjectsItemTransformRotationZMax)
+}),
+  "scale": zod.object({
+  "x": zod.number().min(getMultiplayerSessionStateResponseObjectsItemTransformScaleXMin).max(getMultiplayerSessionStateResponseObjectsItemTransformScaleXMax),
+  "y": zod.number().min(getMultiplayerSessionStateResponseObjectsItemTransformScaleYMin).max(getMultiplayerSessionStateResponseObjectsItemTransformScaleYMax),
+  "z": zod.number().min(getMultiplayerSessionStateResponseObjectsItemTransformScaleZMin).max(getMultiplayerSessionStateResponseObjectsItemTransformScaleZMax)
+})
+})
+})).max(getMultiplayerSessionStateResponseObjectsMax),
+  "events": zod.array(zod.object({
+  "sequence": zod.number().int().min(1),
+  "playerName": zod.string().min(1).max(getMultiplayerSessionStateResponseEventsItemPlayerNameMax),
+  "name": zod.string().min(1).max(getMultiplayerSessionStateResponseEventsItemNameMax),
+  "payload": zod.string().max(getMultiplayerSessionStateResponseEventsItemPayloadMax),
+  "sentAt": zod.number().int().min(getMultiplayerSessionStateResponseEventsItemSentAtMin)
+})).max(getMultiplayerSessionStateResponseEventsMax)
+})
+
+
+/**
+ * @summary Update the current player's transform and synchronized objects
+ */
+export const syncMultiplayerSessionStatePathCodeRegExp = new RegExp('^[A-Z2-9]{6}$');
+
+
+export const SyncMultiplayerSessionStateParams = zod.object({
+  "code": zod.coerce.string().regex(syncMultiplayerSessionStatePathCodeRegExp)
+})
+
+export const syncMultiplayerSessionStateBodyPlayerTransformOnePositionXMin = -10000;
+export const syncMultiplayerSessionStateBodyPlayerTransformOnePositionXMax = 10000;
+
+export const syncMultiplayerSessionStateBodyPlayerTransformOnePositionYMin = -10000;
+export const syncMultiplayerSessionStateBodyPlayerTransformOnePositionYMax = 10000;
+
+export const syncMultiplayerSessionStateBodyPlayerTransformOnePositionZMin = -10000;
+export const syncMultiplayerSessionStateBodyPlayerTransformOnePositionZMax = 10000;
+
+export const syncMultiplayerSessionStateBodyPlayerTransformOneRotationXMin = -10000;
+export const syncMultiplayerSessionStateBodyPlayerTransformOneRotationXMax = 10000;
+
+export const syncMultiplayerSessionStateBodyPlayerTransformOneRotationYMin = -10000;
+export const syncMultiplayerSessionStateBodyPlayerTransformOneRotationYMax = 10000;
+
+export const syncMultiplayerSessionStateBodyPlayerTransformOneRotationZMin = -10000;
+export const syncMultiplayerSessionStateBodyPlayerTransformOneRotationZMax = 10000;
+
+export const syncMultiplayerSessionStateBodyPlayerTransformOneScaleXMin = -10000;
+export const syncMultiplayerSessionStateBodyPlayerTransformOneScaleXMax = 10000;
+
+export const syncMultiplayerSessionStateBodyPlayerTransformOneScaleYMin = -10000;
+export const syncMultiplayerSessionStateBodyPlayerTransformOneScaleYMax = 10000;
+
+export const syncMultiplayerSessionStateBodyPlayerTransformOneScaleZMin = -10000;
+export const syncMultiplayerSessionStateBodyPlayerTransformOneScaleZMax = 10000;
+
+export const syncMultiplayerSessionStateBodyObjectsItemEntityIdMax = 100;
+
+export const syncMultiplayerSessionStateBodyObjectsItemTransformPositionXMin = -10000;
+export const syncMultiplayerSessionStateBodyObjectsItemTransformPositionXMax = 10000;
+
+export const syncMultiplayerSessionStateBodyObjectsItemTransformPositionYMin = -10000;
+export const syncMultiplayerSessionStateBodyObjectsItemTransformPositionYMax = 10000;
+
+export const syncMultiplayerSessionStateBodyObjectsItemTransformPositionZMin = -10000;
+export const syncMultiplayerSessionStateBodyObjectsItemTransformPositionZMax = 10000;
+
+export const syncMultiplayerSessionStateBodyObjectsItemTransformRotationXMin = -10000;
+export const syncMultiplayerSessionStateBodyObjectsItemTransformRotationXMax = 10000;
+
+export const syncMultiplayerSessionStateBodyObjectsItemTransformRotationYMin = -10000;
+export const syncMultiplayerSessionStateBodyObjectsItemTransformRotationYMax = 10000;
+
+export const syncMultiplayerSessionStateBodyObjectsItemTransformRotationZMin = -10000;
+export const syncMultiplayerSessionStateBodyObjectsItemTransformRotationZMax = 10000;
+
+export const syncMultiplayerSessionStateBodyObjectsItemTransformScaleXMin = -10000;
+export const syncMultiplayerSessionStateBodyObjectsItemTransformScaleXMax = 10000;
+
+export const syncMultiplayerSessionStateBodyObjectsItemTransformScaleYMin = -10000;
+export const syncMultiplayerSessionStateBodyObjectsItemTransformScaleYMax = 10000;
+
+export const syncMultiplayerSessionStateBodyObjectsItemTransformScaleZMin = -10000;
+export const syncMultiplayerSessionStateBodyObjectsItemTransformScaleZMax = 10000;
+
+export const syncMultiplayerSessionStateBodyObjectsMax = 256;
+
+
+
+export const SyncMultiplayerSessionStateBody = zod.object({
+  "playerTransform": zod.union([zod.object({
+  "position": zod.object({
+  "x": zod.number().min(syncMultiplayerSessionStateBodyPlayerTransformOnePositionXMin).max(syncMultiplayerSessionStateBodyPlayerTransformOnePositionXMax),
+  "y": zod.number().min(syncMultiplayerSessionStateBodyPlayerTransformOnePositionYMin).max(syncMultiplayerSessionStateBodyPlayerTransformOnePositionYMax),
+  "z": zod.number().min(syncMultiplayerSessionStateBodyPlayerTransformOnePositionZMin).max(syncMultiplayerSessionStateBodyPlayerTransformOnePositionZMax)
+}),
+  "rotation": zod.object({
+  "x": zod.number().min(syncMultiplayerSessionStateBodyPlayerTransformOneRotationXMin).max(syncMultiplayerSessionStateBodyPlayerTransformOneRotationXMax),
+  "y": zod.number().min(syncMultiplayerSessionStateBodyPlayerTransformOneRotationYMin).max(syncMultiplayerSessionStateBodyPlayerTransformOneRotationYMax),
+  "z": zod.number().min(syncMultiplayerSessionStateBodyPlayerTransformOneRotationZMin).max(syncMultiplayerSessionStateBodyPlayerTransformOneRotationZMax)
+}),
+  "scale": zod.object({
+  "x": zod.number().min(syncMultiplayerSessionStateBodyPlayerTransformOneScaleXMin).max(syncMultiplayerSessionStateBodyPlayerTransformOneScaleXMax),
+  "y": zod.number().min(syncMultiplayerSessionStateBodyPlayerTransformOneScaleYMin).max(syncMultiplayerSessionStateBodyPlayerTransformOneScaleYMax),
+  "z": zod.number().min(syncMultiplayerSessionStateBodyPlayerTransformOneScaleZMin).max(syncMultiplayerSessionStateBodyPlayerTransformOneScaleZMax)
+})
+}),zod.null()]),
+  "objects": zod.array(zod.object({
+  "entityId": zod.string().min(1).max(syncMultiplayerSessionStateBodyObjectsItemEntityIdMax),
+  "transform": zod.object({
+  "position": zod.object({
+  "x": zod.number().min(syncMultiplayerSessionStateBodyObjectsItemTransformPositionXMin).max(syncMultiplayerSessionStateBodyObjectsItemTransformPositionXMax),
+  "y": zod.number().min(syncMultiplayerSessionStateBodyObjectsItemTransformPositionYMin).max(syncMultiplayerSessionStateBodyObjectsItemTransformPositionYMax),
+  "z": zod.number().min(syncMultiplayerSessionStateBodyObjectsItemTransformPositionZMin).max(syncMultiplayerSessionStateBodyObjectsItemTransformPositionZMax)
+}),
+  "rotation": zod.object({
+  "x": zod.number().min(syncMultiplayerSessionStateBodyObjectsItemTransformRotationXMin).max(syncMultiplayerSessionStateBodyObjectsItemTransformRotationXMax),
+  "y": zod.number().min(syncMultiplayerSessionStateBodyObjectsItemTransformRotationYMin).max(syncMultiplayerSessionStateBodyObjectsItemTransformRotationYMax),
+  "z": zod.number().min(syncMultiplayerSessionStateBodyObjectsItemTransformRotationZMin).max(syncMultiplayerSessionStateBodyObjectsItemTransformRotationZMax)
+}),
+  "scale": zod.object({
+  "x": zod.number().min(syncMultiplayerSessionStateBodyObjectsItemTransformScaleXMin).max(syncMultiplayerSessionStateBodyObjectsItemTransformScaleXMax),
+  "y": zod.number().min(syncMultiplayerSessionStateBodyObjectsItemTransformScaleYMin).max(syncMultiplayerSessionStateBodyObjectsItemTransformScaleYMax),
+  "z": zod.number().min(syncMultiplayerSessionStateBodyObjectsItemTransformScaleZMin).max(syncMultiplayerSessionStateBodyObjectsItemTransformScaleZMax)
+})
+})
+})).max(syncMultiplayerSessionStateBodyObjectsMax)
+})
+
+export const syncMultiplayerSessionStateResponseCodeRegExp = new RegExp('^[A-Z2-9]{6}$');
+export const syncMultiplayerSessionStateResponsePlayersItemNameMax = 32;
+
+export const syncMultiplayerSessionStateResponsePlayersItemTransformOnePositionXMin = -10000;
+export const syncMultiplayerSessionStateResponsePlayersItemTransformOnePositionXMax = 10000;
+
+export const syncMultiplayerSessionStateResponsePlayersItemTransformOnePositionYMin = -10000;
+export const syncMultiplayerSessionStateResponsePlayersItemTransformOnePositionYMax = 10000;
+
+export const syncMultiplayerSessionStateResponsePlayersItemTransformOnePositionZMin = -10000;
+export const syncMultiplayerSessionStateResponsePlayersItemTransformOnePositionZMax = 10000;
+
+export const syncMultiplayerSessionStateResponsePlayersItemTransformOneRotationXMin = -10000;
+export const syncMultiplayerSessionStateResponsePlayersItemTransformOneRotationXMax = 10000;
+
+export const syncMultiplayerSessionStateResponsePlayersItemTransformOneRotationYMin = -10000;
+export const syncMultiplayerSessionStateResponsePlayersItemTransformOneRotationYMax = 10000;
+
+export const syncMultiplayerSessionStateResponsePlayersItemTransformOneRotationZMin = -10000;
+export const syncMultiplayerSessionStateResponsePlayersItemTransformOneRotationZMax = 10000;
+
+export const syncMultiplayerSessionStateResponsePlayersItemTransformOneScaleXMin = -10000;
+export const syncMultiplayerSessionStateResponsePlayersItemTransformOneScaleXMax = 10000;
+
+export const syncMultiplayerSessionStateResponsePlayersItemTransformOneScaleYMin = -10000;
+export const syncMultiplayerSessionStateResponsePlayersItemTransformOneScaleYMax = 10000;
+
+export const syncMultiplayerSessionStateResponsePlayersItemTransformOneScaleZMin = -10000;
+export const syncMultiplayerSessionStateResponsePlayersItemTransformOneScaleZMax = 10000;
+
+export const syncMultiplayerSessionStateResponsePlayersMax = 8;
+
+export const syncMultiplayerSessionStateResponseObjectsItemEntityIdMax = 100;
+
+export const syncMultiplayerSessionStateResponseObjectsItemTransformPositionXMin = -10000;
+export const syncMultiplayerSessionStateResponseObjectsItemTransformPositionXMax = 10000;
+
+export const syncMultiplayerSessionStateResponseObjectsItemTransformPositionYMin = -10000;
+export const syncMultiplayerSessionStateResponseObjectsItemTransformPositionYMax = 10000;
+
+export const syncMultiplayerSessionStateResponseObjectsItemTransformPositionZMin = -10000;
+export const syncMultiplayerSessionStateResponseObjectsItemTransformPositionZMax = 10000;
+
+export const syncMultiplayerSessionStateResponseObjectsItemTransformRotationXMin = -10000;
+export const syncMultiplayerSessionStateResponseObjectsItemTransformRotationXMax = 10000;
+
+export const syncMultiplayerSessionStateResponseObjectsItemTransformRotationYMin = -10000;
+export const syncMultiplayerSessionStateResponseObjectsItemTransformRotationYMax = 10000;
+
+export const syncMultiplayerSessionStateResponseObjectsItemTransformRotationZMin = -10000;
+export const syncMultiplayerSessionStateResponseObjectsItemTransformRotationZMax = 10000;
+
+export const syncMultiplayerSessionStateResponseObjectsItemTransformScaleXMin = -10000;
+export const syncMultiplayerSessionStateResponseObjectsItemTransformScaleXMax = 10000;
+
+export const syncMultiplayerSessionStateResponseObjectsItemTransformScaleYMin = -10000;
+export const syncMultiplayerSessionStateResponseObjectsItemTransformScaleYMax = 10000;
+
+export const syncMultiplayerSessionStateResponseObjectsItemTransformScaleZMin = -10000;
+export const syncMultiplayerSessionStateResponseObjectsItemTransformScaleZMax = 10000;
+
+export const syncMultiplayerSessionStateResponseObjectsMax = 256;
+
+
+export const syncMultiplayerSessionStateResponseEventsItemPlayerNameMax = 32;
+
+export const syncMultiplayerSessionStateResponseEventsItemNameMax = 80;
+
+export const syncMultiplayerSessionStateResponseEventsItemPayloadMax = 300;
+
+export const syncMultiplayerSessionStateResponseEventsItemSentAtMin = 0;
+
+export const syncMultiplayerSessionStateResponseEventsMax = 50;
+
+
+
+export const SyncMultiplayerSessionStateResponse = zod.object({
+  "code": zod.string().regex(syncMultiplayerSessionStateResponseCodeRegExp),
+  "players": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string().min(1).max(syncMultiplayerSessionStateResponsePlayersItemNameMax),
+  "isHost": zod.boolean(),
+  "transform": zod.union([zod.object({
+  "position": zod.object({
+  "x": zod.number().min(syncMultiplayerSessionStateResponsePlayersItemTransformOnePositionXMin).max(syncMultiplayerSessionStateResponsePlayersItemTransformOnePositionXMax),
+  "y": zod.number().min(syncMultiplayerSessionStateResponsePlayersItemTransformOnePositionYMin).max(syncMultiplayerSessionStateResponsePlayersItemTransformOnePositionYMax),
+  "z": zod.number().min(syncMultiplayerSessionStateResponsePlayersItemTransformOnePositionZMin).max(syncMultiplayerSessionStateResponsePlayersItemTransformOnePositionZMax)
+}),
+  "rotation": zod.object({
+  "x": zod.number().min(syncMultiplayerSessionStateResponsePlayersItemTransformOneRotationXMin).max(syncMultiplayerSessionStateResponsePlayersItemTransformOneRotationXMax),
+  "y": zod.number().min(syncMultiplayerSessionStateResponsePlayersItemTransformOneRotationYMin).max(syncMultiplayerSessionStateResponsePlayersItemTransformOneRotationYMax),
+  "z": zod.number().min(syncMultiplayerSessionStateResponsePlayersItemTransformOneRotationZMin).max(syncMultiplayerSessionStateResponsePlayersItemTransformOneRotationZMax)
+}),
+  "scale": zod.object({
+  "x": zod.number().min(syncMultiplayerSessionStateResponsePlayersItemTransformOneScaleXMin).max(syncMultiplayerSessionStateResponsePlayersItemTransformOneScaleXMax),
+  "y": zod.number().min(syncMultiplayerSessionStateResponsePlayersItemTransformOneScaleYMin).max(syncMultiplayerSessionStateResponsePlayersItemTransformOneScaleYMax),
+  "z": zod.number().min(syncMultiplayerSessionStateResponsePlayersItemTransformOneScaleZMin).max(syncMultiplayerSessionStateResponsePlayersItemTransformOneScaleZMax)
+})
+}),zod.null()])
+})).max(syncMultiplayerSessionStateResponsePlayersMax),
+  "objects": zod.array(zod.object({
+  "entityId": zod.string().min(1).max(syncMultiplayerSessionStateResponseObjectsItemEntityIdMax),
+  "transform": zod.object({
+  "position": zod.object({
+  "x": zod.number().min(syncMultiplayerSessionStateResponseObjectsItemTransformPositionXMin).max(syncMultiplayerSessionStateResponseObjectsItemTransformPositionXMax),
+  "y": zod.number().min(syncMultiplayerSessionStateResponseObjectsItemTransformPositionYMin).max(syncMultiplayerSessionStateResponseObjectsItemTransformPositionYMax),
+  "z": zod.number().min(syncMultiplayerSessionStateResponseObjectsItemTransformPositionZMin).max(syncMultiplayerSessionStateResponseObjectsItemTransformPositionZMax)
+}),
+  "rotation": zod.object({
+  "x": zod.number().min(syncMultiplayerSessionStateResponseObjectsItemTransformRotationXMin).max(syncMultiplayerSessionStateResponseObjectsItemTransformRotationXMax),
+  "y": zod.number().min(syncMultiplayerSessionStateResponseObjectsItemTransformRotationYMin).max(syncMultiplayerSessionStateResponseObjectsItemTransformRotationYMax),
+  "z": zod.number().min(syncMultiplayerSessionStateResponseObjectsItemTransformRotationZMin).max(syncMultiplayerSessionStateResponseObjectsItemTransformRotationZMax)
+}),
+  "scale": zod.object({
+  "x": zod.number().min(syncMultiplayerSessionStateResponseObjectsItemTransformScaleXMin).max(syncMultiplayerSessionStateResponseObjectsItemTransformScaleXMax),
+  "y": zod.number().min(syncMultiplayerSessionStateResponseObjectsItemTransformScaleYMin).max(syncMultiplayerSessionStateResponseObjectsItemTransformScaleYMax),
+  "z": zod.number().min(syncMultiplayerSessionStateResponseObjectsItemTransformScaleZMin).max(syncMultiplayerSessionStateResponseObjectsItemTransformScaleZMax)
+})
+})
+})).max(syncMultiplayerSessionStateResponseObjectsMax),
+  "events": zod.array(zod.object({
+  "sequence": zod.number().int().min(1),
+  "playerName": zod.string().min(1).max(syncMultiplayerSessionStateResponseEventsItemPlayerNameMax),
+  "name": zod.string().min(1).max(syncMultiplayerSessionStateResponseEventsItemNameMax),
+  "payload": zod.string().max(syncMultiplayerSessionStateResponseEventsItemPayloadMax),
+  "sentAt": zod.number().int().min(syncMultiplayerSessionStateResponseEventsItemSentAtMin)
+})).max(syncMultiplayerSessionStateResponseEventsMax)
+})
+
+
+/**
+ * @summary Send a small game event to everyone in the room
+ */
+export const sendMultiplayerGameEventPathCodeRegExp = new RegExp('^[A-Z2-9]{6}$');
+
+
+export const SendMultiplayerGameEventParams = zod.object({
+  "code": zod.coerce.string().regex(sendMultiplayerGameEventPathCodeRegExp)
+})
+
+export const sendMultiplayerGameEventBodyNameMax = 80;
+
+export const sendMultiplayerGameEventBodyPayloadMax = 300;
+
+
+
+export const SendMultiplayerGameEventBody = zod.object({
+  "name": zod.string().min(1).max(sendMultiplayerGameEventBodyNameMax),
+  "payload": zod.string().max(sendMultiplayerGameEventBodyPayloadMax).optional()
+})
+
+
+export const sendMultiplayerGameEventResponsePlayerNameMax = 32;
+
+export const sendMultiplayerGameEventResponseNameMax = 80;
+
+export const sendMultiplayerGameEventResponsePayloadMax = 300;
+
+export const sendMultiplayerGameEventResponseSentAtMin = 0;
+
+
+
+export const SendMultiplayerGameEventResponse = zod.object({
+  "sequence": zod.number().int().min(1),
+  "playerName": zod.string().min(1).max(sendMultiplayerGameEventResponsePlayerNameMax),
+  "name": zod.string().min(1).max(sendMultiplayerGameEventResponseNameMax),
+  "payload": zod.string().max(sendMultiplayerGameEventResponsePayloadMax),
+  "sentAt": zod.number().int().min(sendMultiplayerGameEventResponseSentAtMin)
+})
+
+
+/**
+ * @summary Leave a multiplayer room
+ */
+export const leaveMultiplayerSessionPathCodeRegExp = new RegExp('^[A-Z2-9]{6}$');
+
+
+export const LeaveMultiplayerSessionParams = zod.object({
+  "code": zod.coerce.string().regex(leaveMultiplayerSessionPathCodeRegExp)
+})
+
+export const LeaveMultiplayerSessionResponse = zod.void()

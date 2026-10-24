@@ -9,6 +9,7 @@ import { createGameFeature, gameFeatureDefinitions, gameFeatureNames, type GameF
 export type PluginCategory =
   | 'game'
   | 'game-mechanics'
+  | 'multiplayer'
   | 'player-npc'
   | 'system'
   | 'lighting'
@@ -45,7 +46,10 @@ export type PluginComponentKind =
   | 'trigger-event'
   | 'trigger-zone-box'
   | 'trigger-zone-sphere'
-  | 'skybox';
+  | 'skybox'
+  | 'multiplayer-player'
+  | 'multiplayer-object'
+  | 'multiplayer-event';
 
 export type ScenePluginDefinition = {
   id: PluginComponentKind | 'open-character-builder' | 'open-animation-timeline' | 'create-scriptable-object';
@@ -76,6 +80,26 @@ export const scenePluginCatalog: Record<PluginCategory, ScenePluginDefinition[]>
     { id: 'character-controller-player', componentKind: 'character-controller-player', label: 'Player Controller', description: 'Add walking and jumping. Use W, A, S, D or arrows; press Space to jump.' },
   ],
   'game-mechanics': [],
+  multiplayer: [
+    {
+      id: 'multiplayer-player',
+      componentKind: 'multiplayer-player',
+      label: 'Network Player',
+      description: 'Share this player’s movement with everyone in the session.',
+    },
+    {
+      id: 'multiplayer-object',
+      componentKind: 'multiplayer-object',
+      label: 'Sync Object',
+      description: 'Share this object’s position and rotation with everyone in the session.',
+    },
+    {
+      id: 'multiplayer-event',
+      componentKind: 'multiplayer-event',
+      label: 'Game Event',
+      description: 'Mark this object as a source of messages that all players can receive.',
+    },
+  ],
   'player-npc': [
     ...(['health', 'inventory', 'interact'] as const).map(featurePlugin),
     ...playerActionPlugins,
@@ -149,6 +173,17 @@ export function createPluginComponent(
     return { component: createPlayerAction(kind.slice(7) as PlayerActionName) };
   }
   const id = crypto.randomUUID();
+  if (kind === 'multiplayer-player' || kind === 'multiplayer-object' || kind === 'multiplayer-event') {
+    return {
+      component: {
+        id,
+        type: 'multiplayerPlugin',
+        enabled: true,
+        mode: kind === 'multiplayer-player' ? 'player' : kind === 'multiplayer-object' ? 'object' : 'event',
+        eventName: kind === 'multiplayer-event' ? 'game.event' : '',
+      },
+    };
+  }
   if (kind === 'physics') {
     const component = createPhysicsComponent();
     component.size = { x: 10, y: 10, z: 10 };
@@ -287,6 +322,9 @@ export function getPluginComponentIdentity(kind: PluginComponentKind): SceneComp
     'trigger-zone-box': 'triggerZone',
     'trigger-zone-sphere': 'triggerZone',
     skybox: 'skybox',
+    'multiplayer-player': 'multiplayerPlugin',
+    'multiplayer-object': 'multiplayerPlugin',
+    'multiplayer-event': 'multiplayerPlugin',
   };
   return identity[kind];
 }
@@ -294,5 +332,9 @@ export function getPluginComponentIdentity(kind: PluginComponentKind): SceneComp
 export function matchesPluginComponent(component: SceneComponent, kind: PluginComponentKind): boolean {
   if (kind.startsWith('feature-')) return component.type === 'gameFeature' && component.kind === kind.slice(8);
   if (kind.startsWith('action-')) return component.type === 'playerAction' && component.action === kind.slice(7);
+  if (kind.startsWith('multiplayer-')) {
+    const mode = kind === 'multiplayer-player' ? 'player' : kind === 'multiplayer-object' ? 'object' : 'event';
+    return component.type === 'multiplayerPlugin' && component.mode === mode;
+  }
   return component.type === getPluginComponentIdentity(kind);
 }

@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: multiplayer
+    description: Temporary multiplayer rooms and lightweight play-test state sync
 paths:
   /mad-builder/plan:
     post:
@@ -52,7 +54,171 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /multiplayer/sessions:
+    post:
+      operationId: createMultiplayerSession
+      tags: [multiplayer]
+      summary: Host a temporary multiplayer room
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MultiplayerPlayerInput"
+      responses:
+        "201":
+          description: Room created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MultiplayerSessionMember"
+        "400":
+          description: Invalid player name
+  /multiplayer/sessions/{code}/join:
+    post:
+      operationId: joinMultiplayerSession
+      tags: [multiplayer]
+      summary: Join a room using its invite code
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z2-9]{6}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MultiplayerPlayerInput"
+      responses:
+        "200":
+          description: Joined room
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MultiplayerSessionMember"
+        "400":
+          description: Invalid player name or room code
+        "404":
+          description: Room not found or full
+  /multiplayer/sessions/{code}/state:
+    get:
+      operationId: getMultiplayerSessionState
+      tags: [multiplayer]
+      summary: Read the room roster, synchronized objects, and recent events
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z2-9]{6}$"
+      security:
+        - MultiplayerSession: []
+      responses:
+        "200":
+          description: Current room state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MultiplayerSessionState"
+        "401":
+          description: Invalid room member token
+        "404":
+          description: Room no longer exists
+    put:
+      operationId: syncMultiplayerSessionState
+      tags: [multiplayer]
+      summary: Update the current player's transform and synchronized objects
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z2-9]{6}$"
+      security:
+        - MultiplayerSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MultiplayerStateUpdate"
+      responses:
+        "200":
+          description: State accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MultiplayerSessionState"
+        "400":
+          description: Invalid state update
+        "401":
+          description: Invalid room member token
+        "404":
+          description: Room no longer exists
+  /multiplayer/sessions/{code}/events:
+    post:
+      operationId: sendMultiplayerGameEvent
+      tags: [multiplayer]
+      summary: Send a small game event to everyone in the room
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z2-9]{6}$"
+      security:
+        - MultiplayerSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MultiplayerEventInput"
+      responses:
+        "201":
+          description: Event sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MultiplayerGameEvent"
+        "400":
+          description: Invalid event
+        "401":
+          description: Invalid room member token
+        "404":
+          description: Room no longer exists
+  /multiplayer/sessions/{code}/leave:
+    post:
+      operationId: leaveMultiplayerSession
+      tags: [multiplayer]
+      summary: Leave a multiplayer room
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z2-9]{6}$"
+      security:
+        - MultiplayerSession: []
+      responses:
+        "204":
+          description: Left room
+        "401":
+          description: Invalid room member token
+        "404":
+          description: Room no longer exists
 components:
+  securitySchemes:
+    MultiplayerSession:
+      type: http
+      scheme: bearer
   schemas:
     MadBuilderInput:
       type: object
@@ -89,6 +255,95 @@ components:
         id: { type: string, maxLength: 80 }
         name: { type: string, maxLength: 160 }
         kind: { type: string, enum: [image, model] }
+    MultiplayerPlayerInput:
+      type: object
+      required: [playerName]
+      properties:
+        playerName: { type: string, minLength: 1, maxLength: 32 }
+    MultiplayerSessionMember:
+      type: object
+      required: [code, playerId, token, playerName, isHost]
+      properties:
+        code: { type: string, pattern: "^[A-Z2-9]{6}$" }
+        playerId: { type: string, format: uuid }
+        token: { type: string, minLength: 40, maxLength: 64 }
+        playerName: { type: string, minLength: 1, maxLength: 32 }
+        isHost: { type: boolean }
+    MultiplayerVector3:
+      type: object
+      required: [x, y, z]
+      properties:
+        x: { type: number, minimum: -10000, maximum: 10000 }
+        y: { type: number, minimum: -10000, maximum: 10000 }
+        z: { type: number, minimum: -10000, maximum: 10000 }
+    MultiplayerTransform:
+      type: object
+      required: [position, rotation, scale]
+      properties:
+        position: { $ref: "#/components/schemas/MultiplayerVector3" }
+        rotation: { $ref: "#/components/schemas/MultiplayerVector3" }
+        scale: { $ref: "#/components/schemas/MultiplayerVector3" }
+    MultiplayerObjectState:
+      type: object
+      required: [entityId, transform]
+      properties:
+        entityId: { type: string, minLength: 1, maxLength: 100 }
+        transform: { $ref: "#/components/schemas/MultiplayerTransform" }
+    MultiplayerPlayerState:
+      type: object
+      required: [id, name, isHost, transform]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 32 }
+        isHost: { type: boolean }
+        transform:
+          oneOf:
+            - $ref: "#/components/schemas/MultiplayerTransform"
+            - type: "null"
+    MultiplayerGameEvent:
+      type: object
+      required: [sequence, playerName, name, payload, sentAt]
+      properties:
+        sequence: { type: integer, minimum: 1 }
+        playerName: { type: string, minLength: 1, maxLength: 32 }
+        name: { type: string, minLength: 1, maxLength: 80 }
+        payload: { type: string, maxLength: 300 }
+        sentAt: { type: integer, minimum: 0 }
+    MultiplayerEventInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+        payload: { type: string, maxLength: 300 }
+    MultiplayerStateUpdate:
+      type: object
+      required: [playerTransform, objects]
+      properties:
+        playerTransform:
+          oneOf:
+            - $ref: "#/components/schemas/MultiplayerTransform"
+            - type: "null"
+        objects:
+          type: array
+          maxItems: 256
+          items: { $ref: "#/components/schemas/MultiplayerObjectState" }
+    MultiplayerSessionState:
+      type: object
+      required: [code, players, objects, events]
+      properties:
+        code: { type: string, pattern: "^[A-Z2-9]{6}$" }
+        players:
+          type: array
+          maxItems: 8
+          items: { $ref: "#/components/schemas/MultiplayerPlayerState" }
+        objects:
+          type: array
+          maxItems: 256
+          items: { $ref: "#/components/schemas/MultiplayerObjectState" }
+        events:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/MultiplayerGameEvent" }
     BuilderReferenceImage:
       type: object
       required: [role, dataUrl]

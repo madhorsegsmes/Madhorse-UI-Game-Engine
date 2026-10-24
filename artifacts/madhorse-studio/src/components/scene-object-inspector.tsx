@@ -36,6 +36,9 @@ function toDraft(entity: SceneEntity) {
       Object.assign(values, gameFeatureDraft(component));
     } else if (component.type === 'playerAction') {
       Object.assign(values, playerActionDraft(component));
+    } else if (component.type === 'multiplayerPlugin') {
+      values[`multiplayer.${component.id}.enabled`] = String(component.enabled);
+      values[`multiplayer.${component.id}.eventName`] = component.eventName;
     } else if (component.type === 'transform') {
       for (const key of ['position', 'rotation', 'scale'] as const) {
         for (const axis of ['x', 'y', 'z'] as const) {
@@ -278,6 +281,11 @@ export function SceneObjectInspector({
         followDistance: number('controller.followDistance'),
         patrolRadius: number('controller.patrolRadius'),
       };
+      if (item.type === 'multiplayerPlugin') return {
+        ...item,
+        enabled: values[`multiplayer.${item.id}.enabled`] === 'true',
+        eventName: (values[`multiplayer.${item.id}.eventName`] ?? item.eventName).trim().slice(0, 80),
+      };
       if (item.type === 'triggerZone') return {
         ...item,
         enabled: values['trigger.enabled'] === 'true',
@@ -345,6 +353,7 @@ export function SceneObjectInspector({
   const sprite = component('spriteRenderer');
   const model = component('modelRenderer');
   const controller = component('characterController');
+  const multiplayerPlugins = entity.components.filter(item => item.type === 'multiplayerPlugin');
   const triggerZone = component('triggerZone');
   const skybox = component('skybox');
   const imageAssets = assets.filter(asset => asset.kind === 'image');
@@ -570,6 +579,27 @@ export function SceneObjectInspector({
           </label>
           <p className="fresh-inspector-note">This color applies to the whole scene in edit view. Disable this component to return to render settings.</p>
         </>)}
+        {multiplayerPlugins.map(item => section(`Multiplayer ${item.mode}`, <>
+          {checkboxField('Enabled', `multiplayer.${item.id}.enabled`)}
+          {item.mode === 'event' && (
+            <label className="fresh-setting">
+              <span>Event name</span>
+              <input
+                type="text"
+                maxLength={80}
+                value={values[`multiplayer.${item.id}.eventName`] ?? item.eventName}
+                onChange={event => setValue(`multiplayer.${item.id}.eventName`, event.currentTarget.value)}
+              />
+            </label>
+          )}
+          <p className="fresh-inspector-note">
+            {item.mode === 'player'
+              ? 'This player shares its position with the room during Play Test.'
+              : item.mode === 'object'
+                ? 'This object shares its position with the room during Play Test.'
+                : 'Use the Multiplayer Plugins panel to send game events to everyone in the room.'}
+          </p>
+        </>))}
         {error && <p className="fresh-inspector-error" role="alert">{error}</p>}
         <div className="fresh-dialog-actions">
           <button type="button" className="is-quiet" onClick={onClose}>{embedded ? 'Back to Settings' : 'Cancel'}</button>
