@@ -67,6 +67,8 @@ test('image plans complete with a dedicated output budget; truncated plans never
     assert.match(captured[0].messages[0].content, /wheelbase, wheel diameter and placement/);
     assert.match(captured[0].messages[0].content, /exactly four tires/);
     assert.match(captured[0].messages[0].content, /kind "vehicle", vehicleStyle "muscle-coupe"/);
+    assert.match(captured[0].messages[0].content, /Built-in CharacterController is a capsule-based, physics-independent mover/);
+    assert.match(captured[0].messages[0].content, /current Mad Builder schema has no dedicated CharacterController component/);
     assert.match(captured[0].messages[0].content, /Selected build type: Vehicle/);
     assert.equal(captured[0].messages[1].content[1].text.startsWith('CATEGORY DEFAULT REFERENCE'), true);
     assert.equal(captured[0].messages[1].content[2].image_url.url, body.referenceImages[0].dataUrl);

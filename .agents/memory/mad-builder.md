@@ -171,3 +171,16 @@ upload-only tests could not detect that incomplete structured output.
 atomically, and verify a representative vision request reaches actual scene
 application when changing generation settings. Distinguish output-limit errors
 from upload or schema errors.
+
+Treat the four character-controller patterns as reference guidance until
+Madhorse has dedicated controller components and runtime behavior. Mad Builder
+may build the visible model from supported geometry/assets, but must not claim a
+model-only scene has working controller movement or capsule collision.
+
+**Why:** The user asked for controller modeling guidance, while the current scene
+schema only exposes generic physics bodies and no controller motor or capsule
+collider component.
+
+**How to apply:** Keep the read-only guide in System Presets & Data and include
+the same limitation in the planner prompt. Update both when a real controller
+runtime is implemented; never present unsupported movement as functional.

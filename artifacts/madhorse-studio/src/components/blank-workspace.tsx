@@ -43,6 +43,7 @@ import { createMadBuilderModulePlan, getMadBuilderModule, type MadBuilderModuleI
 import type { UIControlElement } from '@/lib/ui-controls';
 import { downloadMadBuilderLogPdf, type MadBuilderBuildLog } from '@/lib/mad-builder-build-log';
 import { createGameTypeLibraryPdf, gameTypeLibraryEntryCount } from '@/lib/game-type-library';
+import { CHARACTER_CONTROLLER_REFERENCE } from '@/lib/character-controller-reference';
 import './system-panel-tools.css';
 import './numbered-workspace.css';
 
@@ -242,6 +243,18 @@ function SettingsPanel({
                     loading="lazy"
                   />
                 )}
+              </details>
+              <details className="fresh-game-type-library fresh-controller-reference" data-testid="details-character-controller-guide">
+                <summary className="fresh-game-type-library-summary" data-testid="button-toggle-character-controller-guide">
+                  <span>Character Controller Guide · Read-only</span>
+                  <ChevronDown size={13} aria-hidden="true" />
+                </summary>
+                <p className="fresh-game-type-library-note">
+                  Modeling, texturing, and editing guidance for the four controller patterns, including current Madhorse support.
+                </p>
+                <pre className="fresh-controller-reference-text" data-testid="text-character-controller-guide">
+                  {CHARACTER_CONTROLLER_REFERENCE}
+                </pre>
               </details>
               <div className="fresh-builder-log" role="region" aria-label="Read-only Mad Builder build log" data-testid="builder-log-readonly">
                 <div className="fresh-builder-log-heading">
