@@ -104,6 +104,8 @@ function SettingsPanel({
   onReturnToSettings: () => void;
   onSaveEntity: (entity: SceneEntity) => void;
 }) {
+  const [activeFunctionTab, setActiveFunctionTab] = useState<'game-system' | 'game-controls'>('game-system');
+
   return (
     <div className="fresh-settings-panel">
       <button
@@ -127,9 +129,36 @@ function SettingsPanel({
         />
       ) : (
         <div className="fresh-settings-sections">
-          <section className="fresh-settings-category">
-            <h2>Functions &amp; Controls</h2>
-          </section>
+          <details className="fresh-settings-category fresh-settings-dropdown" data-testid="details-functions-controls">
+            <summary className="fresh-settings-category-summary" data-testid="button-toggle-functions-controls">
+              <h2>Functions &amp; Controls</h2>
+              <ChevronDown size={14} aria-hidden="true" />
+            </summary>
+            <div className="fresh-settings-category-content">
+              <div className="fresh-function-tabs" role="group" aria-label="Functions and controls sections">
+                <button
+                  type="button"
+                  className="fresh-function-tab"
+                  aria-pressed={activeFunctionTab === 'game-system'}
+                  data-active={activeFunctionTab === 'game-system'}
+                  data-testid="button-game-system-functions"
+                  onClick={() => setActiveFunctionTab('game-system')}
+                >
+                  Game and System Functions
+                </button>
+                <button
+                  type="button"
+                  className="fresh-function-tab"
+                  aria-pressed={activeFunctionTab === 'game-controls'}
+                  data-active={activeFunctionTab === 'game-controls'}
+                  data-testid="button-game-controls"
+                  onClick={() => setActiveFunctionTab('game-controls')}
+                >
+                  Game Controls
+                </button>
+              </div>
+            </div>
+          </details>
           <details className="fresh-settings-category fresh-settings-dropdown" data-testid="details-system-presets-data">
             <summary className="fresh-settings-category-summary" data-testid="button-toggle-system-presets-data">
               <h2>System Presets &amp; Data</h2>

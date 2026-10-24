@@ -621,6 +621,11 @@ body::-webkit-scrollbar-thumb,
 .fresh-settings-dropdown[open] > .fresh-settings-category-summary { border-bottom: 1px solid rgb(136 100 170 / 32%); }
 .fresh-settings-dropdown[open] > .fresh-settings-category-summary svg { transform: rotate(180deg); }
 .fresh-settings-category-content { padding: 0 9px 9px; }
+.fresh-function-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.fresh-function-tab { min-height: 38px; padding: 6px 8px; border: 1px solid rgb(136 100 170 / 42%); background: rgb(14 11 20 / 76%); color: #c5b6d2; font: 600 9px/1.35 Inter, system-ui, sans-serif; cursor: pointer; }
+.fresh-function-tab:hover { border-color: #aa79d6; color: #f4e9ff; }
+.fresh-function-tab[data-active="true"] { border-color: #a86dde; background: rgb(92 48 128 / 45%); color: #f4e9ff; box-shadow: inset 0 0 0 1px rgb(168 109 222 / 18%); }
+.fresh-function-tab:focus-visible { outline: 2px solid #d2a9f4; outline-offset: 2px; }
 
 .fresh-settings-category h2 {
   margin: 0;
