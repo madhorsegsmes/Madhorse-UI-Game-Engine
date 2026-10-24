@@ -2,7 +2,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Dispatch, DragEvent as ReactDragEvent, KeyboardEvent, MouseEvent, SetStateAction } from 'react';
-import { Activity, ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, Droplets, FileDown, Folder, Mountain, Trash2, Trees, Waves } from 'lucide-react';
+import { Activity, ArrowDown, ArrowUp, Box, Check, ChevronDown, ChevronRight, Circle, Cone, Cylinder, Diamond, Donut, Droplets, FileDown, Folder, Grid2X2, ImagePlus, Mountain, Octagon, Palette, Pentagon, Shapes, Trash2, Triangle, Trees, Upload, Waves, Wrench } from 'lucide-react';
 import { ScenePreview3D, type SceneFrameRequest, type SceneTransformMode } from './scene-preview-3d';
 import {
   createScriptableObjectAsset,
@@ -1051,6 +1051,24 @@ function SceneObjectRow({
 
 type Panel5Toolset = 'world' | 'model';
 type Panel5WorldTool = TerrainToolAction | 'trees' | 'water';
+type Panel5ModelTool = 'workspace' | 'import' | 'upload-texture' | 'create-texture' | PrimitiveShape;
+type TexturePattern = 'checker' | 'stripes' | 'grid';
+type TexturePalette = 'violet' | 'silver' | 'red';
+type ModelCreateOptions = { scale: { x: number; y: number; z: number }; color: string };
+
+function primitiveShapeIcon(shape: PrimitiveShape) {
+  if (shape === 'plane') return Grid2X2;
+  if (['sphere', 'circle', 'ring'].includes(shape)) return Circle;
+  if (['torus', 'torus-knot'].includes(shape)) return Donut;
+  if (['cylinder', 'hollow-cylinder', 'tube'].includes(shape)) return Cylinder;
+  if (shape === 'cone') return Cone;
+  if (shape === 'pyramid' || shape === 'tetrahedron' || shape === 'triangular-prism' || shape === 'wedge') return Triangle;
+  if (shape === 'dodecahedron') return Pentagon;
+  if (shape === 'octahedron') return Octagon;
+  if (shape === 'icosahedron') return Diamond;
+  if (shape === 'cube' || shape === 'rounded-cube') return Box;
+  return Shapes;
+}
 
 function WorldToolsPanel({
   activeToolset,
@@ -1058,6 +1076,8 @@ function WorldToolsPanel({
   onCreateTerrain,
   onImportAsset,
   terrainAvailable,
+  selectedObjectCanReceiveTexture,
+  canEditSelectedModel,
   onTerrainBrush,
   onAddTrees,
   onAddWater,
@@ -1070,24 +1090,35 @@ function WorldToolsPanel({
   activeToolset: Panel5Toolset;
   onSelectToolset: (toolset: Panel5Toolset) => void;
   onCreateTerrain: () => void;
-  onImportAsset: () => void;
+  onImportAsset: (modelScale: number) => void;
   terrainAvailable: boolean;
+  selectedObjectCanReceiveTexture: boolean;
+  canEditSelectedModel: boolean;
   onTerrainBrush: (action: TerrainToolAction, radius: number, strength: number) => void;
   onAddTrees: (count: number, spacing: TreeSpacing) => void;
   onAddWater: (coverage: WaterCoverage, level: WaterLevel) => void;
-  onCreateShape: (shape: PrimitiveShape) => void;
-  onUploadTexture: () => void;
-  onCreateTexture: () => void;
+  onCreateShape: (shape: PrimitiveShape, options?: ModelCreateOptions) => void;
+  onUploadTexture: (applyToSelectedObject: boolean) => void;
+  onCreateTexture: (pattern: TexturePattern, palette: TexturePalette, applyToSelectedObject: boolean) => void;
   onPreviewAnimation: () => void;
-  onOpenModeling: () => void;
+  onOpenModeling: (editSelectedModel: boolean) => void;
 }) {
   const [selectedWorldTool, setSelectedWorldTool] = useState<Panel5WorldTool | null>(null);
+  const [selectedModelTool, setSelectedModelTool] = useState<Panel5ModelTool | null>(null);
   const [brushRadius, setBrushRadius] = useState('8');
   const [brushStrength, setBrushStrength] = useState('2');
   const [treeCount, setTreeCount] = useState('3');
   const [treeSpacing, setTreeSpacing] = useState<TreeSpacing>('normal');
   const [waterCoverage, setWaterCoverage] = useState<WaterCoverage>('lake');
   const [waterLevel, setWaterLevel] = useState<WaterLevel>('normal');
+  const [modelingTarget, setModelingTarget] = useState<'new' | 'selected'>('new');
+  const [importScale, setImportScale] = useState('1');
+  const [textureTarget, setTextureTarget] = useState<'new' | 'selected'>('new');
+  const [texturePattern, setTexturePattern] = useState<TexturePattern>('checker');
+  const [texturePalette, setTexturePalette] = useState<TexturePalette>('violet');
+  const [shapeScale, setShapeScale] = useState('1');
+  const [shapeColor, setShapeColor] = useState('#bfc3ca');
+  const modelOptionsRef = useRef<HTMLElement | null>(null);
   const worldTools = [
     { id: 'create-terrain', label: 'Create Terrain', Icon: Mountain },
     { id: 'raise', label: 'Raise Terrain', Icon: ArrowUp },
@@ -1098,6 +1129,7 @@ function WorldToolsPanel({
   ] as const;
 
   function selectWorldTool(id: typeof worldTools[number]['id']) {
+    setSelectedModelTool(null);
     if (id === 'create-terrain') {
       setSelectedWorldTool(null);
       onCreateTerrain();
@@ -1115,6 +1147,45 @@ function WorldToolsPanel({
       onAddWater(waterCoverage, waterLevel);
     }
     setSelectedWorldTool(null);
+  }
+
+  const modelingTools = [
+    { id: 'workspace', label: 'Model & Rig', Icon: Wrench },
+    { id: 'import', label: 'Import Asset', Icon: Upload },
+    { id: 'upload-texture', label: 'Upload Texture', Icon: ImagePlus },
+    { id: 'create-texture', label: 'Make Texture', Icon: Palette },
+  ] as const;
+
+  function selectModelTool(id: Panel5ModelTool) {
+    setSelectedWorldTool(null);
+    setSelectedModelTool(current => current === id ? null : id);
+  }
+
+  useEffect(() => {
+    if (selectedModelTool) modelOptionsRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [selectedModelTool]);
+
+  function applyModelTool() {
+    if (!selectedModelTool) return;
+    if (selectedModelTool === 'workspace') {
+      onOpenModeling(modelingTarget === 'selected');
+    } else if (selectedModelTool === 'import') {
+      onImportAsset(Number(importScale));
+    } else if (selectedModelTool === 'upload-texture') {
+      onUploadTexture(textureTarget === 'selected');
+    } else if (selectedModelTool === 'create-texture') {
+      onCreateTexture(texturePattern, texturePalette, textureTarget === 'selected');
+    } else {
+      const shape = primitiveShapes.find(item => item.value === selectedModelTool);
+      if (shape) {
+        const scale = Number(shapeScale);
+        onCreateShape(shape.value, {
+          scale: { x: scale, y: scale, z: scale },
+          color: shapeColor,
+        });
+      }
+    }
+    setSelectedModelTool(null);
   }
 
   return (
@@ -1251,27 +1322,163 @@ function WorldToolsPanel({
           </>
         ) : (
           <>
-            <button type="button" className="fresh-world-tool-button" data-testid="open-modeling-workspace"
-              onClick={onOpenModeling}>Expand Modeling &amp; Rigging</button>
-            <div className="fresh-world-tool-grid fresh-world-tool-grid-compact" aria-label="Model and texture actions">
-              <button type="button" className="fresh-world-tool-button" data-testid="panel5-import-model" onClick={onImportAsset}>Import Asset</button>
-              <button type="button" className="fresh-world-tool-button" data-testid="panel5-upload-texture" onClick={onUploadTexture}>Upload Texture</button>
-              <button type="button" className="fresh-world-tool-button" data-testid="panel5-create-texture" onClick={onCreateTexture}>Create Texture</button>
+            <div className="fresh-world-tool-grid fresh-model-tool-grid" role="group" aria-label="3D modeling actions">
+              {modelingTools.map(({ id, label, Icon }) => {
+                const testId = id === 'workspace' ? 'panel5-model-workspace'
+                  : id === 'import' ? 'panel5-import-model'
+                    : id === 'upload-texture' ? 'panel5-upload-texture' : 'panel5-create-texture';
+                return (
+                  <button
+                    type="button"
+                    key={id}
+                    className="fresh-world-tool-button"
+                    data-testid={testId}
+                    data-selected={selectedModelTool === id}
+                    aria-pressed={selectedModelTool === id}
+                    aria-expanded={selectedModelTool === id}
+                    aria-controls="panel5-model-tool-options"
+                    onClick={() => selectModelTool(id)}
+                  >
+                    <Icon size={15} strokeWidth={2.2} aria-hidden="true" />
+                    <span>{label}</span>
+                  </button>
+                );
+              })}
             </div>
-            <p className="fresh-model-shapes-label">Create 3D Shape</p>
-            <div className="fresh-model-shape-grid" aria-label="3D shape tools">
-              {primitiveShapes.map(shape => (
+            {!selectedModelTool && (
+              <>
+                <p className="fresh-model-shapes-label">Create 3D Shape</p>
+                <div className="fresh-model-shape-grid" aria-label="3D shape tools">
+                  {primitiveShapes.map(shape => (
+                    <button
+                      type="button"
+                      key={shape.value}
+                      className="fresh-world-tool-button"
+                      data-testid={`panel5-shape-${shape.value}`}
+                      data-selected={false}
+                      aria-pressed={false}
+                      aria-expanded={false}
+                      aria-controls="panel5-model-tool-options"
+                      title={shape.label}
+                      onClick={() => selectModelTool(shape.value)}
+                    >
+                      {(() => {
+                        const Icon = primitiveShapeIcon(shape.value);
+                        return <Icon size={14} strokeWidth={2.1} aria-hidden="true" />;
+                      })()}
+                      <span>{shape.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            {selectedModelTool && (
+              <section ref={modelOptionsRef} className="fresh-model-tool-options" id="panel5-model-tool-options" aria-label="3D modeling tool settings" data-testid="panel5-model-tool-options">
+                <h3>
+                  {selectedModelTool === 'workspace' ? 'Modeling workspace'
+                    : selectedModelTool === 'import' ? 'Import asset'
+                      : selectedModelTool === 'upload-texture' ? 'Upload texture'
+                        : selectedModelTool === 'create-texture' ? 'Create texture'
+                          : `Create ${primitiveShapes.find(shape => shape.value === selectedModelTool)?.label ?? 'shape'}`}
+                </h3>
+                {selectedModelTool === 'workspace' ? (
+                  <>
+                    <label className="fresh-world-tool-setting fresh-model-setting-full">
+                      <span>What do you want to edit?</span>
+                      <select data-testid="panel5-modeling-target" value={modelingTarget} onChange={event => setModelingTarget(event.currentTarget.value as 'new' | 'selected')}>
+                        <option value="new">Start a new model</option>
+                        <option value="selected" disabled={!canEditSelectedModel}>Edit selected 3D model</option>
+                      </select>
+                    </label>
+                    {!canEditSelectedModel && <p className="fresh-world-tool-hint">Select an imported 3D model to edit it, or start a new model.</p>}
+                  </>
+                ) : selectedModelTool === 'import' ? (
+                  <label className="fresh-world-tool-setting fresh-model-setting-full">
+                      <span>Imported model size</span>
+                    <select data-testid="panel5-model-import-size" value={importScale} onChange={event => setImportScale(event.currentTarget.value)}>
+                      <option value="0.5">Small</option>
+                      <option value="1">Normal</option>
+                      <option value="2">Large</option>
+                    </select>
+                  </label>
+                ) : selectedModelTool === 'upload-texture' || selectedModelTool === 'create-texture' ? (
+                  <>
+                    {selectedModelTool === 'create-texture' && (
+                      <>
+                        <label className="fresh-world-tool-setting">
+                          <span>Pattern</span>
+                          <select data-testid="panel5-texture-pattern" value={texturePattern} onChange={event => setTexturePattern(event.currentTarget.value as TexturePattern)}>
+                            <option value="checker">Checker</option>
+                            <option value="stripes">Stripes</option>
+                            <option value="grid">Grid</option>
+                          </select>
+                        </label>
+                        <label className="fresh-world-tool-setting">
+                          <span>Colors</span>
+                          <select data-testid="panel5-texture-palette" value={texturePalette} onChange={event => setTexturePalette(event.currentTarget.value as TexturePalette)}>
+                            <option value="violet">Madhorse violet</option>
+                            <option value="silver">Silver</option>
+                            <option value="red">Fire red</option>
+                          </select>
+                        </label>
+                      </>
+                    )}
+                    <label className="fresh-world-tool-setting fresh-model-setting-full">
+                      <span>Where should it go?</span>
+                      <select data-testid="panel5-texture-target" value={textureTarget} onChange={event => setTextureTarget(event.currentTarget.value as 'new' | 'selected')}>
+                        <option value="new">Add as a new 2D image object</option>
+                        <option value="selected" disabled={!selectedObjectCanReceiveTexture}>Apply to selected 3D shape</option>
+                      </select>
+                    </label>
+                    {!selectedObjectCanReceiveTexture && textureTarget === 'selected' && <p className="fresh-world-tool-hint">Select a 3D shape to put a texture on it.</p>}
+                  </>
+                ) : (
+                  <>
+                    <label className="fresh-world-tool-setting">
+                      <span>Size</span>
+                      <select data-testid="panel5-shape-size" value={shapeScale} onChange={event => setShapeScale(event.currentTarget.value)}>
+                        <option value="0.5">Small</option>
+                        <option value="1">Normal</option>
+                        <option value="2">Large</option>
+                      </select>
+                    </label>
+                    <label className="fresh-world-tool-setting">
+                      <span>Surface color</span>
+                      <select data-testid="panel5-shape-color" value={shapeColor} onChange={event => setShapeColor(event.currentTarget.value)}>
+                        <option value="#bfc3ca">Silver</option>
+                        <option value="#d83d42">Fire red</option>
+                        <option value="#9b5de5">Madhorse violet</option>
+                        <option value="#454b55">Graphite</option>
+                      </select>
+                    </label>
+                  </>
+                )}
                 <button
                   type="button"
-                  key={shape.value}
-                  className="fresh-world-tool-button"
-                  data-testid={`panel5-shape-${shape.value}`}
-                  onClick={() => onCreateShape(shape.value)}
+                  className="fresh-world-tool-apply"
+                  data-testid="panel5-apply-model-tool"
+                  disabled={(selectedModelTool === 'workspace' && modelingTarget === 'selected' && !canEditSelectedModel)
+                    || ((selectedModelTool === 'upload-texture' || selectedModelTool === 'create-texture')
+                      && textureTarget === 'selected' && !selectedObjectCanReceiveTexture)}
+                  onClick={applyModelTool}
                 >
-                  {shape.label}
+                  <Check size={14} aria-hidden="true" />
+                  {selectedModelTool === 'workspace' ? 'Open Modeling Workspace'
+                      : selectedModelTool === 'import' ? 'Choose Asset File'
+                      : selectedModelTool === 'upload-texture' ? 'Choose Texture File'
+                        : selectedModelTool === 'create-texture' ? 'Create Texture'
+                          : 'Create Shape'}
                 </button>
-              ))}
-            </div>
+                <button
+                  type="button"
+                  className="fresh-model-tool-cancel"
+                  data-testid="panel5-cancel-model-tool"
+                  onClick={() => setSelectedModelTool(null)}
+                >
+                  Cancel
+                </button>
+              </section>
+            )}
           </>
         )}
       </div>
@@ -1330,6 +1537,7 @@ export default function BlankWorkspace() {
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [panel5Toolset, setPanel5Toolset] = useState<Panel5Toolset>('world');
   const [panel5Dialog, setPanel5Dialog] = useState<'plane' | 'terrain' | null>(null);
+  const [panel5PlaneOptions, setPanel5PlaneOptions] = useState<ModelCreateOptions | null>(null);
   const [status, setStatus] = useState('');
   const [debuggerOpen, setDebuggerOpen] = useState(false);
   useEffect(() => {
@@ -1337,6 +1545,8 @@ export default function BlankWorkspace() {
   }, [status]);
   const importInputRef = useRef<HTMLInputElement>(null);
   const textureInputRef = useRef<HTMLInputElement>(null);
+  const importScaleRef = useRef(1);
+  const textureApplyTargetRef = useRef(false);
   const editingEntity = editingEntityId === PRIMARY_CAMERA_ID
     ? primaryCameraEntity(camera)
     : entities.find(entity => entity.id === editingEntityId) ?? null;
@@ -1810,7 +2020,12 @@ export default function BlankWorkspace() {
     setModelingOpen(true);
   }, []);
 
-  const openModelingWorkspace = useCallback(() => {
+  const openModelingWorkspace = useCallback((editSelectedModel = false) => {
+    if (!editSelectedModel) {
+      setModelingSource(undefined);
+      setModelingOpen(true);
+      return;
+    }
     const selected = entities.find((entity) => entity.id === selection);
     const renderer = selected ? getModelRenderer(selected) : undefined;
     const asset = assets.find((item) => item.id === renderer?.assetId);
@@ -1853,7 +2068,7 @@ export default function BlankWorkspace() {
     addEntity(entity);
   }, [addEntity, nextPosition]);
 
-  const createAssetEntity = useCallback((asset: ProjectAsset) => {
+  const createAssetEntity = useCallback((asset: ProjectAsset, modelScale = 1) => {
     const entity = createSceneEntity(asset.name, nextPosition(), null, false);
     if (asset.kind === 'image') {
       entity.components = [
@@ -1861,8 +2076,10 @@ export default function BlankWorkspace() {
         { id: crypto.randomUUID(), type: 'spriteRenderer', enabled: true, assetId: asset.id, tint: '#ffffff', width: 100, height: 100 },
       ];
     } else if (asset.kind === 'model') {
+      const transform = getTransform(entity);
+      transform.scale = { x: modelScale, y: modelScale, z: modelScale };
       entity.components = [
-        ...entity.components,
+        transform,
         { id: crypto.randomUUID(), type: 'modelRenderer', enabled: true, assetId: asset.id },
       ];
     } else {
@@ -1901,7 +2118,12 @@ export default function BlankWorkspace() {
     setStatus(`${file.name} saved on this device with embedded rig and animation clips. A new copy was added to the hierarchy.`);
   }, [addEntity, nextPosition]);
 
-  const importFile = useCallback(async (file: File | undefined, imagesOnly = false) => {
+  const importFile = useCallback(async (
+    file: File | undefined,
+    imagesOnly = false,
+    modelScale = 1,
+    applyTextureToSelectedObject = false,
+  ) => {
     if (!file) return;
     if (file.size > WORKSPACE_ASSET_LIMIT) {
       setStatus('This file is too large for local browser storage. Choose a file smaller than 100 MB.');
@@ -1923,14 +2145,34 @@ export default function BlankWorkspace() {
     try {
       await saveLocalAsset(FRESH_WORKSPACE_ID, asset.id, file);
       setAssets(current => [...current, asset]);
-      createAssetEntity(asset);
-      setStatus(`${file.name} saved on this device and added to the scene.`);
+      if (applyTextureToSelectedObject && kind === 'image') {
+        const target = entities.find(entity => entity.id === selection);
+        const primitive = target ? getPrimitive(target) : undefined;
+        if (target && primitive) {
+          setEntities(current => current.map(entity => entity.id !== target.id ? entity : {
+            ...entity,
+            components: entity.components.map(component => component.id === primitive.id
+              ? { ...primitive, textureAssetId: asset.id }
+              : component),
+          }));
+          setStatus(`${file.name} saved and applied to ${target.name}.`);
+          return;
+        }
+      }
+      createAssetEntity(asset, modelScale);
+      setStatus(applyTextureToSelectedObject
+        ? `${file.name} saved as a new image because the selected object cannot receive a 3D texture.`
+        : `${file.name} saved on this device and added to the scene.`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Could not save this asset on this device.');
     }
-  }, [createAssetEntity]);
+  }, [createAssetEntity, entities, selection]);
 
-  const makeTexture = useCallback(async () => {
+  const makeTexture = useCallback(async (
+    pattern: TexturePattern = 'checker',
+    palette: TexturePalette = 'violet',
+    applyToSelectedObject = false,
+  ) => {
     const canvas = document.createElement('canvas');
     canvas.width = 256;
     canvas.height = 256;
@@ -1939,12 +2181,28 @@ export default function BlankWorkspace() {
       setStatus('This browser could not create a texture image.');
       return;
     }
-    context.fillStyle = '#4f267e';
+    const colors: Record<TexturePalette, { base: string; accent: string }> = {
+      violet: { base: '#4f267e', accent: '#b254ef' },
+      silver: { base: '#3d434c', accent: '#d7dce4' },
+      red: { base: '#531d26', accent: '#ff564d' },
+    };
+    const selectedColors = colors[palette];
+    context.fillStyle = selectedColors.base;
     context.fillRect(0, 0, 256, 256);
-    context.fillStyle = '#b254ef';
-    for (let row = 0; row < 8; row++) {
-      for (let column = 0; column < 8; column++) {
-        if ((row + column) % 2 === 0) context.fillRect(column * 32, row * 32, 32, 32);
+    context.fillStyle = selectedColors.accent;
+    if (pattern === 'checker') {
+      for (let row = 0; row < 8; row++) {
+        for (let column = 0; column < 8; column++) {
+          if ((row + column) % 2 === 0) context.fillRect(column * 32, row * 32, 32, 32);
+        }
+      }
+    } else if (pattern === 'stripes') {
+      for (let column = 0; column < 8; column += 2) context.fillRect(column * 32, 0, 16, 256);
+    } else {
+      for (let line = 0; line <= 8; line++) {
+        const position = line * 32;
+        context.fillRect(position, 0, 2, 256);
+        context.fillRect(0, position, 256, 2);
       }
     }
     const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
@@ -1953,7 +2211,7 @@ export default function BlankWorkspace() {
       return;
     }
     const file = new File([blob], `Texture-${new Date().toISOString().slice(0, 10)}.png`, { type: 'image/png' });
-    await importFile(file, true);
+    await importFile(file, true, 1, applyToSelectedObject);
   }, [importFile]);
 
   const createEmptyObject = useCallback(() => {
@@ -2009,13 +2267,14 @@ export default function BlankWorkspace() {
     setStatus('A blank script component was added. It is saved but not executed.');
   }, [addEntity, nextPosition]);
 
-  const createPlane = useCallback((settings: PlaneSettings) => {
+  const createPlane = useCallback((settings: PlaneSettings, color?: string) => {
     createPrimitiveEntity('plane', 'Plane', {
       scale: {
         x: settings.width / 10 * settings.size,
         y: settings.depth / 10 * settings.size,
         z: settings.size,
       },
+      ...(color ? { color } : {}),
       bodyType: 'static',
     });
   }, [createPrimitiveEntity]);
@@ -2088,8 +2347,14 @@ export default function BlankWorkspace() {
     setStatus('Added an editable water surface to the selected Terrain.');
   }, [entities]);
 
-  const showImportPicker = useCallback(() => importInputRef.current?.click(), []);
-  const showTexturePicker = useCallback(() => textureInputRef.current?.click(), []);
+  const showImportPicker = useCallback((modelScale = 1) => {
+    importScaleRef.current = modelScale;
+    importInputRef.current?.click();
+  }, []);
+  const showTexturePicker = useCallback((applyToSelectedObject = false) => {
+    textureApplyTargetRef.current = applyToSelectedObject;
+    textureInputRef.current?.click();
+  }, []);
   const openTimeline = useCallback(() => {
     setPreviewEntities(null);
     setTimelineOpen(true);
@@ -2168,7 +2433,8 @@ export default function BlankWorkspace() {
         onChange={event => {
           const file = event.currentTarget.files?.[0];
           event.currentTarget.value = '';
-          void importFile(file);
+          void importFile(file, false, importScaleRef.current);
+          importScaleRef.current = 1;
         }}
       />
       <input
@@ -2179,7 +2445,8 @@ export default function BlankWorkspace() {
         onChange={event => {
           const file = event.currentTarget.files?.[0];
           event.currentTarget.value = '';
-          void importFile(file, true);
+          void importFile(file, true, 1, textureApplyTargetRef.current);
+          textureApplyTargetRef.current = false;
         }}
       />
       {[1, 2, 3, 4, 5].map((number) => (
@@ -2249,6 +2516,12 @@ export default function BlankWorkspace() {
               onCreateTerrain={() => setPanel5Dialog('terrain')}
               onImportAsset={showImportPicker}
               terrainAvailable={Boolean(selectedEntity && getPrimitive(selectedEntity)?.shape === 'terrain')}
+              selectedObjectCanReceiveTexture={Boolean(selectedEntity && getPrimitive(selectedEntity))}
+              canEditSelectedModel={Boolean(
+                selectedEntity
+                && assets.find(asset => asset.id === getModelRenderer(selectedEntity)?.assetId && /\.(glb|gltf)$/i.test(asset.name))
+                && assetUrls[getModelRenderer(selectedEntity)?.assetId ?? ''],
+              )}
               onTerrainBrush={(action, radius, strength) => {
                 if (selection) applyTerrainBrush(selection, action, radius, strength);
               }}
@@ -2258,16 +2531,19 @@ export default function BlankWorkspace() {
               onAddWater={(coverage, level) => {
                 if (selection) addWaterToTerrain(selection, coverage, level);
               }}
-              onCreateShape={shape => {
+              onCreateShape={(shape, options) => {
                 if (shape === 'plane') {
+                  setPanel5PlaneOptions(options ?? null);
                   setPanel5Dialog('plane');
                   return;
                 }
                 const definition = primitiveShapes.find(item => item.value === shape);
-                createPrimitiveEntity(shape, definition?.label ?? 'Object');
+                createPrimitiveEntity(shape, definition?.label ?? 'Object', options);
               }}
               onUploadTexture={showTexturePicker}
-              onCreateTexture={() => { void makeTexture(); }}
+              onCreateTexture={(pattern, palette, applyToSelectedObject) => {
+                void makeTexture(pattern, palette, applyToSelectedObject);
+              }}
               onPreviewAnimation={openTimeline}
               onOpenModeling={openModelingWorkspace}
             />
@@ -2301,10 +2577,15 @@ export default function BlankWorkspace() {
       </div>
       {panel5Dialog === 'plane' && (
         <PlaneSettingsDialog
-          onCancel={() => setPanel5Dialog(null)}
+          initialSize={panel5PlaneOptions?.scale.x ?? 1}
+          onCancel={() => {
+            setPanel5Dialog(null);
+            setPanel5PlaneOptions(null);
+          }}
           onCreate={settings => {
             setPanel5Dialog(null);
-            createPlane(settings);
+            createPlane(settings, panel5PlaneOptions?.color);
+            setPanel5PlaneOptions(null);
           }}
         />
       )}

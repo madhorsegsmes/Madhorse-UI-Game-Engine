@@ -13,12 +13,12 @@ blank until the user requests tools.
 
 World Building Tools are for shaping terrain and scenery, such as raising or
 lowering terrain, trees, and water—not generic empty-object, camera, or light creation.
-Panel 5 presents these as clickable icons; choosing a tool opens its relevant
-settings dropdowns before the user applies it.
+Panel 5 presents world-building and 3D-modeling actions as clickable icons;
+choosing a tool opens its relevant settings before the user applies it.
 
-**Why:** The user distinguished world-building tools from the existing Hierarchy right-click creation tools and asked for each Panel 5 icon to reveal settings.
+**Why:** The user distinguished world-building tools from Hierarchy creation tools and asked for both Panel 5 tool groups to reveal settings from their icons.
 
-**How to apply:** Keep general object creation in Hierarchy; preserve Panel 5 as the terrain/scenery tool area, with parameters visible before applying changes and without resizing the workspace.
+**How to apply:** Keep general object creation in Hierarchy; preserve Panel 5 as the world and modeling tool area, with parameters visible before applying changes and without resizing the workspace.
 
 The user rejected the rebuilt Studio layout and asked to remove everything visible so they can redo the layout fresh. Start blank, without panels or buttons, and add layout elements only as the user directs. Preserve engine code and saved projects.
 

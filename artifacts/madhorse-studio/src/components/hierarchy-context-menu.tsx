@@ -257,11 +257,12 @@ export function HierarchyContextMenu(props: Props) {
   );
 }
 
-export function PlaneSettingsDialog({ onCancel, onCreate }: {
+export function PlaneSettingsDialog({ onCancel, onCreate, initialSize = 1 }: {
   onCancel: () => void;
   onCreate: (settings: PlaneSettings) => void;
+  initialSize?: number;
 }) {
-  const [size, setSize] = useState(1);
+  const [size, setSize] = useState(initialSize);
   const [width, setWidth] = useState(10);
   const [depth, setDepth] = useState(10);
   return (

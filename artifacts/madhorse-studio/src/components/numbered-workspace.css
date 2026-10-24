@@ -1350,6 +1350,33 @@ body::-webkit-scrollbar-thumb,
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.fresh-model-tool-grid {
+  margin-bottom: 7px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.fresh-model-tool-grid .fresh-world-tool-button {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: center;
+  gap: 5px;
+  min-height: 29px;
+  text-align: left;
+}
+
+.fresh-model-tool-grid .fresh-world-tool-button svg,
+.fresh-model-shape-grid .fresh-world-tool-button svg {
+  color: #c89af0;
+}
+
+.fresh-model-tool-grid .fresh-world-tool-button[data-selected="true"],
+.fresh-model-shape-grid .fresh-world-tool-button[data-selected="true"] {
+  border-color: #d39cff;
+  background: linear-gradient(135deg, #492b62, #281a37);
+  color: #fff;
+  box-shadow: inset 2px 0 #d39cff;
+}
+
 .fresh-model-shapes-label {
   margin: 5px 0;
   color: #a98ac4;
@@ -1360,9 +1387,70 @@ body::-webkit-scrollbar-thumb,
 
 .fresh-model-shape-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 4px;
   align-content: start;
+}
+
+.fresh-model-shape-grid .fresh-world-tool-button {
+  display: grid;
+  grid-template-columns: 15px minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
+  min-height: 27px;
+  padding: 3px 4px;
+  text-align: left;
+}
+
+.fresh-model-shape-grid .fresh-world-tool-button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fresh-model-tool-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 6px;
+  margin: 6px 0;
+  padding: 8px;
+  border: 1px solid rgb(169 107 235 / 60%);
+  background: linear-gradient(145deg, rgb(36 24 49 / 96%), rgb(15 12 21 / 96%));
+  box-shadow: inset 2px 0 #a86dde;
+}
+
+.fresh-model-tool-options h3 {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #f2e7ff;
+  font: 700 10px/1.3 Inter, system-ui, sans-serif;
+}
+
+.fresh-model-setting-full {
+  grid-column: 1 / -1;
+}
+
+.fresh-model-tool-cancel {
+  grid-column: 1 / -1;
+  min-height: 24px;
+  padding: 3px 6px;
+  border: 1px solid #493754;
+  background: #17121d;
+  color: #d1c3de;
+  font: 600 9px/1.2 Inter, system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.fresh-model-tool-cancel:hover {
+  border-color: #8c62a6;
+  background: #251b2e;
+  color: #fff;
+}
+
+.fresh-model-tool-cancel:focus-visible {
+  outline: 2px solid #d2a9f4;
+  outline-offset: 2px;
 }
 
 .fresh-world-tool-button {
