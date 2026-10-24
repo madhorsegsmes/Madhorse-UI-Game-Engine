@@ -12,6 +12,7 @@ import {
   createPhysicsComponent,
   createSceneEntity,
   createStarterCube,
+  createTransformComponent,
   getCamera,
   getModelRenderer,
   getPrimitive,
@@ -80,10 +81,14 @@ import { advanceSceneRuntime, createSceneRuntimeState } from '@/lib/scene-play-r
 import { publishStatus } from '@/lib/system-diagnostics';
 import { playAudioPreview, stopAudioPlayback, unlockSceneAudio } from '@/lib/game-audio';
 import { playerActionDefinitions } from '@/lib/player-action-model';
+import { createStoryboardComponent } from '@/lib/scene-model';
+import { createGameStarterKit, type GameStarterKitId } from '@/lib/scene-starter-kits';
 import { gameFeatureDefinitions } from '@/lib/game-feature-model';
 import type { ActionHud } from '@/lib/player-action-runtime';
 import { PlayerActionHud } from './player-action-hud';
 import { ScriptableObjectEditor } from './scriptable-object-editor';
+import { GameStarterKitDialog } from './game-starter-kit-dialog';
+import { StoryboardEditor } from './storyboard-editor';
 import { downloadMadBuilderLogPdf, type MadBuilderBuildLog } from '@/lib/mad-builder-build-log';
 import { createGameTypeLibraryPdf, gameTypeLibraryEntryCount } from '@/lib/game-type-library';
 import {
@@ -1571,6 +1576,8 @@ export default function BlankWorkspace() {
   const characterFrameToken = useRef(0);
   const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
   const [madBuilderOpen, setMadBuilderOpen] = useState(false);
+  const [starterKitsOpen, setStarterKitsOpen] = useState(false);
+  const [storyboardOpen, setStoryboardOpen] = useState(false);
   const [modelingOpen, setModelingOpen] = useState(false);
   const [modelingSource, setModelingSource] = useState<{ url: string; name: string } | undefined>();
   const [previewEntities, setPreviewEntities] = useState<SceneEntity[] | null>(null);
@@ -2042,6 +2049,46 @@ export default function BlankWorkspace() {
     setEntities(current => current.map(entity => entity.id === updated.id ? updated : entity));
     setStatus(`${updated.name} updated and saved in this browser.`);
   }, [camera]);
+
+  const createStoryboardScene = useCallback(() => {
+    const entity: SceneEntity = {
+      id: crypto.randomUUID(),
+      name: 'Scene Storyboard',
+      parentId: null,
+      active: true,
+      isGroup: true,
+      components: [createTransformComponent(), createStoryboardComponent()],
+    };
+    setEntities(current => [...current, entity]);
+    setSelection(entity.id);
+    setStatus('Storyboard added to Scene 1 and saved with this browser project.');
+    return entity.id;
+  }, []);
+
+  const updateStoryboardScene = useCallback((updated: SceneEntity) => {
+    if (!isSceneEntity(updated)) {
+      setStatus('Storyboard changes were not saved. Check the title and mission-step limits.');
+      return;
+    }
+    setEntities(current => current.map(entity => entity.id === updated.id ? updated : entity));
+    setStatus('Storyboard saved with Scene 1 in this browser.');
+  }, []);
+
+  const addStarterKit = useCallback((kind: GameStarterKitId) => {
+    const anchor = selectedEntity
+      ? getWorldTransform(entities, selectedEntity.id)?.position ?? getTransform(selectedEntity).position
+      : SCENE_ORIGIN;
+    const result = createGameStarterKit(kind, anchor);
+    const next = [...entities, ...result.entities];
+    if (!isSceneGraph(next)) {
+      setStatus('The starter kit did not pass scene checks. No scene objects were added.');
+      return;
+    }
+    setEntities(next);
+    setSelection(result.playerId);
+    setStarterKitsOpen(false);
+    setStatus(`${result.title} added beside your current objects. Existing scene data was kept.`);
+  }, [entities, selectedEntity]);
 
   const removeEntityFromScene = useCallback((entityId: string) => {
     if (entityId === PRIMARY_CAMERA_ID || entityId === 'player') return;
@@ -2637,6 +2684,16 @@ export default function BlankWorkspace() {
             <>
               <span className="fresh-panel-number" aria-hidden="true">4</span>
               <div className="fresh-panel-builder-entry">
+                <div className="fresh-panel-project-tools">
+                  <button type="button" data-testid="button-scene-starter-kits" onClick={() => setStarterKitsOpen(true)}>
+                    <strong>Scene Starter Kits</strong>
+                    <span>FPS · RPG · Puzzle</span>
+                  </button>
+                  <button type="button" data-testid="button-open-storyboard" onClick={() => setStoryboardOpen(true)}>
+                    <strong>Storyboard</strong>
+                    <span>Plan mission steps</span>
+                  </button>
+                </div>
                 <button type="button" className="fresh-builder-open" onClick={() => setMadBuilderOpen(true)}>
                   <strong>Mad Builder</strong>
                   <span>Open builder</span>
@@ -2684,6 +2741,13 @@ export default function BlankWorkspace() {
           )}
         </section>
       ))}
+      {starterKitsOpen && <GameStarterKitDialog onAdd={addStarterKit} onClose={() => setStarterKitsOpen(false)} />}
+      {storyboardOpen && <StoryboardEditor
+        entities={entities}
+        onCreate={createStoryboardScene}
+        onSave={updateStoryboardScene}
+        onClose={() => setStoryboardOpen(false)}
+      />}
       <div className="fresh-debugger-dock">
         {debuggerOpen && (
           <section className="fresh-debugger-drawer" id="fresh-debugger-drawer" role="region" aria-label="System debugger" data-testid="system-debugger-drawer">

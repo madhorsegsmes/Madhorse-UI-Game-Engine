@@ -157,6 +157,10 @@ export type CharacterControllerComponent = {
   followDistance: number;
   patrolRadius: number;
 };
+export type VisualLogicNode =
+  | { id: string; type: 'condition-item'; item: 'wood' | 'planks' | 'coins' | 'keys'; minimum: number; failMessage: string }
+  | { id: string; type: 'message'; message: string }
+  | { id: string; type: 'enable-target' | 'disable-target' | 'toggle-target'; targetEntityId: string | null };
 export type TriggerZoneComponent = {
   id: string;
   type: 'triggerZone';
@@ -166,11 +170,20 @@ export type TriggerZoneComponent = {
   action: 'notify' | 'enable-target' | 'toggle-target';
   targetEntityId: string | null;
   message: string;
+  logicNodes?: VisualLogicNode[];
+};
+export type StoryboardBeat = { id: string; title: string; note: string; complete: boolean };
+export type StoryboardComponent = {
+  id: string;
+  type: 'storyboard';
+  enabled: boolean;
+  title: string;
+  beats: StoryboardBeat[];
 };
 export type SceneComponent = TransformComponent | SpriteRendererComponent | ModelRendererComponent |
   PrimitiveComponent | LightComponent | CameraComponent | UICanvasComponent | PhysicsComponent | ScriptComponent |
   GameAudioComponent | PlayerWalkAudioComponent | PlayerActionComponent | GameFeatureComponent | EffectComponent |
-  SkyboxComponent | MultiplayerPluginComponent | CharacterControllerComponent | TriggerZoneComponent;
+  SkyboxComponent | MultiplayerPluginComponent | CharacterControllerComponent | TriggerZoneComponent | StoryboardComponent;
 
 export type SceneEntity = {
   id: string;
@@ -355,6 +368,10 @@ export function getTriggerZone(entity: SceneEntity) {
   return entity.components.find((entry): entry is TriggerZoneComponent => entry.type === 'triggerZone');
 }
 
+export function createStoryboardComponent(title = 'New Storyboard'): StoryboardComponent {
+  return { id: crypto.randomUUID(), type: 'storyboard', enabled: true, title, beats: [] };
+}
+
 export function getSkybox(entity: SceneEntity) {
   return entity.components.find((entry): entry is SkyboxComponent => entry.type === 'skybox');
 }
@@ -441,7 +458,25 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
     item.size.y > 0 && item.size.y <= 100 && item.size.z > 0 && item.size.z <= 100 &&
     (item.action === 'notify' || item.action === 'enable-target' || item.action === 'toggle-target') &&
     (item.targetEntityId === null || typeof item.targetEntityId === 'string') &&
-    typeof item.message === 'string' && item.message.length <= 160;
+    typeof item.message === 'string' && item.message.length <= 160 &&
+    (item.logicNodes === undefined || Array.isArray(item.logicNodes) && item.logicNodes.length <= 16 &&
+      item.logicNodes.every(node => {
+        if (!node || typeof node.id !== 'string' || node.id.length > 80) return false;
+        if (node.type === 'condition-item') return ['wood', 'planks', 'coins', 'keys'].includes(node.item) &&
+          Number.isInteger(node.minimum) && node.minimum >= 1 && node.minimum <= 999 &&
+          typeof node.failMessage === 'string' && node.failMessage.length <= 160;
+        if (node.type === 'message') return typeof node.message === 'string' && node.message.length <= 160;
+        if (node.type === 'enable-target' || node.type === 'disable-target' || node.type === 'toggle-target')
+          return node.targetEntityId === null || typeof node.targetEntityId === 'string';
+        return false;
+      }) && new Set(item.logicNodes.map(node => node.id)).size === item.logicNodes.length);
+  if (item.type === 'storyboard') return typeof item.enabled === 'boolean' &&
+    typeof item.title === 'string' && item.title.trim().length > 0 && item.title.length <= 100 &&
+    Array.isArray(item.beats) && item.beats.length <= 30 &&
+    item.beats.every(beat => Boolean(beat) && typeof beat.id === 'string' && beat.id.length > 0 && beat.id.length <= 80 &&
+      typeof beat.title === 'string' && beat.title.trim().length > 0 && beat.title.length <= 100 &&
+      typeof beat.note === 'string' && beat.note.length <= 300 && typeof beat.complete === 'boolean') &&
+    new Set(item.beats.map(beat => beat.id)).size === item.beats.length;
   if (item.type === 'physics') return isPhysicsComponent(item);
   return false;
 }
@@ -505,7 +540,7 @@ export function isSceneEntity(value: unknown): value is SceneEntity {
     new Set(enabledKeys).size === enabledKeys.length &&
     new Set(enabledActions.map(component => component.key)).size === enabledActions.length &&
     entity.components.filter((component) => component.type === 'transform').length === 1 &&
-    ['primitive', 'light', 'camera', 'uiCanvas', 'script', 'effect', 'skybox', 'characterController', 'triggerZone'].every((type) => entity.components.filter((component) => component.type === type).length <= 1) &&
+    ['primitive', 'light', 'camera', 'uiCanvas', 'script', 'effect', 'skybox', 'characterController', 'triggerZone', 'storyboard'].every((type) => entity.components.filter((component) => component.type === type).length <= 1) &&
     entity.components.filter((component) => component.type === 'spriteRenderer').length <= 1 &&
     entity.components.filter((component) => component.type === 'modelRenderer').length <= 1 &&
     entity.components.filter((component) => component.type === 'physics').length <= 1;

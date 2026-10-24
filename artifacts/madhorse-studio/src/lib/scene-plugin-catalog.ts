@@ -283,6 +283,7 @@ export function createPluginComponent(
         action: 'notify',
         targetEntityId: null,
         message: 'Trigger entered',
+        logicNodes: [],
       },
     };
   }

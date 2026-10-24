@@ -4,6 +4,7 @@ import {
   type CharacterControllerComponent,
   type SceneEntity,
   type TriggerZoneComponent,
+  type VisualLogicNode,
 } from './scene-model';
 import {
   advancePlayerActions, createPlayerActionRuntimeState, resolveActionMovement,
@@ -169,10 +170,40 @@ export function advanceSceneRuntime(
   for (const entity of moved) {
     if (!contacts.has(entity.id) || state.contacts.has(entity.id)) continue;
     const zone = getTriggerZone(entity);
-    if (!zone || !zone.targetEntityId || (zone.action !== 'enable-target' && zone.action !== 'toggle-target')) continue;
+    if (!zone) continue;
+    if (zone.logicNodes?.length) {
+      const inventory = player ? state.actions.players.get(player.id) : undefined;
+      let passed = true;
+      for (const node of zone.logicNodes) {
+        if (node.type === 'condition-item') {
+          const count = inventory?.[node.item] ?? 0;
+          if (count < node.minimum) {
+            if (node.failMessage.trim()) events.push({ zoneId: entity.id, message: node.failMessage });
+            passed = false;
+            break;
+          }
+          continue;
+        }
+        if (node.type === 'message') {
+          if (node.message.trim()) events.push({ zoneId: entity.id, message: node.message });
+          continue;
+        }
+        if (!node.targetEntityId) continue;
+        const target = moved.find(candidate => candidate.id === node.targetEntityId);
+        if (!target) continue;
+        const currentActive = activeByZone.get(target.id) ?? target.active;
+        const enabled = node.type === 'enable-target'
+          ? true : node.type === 'disable-target' ? false : !currentActive;
+        activeByZone.set(target.id, enabled);
+      }
+      if (!passed) continue;
+      continue;
+    }
+    events.push({ zoneId: entity.id, message: zone.message });
+    if (!zone.targetEntityId || (zone.action !== 'enable-target' && zone.action !== 'toggle-target')) continue;
     const target = moved.find(candidate => candidate.id === zone.targetEntityId);
     if (!target) continue;
-    const enabled = zone.action === 'enable-target' ? true : !target.active;
+    const enabled = zone.action === 'enable-target' ? true : !(activeByZone.get(target.id) ?? target.active);
     activeByZone.set(target.id, enabled);
   }
   state.contacts = contacts;

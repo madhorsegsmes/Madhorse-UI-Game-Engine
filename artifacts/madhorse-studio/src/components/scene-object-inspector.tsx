@@ -16,6 +16,8 @@ import { PlayerActionSettings } from './player-action-settings';
 import { gameFeatureDraft, gameFeatureFromDraft } from '@/lib/game-feature-model';
 import { gameFeatureDefinitions } from '@/lib/game-feature-model';
 import { GameFeatureSettings } from './game-feature-settings';
+import { VisualLogicEditor } from './visual-logic-editor';
+import type { VisualLogicNode } from '@/lib/scene-model';
 
 type Props = {
   entity: SceneEntity;
@@ -106,6 +108,7 @@ function toDraft(entity: SceneEntity) {
       values['trigger.action'] = component.action;
       values['trigger.targetEntityId'] = component.targetEntityId ?? '';
       values['trigger.message'] = component.message;
+      values['trigger.logicNodes'] = JSON.stringify(component.logicNodes ?? []);
       for (const axis of ['x', 'y', 'z'] as const) values[`trigger.size.${axis}`] = String(component.size[axis]);
     } else if (component.type === 'skybox') {
       values['skybox.enabled'] = String(component.enabled);
@@ -194,6 +197,15 @@ export function SceneObjectInspector({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    let logicNodes: VisualLogicNode[] | undefined;
+    if (component('triggerZone')) {
+      try {
+        logicNodes = JSON.parse(values['trigger.logicNodes'] ?? '[]') as VisualLogicNode[];
+      } catch {
+        setError('The visual logic flow is not valid. Reopen the flow editor and try again.');
+        return;
+      }
+    }
     const nextComponents = entity.components.map((item): SceneComponent => {
       if (item.type === 'gameFeature') return gameFeatureFromDraft(item, values);
       if (item.type === 'playerAction') return playerActionFromDraft(item, values);
@@ -293,6 +305,7 @@ export function SceneObjectInspector({
         action: values['trigger.action'] as typeof item.action,
         targetEntityId: values['trigger.targetEntityId'] || null,
         message: values['trigger.message'],
+        logicNodes,
         size: { x: number('trigger.size.x'), y: number('trigger.size.y'), z: number('trigger.size.z') },
       };
       if (item.type === 'skybox') return {
@@ -308,6 +321,7 @@ export function SceneObjectInspector({
         height: number('sprite.height'),
         assetId: values['sprite.assetId'] || null,
       };
+      if (item.type === 'storyboard') return item;
       return {
         ...item,
         enabled: values['model.enabled'] === 'true',
@@ -570,6 +584,13 @@ export function SceneObjectInspector({
             <span>Event message</span>
             <input type="text" maxLength={160} value={values['trigger.message'] ?? ''} onChange={event => setValue('trigger.message', event.currentTarget.value)} />
           </label>
+          <VisualLogicEditor zone={{
+            ...triggerZone,
+            logicNodes: (() => {
+              try { return JSON.parse(values['trigger.logicNodes'] ?? '[]') as VisualLogicNode[]; }
+              catch { return triggerZone.logicNodes ?? []; }
+            })(),
+          }} entity={entity} entities={entities} onChange={nodes => setValue('trigger.logicNodes', JSON.stringify(nodes))} />
         </>)}
         {skybox && section('Skybox Background', <>
           {checkboxField('Enabled', 'skybox.enabled')}
