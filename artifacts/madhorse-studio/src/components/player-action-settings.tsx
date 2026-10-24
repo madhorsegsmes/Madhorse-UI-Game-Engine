@@ -15,7 +15,7 @@ export function PlayerActionSettings({ actions, values, setValue, assets, assetU
   return <>{actions.map(action => {
     const definition = playerActionDefinitions[action.action];
     const prefix = playerActionPrefix(action.id);
-    const defaultKey = definition.key === 'shift' ? 'Shift' : definition.key.toUpperCase();
+    const defaultKey = definition.key === 'shift' ? 'Shift' : definition.key === 'control' ? 'Control' : definition.key.toUpperCase();
     const chosenKey = (values[`${prefix}key`] ?? definition.key).toUpperCase();
     const instructions = definition.help.replace(`Hold ${defaultKey}`, `Hold ${chosenKey}`).replace(`Press ${defaultKey}`, `Press ${chosenKey}`);
     return <fieldset className="fresh-inspector-section" key={action.id} data-testid={`action-settings-${action.action}`}>
@@ -37,14 +37,19 @@ export function PlayerActionSettings({ actions, values, setValue, assets, assetU
           value={values[`${prefix}${field.name}`] ?? ''}
           onChange={event => setValue(`${prefix}${field.name}`, event.currentTarget.value)} required />
       </label>)}
-      {(action.action === 'fight' || action.action === 'shoot') && <label className="fresh-setting">
-        <span>Practice target</span>
-        <select aria-label="Practice target" value={values[`${prefix}targetId`]} onChange={event => setValue(`${prefix}targetId`, event.currentTarget.value)}>
-          <option value="">Automatic: nearest in reach / aim direction</option>
-          {entities.filter(entity => entity.id !== ownerId && !entity.isGroup && entity.components.some(component =>
-            component.type === 'primitive' && !['plane', 'terrain'].includes(component.shape) ||
-            component.type === 'modelRenderer' || component.type === 'spriteRenderer',
-          )).map(entity => <option key={entity.id} value={entity.id}>{entity.name}</option>)}
+      {['fight', 'shoot', 'cast', 'play-card', 'command', 'gather', 'follow'].includes(action.action) && <label className="fresh-setting">
+        <span>{action.action === 'command' ? 'Rally object' : action.action === 'follow' ? 'Companion target' : action.action === 'gather' ? 'Resource node' : 'Practice target'}</span>
+        <select aria-label={action.action === 'command' ? 'Rally object' : action.action === 'follow' ? 'Companion target' : action.action === 'gather' ? 'Resource node' : 'Practice target'} value={values[`${prefix}targetId`]} onChange={event => setValue(`${prefix}targetId`, event.currentTarget.value)}>
+          <option value="">{action.action === 'command' ? 'Automatic: point in front of player' : 'Automatic: nearest in reach / aim direction'}</option>
+          {entities.filter(entity => {
+            if (entity.id === ownerId) return false;
+            if (action.action === 'command') return !entity.components.some(component => component.type === 'camera');
+            if (action.action === 'follow') return entity.components.some(component => component.type === 'characterController' && component.role === 'npc');
+            if (action.action === 'gather') return entity.components.some(component => component.type === 'gameFeature' && component.kind === 'pickup');
+            return !entity.isGroup && entity.components.some(component =>
+              component.type === 'primitive' && !['plane', 'terrain'].includes(component.shape) ||
+              component.type === 'modelRenderer' || component.type === 'spriteRenderer');
+          }).map(entity => <option key={entity.id} value={entity.id}>{entity.name}</option>)}
         </select>
       </label>}
       <label className="fresh-setting">

@@ -11,6 +11,16 @@ const soundPresets: Record<AudioPlayStyle, { wave: OscillatorType; start: number
   race: { wave: 'sawtooth', start: 75, end: 100, duration: 0.24 },
   craft: { wave: 'sine', start: 650, end: 1100, duration: 0.2 },
   build: { wave: 'triangle', start: 230, end: 60, duration: 0.18 },
+  block: { wave: 'triangle', start: 220, end: 90, duration: 0.12 },
+  heal: { wave: 'sine', start: 500, end: 1000, duration: 0.3 },
+  cast: { wave: 'sine', start: 1200, end: 250, duration: 0.25 },
+  'draw-card': { wave: 'triangle', start: 450, end: 700, duration: 0.1 },
+  'play-card': { wave: 'sine', start: 600, end: 300, duration: 0.18 },
+  'end-turn': { wave: 'sine', start: 350, end: 750, duration: 0.24 },
+  command: { wave: 'sine', start: 800, end: 1000, duration: 0.12 },
+  gather: { wave: 'triangle', start: 300, end: 500, duration: 0.15 },
+  follow: { wave: 'sine', start: 450, end: 650, duration: 0.18 },
+  reload: { wave: 'triangle', start: 180, end: 400, duration: 0.16 },
 };
 
 let sharedContext: AudioContext | null = null;

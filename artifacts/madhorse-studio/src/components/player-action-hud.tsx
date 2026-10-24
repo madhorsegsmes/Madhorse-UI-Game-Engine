@@ -14,6 +14,7 @@ export function PlayerActionHud({ hud }: { hud: ActionHud }) {
         {hud.controls.map(control => keyHint(control.key, control.label,
           control.action === 'race' && hud.mode === 'Driving' ||
           control.action === 'run' && hud.mode === 'Running' ||
+          control.action === 'block' && hud.mode === 'Blocking' ||
           control.action === 'crouch' && hud.mode === 'Crouching',
         ))}
         {hud.extraControls.map(control => keyHint(control.key, control.label))}
@@ -26,6 +27,7 @@ export function PlayerActionHud({ hud }: { hud: ActionHud }) {
         </div>
       </div>}
       {hud.showInventory && <p data-testid="action-inventory">{hud.inventoryText}</p>}
+      {hud.resourceText && <p data-testid="action-resources">{hud.resourceText}</p>}
       <p role="status" data-testid="action-feedback">{hud.message || 'Use your PC keyboard: W/A/S/D or arrows to move; press an action key.'}</p>
       <small>Test only. Stop or press Esc to restore your saved scene.</small>
     </div>

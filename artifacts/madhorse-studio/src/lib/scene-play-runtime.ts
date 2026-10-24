@@ -107,6 +107,17 @@ export function advanceSceneRuntime(
         if (nextHeight === 0) velocity = 0;
         state.jumpVelocity.set(entity.id, velocity);
       }
+    } else if (controller.role === 'npc' && state.actions.orders.has(entity.id)) {
+      const destination = state.actions.orders.get(entity.id)!;
+      const origin = getWorldTransform(entities, entity.id)?.position ?? transform.position;
+      const dx = destination.x - origin.x;
+      const dy = destination.y - origin.y;
+      const distance = Math.hypot(dx, dy);
+      if (distance > 0.5) {
+        const step = Math.min(distance, controller.moveSpeed * dt * 10) / distance;
+        nextPosition.x += dx * step;
+        nextPosition.y += dy * step;
+      }
     } else if (controller.role === 'npc' && controller.behavior === 'follow-player' && playerWorld) {
       const dx = playerWorld.position.x - transform.position.x;
       const dy = playerWorld.position.y - transform.position.y;

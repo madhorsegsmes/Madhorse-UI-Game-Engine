@@ -1,4 +1,8 @@
-export const playerActionNames = ['run', 'crouch', 'fight', 'shoot', 'race', 'craft', 'build'] as const;
+export const playerActionNames = [
+  'run', 'crouch', 'fight', 'shoot', 'race', 'craft', 'build',
+  'block', 'heal', 'cast', 'draw-card', 'play-card', 'end-turn',
+  'command', 'gather', 'follow', 'reload',
+] as const;
 export type PlayerActionName = typeof playerActionNames[number];
 export type PlayerActionComponent = {
   id: string;
@@ -19,6 +23,85 @@ export const actionKeyOptions = [
   'l', 'u', 'i', 'o', 'p', 'x', 'z', 't', 'v', 'n', 'm', '1', '2', '3', '4',
 ];
 export const playerActionDefinitions: Record<PlayerActionName, ActionDefinition> = {
+  block: {
+    label: 'Block', key: 'control', help: 'Hold Control to reduce nearby NPC contact damage and walk more slowly. This is a simple guard, not an animated combat combo.',
+    fields: [
+      { name: 'damageReduction', label: 'Damage blocked (0 to 1)', default: 0.75, min: 0, max: 1 },
+      { name: 'speedMultiplier', label: 'Walking speed while blocking', default: 0.4, min: 0.1, max: 1 },
+    ],
+  },
+  heal: {
+    label: 'Heal Yourself', key: 'h', help: 'Press H to restore some health. Wait for the cooldown before healing again.',
+    fields: [
+      { name: 'amount', label: 'Health restored', default: 25, min: 1, max: 1000 },
+      { name: 'cooldown', label: 'Wait between heals (seconds)', default: 3, min: 0.1, max: 60 },
+    ],
+  },
+  cast: {
+    label: 'Cast a Spell', key: 'q', help: 'Press Q to fire a magic attack using mana. Aim by moving or choose a practice target. Mana slowly refills.',
+    fields: [
+      { name: 'damage', label: 'Spell damage', default: 35, min: 1, max: 1000 },
+      { name: 'range', label: 'Spell reach (meters)', default: 20, min: 1, max: 100 },
+      { name: 'maxMana', label: 'Maximum mana', default: 100, min: 1, max: 1000 },
+      { name: 'manaCost', label: 'Mana used per spell', default: 20, min: 1, max: 1000 },
+      { name: 'regeneration', label: 'Mana restored each second', default: 5, min: 0, max: 100 },
+      { name: 'cooldown', label: 'Wait between spells (seconds)', default: 1, min: 0.1, max: 30 },
+    ],
+  },
+  'draw-card': {
+    label: 'Draw a Card', key: '1', help: 'Press 1 to draw from a simple deck of damage cards. The deck and hand counts appear in Play Test; no card artwork is generated.',
+    fields: [
+      { name: 'deckSize', label: 'Cards in the deck', default: 20, min: 1, max: 100, integer: true },
+      { name: 'handLimit', label: 'Most cards in your hand', default: 7, min: 1, max: 20, integer: true },
+      { name: 'cooldown', label: 'Wait between draws (seconds)', default: 0.3, min: 0.1, max: 5 },
+    ],
+  },
+  'play-card': {
+    label: 'Play a Damage Card', key: '2', help: 'Press 2 to spend one card and energy to damage a nearby practice target. Add Draw a Card and End Turn to complete the loop.',
+    fields: [
+      { name: 'damage', label: 'Card damage', default: 20, min: 1, max: 1000 },
+      { name: 'range', label: 'Target reach (meters)', default: 30, min: 1, max: 100 },
+      { name: 'energyCost', label: 'Energy used per card', default: 1, min: 1, max: 10, integer: true },
+      { name: 'startingEnergy', label: 'Energy each turn', default: 3, min: 1, max: 10, integer: true },
+      { name: 'cooldown', label: 'Wait between cards (seconds)', default: 0.3, min: 0.1, max: 5 },
+    ],
+  },
+  'end-turn': {
+    label: 'End Turn', key: '3', help: 'Press 3 to advance your local turn, refill card energy, and draw one card if there is room. This does not create an opponent or online turn server.',
+    fields: [{ name: 'cooldown', label: 'Wait between turns (seconds)', default: 0.5, min: 0.1, max: 5 }],
+  },
+  command: {
+    label: 'Order Units to Move', key: 't', help: 'Press T to send nearby NPC units toward a selected rally object, or a spot in front of you. Movement is straight-line, not wall-avoiding pathfinding.',
+    fields: [
+      { name: 'radius', label: 'Choose units within (meters)', default: 15, min: 1, max: 100 },
+      { name: 'distance', label: 'Rally distance without a target (meters)', default: 8, min: 1, max: 50 },
+      { name: 'cooldown', label: 'Wait between orders (seconds)', default: 0.3, min: 0.1, max: 5 },
+    ],
+  },
+  gather: {
+    label: 'Gather Resources', key: 'g', help: 'Press G near an object with a wood, plank, or coin Pickup component. Collect it into your test inventory; the node hides until Play Test stops.',
+    fields: [
+      { name: 'range', label: 'Gather reach (meters)', default: 3, min: 0.5, max: 15 },
+      { name: 'multiplier', label: 'Resource amount multiplier', default: 1, min: 1, max: 10, integer: true },
+      { name: 'cooldown', label: 'Wait between gathers (seconds)', default: 0.5, min: 0.1, max: 5 },
+    ],
+  },
+  follow: {
+    label: 'Recruit a Companion', key: 'u', help: 'Press U near a selected or nearby NPC to make it follow your player during Play Test. This is a local companion, not an online party system.',
+    fields: [
+      { name: 'range', label: 'Recruit reach (meters)', default: 10, min: 1, max: 50 },
+      { name: 'followDistance', label: 'Stay this far behind (meters)', default: 2, min: 0.5, max: 20 },
+      { name: 'cooldown', label: 'Wait between recruits (seconds)', default: 0.3, min: 0.1, max: 5 },
+    ],
+  },
+  reload: {
+    label: 'Ammo & Reload', key: 'r', help: 'Press R to refill your magazine from reserve ammo. Add Shooting to fire. Reloading is instant with a cooldown; it does not add an animation.',
+    fields: [
+      { name: 'magazineSize', label: 'Shots in each magazine', default: 12, min: 1, max: 100, integer: true },
+      { name: 'reserveAmmo', label: 'Starting spare ammo', default: 60, min: 0, max: 999, integer: true },
+      { name: 'cooldown', label: 'Wait between reloads (seconds)', default: 1.2, min: 0.1, max: 10 },
+    ],
+  },
   run: {
     label: 'Running', key: 'shift', help: 'Hold Shift while walking to go faster. Includes running footsteps.',
     fields: [{ name: 'speedMultiplier', label: 'Speed boost', default: 2, min: 1, max: 5 }],
@@ -94,6 +177,8 @@ export function isPlayerActionComponent(value: unknown): value is PlayerActionCo
       !(item.targetId === null || typeof item.targetId === 'string') ||
       !item.settings || typeof item.settings !== 'object' || Array.isArray(item.settings)) return false;
   const fields = playerActionDefinitions[item.action].fields;
+  if (item.action === 'cast' && item.settings.manaCost > item.settings.maxMana) return false;
+  if (item.action === 'play-card' && item.settings.energyCost > item.settings.startingEnergy) return false;
   return Object.keys(item.settings).length === fields.length && fields.every(field => {
     const value = item.settings[field.name];
     return Number.isFinite(value) && value >= field.min && value <= field.max && (!field.integer || Number.isInteger(value));

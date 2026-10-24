@@ -5,6 +5,8 @@ import type { Dispatch, DragEvent as ReactDragEvent, KeyboardEvent, MouseEvent, 
 import { Activity, ArrowDown, ArrowUp, Box, Check, ChevronDown, ChevronRight, Circle, Cone, Cylinder, Diamond, Donut, Droplets, FileDown, Folder, Grid2X2, ImagePlus, Mountain, Octagon, Palette, Pentagon, Shapes, Trash2, Triangle, Trees, Upload, Waves, Wrench } from 'lucide-react';
 import { ScenePreview3D, type SceneFrameRequest, type SceneTransformMode } from './scene-preview-3d';
 import { MultiplayerToolsPanel } from './multiplayer-tools-panel';
+import { genrePlayerFunctionTools } from '@/lib/player-function-tools';
+import { actionKeyOptions } from '@/lib/player-action-model';
 import {
   createScriptableObjectAsset,
   createPhysicsComponent,
@@ -180,6 +182,7 @@ const FUNCTION_TOOLSETS: Record<FunctionTabId, FunctionTool[]> = {
   'player-functions': [
     { id: 'player-walk-jump', label: 'Walk and jump', description: 'W, A, S, D or arrow keys move. Space jumps in Play Test.', componentKind: 'character-controller-player' },
     { id: 'player-third-person', label: 'Move with camera behind', description: 'Adds walking and a camera that follows from behind.', componentKind: 'character-controller-third-person' },
+    ...genrePlayerFunctionTools,
   ],
   'game-controls': [
     { id: 'keyboard-controls', label: 'Add keyboard controls', description: 'W, A, S, D or arrow keys move. Space jumps; Escape stops Play Test.', componentKind: 'character-controller-player' },
@@ -203,7 +206,7 @@ const FUNCTION_TOOLSETS: Record<FunctionTabId, FunctionTool[]> = {
 
 const FUNCTION_TAB_HELP: Record<FunctionTabId, string> = {
   'game-system': 'Pick a tool to add it to the selected object.',
-  'player-functions': 'Choose how the player moves. You can change the settings later.',
+  'player-functions': 'Add a player skill for your game type. Edit its key, targets, and settings by double-clicking the object. Skills reset when Play Test stops.',
   'game-controls': 'Add keyboard movement, then press Play Test.',
   'player-controls': 'Pick the object that should move and add its controls.',
   'npc-functions': 'Choose how your helper should move.',
@@ -2089,6 +2092,21 @@ export default function BlankWorkspace() {
       return;
     }
     const created = createPluginComponent(kind, uiControls.length);
+    if (created.component.type === 'playerAction') {
+      const usedKeys = new Set(target.components.flatMap(component =>
+        component.type === 'playerAction' && component.enabled ? [component.key]
+          : component.type === 'gameFeature' && component.enabled && component.kind === 'interact'
+            ? [String(component.settings.key)] : [],
+      ));
+      if (usedKeys.has(created.component.key)) {
+        const freeKey = actionKeyOptions.find(key => !usedKeys.has(key));
+        if (!freeKey) {
+          setStatus('All action keys are in use. Disable an existing skill before adding another.');
+          return;
+        }
+        created.component.key = freeKey;
+      }
+    }
     const components: SceneComponent[] = [created.component];
     const addPlayerController = (kind === 'player-walk-audio' || kind === 'multiplayer-player' || kind.startsWith('action-') ||
       kind === 'feature-interact' || kind === 'feature-inventory' || kind === 'feature-status-bar') && !existingController;

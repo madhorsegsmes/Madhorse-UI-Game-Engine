@@ -2,6 +2,7 @@ import { createPhysicsComponent, createTransformComponent, getTransform, getWorl
 import { playerActionDefinitions, type PlayerActionComponent, type PlayerActionName } from './player-action-model';
 import { gameFeatureDefinitions, type GameFeatureComponent, type GameFeatureName } from './game-feature-model';
 import type { AudioPlayStyle } from './game-audio';
+import { advanceGenreAction, createGenreResources, type GenreResources } from './player-genre-actions';
 
 export type ActionInput = { moveX: number; moveY: number; heldKeys?: readonly string[]; pressedKeys?: readonly string[] };
 export type ActionAudioEvent = { action: AudioPlayStyle; clipAssetId: string | null; volume: number; pitch: number };
@@ -11,6 +12,7 @@ export type ActionHud = {
   extraControls: { key: string; label: string }[];
   showHealth: boolean; health: number; maxHealth: number;
   showInventory: boolean; inventoryText: string;
+  resourceText: string;
   message: string;
 };
 type PlayerState = {
@@ -19,14 +21,16 @@ type PlayerState = {
   health: number; maxHealth: number; spawn: Vector3; checkpoint: Vector3 | null;
   lastContactDamage: number; lastHealthUpdate: number;
   lastUse: Map<string, number>; lastMoveSound: number; wasCrouching: boolean; feedback: string;
+  genre: GenreResources;
 };
 export type PlayerActionRuntimeState = {
   players: Map<string, PlayerState>; health: Map<string, number>;
   doors: Map<string, boolean>;
+  orders: Map<string, Vector3>;
   effects: Map<string, { entity: SceneEntity; until: number }>; effectIds: Set<string>; builtCount: number;
 };
 export function createPlayerActionRuntimeState(): PlayerActionRuntimeState {
-  return { players: new Map(), health: new Map(), doors: new Map(), effects: new Map(), effectIds: new Set(), builtCount: 0 };
+  return { players: new Map(), health: new Map(), doors: new Map(), orders: new Map(), effects: new Map(), effectIds: new Set(), builtCount: 0 };
 }
 export function getGameFeatures(entity: SceneEntity): GameFeatureComponent[] {
   return entity.components.filter((component): component is GameFeatureComponent =>
@@ -58,6 +62,7 @@ function getPlayerState(entity: SceneEntity, state: PlayerActionRuntimeState) {
       health: Math.min(maxHealth, Number(healthFeature?.settings.startingHealth ?? maxHealth)),
       maxHealth, spawn: { ...transform.position }, checkpoint: null, lastContactDamage: -Infinity, lastHealthUpdate: 0,
       lastUse: new Map(), lastMoveSound: -Infinity, wasCrouching: false, feedback: '',
+      genre: createGenreResources(actions),
     };
     state.players.set(entity.id, current);
   }
@@ -71,6 +76,7 @@ export function resolveActionMovement(
   const run = actions.find(action => action.action === 'run');
   const crouch = actions.find(action => action.action === 'crouch');
   const race = actions.find(action => action.action === 'race');
+  const block = actions.find(action => action.action === 'block');
   const held = new Set(input.heldKeys ?? []);
   if (!race) { current.driving = false; current.speed = 0; }
   if (race && input.pressedKeys?.includes(race.key)) {
@@ -80,6 +86,7 @@ export function resolveActionMovement(
   }
   const crouching = Boolean(crouch && held.has(crouch.key) && !current.driving);
   const running = Boolean(run && held.has(run.key) && !crouching && !current.driving);
+  const blocking = Boolean(block && held.has(block.key) && !current.driving);
   let dx = 0; let dy = 0;
   if (race && current.driving) {
     const { acceleration, maxSpeed, turnSpeed } = race.settings;
@@ -94,8 +101,8 @@ export function resolveActionMovement(
     current.heading = Math.atan2(input.moveX, input.moveY);
   }
   return {
-    current, actions, running, crouching, driving: current.driving, dx, dy,
-    speedMultiplier: crouching ? crouch!.settings.speedMultiplier : running ? run!.settings.speedMultiplier : 1,
+    current, actions, running, crouching, blocking, driving: current.driving, dx, dy,
+    speedMultiplier: blocking ? block!.settings.speedMultiplier : crouching ? crouch!.settings.speedMultiplier : running ? run!.settings.speedMultiplier : 1,
     heightMultiplier: crouching ? crouch!.settings.heightMultiplier : 1,
   };
 }
@@ -173,14 +180,35 @@ export function advancePlayerActions(
   }
   current.wasCrouching = motion.crouching;
   for (const action of actions) {
-    if (!input.pressedKeys?.includes(action.key) || ['run', 'crouch', 'race'].includes(action.action)) continue;
+    if (!input.pressedKeys?.includes(action.key) || ['run', 'crouch', 'race', 'block'].includes(action.action)) continue;
     if (now - (current.lastUse.get(action.id) ?? -Infinity) < (action.settings.cooldown ?? 0.3)) continue;
     current.lastUse.set(action.id, now);
-    if (action.action === 'fight' || action.action === 'shoot') {
+    const genreResult = advanceGenreAction(action, next, player.id, position, current.heading, current, actions, state.orders);
+    if (genreResult.handled) {
+      next = genreResult.entities;
+      if (genreResult.sound) emit(action);
+      if (genreResult.message) say(genreResult.message);
+      if (genreResult.marker) makeMarker({ ...genreResult.marker, z: genreResult.marker.z + 6 }, '#a2edbd', 0.4, state, now, 0.4);
+      continue;
+    }
+    if (['fight', 'shoot', 'cast', 'play-card'].includes(action.action)) {
+      const ammo = actions.find(item => item.action === 'reload');
+      if (action.action === 'shoot' && ammo) {
+        if (current.genre.ammo < 1) { say('Magazine empty. Press your Reload key.'); continue; }
+        current.genre.ammo -= 1;
+      }
+      if (action.action === 'cast') {
+        if (current.genre.mana < action.settings.manaCost) { say('Not enough mana. Wait for it to refill.'); continue; }
+        current.genre.mana -= action.settings.manaCost;
+      }
+      if (action.action === 'play-card') {
+        if (current.genre.hand < 1) { say('Your hand is empty. Draw a card first.'); continue; }
+        if (current.genre.energy < action.settings.energyCost) { say('Not enough energy. End your turn to refill it.'); continue; }
+      }
       const range = (action.action === 'fight' ? action.settings.reach : action.settings.range) * 10;
       let aim = { x: Math.sin(current.heading), y: Math.cos(current.heading) };
       const selectedTarget = action.targetId ? next.find(entity => entity.id === action.targetId && isPracticeTarget(entity, player.id, state.effectIds)) : undefined;
-      if (selectedTarget && action.action === 'shoot') {
+      if (selectedTarget && (action.action === 'shoot' || action.action === 'cast')) {
         const targetPosition = getWorldTransform(next, selectedTarget.id)?.position ?? getTransform(selectedTarget).position;
         const length = Math.hypot(targetPosition.x - position.x, targetPosition.y - position.y) || 1;
         aim = { x: (targetPosition.x - position.x) / length, y: (targetPosition.y - position.y) / length };
@@ -194,29 +222,37 @@ export function advancePlayerActions(
         return { entity, target, distance, projection, offAxis };
       }).filter(candidate => candidate.distance <= range &&
         Math.abs(candidate.target.position.z - position.z) <= Math.max(20, candidate.target.scale.z * 10) &&
-        (action.action === 'fight'
+        (action.action === 'fight' || action.action === 'play-card'
           ? (!action.targetId || candidate.entity.id === action.targetId)
-          : candidate.projection >= 0 && candidate.offAxis <= Math.max(4, Math.max(candidate.target.scale.x, candidate.target.scale.y) * 5)),
+          : (!action.targetId || candidate.entity.id === action.targetId) &&
+            candidate.projection >= 0 && candidate.offAxis <= Math.max(4, Math.max(candidate.target.scale.x, candidate.target.scale.y) * 5)),
       ).sort((a, b) => a.distance - b.distance);
       const hit = candidates[0];
       emit(action);
-      if (action.action === 'shoot') {
+      if (action.action === 'shoot' || action.action === 'cast') {
         const shotLength = hit?.distance ?? range;
         for (let index = 1; index <= 12; index++) {
           const distance = shotLength * index / 12;
-          makeMarker({ x: position.x + aim.x * distance, y: position.y + aim.y * distance, z: position.z + 5 }, '#ffe8a3', 0.12, state, now);
+          makeMarker({ x: position.x + aim.x * distance, y: position.y + aim.y * distance, z: position.z + 5 }, action.action === 'cast' ? '#b384ff' : '#ffe8a3', 0.12, state, now);
         }
       } else {
         makeMarker({ x: position.x + aim.x * 8, y: position.y + aim.y * 8, z: position.z + 5 }, '#ff7854', 0.5, state, now);
       }
       if (hit) {
+        if (action.action === 'play-card') {
+          current.genre.hand -= 1;
+          current.genre.energy -= action.settings.energyCost;
+        }
         const maximumHealth = targetMaxHealth(hit.entity);
         const health = Math.max(0, targetHealth(hit.entity, state) - action.settings.damage);
         state.health.set(hit.entity.id, health);
         if (health === 0) next = next.map(entity => entity.id === hit.entity.id ? { ...entity, active: false } : entity);
         makeMarker({ ...hit.target.position, z: hit.target.position.z + 5 }, '#ff4d40', 0.4, state, now);
         say(`${hit.entity.name}: ${health}/${maximumHealth} health${health === 0 ? ' — defeated in this test' : ''}.`);
-      } else say(action.action === 'shoot' ? 'Shot fired — no target hit.' : 'Swing — no target within reach.');
+      } else say(action.action === 'play-card'
+        ? 'No practice target in reach. Your card and energy were kept.'
+        : action.action === 'cast' ? 'Spell cast — no target hit.'
+          : action.action === 'shoot' ? 'Shot fired — no target hit.' : 'Swing — no target within reach.');
     } else if (action.action === 'craft') {
       if (current.wood < action.settings.woodCost) { say('Not enough wood to craft planks.'); continue; }
       if (current.planks + action.settings.planksMade > 999) { say('Your plank inventory is full.'); continue; }
@@ -261,6 +297,11 @@ export function advancePlayerActions(
     }
   }
   const healthFeature = featureByKind(player, 'health');
+  const spell = actions.find(action => action.action === 'cast');
+  if (spell) {
+    current.genre.mana = Math.min(current.genre.maxMana, current.genre.mana +
+      spell.settings.regeneration * Math.min(0.05, Math.max(0, now - current.lastHealthUpdate)));
+  }
   if (healthFeature && current.health < current.maxHealth) {
     current.health = Math.min(current.maxHealth, current.health + Number(healthFeature.settings.regeneration) * Math.min(0.05, now - (current.lastHealthUpdate ?? now)));
   }
@@ -373,9 +414,12 @@ export function advancePlayerActions(
     const npcPosition = getWorldTransform(next, npc.id)?.position ?? getTransform(npc).position;
     if (Math.hypot(npcPosition.x - position.x, npcPosition.y - position.y, npcPosition.z - position.z) > 12) continue;
     current.lastContactDamage = now;
-    current.health = Math.max(0, current.health - damage);
+    const block = actions.find(action => action.action === 'block');
+    const receivedDamage = motion.blocking && block ? Math.round(damage * (1 - block.settings.damageReduction) * 100) / 100 : damage;
+    current.health = Math.max(0, current.health - receivedDamage);
     state.health.set(player.id, current.health);
-    say(`Ouch! ${npc.name} hit you. Health: ${current.health}/${current.maxHealth}.`);
+    if (motion.blocking && block) emit(block);
+    say(`${motion.blocking ? 'Blocked' : 'Ouch!'} ${npc.name} dealt ${receivedDamage} damage. Health: ${current.health}/${current.maxHealth}.`);
     if (current.health === 0) {
       const respawnAt = current.checkpoint ?? current.spawn;
       next = next.map(candidate => candidate.id === player.id ? {
@@ -391,20 +435,26 @@ export function advancePlayerActions(
 
   const statusBar = featureByKind(player, 'status-bar');
   const inventoryFeature = featureByKind(player, 'inventory');
-  const showHealth = Boolean(statusBar?.settings.showHealth && healthFeature);
+  const showHealth = Boolean(statusBar?.settings.showHealth && healthFeature) || actions.some(action => action.action === 'heal' || action.action === 'block');
   const showInventory = Boolean(inventoryFeature) ||
     Boolean(statusBar?.settings.showInventory) ||
-    actions.some(action => action.action === 'craft' || action.action === 'build');
+    actions.some(action => action.action === 'craft' || action.action === 'build' || action.action === 'gather');
   const showHud = actions.length > 0 || Boolean(interact) || Boolean(statusBar);
   return {
     entities: [...next, ...[...state.effects.values()].map(effect => effect.entity)], events, audioEvents,
     hud: showHud ? {
-      playerId: player.id, player: player.name, mode: motion.driving ? 'Driving' : motion.crouching ? 'Crouching' : motion.running ? 'Running' : 'Walking',
+      playerId: player.id, player: player.name, mode: motion.driving ? 'Driving' : motion.blocking ? 'Blocking' : motion.crouching ? 'Crouching' : motion.running ? 'Running' : 'Walking',
       wood: current.wood, planks: current.planks, speed: Math.round(Math.abs(current.speed) * 3.6),
       controls: actions.map(action => ({ action: action.action, key: action.key, label: playerActionDefinitions[action.action].label })),
       extraControls: interact && interactKey ? [{ key: interactKey, label: 'Interact' }] : [],
       showHealth, health: current.health, maxHealth: current.maxHealth,
       showInventory, inventoryText: `Wood ${current.wood} · Planks ${current.planks} · Coins ${current.coins} · Keys ${current.keys}`,
+      resourceText: [
+        ...(spell ? [`Mana ${Math.floor(current.genre.mana)}/${current.genre.maxMana}`] : []),
+        ...(actions.some(action => ['draw-card', 'play-card', 'end-turn'].includes(action.action))
+          ? [`Turn ${current.genre.turn} · Hand ${current.genre.hand} · Deck ${current.genre.deck} · Energy ${current.genre.energy}/${current.genre.maxEnergy}`] : []),
+        ...(actions.some(action => action.action === 'reload') ? [`Ammo ${current.genre.ammo} · Spare ${current.genre.reserveAmmo}`] : []),
+      ].join(' | '),
       message: current.feedback,
     } : null,
   };
