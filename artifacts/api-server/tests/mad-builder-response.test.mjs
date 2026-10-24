@@ -7,6 +7,7 @@ import test from 'node:test';
 test('image plans complete with a dedicated output budget; truncated plans never apply', async () => {
   const captured = [];
   let truncate = false;
+  let responsePlan;
   const plan = {
     title: 'Reference cube', summary: 'Editable red cube.', warnings: [],
     parts: [{
@@ -15,6 +16,7 @@ test('image plans complete with a dedicated output budget; truncated plans never
       size: { x: 1, y: 1, z: 1 }, color: '#cc2222',
     }],
   };
+  responsePlan = plan;
   const mock = createServer(async (req, res) => {
     let raw = '';
     for await (const chunk of req) raw += chunk;
@@ -23,7 +25,7 @@ test('image plans complete with a dedicated output budget; truncated plans never
     res.end(JSON.stringify({
       id: 'mock-completion', object: 'chat.completion', created: 0, model: 'mock',
       choices: [{ index: 0, finish_reason: truncate ? 'length' : 'stop',
-        message: { role: 'assistant', content: truncate ? '{"parts":[' : JSON.stringify(plan) } }],
+         message: { role: 'assistant', content: truncate ? '{"parts":[' : JSON.stringify(responsePlan) } }],
     }));
   });
   mock.listen(0, '127.0.0.1');
@@ -62,6 +64,15 @@ test('image plans complete with a dedicated output budget; truncated plans never
     assert.match(captured[0].messages[0].content, /wheelbase, wheel diameter and placement/);
     assert.match(captured[0].messages[0].content, /exactly four tires/);
     assert.equal(captured[0].messages[1].content[1].image_url.url, body.referenceImage);
+    responsePlan = {
+      ...plan,
+      parts: [{ ...plan.parts[0], size: { x: 0.01, y: 1, z: 1 } }],
+    };
+    response = await send();
+    assert.equal(response.status, 200);
+    const repaired = await response.json();
+    assert.equal(repaired.parts[0].size.x, 0.02);
+    assert.match(repaired.warnings[0], /raised to the engine minimum/);
     truncate = true;
     response = await send();
     assert.equal(response.status, 502);
