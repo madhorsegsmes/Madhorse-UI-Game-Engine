@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { MouseEvent } from 'react';
 import type { BuilderStyle, MadBuilderProps } from './mad-builder-contract';
+import { prepareBuilderReference } from '@/lib/builder-reference-image';
 import './workspace-browser-menus.css';
 import './mad-builder-menu.css';
 
@@ -27,15 +28,32 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; on
   const [prompt, setPrompt] = useState('');
   const [asPrefab, setAsPrefab] = useState(false);
   const [buildStyle, setBuildStyle] = useState<BuilderStyle>(readSavedStyle);
+  const [referenceImage, setReferenceImage] = useState('');
+  const [referenceName, setReferenceName] = useState('');
+  const [referenceError, setReferenceError] = useState('');
+  const [preparingImage, setPreparingImage] = useState(false);
   const len = prompt.trim().length;
-  const valid = len >= 3 && prompt.length <= 2000;
-  const busy = phase === 'planning' || phase === 'applying';
+  const valid = (len === 0 || len >= 3) && prompt.length <= 2000 && !!referenceImage;
+  const busy = phase === 'planning' || phase === 'applying' || preparingImage;
   const canPlan = !readOnly && !busy && valid;
   const partCount = plan?.parts.length ?? 0;
   const canApply = !readOnly && phase === 'ready' && !!plan && partCount > 0;
 
   const close = (e: MouseEvent<HTMLButtonElement>) => { e.currentTarget.closest('details')?.removeAttribute('open'); };
-  const submit = () => { if (canPlan) void onPlan(prompt.trim(), asPrefab, buildStyle).catch(() => undefined); };
+  const submit = () => {
+    if (canPlan) void onPlan(prompt.trim() || 'Recreate the object in the reference image as faithfully as the engine tools allow.', asPrefab, buildStyle, referenceImage).catch(() => undefined);
+  };
+  const uploadReference = async (file: File | undefined) => {
+    if (!file) return;
+    setPreparingImage(true); setReferenceError('');
+    setReferenceImage(''); setReferenceName('');
+    try {
+      setReferenceImage(await prepareBuilderReference(file));
+      setReferenceName(file.name);
+    } catch (failure) {
+      setReferenceError(failure instanceof Error ? failure.message : 'This image could not be read.');
+    } finally { setPreparingImage(false); }
+  };
   const updateBuildStyle = (value: string) => {
     const next = BUILD_STYLES.find((style) => style.value === value)?.value ?? 'polished-game-ready';
     setBuildStyle(next);
@@ -56,7 +74,19 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; on
         <div className="mb-body">
           <div className="mb-section">
             <div className="mb-title"><span className="mb-num">01</span>BUILD REQUEST<span className="mb-rule" /></div>
-            <label className="mb-prompt-label" htmlFor="mad-builder-prompt">Tell Mad Bot what to build</label>
+            <label className="mb-prompt-label" htmlFor="mad-builder-reference">First, upload an image reference</label>
+            <input id="mad-builder-reference" type="file" accept="image/jpeg,image/png,image/webp"
+              disabled={readOnly || busy} data-testid="input-builder-reference"
+              onChange={(event) => { void uploadReference(event.target.files?.[0]); event.target.value = ''; }} />
+            {preparingImage && <p className="mb-hint" role="status">Preparing reference image…</p>}
+            {referenceImage && <div className="mb-reference-preview">
+              <img src={referenceImage} alt={`Build reference: ${referenceName}`} data-testid="image-builder-reference" />
+              <span>{referenceName}</span>
+              <button type="button" disabled={busy} onClick={() => { setReferenceImage(''); setReferenceName(''); }}>Remove</button>
+            </div>}
+            {referenceError && <p className="mb-error" role="alert">{referenceError}</p>}
+            <p className="mb-hint">Match the visible design, proportions and colors. Hidden sides are estimated; an exact 3D copy is not guaranteed.</p>
+            <label className="mb-prompt-label" htmlFor="mad-builder-prompt">What should Mad Bot match? (optional)</label>
             <textarea
               id="mad-builder-prompt" className="mb-textarea" value={prompt} maxLength={2000} rows={4}
               disabled={readOnly || busy} autoFocus={embedded && Boolean(props.onClose)}
@@ -66,7 +96,7 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; on
               onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); } }}
               data-testid="input-builder-prompt"
             />
-            <div className="mb-meta"><span>{len > 0 && len < 3 ? 'Min 3 characters' : 'Tap Build in scene or press Ctrl+Enter'}</span><span data-testid="text-builder-char-count">{prompt.length}/2000</span></div>
+            <div className="mb-meta"><span>{len > 0 && len < 3 ? 'Min 3 characters, or leave blank' : !referenceImage ? 'Upload a reference image to build' : 'Tap Build in scene or press Ctrl+Enter'}</span><span data-testid="text-builder-char-count">{prompt.length}/2000</span></div>
             <label className="mb-style-row" htmlFor="mad-builder-style">
               <span>Build style</span>
               <select id="mad-builder-style" className="mb-style-select" value={buildStyle}
@@ -82,7 +112,7 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; on
             </label>
             <div className="mb-row">
               <button type="button" className="mb-quiet" disabled={readOnly || busy} onClick={() => setPrompt(EXAMPLE)} data-testid="button-builder-example">Example: house</button>
-              {busy ? (
+              {phase === 'planning' || phase === 'applying' ? (
                 <button type="button" className="mb-danger mb-grow" onClick={onCancel} data-testid="button-builder-cancel">
                   {phase === 'planning' ? 'Cancel planning' : 'Cancel build'}
                 </button>
@@ -153,7 +183,7 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; on
           </details>
           <div className="mb-section">
             <p className="mb-fine" data-testid="text-builder-credits">Uses OpenAI via Replit AI Integrations. No API key needed; usage is billed to your Replit credits.</p>
-            <p className="mb-fine" data-testid="text-builder-privacy">Your request, selected object name and project asset names/types are sent to the AI. The saved project itself stays local in this browser.</p>
+            <p className="mb-fine" data-testid="text-builder-privacy">Your reference image, request, selected object name and project asset names/types are sent to the existing OpenAI planner when you build. The reference is not saved as a project asset; upload it again after closing this panel. Saved projects stay in this browser.</p>
           </div>
         </div>
       </section>

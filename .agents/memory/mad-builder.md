@@ -25,6 +25,16 @@ blockouts. Use low-poly geometry only when the user asks for that style.
 deliberate materials and purposeful editable subparts; keep dimensions and
 requested counts faithful.
 
+Ask for a visual reference before a new Studio build and prioritize its visible
+proportions, silhouette, spacing and openings over decorative part counts.
+
+**Why:** The user reported that builds clumped objects together and requested
+image-guided reconstruction instead.
+
+**How to apply:** Send the reference to the vision planner, not just its filename.
+Do not promise exact 3D reconstruction from one image or fabricate hidden details
+without identifying them as estimates.
+
 When a new prompt returns a valid plan, immediately create its editable objects
 in the scene rather than stopping at a plan or requiring a second click. Keep
 saved drafts available for retry and let users remove completed builds through

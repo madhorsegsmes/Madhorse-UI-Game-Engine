@@ -16,6 +16,12 @@ export interface MadBuilderInput {
   prompt: string;
   /** @maxLength 80 */
   selectedName: string;
+  /**
+     * Optional inline reference image, transiently forwarded to the vision planner; never a remote URL.
+     * @maxLength 1500000
+     * @pattern ^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$
+     */
+  referenceImage?: string;
   /** Visual quality guidance for newly generated scene objects. */
   style?: MadBuilderInputStyle;
   /** @maxItems 40 */
