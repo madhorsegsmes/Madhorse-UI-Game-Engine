@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Dispatch, KeyboardEvent, MouseEvent, SetStateAction } from 'react';
-import { ChevronDown, ChevronRight, FileDown, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileDown, Folder, Trash2 } from 'lucide-react';
 import { ScenePreview3D, type SceneTransformMode } from './scene-preview-3d';
 import {
   createPhysicsComponent,
@@ -217,6 +217,13 @@ function SettingsPanel({
               <ChevronDown size={14} aria-hidden="true" />
             </summary>
             <div className="fresh-settings-category-content">
+              <details className="fresh-documents-folder" data-testid="details-documents-folder">
+                <summary className="fresh-documents-folder-summary" data-testid="button-toggle-documents-folder">
+                  <Folder size={15} aria-hidden="true" />
+                  <span>Documents &amp; PDFs</span>
+                  <ChevronDown size={13} aria-hidden="true" />
+                </summary>
+                <div className="fresh-documents-folder-content">
               <details
                 className="fresh-game-type-library"
                 data-testid="details-game-type-library"
@@ -295,6 +302,8 @@ function SettingsPanel({
                   </ol>
                 )}
               </div>
+                </div>
+              </details>
             </div>
           </details>
           <details className="fresh-settings-category fresh-settings-dropdown" data-testid="details-plugins">
