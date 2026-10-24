@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Dispatch, KeyboardEvent, MouseEvent, SetStateAction } from 'react';
-import { ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileDown, Trash2 } from 'lucide-react';
 import { ScenePreview3D, type SceneTransformMode } from './scene-preview-3d';
 import {
   createPhysicsComponent,
@@ -39,6 +39,7 @@ import type { BuilderMessage } from './mad-builder-contract';
 import type { MadBuilderPlan } from '@workspace/api-client-react';
 import type { ScenePrefab } from '@/lib/scene-authoring';
 import type { UIControlElement } from '@/lib/ui-controls';
+import { downloadMadBuilderLogPdf, type MadBuilderBuildLog } from '@/lib/mad-builder-build-log';
 import './system-panel-tools.css';
 import './numbered-workspace.css';
 
@@ -93,11 +94,13 @@ function SceneViewport({
 function SettingsPanel({
   entity,
   assets,
+  builderBuildLogs,
   onReturnToSettings,
   onSaveEntity,
 }: {
   entity: SceneEntity | null;
   assets: ProjectAsset[];
+  builderBuildLogs: MadBuilderBuildLog[];
   onReturnToSettings: () => void;
   onSaveEntity: (entity: SceneEntity) => void;
 }) {
@@ -129,6 +132,42 @@ function SettingsPanel({
           </section>
           <section className="fresh-settings-category">
             <h2>System Presets &amp; Data</h2>
+            <div className="fresh-builder-log">
+              <div className="fresh-builder-log-heading">
+                <strong>Mad Builder build log</strong>
+                <button
+                  type="button"
+                  className="fresh-builder-log-download"
+                  disabled={builderBuildLogs.length === 0}
+                  onClick={() => downloadMadBuilderLogPdf('Scene 1', builderBuildLogs)}
+                  data-testid="button-download-builder-log"
+                ><FileDown size={14} /> Download PDF</button>
+              </div>
+              <p className="fresh-builder-log-note">Completed builds are saved with this scene in this browser.</p>
+              {builderBuildLogs.length === 0 ? (
+                <p className="fresh-builder-log-empty" data-testid="builder-log-empty">No completed builds yet.</p>
+              ) : (
+                <ol className="fresh-builder-log-list" data-testid="builder-build-log-list">
+                  {[...builderBuildLogs].reverse().map((log, index) => (
+                    <li key={log.id} data-testid={`builder-build-log-${log.id}`}>
+                      <details>
+                        <summary>
+                          <span>{builderBuildLogs.length - index}. {log.plan.title}</span>
+                          <small>{new Date(log.createdAt).toLocaleString()}</small>
+                        </summary>
+                        <p>{log.plan.summary}</p>
+                        {log.request && <p><b>Request:</b> {log.request}</p>}
+                        <p><b>{log.objectNames.length} objects:</b> {log.objectNames.join(', ') || 'None'}</p>
+                        {log.uiControlNames.length > 0 && <p><b>UI controls:</b> {log.uiControlNames.join(', ')}</p>}
+                        <ul>{log.plan.parts.map(part => (
+                          <li key={part.key}>{part.name} · {part.kind} · size {part.size.x} × {part.size.y} × {part.size.z}</li>
+                        ))}</ul>
+                      </details>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
           </section>
         </div>
       )}
@@ -419,6 +458,8 @@ export default function BlankWorkspace() {
   const [animations, setAnimations] = useState<GameAnimation[]>(savedWorkspace.animations ?? []);
   const [builderHistory, setBuilderHistory] = useState<BuilderMessage[]>(savedWorkspace.builderHistory ?? []);
   const [builderDraft, setBuilderDraft] = useState<MadBuilderPlan | null>(savedWorkspace.builderDraft ?? null);
+  const [builderDraftRequest, setBuilderDraftRequest] = useState(savedWorkspace.builderDraftRequest ?? '');
+  const [builderBuildLogs, setBuilderBuildLogs] = useState<MadBuilderBuildLog[]>(savedWorkspace.builderBuildLogs ?? []);
   const [prefabs, setPrefabs] = useState<ScenePrefab[]>(savedWorkspace.prefabs ?? []);
   const [uiControls, setUIControls] = useState<UIControlElement[]>(savedWorkspace.uiControls ?? []);
   const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
@@ -442,6 +483,8 @@ export default function BlankWorkspace() {
     scripts: [],
     builderHistory,
     builderDraft,
+    builderDraftRequest,
+    builderBuildLogs,
   };
   const builderProjectRef = useRef(builderProject);
   builderProjectRef.current = builderProject;
@@ -455,6 +498,8 @@ export default function BlankWorkspace() {
     setAssets(next.assets);
     setBuilderHistory(next.builderHistory ?? []);
     setBuilderDraft(next.builderDraft ?? null);
+    setBuilderDraftRequest(next.builderDraftRequest ?? '');
+    setBuilderBuildLogs(next.builderBuildLogs ?? []);
     setPrefabs(next.prefabs ?? []);
     setUIControls(next.uiControls ?? []);
   }, []);
@@ -484,11 +529,14 @@ export default function BlankWorkspace() {
 
   useEffect(() => {
     try {
-      saveFreshWorkspace({ entities, camera, assets, animations, builderHistory, builderDraft, prefabs, uiControls });
+      saveFreshWorkspace({
+        entities, camera, assets, animations, builderHistory, builderDraft, builderDraftRequest,
+        builderBuildLogs, prefabs, uiControls,
+      });
     } catch {
       setStatus('Could not save the scene data in this browser. Check available storage.');
     }
-  }, [entities, camera, assets, animations, builderHistory, builderDraft, prefabs, uiControls]);
+  }, [entities, camera, assets, animations, builderHistory, builderDraft, builderDraftRequest, builderBuildLogs, prefabs, uiControls]);
 
   useEffect(() => {
     let disposed = false;
@@ -877,6 +925,7 @@ export default function BlankWorkspace() {
             <SettingsPanel
               entity={editingEntity}
               assets={assets}
+              builderBuildLogs={builderBuildLogs}
               onReturnToSettings={() => setEditingEntityId(null)}
               onSaveEntity={updateEntitySettings}
             />

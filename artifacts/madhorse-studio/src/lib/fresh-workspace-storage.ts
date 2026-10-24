@@ -2,6 +2,7 @@ import { isGameAnimationCollection, type GameAnimation } from './game-api';
 import { isGameCamera, type GameCamera } from './game-camera';
 import { isAssetCollection, isSceneGraph, type ProjectAsset, type SceneEntity } from './scene-model';
 import { isBuilderDraft, isBuilderHistory } from './mad-builder';
+import { isMadBuilderBuildLogs, type MadBuilderBuildLog } from './mad-builder-build-log';
 import type { MadBuilderPlan } from '@workspace/api-client-react';
 import type { BuilderMessage } from '@/components/mad-builder-contract';
 import { isPrefabCollection, type ScenePrefab } from './scene-authoring';
@@ -17,6 +18,8 @@ export type FreshWorkspaceSnapshot = {
   animations: GameAnimation[];
   builderHistory: BuilderMessage[];
   builderDraft: MadBuilderPlan | null;
+  builderDraftRequest: string;
+  builderBuildLogs: MadBuilderBuildLog[];
   prefabs: ScenePrefab[];
   uiControls: UIControlElement[];
 };
@@ -34,6 +37,8 @@ export function loadFreshWorkspace(): Partial<FreshWorkspaceSnapshot> {
       ...(Array.isArray(value.animations) && isGameAnimationCollection(value.animations) ? { animations: value.animations } : {}),
       ...(isBuilderHistory(value.builderHistory) ? { builderHistory: value.builderHistory } : {}),
       ...(value.builderDraft !== undefined && isBuilderDraft(value.builderDraft) ? { builderDraft: value.builderDraft } : {}),
+      ...(typeof value.builderDraftRequest === 'string' ? { builderDraftRequest: value.builderDraftRequest } : {}),
+      ...(isMadBuilderBuildLogs(value.builderBuildLogs) ? { builderBuildLogs: value.builderBuildLogs } : {}),
       ...(Array.isArray(value.prefabs) && isPrefabCollection(value.prefabs) ? { prefabs: value.prefabs } : {}),
       ...(Array.isArray(value.uiControls) && isUIControlCollection(value.uiControls) ? { uiControls: value.uiControls } : {}),
     };

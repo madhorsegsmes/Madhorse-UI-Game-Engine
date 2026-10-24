@@ -4,10 +4,16 @@ import { PlanMadBuilderResponse } from '@workspace/api-zod';
 import { compileBuilderPlan } from '@/lib/mad-builder';
 import { capturePrefab } from '@/lib/scene-authoring';
 import { beginSystemActivity } from '@/lib/system-activity';
+import type { MadBuilderBuildLog } from '@/lib/mad-builder-build-log';
 import type { BuilderMessage, BuilderStyle, MadBuilderProps } from '@/components/mad-builder-contract';
 import type { AuthoringDocument } from './use-scene-authoring';
 
-export type BuilderDocument = AuthoringDocument & { builderHistory?: BuilderMessage[]; builderDraft?: MadBuilderPlan | null };
+export type BuilderDocument = AuthoringDocument & {
+  builderHistory?: BuilderMessage[];
+  builderDraft?: MadBuilderPlan | null;
+  builderDraftRequest?: string;
+  builderBuildLogs?: MadBuilderBuildLog[];
+};
 export function useMadBuilder<T extends BuilderDocument>({ project, activeProjectRef, setProjects, readOnly, onBuilt, selectedEntityId }: {
   project: T; activeProjectRef: MutableRefObject<T>; setProjects: Dispatch<SetStateAction<T[]>>;
   readOnly: boolean; onBuilt: (rootId: string) => void; selectedEntityId?: string | null;
@@ -35,7 +41,7 @@ export function useMadBuilder<T extends BuilderDocument>({ project, activeProjec
       ...entry, builderHistory: [...(entry.builderHistory ?? []), item].slice(-40),
     }));
   }
-  function applyBuilderPlan(planToBuild: MadBuilderPlan, saveAsPrefab: boolean) {
+  function applyBuilderPlan(planToBuild: MadBuilderPlan, saveAsPrefab: boolean, requestText = '') {
     if (readOnly || activeProjectRef.current.id !== project.id || planProjectId.current !== project.id) return;
     const finish = beginSystemActivity('Mad Builder is building');
     setPhase('applying'); setError('');
@@ -43,10 +49,20 @@ export function useMadBuilder<T extends BuilderDocument>({ project, activeProjec
       const latest = activeProjectRef.current;
       const build = compileBuilderPlan(planToBuild, latest.entities, latest.assets);
       const prefab = saveAsPrefab ? capturePrefab(build.entities, build.rootId, build.plan.title, build.uiControls) : null;
+      const buildLog: MadBuilderBuildLog = {
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+        request: requestText.slice(0, 2000),
+        plan: build.plan,
+        objectNames: build.entities.map((entity) => entity.name),
+        uiControlNames: build.uiControls.map((control) => control.label),
+        prefabSaved: Boolean(prefab),
+      };
       const response: BuilderMessage = { id: crypto.randomUUID(), role: 'assistant',
         text: `Built ${build.plan.title}: ${build.entities.length - 1} editable parts${prefab ? ', with a reusable prefab' : ''}. Existing objects were kept.` };
       setProjects((projects) => projects.map((entry) => entry.id !== project.id ? entry : {
-        ...entry, builderDraft: null, entities: [...entry.entities, ...build.entities],
+        ...entry, builderDraft: null, builderDraftRequest: '', builderBuildLogs: [...(entry.builderBuildLogs ?? []), buildLog],
+        entities: [...entry.entities, ...build.entities],
         uiControls: [...(entry.uiControls ?? []), ...build.uiControls],
         prefabs: prefab ? [...(entry.prefabs ?? []), prefab] : entry.prefabs,
         builderHistory: [...(entry.builderHistory ?? []), response].slice(-40),
@@ -82,12 +98,14 @@ export function useMadBuilder<T extends BuilderDocument>({ project, activeProjec
         if (result.parts?.length) compileBuilderPlan(result, activeProjectRef.current.entities, activeProjectRef.current.assets);
         planProjectId.current = project.id;
         setPlan(result); setPhase('ready');
-        setProjects((projects) => projects.map((entry) => entry.id !== project.id ? entry : { ...entry, builderDraft: result }));
+        setProjects((projects) => projects.map((entry) => entry.id !== project.id ? entry : {
+          ...entry, builderDraft: result, builderDraftRequest: prompt,
+        }));
         message(result.summary, 'assistant');
         setPhase('applying');
         await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
         if (token !== session.current || controller.signal.aborted) return;
-        applyBuilderPlan(result, saveAsPrefab);
+        applyBuilderPlan(result, saveAsPrefab, prompt);
       } catch (failure) {
         if (token !== session.current || controller.signal.aborted) return;
         const data = failure && typeof failure === 'object' && 'data' in failure ? failure.data : null;
@@ -110,12 +128,14 @@ export function useMadBuilder<T extends BuilderDocument>({ project, activeProjec
     },
     onDiscard: () => {
       setPlan(null); setPhase('idle'); setError('');
-      setProjects((projects) => projects.map((entry) => entry.id !== project.id ? entry : { ...entry, builderDraft: null }));
+      setProjects((projects) => projects.map((entry) => entry.id !== project.id ? entry : {
+        ...entry, builderDraft: null, builderDraftRequest: '',
+      }));
     },
     onApply: (saveAsPrefab) => {
       if (readOnly || !plan || phase !== 'ready' || activeProjectRef.current.id !== project.id ||
           planProjectId.current !== project.id) return;
-      applyBuilderPlan(plan, saveAsPrefab);
+      applyBuilderPlan(plan, saveAsPrefab, project.builderDraftRequest ?? '');
     },
   };
 }
