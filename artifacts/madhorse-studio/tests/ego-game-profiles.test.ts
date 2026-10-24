@@ -5,6 +5,7 @@ import { analyzeEgoGameVision } from '../src/lib/ego-game-language';
 import { createEgoWorkspaceContext } from '../src/lib/ego-workspace-context';
 import { createSceneEntity } from '../src/lib/scene-model';
 import { PRIMARY_CAMERA_ID } from '../src/lib/camera-editor';
+import { buildEgoGameBrief, egoGameFlowLabel } from '../src/lib/ego-game-plan';
 
 test('Ego includes shooter, kingdom strategy, and separate 2D/3D creature adventure profiles', () => {
   const values = new Set(egoGameTypes.map(type => type.value));
@@ -63,4 +64,14 @@ test('Ego reads current project and interface mode without a pixel capture', () 
   assert.ok(playContext.steps.some(step => step.includes('Stop Play Test')));
   assert.match(playContext.interfaceSummary!, /editing Hero/);
   assert.ok(playContext.steps.some(step => step.includes('Press Settings')));
+});
+
+test('Ego builds include editable ending/continuing choices and the creator notes', () => {
+  const vision = 'An RPG with quests';
+  assert.equal(egoGameFlowLabel('undecided'), 'Not decided yet');
+  assert.match(buildEgoGameBrief(vision, 'ending', 'The final dragon ends the story'), /clear final objective.*The final dragon ends the story/s);
+  assert.match(buildEgoGameBrief(vision, 'ongoing', 'Add repeatable hunts'), /without a required final ending.*Add repeatable hunts/s);
+  assert.match(buildEgoGameBrief(vision, 'ending-and-ongoing', 'Let players keep exploring'), /ending.*afterward.*Let players keep exploring/s);
+  assert.doesNotMatch(buildEgoGameBrief(vision, 'undecided', ''), /Game flow:/);
+  assert.ok(buildEgoGameBrief(vision, 'ending', 'x'.repeat(450)).length <= 1_100);
 });

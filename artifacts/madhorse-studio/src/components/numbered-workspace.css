@@ -2382,6 +2382,19 @@ body::-webkit-scrollbar-thumb,
 .ego-understood-grid article small,
 .ego-phrase-entries article small { margin: 0; color: #b8acbf; font-size: 9px; line-height: 1.4; }
 .ego-understood-grid article small { color: #a996b5; }
+.ego-understood-grid article > button {
+  justify-self: start;
+  padding: 4px 6px;
+  border: 1px solid #694d7e;
+  background: #30203f;
+  color: #eadcf2;
+  font: inherit;
+  cursor: pointer;
+}
+.ego-understood-grid article > button:hover:not(:disabled) { background: #412b54; }
+.ego-understood-grid article > button:disabled { color: #aaa0b0; opacity: .75; cursor: default; }
+.ego-understood-grid article > button:focus-visible { outline: 2px solid #d6a0ff; outline-offset: 2px; }
+.ego-understood-flow { margin: 5px 0; }
 .ego-vision-hint { margin: 0; color: #bdb0c6; font-size: 10px; line-height: 1.45; }
 .ego-vision-milestones {
   display: grid;

@@ -105,6 +105,7 @@ import { createEgoCharacterScene } from '@/lib/character-builder-starter';
 import { detectEgoCharacterRequests, type EgoCharacterSize } from '@/lib/ego-character-anatomy';
 import { createEgoWorkspaceContext, type EgoInterfaceContext } from '@/lib/ego-workspace-context';
 import { EgoPanelBox } from './ego-panel-box';
+import type { EgoGameFlow } from '@/lib/ego-game-plan';
 import {
   createPluginComponent,
   matchesPluginComponent,
@@ -1635,6 +1636,9 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
   const [builderHistory, setBuilderHistory] = useState<BuilderMessage[]>(savedWorkspace.builderHistory ?? []);
   const [builderDraft, setBuilderDraft] = useState<MadBuilderPlan | null>(savedWorkspace.builderDraft ?? null);
   const [builderDraftRequest, setBuilderDraftRequest] = useState(savedWorkspace.builderDraftRequest ?? '');
+  const [egoGameVision, setEgoGameVision] = useState(savedWorkspace.egoGameVision ?? '');
+  const [egoGameFlow, setEgoGameFlow] = useState<EgoGameFlow>(savedWorkspace.egoGameFlow ?? 'undecided');
+  const [egoGameNotes, setEgoGameNotes] = useState(savedWorkspace.egoGameNotes ?? '');
   const [builderBuildLogs, setBuilderBuildLogs] = useState<MadBuilderBuildLog[]>(savedWorkspace.builderBuildLogs ?? []);
   const [prefabs, setPrefabs] = useState<ScenePrefab[]>(savedWorkspace.prefabs ?? []);
   const [uiControls, setUIControls] = useState<UIControlElement[]>(savedWorkspace.uiControls ?? []);
@@ -2061,6 +2065,7 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
     try {
       saveFreshWorkspace({
         projectName,
+        egoGameVision, egoGameFlow, egoGameNotes,
         entities, camera, assets, animations, animationControllers, builderHistory, builderDraft, builderDraftRequest,
         builderBuildLogs, prefabs, uiControls, scripts: egoScripts,
       }, projectId);
@@ -2069,7 +2074,7 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
       setSaveFailed(true);
       setStatus('Could not save the scene data in this browser. Check available storage.');
     }
-  }, [projectId, projectName, entities, camera, assets, animations, animationControllers, builderHistory, builderDraft, builderDraftRequest, builderBuildLogs, prefabs, uiControls, egoScripts]);
+  }, [projectId, projectName, egoGameVision, egoGameFlow, egoGameNotes, entities, camera, assets, animations, animationControllers, builderHistory, builderDraft, builderDraftRequest, builderBuildLogs, prefabs, uiControls, egoScripts]);
 
   useEffect(() => {
     if (!playTestOn) {
@@ -3015,7 +3020,10 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
           ) : number === 3 ? (
             <SettingsPanel
               egoBox={<EgoPanelBox project={builderProject} camera={camera} selectedEntityId={selection}
-                interfaceContext={egoInterfaceContext} onOpen={() => setEgoOpen(true)} />}
+                interfaceContext={egoInterfaceContext} gameVision={egoGameVision} gameFlow={egoGameFlow}
+                gameNotes={egoGameNotes} onGameVisionChange={setEgoGameVision}
+                onGameFlowChange={setEgoGameFlow} onGameNotesChange={setEgoGameNotes}
+                onOpen={() => setEgoOpen(true)} />}
               entity={editingEntity}
               selectedEntity={selectedEntity}
               entities={entities}
@@ -3174,6 +3182,12 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
           <section className="fresh-mad-builder-dialog ego-dialog" role="dialog" aria-modal="true" aria-label="Ego assistant">
             <EgoAssistant
               interfaceContext={egoInterfaceContext}
+              gameVision={egoGameVision}
+              onGameVisionChange={setEgoGameVision}
+              gameFlow={egoGameFlow}
+              onGameFlowChange={setEgoGameFlow}
+              gameNotes={egoGameNotes}
+              onGameNotesChange={setEgoGameNotes}
               project={builderProject}
               animationsCount={animations.length}
               animationControllersCount={animationControllers.length}

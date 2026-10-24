@@ -10,12 +10,16 @@ import { isPrefabCollection, type ScenePrefab } from './scene-authoring';
 import { isUIControlCollection, type UIControlElement } from './ui-controls';
 import { isScriptFileCollection, type ScriptFile } from './project-scripts';
 import { studioProjectStorageKey } from './studio-projects';
+import { isEgoGameFlow, type EgoGameFlow } from './ego-game-plan';
 
 export const FRESH_WORKSPACE_ID = 'madhorse-studio-fresh-workspace';
 const storageKey = 'madhorse-studio:fresh-workspace:v1';
 
 export type FreshWorkspaceSnapshot = {
   projectName?: string;
+  egoGameVision?: string;
+  egoGameFlow?: EgoGameFlow;
+  egoGameNotes?: string;
   entities: SceneEntity[];
   camera: GameCamera;
   assets: ProjectAsset[];
@@ -38,6 +42,9 @@ export function loadFreshWorkspace(projectId = FRESH_WORKSPACE_ID): Partial<Fres
     const value = JSON.parse(stored) as Partial<FreshWorkspaceSnapshot>;
     return {
       ...(typeof value.projectName === 'string' && value.projectName.trim() ? { projectName: value.projectName.trim().slice(0, 80) } : {}),
+      ...(typeof value.egoGameVision === 'string' ? { egoGameVision: value.egoGameVision.slice(0, 500) } : {}),
+      ...(isEgoGameFlow(value.egoGameFlow) ? { egoGameFlow: value.egoGameFlow } : {}),
+      ...(typeof value.egoGameNotes === 'string' ? { egoGameNotes: value.egoGameNotes.slice(0, 400) } : {}),
       ...(Array.isArray(value.entities) && isSceneGraph(value.entities) ? { entities: value.entities } : {}),
       ...(isGameCamera(value.camera) ? { camera: value.camera } : {}),
       ...(Array.isArray(value.assets) && isAssetCollection(value.assets) ? { assets: value.assets } : {}),

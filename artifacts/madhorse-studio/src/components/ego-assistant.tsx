@@ -18,9 +18,16 @@ import './ego-graphics-references.css';
 import { createEgoWorkspaceContext, type EgoInterfaceContext } from '@/lib/ego-workspace-context';
 import { parseVisionAttachments } from '@/lib/vision-node-content';
 import { studioProjectStorageKey } from '@/lib/studio-projects';
+import { buildEgoGameBrief, egoGameFlowLabel, type EgoGameFlow } from '@/lib/ego-game-plan';
 
 type EgoAssistantProps = {
   interfaceContext?: EgoInterfaceContext;
+  gameVision: string;
+  onGameVisionChange: (value: string) => void;
+  gameFlow: EgoGameFlow;
+  onGameFlowChange: (value: EgoGameFlow) => void;
+  gameNotes: string;
+  onGameNotesChange: (value: string) => void;
   project: BuilderDocument;
   animationsCount: number;
   animationControllersCount: number;
@@ -100,11 +107,11 @@ function projectScan(project: BuilderDocument, animationsCount: number, animatio
 
 export function EgoAssistant({
   interfaceContext,
+  gameVision, onGameVisionChange, gameFlow, onGameFlowChange, gameNotes, onGameNotesChange,
   project, animationsCount, animationControllersCount, onBuildVision, onBuildUi, onAddFunctions, scripts, camera, selectedEntityId,
   onCreateScript, onUpdateScript, onDeleteScript, onClose,
 }: EgoAssistantProps) {
   const [gameTypes, setGameTypes] = useState<EgoGameType[]>(['rpg']);
-  const [gameVision, setGameVision] = useState('');
   const [characterSize, setCharacterSize] = useState<EgoCharacterSize>('prompt');
   const [phraseFilter, setPhraseFilter] = useState('');
   const [activityLog, setActivityLog] = useState<Array<{ id: string; action: string; detail: string; time: string; duration?: string }>>([]);
@@ -115,7 +122,8 @@ export function EgoAssistant({
   const scan = projectScan(project, animationsCount, animationControllersCount);
   const workspaceContext = createEgoWorkspaceContext(project, selectedEntityId, camera, interfaceContext);
   const gameLabel = getEgoGameSelectionLabel(gameTypes);
-  const visionAnalysis = analyzeEgoGameVision(gameVision);
+  const gameBrief = buildEgoGameBrief(gameVision, gameFlow, gameNotes);
+  const visionAnalysis = analyzeEgoGameVision(gameBrief);
   const visiblePhrases = egoGameLanguageLibrary.filter((entry) =>
     `${entry.label} ${entry.phrases.join(' ')} ${entry.explanation} ${entry.engineArea}`
       .toLowerCase().includes(phraseFilter.trim().toLowerCase()));
@@ -155,7 +163,7 @@ export function EgoAssistant({
   };
 
   const buildFromVision = async () => {
-    const vision = gameVision.trim();
+    const vision = gameBrief.trim();
     if (vision.length < 3 || sceneBuildBusy) return;
     const startedAt = performance.now();
     setSceneBuildBusy(true);
@@ -270,7 +278,7 @@ export function EgoAssistant({
               <span>Your game vision</span>
               <textarea
                 value={gameVision}
-                onChange={(event) => setGameVision(event.target.value)}
+                onChange={(event) => onGameVisionChange(event.target.value)}
                 maxLength={500}
                 rows={4}
                 data-testid="ego-game-vision"
@@ -355,6 +363,17 @@ export function EgoAssistant({
                       <span>Words found: {matches.join(', ')}</span>
                       <p>{concept.explanation}</p>
                       <small>Uses: {concept.engineArea}</small>
+                      <button
+                        type="button"
+                        className="ego-add-concept-note"
+                        disabled={gameNotes.includes(`${concept.label}:`)}
+                        onClick={() => onGameNotesChange(
+                          `${gameNotes.trim() ? `${gameNotes.trim()}\n` : ''}${concept.label}: ${concept.explanation}`.slice(0, 400),
+                        )}
+                        data-testid={`ego-add-concept-${concept.id}`}
+                      >
+                        {gameNotes.includes(`${concept.label}:`) ? 'Added to game notes' : 'Add help to game notes'}
+                      </button>
                     </article>
                   ))}
                 </div>
@@ -363,10 +382,30 @@ export function EgoAssistant({
                   {visionAnalysis.unmatched || 'Write your idea in everyday words. Try who the player is, what they do, and what they are trying to finish.'}
                 </p>
               )}
+              <label className="ego-field ego-understood-flow">
+                <span>What happens when players finish the main goal?</span>
+                <select value={gameFlow} onChange={event => onGameFlowChange(event.target.value as EgoGameFlow)} data-testid="ego-game-flow">
+                  <option value="undecided">{egoGameFlowLabel('undecided')}</option>
+                  <option value="ending">{egoGameFlowLabel('ending')}</option>
+                  <option value="ongoing">{egoGameFlowLabel('ongoing')}</option>
+                  <option value="ending-and-ongoing">{egoGameFlowLabel('ending-and-ongoing')}</option>
+                </select>
+              </label>
+              <label className="ego-field">
+                <span>Game ending and continuing-play notes</span>
+                <textarea value={gameNotes} maxLength={400} rows={3}
+                  onChange={event => onGameNotesChange(event.target.value)} data-testid="ego-game-notes"
+                  placeholder="Type what should happen when players finish, or what keeps the game going." />
+              </label>
               <div className="ego-vision-milestones" aria-label="Game build milestones">
                 <article><b>START</b><span>{visionAnalysis.start}</span></article>
                 <article><b>MISSION</b><span>{visionAnalysis.mission}</span></article>
-                <article><b>FINISH</b><span>{visionAnalysis.finish}</span></article>
+                <article><b>{gameFlow === 'ongoing' ? 'ONGOING' : 'FINISH'}</b>
+                  <span>{gameFlow === 'ongoing' ? 'Plan repeatable or continuing goals with no required final ending.'
+                    : gameFlow === 'ending-and-ongoing' ? 'Give the main story a clear ending, with optional play that continues afterward.'
+                      : gameFlow === 'ending' ? 'Give players a clear final goal that completes the game.'
+                        : visionAnalysis.finish}</span>
+                </article>
               </div>
               <details className="ego-phrase-library">
                 <summary>Read Ego’s game-building phrase library</summary>
@@ -387,7 +426,7 @@ export function EgoAssistant({
               </details>
             </section>
             <div className="ego-build-actions">
-              <button type="button" disabled={sceneBuildBusy} onClick={() => recordAction('Built UI kit', () => onBuildUi(gameTypes, gameVision.trim()))} data-testid="ego-build-ui">
+              <button type="button" disabled={sceneBuildBusy} onClick={() => recordAction('Built UI kit', () => onBuildUi(gameTypes, gameBrief.trim()))} data-testid="ego-build-ui">
                 <Layers3 size={15} aria-hidden="true" /> {gameTypes.length > 1 ? 'Create mixed UI kit' : `Create ${getEgoGameLabel(gameTypes[0])} UI kit`}
               </button>
               <button type="button" className="secondary" disabled={sceneBuildBusy} onClick={() => recordAction('Added game functions', () => onAddFunctions(gameTypes))} data-testid="ego-add-functions">

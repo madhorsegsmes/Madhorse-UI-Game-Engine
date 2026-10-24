@@ -9,6 +9,12 @@
 .fresh-ego-box dl div { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 4px; }
 .fresh-ego-box dt { color: #aa92be; }
 .fresh-ego-box dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fresh-ego-plan-field { display: grid; gap: 3px; margin-top: 7px; color: #dcc9e9; font-size: 9px; }
+.fresh-ego-plan-field textarea, .fresh-ego-plan-field select { width: 100%; min-width: 0; box-sizing: border-box; padding: 5px 6px; border: 1px solid #604674; border-radius: 2px; background: #100d16; color: #f1e7f7; font: 10px/1.4 system-ui, sans-serif; }
+.fresh-ego-plan-field textarea { min-height: 40px; resize: vertical; }
+.fresh-ego-plan-field select { min-height: 28px; }
+.fresh-ego-plan-field textarea:focus-visible, .fresh-ego-plan-field select:focus-visible { outline: 2px solid #d6a0ff; outline-offset: 1px; }
+.fresh-ego-plan-field textarea::placeholder { color: #9886a5; }
 .fresh-ego-box p { margin: 6px 0 0; color: #ad9bbf; font-size: 9px; }
 .fresh-ego-box button { display: flex; flex: none; gap: 3px; align-items: center; padding: 5px; border: 1px solid #8863a3; background: #30203f; color: #f4e9ff; font: inherit; cursor: pointer; }
 .fresh-ego-box button:hover { background: #412b54; }

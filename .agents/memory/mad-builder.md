@@ -196,3 +196,16 @@ collider component.
 **How to apply:** Keep the read-only guide in System Presets & Data and include
 the same limitation in the planner prompt. Update both when a real controller
 runtime is implemented; never present unsupported movement as functional.
+
+Ego should help creators state whether their game has a clear ending, continues
+without a required ending, or combines a completed story with continuing play.
+Keep those choices and the creator's editable notes with the project; use Ego's
+recognized game concepts as optional writing guidance.
+
+**Why:** The user asked to use “What Ego understood” as a help base, let creators
+describe their game and its ending or ongoing structure, and keep the input
+editable.
+
+**How to apply:** Include the saved vision, game-flow choice, and notes in Ego's
+scene and UI build requests. Recognized concepts are optional additions, never
+requirements or replacements for creator text.
