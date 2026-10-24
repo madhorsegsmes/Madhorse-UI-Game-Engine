@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Dispatch, KeyboardEvent, MouseEvent, SetStateAction } from 'react';
 import { ChevronDown, ChevronRight, FileDown, Folder, Trash2 } from 'lucide-react';
-import { ScenePreview3D, type SceneTransformMode } from './scene-preview-3d';
+import { ScenePreview3D, type SceneFrameRequest, type SceneTransformMode } from './scene-preview-3d';
 import {
   createPhysicsComponent,
   createSceneEntity,
@@ -21,6 +21,7 @@ import {
   type UIElementKind,
 } from '@/lib/scene-model';
 import { createGameCamera, type GameCamera } from '@/lib/game-camera';
+import { createCharacterBuilderStarterScene } from '@/lib/character-builder-starter';
 import { cameraWithPose, PRIMARY_CAMERA_ID, primaryCameraEntity } from '@/lib/camera-editor';
 import { SceneObjectGlyph } from './scene-object-glyph';
 import { SceneObjectInspector } from './scene-object-inspector';
@@ -63,6 +64,7 @@ function SceneViewport({
   assets,
   assetUrls,
   selection,
+  frameRequest,
   onSelect,
   onTransformCommit,
   onCameraChange,
@@ -72,6 +74,7 @@ function SceneViewport({
   assets: ProjectAsset[];
   assetUrls: Record<string, string>;
   selection: string | null;
+  frameRequest: SceneFrameRequest | null;
   onSelect: (id: string) => void;
   onTransformCommit: (
     entityId: string,
@@ -89,6 +92,7 @@ function SceneViewport({
         assets={assets}
         assetUrls={assetUrls}
         selectedEntityId={selection}
+        frameRequest={frameRequest}
         playerPreviewPosition={{ x: 0, y: 0 }}
         transformMode={transformMode}
         readOnly={false}
@@ -107,12 +111,14 @@ function SettingsPanel({
   assets,
   builderBuildLogs,
   onReturnToSettings,
+  onOpenCharacterBuilder,
   onSaveEntity,
 }: {
   entity: SceneEntity | null;
   assets: ProjectAsset[];
   builderBuildLogs: MadBuilderBuildLog[];
   onReturnToSettings: () => void;
+  onOpenCharacterBuilder: () => void;
   onSaveEntity: (entity: SceneEntity) => void;
 }) {
   const [activeFunctionTab, setActiveFunctionTab] = useState<
@@ -460,7 +466,10 @@ function SettingsPanel({
                   aria-pressed={activePluginTab === 'character-builder'}
                   data-active={activePluginTab === 'character-builder'}
                   data-testid="button-character-builder-plugin"
-                  onClick={() => setActivePluginTab('character-builder')}
+                  onClick={() => {
+                    setActivePluginTab('character-builder');
+                    onOpenCharacterBuilder();
+                  }}
                 >
                   Character Builder Plugin
                 </button>
@@ -897,6 +906,8 @@ export default function BlankWorkspace() {
   const [uiControls, setUIControls] = useState<UIControlElement[]>(savedWorkspace.uiControls ?? []);
   const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
   const [selection, setSelection] = useState<string | null>('starter-cube');
+  const [characterFrameRequest, setCharacterFrameRequest] = useState<SceneFrameRequest | null>(null);
+  const characterFrameToken = useRef(0);
   const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
   const [madBuilderOpen, setMadBuilderOpen] = useState(false);
   const [previewEntities, setPreviewEntities] = useState<SceneEntity[] | null>(null);
@@ -1133,6 +1144,25 @@ export default function BlankWorkspace() {
     setSelection(entity.id);
     setStatus(`${entity.name} added to Scene 1.`);
   }, []);
+
+  const openCharacterBuilder = useCallback(() => {
+    let character = entities.find((entity) =>
+      entity.generatedBy === 'character-builder' && entity.name === 'Default Human · T-Pose · 1.80 m',
+    );
+    if (!character) {
+      const starter = createCharacterBuilderStarterScene();
+      character = starter.entities.find((entity) => entity.id === starter.characterId);
+      setEntities((current) => [...current, ...starter.entities]);
+      setStatus('Character Builder setup added: 1.80 m T-pose mannequin, ground plane, and turntable.');
+    } else {
+      setStatus('Character Builder focused on the existing default human. Your game camera is unchanged.');
+    }
+    if (!character) return;
+    setEditingEntityId(null);
+    setSelection(character.id);
+    characterFrameToken.current += 1;
+    setCharacterFrameRequest({ targetId: character.id, token: characterFrameToken.current });
+  }, [entities]);
 
   const nextPosition = useCallback(() => ({
     x: 50 + (entities.length % 8) * 12,
@@ -1402,6 +1432,7 @@ export default function BlankWorkspace() {
               assetUrls={assetUrls}
               camera={camera}
               selection={selection}
+              frameRequest={characterFrameRequest}
               onSelect={setSelection}
               onTransformCommit={updateTransform}
               onCameraChange={setCamera}
@@ -1425,6 +1456,7 @@ export default function BlankWorkspace() {
               assets={assets}
               builderBuildLogs={builderBuildLogs}
               onReturnToSettings={() => setEditingEntityId(null)}
+              onOpenCharacterBuilder={openCharacterBuilder}
               onSaveEntity={updateEntitySettings}
             />
           ) : number === 4 ? (

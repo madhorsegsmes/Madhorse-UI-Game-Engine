@@ -36,6 +36,7 @@ import './scene-preview-3d.css';
 
 export type SceneTransformMode = 'translate' | 'rotate' | 'scale';
 type CanvasOrbitMode = 'free' | 'y' | 'x';
+export type SceneFrameRequest = { targetId: string; token: number };
 const MIN_SCENE_ZOOM = 25;
 const MAX_SCENE_ZOOM = 400;
 export type ScenePreview3DProps = {
@@ -61,6 +62,8 @@ export type ScenePreview3DProps = {
   onCameraEntityTransform?: ScenePreview3DProps['onTransformCommit'];
   /** Select the virtual primary camera (selectedEntityId becomes PRIMARY_CAMERA_ID). */
   onSelectPrimaryCamera?: () => void;
+  /** Reframe the editor viewport around a requested scene object without moving the game camera. */
+  frameRequest?: SceneFrameRequest | null;
 };
 
 type ErrorEntry = { id: string; message: string };
@@ -164,6 +167,7 @@ export function ScenePreview3D({
   onPrimaryCameraChange,
   onCameraEntityTransform,
   onSelectPrimaryCamera,
+  frameRequest,
 }: ScenePreview3DProps) {
   const [errors, setErrors] = useState<ErrorEntry[]>([]);
   const [modelStatuses, setModelStatuses] = useState<Record<string, string>>({});
@@ -175,6 +179,7 @@ export function ScenePreview3D({
   const [zoom, setZoom] = useState(100);
   const [frameToken, setFrameToken] = useState(0);
   const [sceneFocus, setSceneFocus] = useState<SceneFocus | null>(null);
+  const handledFrameRequest = useRef(0);
   const [graphicsAvailable, setGraphicsAvailable] = useState(false);
   const [gameViewRotated, setGameViewRotated] = useState(false);
   const [cameraOrbitMode, setCameraOrbitMode] = useState<CanvasOrbitMode>('free');
@@ -192,6 +197,15 @@ export function ScenePreview3D({
   useEffect(() => {
     if (!gameView && entities.some((entity) => entity.id === selectedEntityId && entity.generatedBy === 'mad-builder')) frameBuild();
   }, [selectedEntityId, gameView]);
+  useEffect(() => {
+    if (!frameRequest || gameView || frameRequest.token === handledFrameRequest.current) return;
+    const focus = sceneEntityFocus(entities, frameRequest.targetId);
+    if (!focus) return;
+    handledFrameRequest.current = frameRequest.token;
+    setSceneFocus(focus);
+    setZoom(100);
+    setFrameToken((value) => value + 1);
+  }, [entities, frameRequest, gameView]);
   useEffect(() => {
     const media = window.matchMedia('(max-width: 700px), (pointer: coarse)');
     const update = () => setMobile(media.matches);
@@ -867,7 +881,7 @@ function EntityNode(props: SceneWorldProps & {
           missing={Boolean(sprite.assetId && !spriteUrl)}
           opacity={props.gameView ? 1 : 0.1}
         />
-      ) : (
+      ) : entity.isGroup ? null : (
         <mesh>
           <boxGeometry args={[1, 1, 1]} />
           <meshStandardMaterial color={effective ? (entity.id === 'player' ? '#bd4037' : '#aab0b4') : '#595b5d'} roughness={0.68} transparent={!effective} opacity={effective ? 1 : 0.38} />

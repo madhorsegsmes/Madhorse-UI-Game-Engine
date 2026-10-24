@@ -124,7 +124,7 @@ export type SceneEntity = {
   parentId: string | null;
   active: boolean;
   components: SceneComponent[];
-  generatedBy?: 'mad-builder';
+  generatedBy?: 'mad-builder' | 'character-builder';
   isGroup?: boolean;
 };
 
