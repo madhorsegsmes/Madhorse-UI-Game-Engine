@@ -110,7 +110,7 @@ components:
         parentKey: { type: [string, "null"], maxLength: 40 }
         kind:
           type: string
-          enum: [group, box, plane, terrain, sprite, model, light, camera, ui-panel, ui-text, ui-button, ui-health, architecture]
+          enum: [group, box, plane, terrain, sprite, model, light, camera, ui-panel, ui-text, ui-button, ui-health, architecture, vehicle]
         shape:
           type: string
           enum: [cube, sphere, capsule, cylinder, cone, circle, ring, torus, torus-knot, icosahedron, dodecahedron, octahedron, tetrahedron, pyramid, triangular-prism, wedge, tube, hollow-cylinder, rounded-cube]
@@ -129,6 +129,13 @@ components:
           type: string
           enum: [victorian-house]
           description: Procedural house architecture preset expanded into editable scene geometry.
+        vehicleStyle:
+          type: string
+          enum: [muscle-coupe]
+          description: Contoured two-door coupe expanded locally into editable body, glazing, wheels and trim. Size is full width, height and length in meters.
+        racingStripes:
+          type: boolean
+          description: Add paired longitudinal stripes only when visible in the vehicle reference.
         roofColor: { type: string, pattern: "^#[0-9a-fA-F]{6}$" }
         trimColor: { type: string, pattern: "^#[0-9a-fA-F]{6}$" }
         accentColor: { type: string, pattern: "^#[0-9a-fA-F]{6}$" }

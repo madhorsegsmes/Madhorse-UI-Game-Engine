@@ -4,6 +4,7 @@ import { createSceneEntity, createModelRendererComponent, createSpriteRendererCo
   getTransform, getWorldTransform, isSceneGraph, type ProjectAsset, type SceneEntity } from './scene-model';
 import { createUIControlElement, type UIControlElement } from './ui-controls';
 import { createVictorianHouseGeometry } from './victorian-house-geometry';
+import { createCoupeVehicleGeometry, COUPE_DIMENSIONS } from './coupe-vehicle-geometry';
 import type { BuilderMessage } from '@/components/mad-builder-contract';
 
 export function isBuilderHistory(value: unknown): value is BuilderMessage[] {
@@ -28,6 +29,12 @@ export function compileBuilderPlan(input: unknown, existing: SceneEntity[], asse
   }
   if (plan.parts.some((part) => part.kind === 'architecture' && part.architectureStyle !== 'victorian-house')) {
     throw new Error('This architecture tool needs a supported house style.');
+  }
+  if (plan.parts.some((part) => part.kind === 'vehicle' && part.vehicleStyle !== 'muscle-coupe')) {
+    throw new Error('This vehicle tool needs a supported vehicle style.');
+  }
+  if (plan.parts.filter((part) => part.kind === 'vehicle').length > 4) {
+    throw new Error('Build at most four detailed vehicles at a time.');
   }
   for (const [kind, limit] of [['terrain', 2], ['light', 8], ['camera', 4], ['model', 4]] as const) {
     if (plan.parts.filter((part) => part.kind === kind).length > limit) throw new Error(`Too many ${kind} objects in one build.`);
@@ -58,6 +65,24 @@ export function compileBuilderPlan(input: unknown, existing: SceneEntity[], asse
   const entities: SceneEntity[] = [root];
   const uiControls: UIControlElement[] = [];
   for (const part of plan.parts) {
+    if (part.kind === 'vehicle') {
+      const vehicle = createSceneEntity(part.name, {
+        x: 50 + part.position.x * 10, y: 50 + part.position.z * 10, z: 50 + part.position.y * 10,
+      }, part.parentKey ? ids.get(part.parentKey)! : root.id, false);
+      vehicle.id = ids.get(part.key)!;
+      vehicle.isGroup = true;
+      const transform = getTransform(vehicle);
+      transform.rotation = { x: -part.rotation.x, y: -part.rotation.z, z: -part.rotation.y };
+      transform.scale = { x: part.size.x / COUPE_DIMENSIONS.x,
+        y: part.size.z / COUPE_DIMENSIONS.z, z: part.size.y / COUPE_DIMENSIONS.y };
+      const physics = vehicle.components.find((component) => component.type === 'physics');
+      if (physics?.type === 'physics') {
+        physics.bodyType = 'static';
+        physics.size = { x: COUPE_DIMENSIONS.x * 10, y: COUPE_DIMENSIONS.z * 10, z: COUPE_DIMENSIONS.y * 10 };
+      }
+      entities.push(vehicle, ...createCoupeVehicleGeometry(vehicle.id, part));
+      continue;
+    }
     if (part.kind === 'architecture') {
       const houseGroup = createSceneEntity(part.name, {
         x: part.position.x * 10,

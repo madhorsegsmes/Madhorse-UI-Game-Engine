@@ -63,6 +63,7 @@ test('image plans complete with a dedicated output budget; truncated plans never
     assert.equal(captured[0].max_completion_tokens, 12000);
     assert.match(captured[0].messages[0].content, /wheelbase, wheel diameter and placement/);
     assert.match(captured[0].messages[0].content, /exactly four tires/);
+    assert.match(captured[0].messages[0].content, /kind "vehicle", vehicleStyle "muscle-coupe"/);
     assert.equal(captured[0].messages[1].content[1].image_url.url, body.referenceImage);
     responsePlan = {
       ...plan,
@@ -73,6 +74,17 @@ test('image plans complete with a dedicated output budget; truncated plans never
     const repaired = await response.json();
     assert.equal(repaired.parts[0].size.x, 0.02);
     assert.match(repaired.warnings[0], /raised to the engine minimum/);
+    responsePlan = {
+      title: 'Orange coupe', summary: 'Editable coupe tool.', warnings: ['Hidden details are estimated.'],
+      parts: [{ ...plan.parts[0], kind: 'vehicle', vehicleStyle: 'muscle-coupe',
+        size: { x: 2.14, y: 1.44, z: 4.88 }, racingStripes: true }],
+    };
+    response = await send();
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).parts[0].vehicleStyle, 'muscle-coupe');
+    delete responsePlan.parts[0].vehicleStyle;
+    response = await send();
+    assert.equal(response.status, 502, 'Unknown vehicle recipes cannot reach the editor');
     truncate = true;
     response = await send();
     assert.equal(response.status, 502);

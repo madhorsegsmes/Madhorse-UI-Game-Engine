@@ -23,4 +23,5 @@ export const BuilderPartKind = {
   'ui-button': 'ui-button',
   'ui-health': 'ui-health',
   architecture: 'architecture',
+  vehicle: 'vehicle',
 } as const;

@@ -13,6 +13,7 @@ export * from './builderPartArchitectureStyle';
 export * from './builderPartKind';
 export * from './builderPartLightKind';
 export * from './builderPartShape';
+export * from './builderPartVehicleStyle';
 export * from './builderRotation';
 export * from './builderSize';
 export * from './builderVector';

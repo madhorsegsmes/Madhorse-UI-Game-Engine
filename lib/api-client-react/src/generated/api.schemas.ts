@@ -127,6 +127,7 @@ export const BuilderPartKind = {
   'ui-button': 'ui-button',
   'ui-health': 'ui-health',
   architecture: 'architecture',
+  vehicle: 'vehicle',
 } as const;
 
 export type BuilderPartShape = typeof BuilderPartShape[keyof typeof BuilderPartShape];
@@ -171,6 +172,16 @@ export type BuilderPartArchitectureStyle = typeof BuilderPartArchitectureStyle[k
 
 export const BuilderPartArchitectureStyle = {
   'victorian-house': 'victorian-house',
+} as const;
+
+/**
+ * Contoured two-door coupe expanded locally into editable body, glazing, wheels and trim. Size is full width, height and length in meters.
+ */
+export type BuilderPartVehicleStyle = typeof BuilderPartVehicleStyle[keyof typeof BuilderPartVehicleStyle];
+
+
+export const BuilderPartVehicleStyle = {
+  'muscle-coupe': 'muscle-coupe',
 } as const;
 
 export interface BuilderPart {
@@ -221,6 +232,10 @@ export interface BuilderPart {
   fov?: number;
   /** Procedural house architecture preset expanded into editable scene geometry. */
   architectureStyle?: BuilderPartArchitectureStyle;
+  /** Contoured two-door coupe expanded locally into editable body, glazing, wheels and trim. Size is full width, height and length in meters. */
+  vehicleStyle?: BuilderPartVehicleStyle;
+  /** Add paired longitudinal stripes only when visible in the vehicle reference. */
+  racingStripes?: boolean;
   /** @pattern ^#[0-9a-fA-F]{6}$ */
   roofColor?: string;
   /** @pattern ^#[0-9a-fA-F]{6}$ */

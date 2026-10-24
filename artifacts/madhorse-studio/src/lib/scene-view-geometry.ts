@@ -5,9 +5,14 @@ import {
   type PrimitiveShape, type TerrainSettings, type SceneEntity,
 } from './scene-model';
 import type { GameCamera } from './game-camera';
+import { createVehicleSurfaceGeometry } from './vehicle-surface-geometry';
 
 export function createPrimitiveGeometry(shape: PrimitiveShape, terrainSettings?: TerrainSettings) {
   switch (shape) {
+    case 'coupe-body':
+    case 'coupe-glazing':
+    case 'coupe-grille':
+      return createVehicleSurfaceGeometry(shape);
     case 'cube': return new THREE.BoxGeometry(1, 1, 1);
     case 'sphere': return new THREE.SphereGeometry(.5, 48, 32);
     case 'capsule': return new THREE.CapsuleGeometry(.28, .44, 12, 32);

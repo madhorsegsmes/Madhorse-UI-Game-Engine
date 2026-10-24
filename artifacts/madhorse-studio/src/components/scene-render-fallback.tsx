@@ -104,8 +104,8 @@ export function SceneRenderFallback({
         const geometry = createPrimitiveGeometry(primitive.shape, primitive.terrainSettings);
         const material = new THREE.MeshStandardMaterial({
           color: primitive.color,
-          roughness: 0.58,
-          metalness: 0.08,
+          roughness: primitive.roughness ?? 0.58,
+          metalness: primitive.metalness ?? 0.08,
           transparent: (primitive.opacity ?? 1) < 1,
           opacity: primitive.opacity ?? 1,
           side: THREE.DoubleSide,

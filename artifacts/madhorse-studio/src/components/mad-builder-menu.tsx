@@ -6,7 +6,7 @@ import './workspace-browser-menus.css';
 import './mad-builder-menu.css';
 
 const EXAMPLE = 'Build a small 3D house with four walls, a pitched roof, a front door, glass windows on each side, a ground plane around it and a warm point light inside.';
-const CAR_REFERENCE_PROMPT = 'Use the uploaded car image as the source of truth. Build one complete, symmetrical, editable 3D car that matches its visible body silhouette and proportions: length, width, wheelbase, tire size and placement, hood, cabin and roofline, windows, grille, headlights, bumpers and visible trim. Keep the car facing the same direction as the reference. Use a shaped low body rather than a stack of boxes, with exactly four aligned tires and centered rims; keep the wheels visible and clear of the body. Match the reference colors and stance. Add only details shown in the image. Do not add extra wheels, floating or intersecting parts, invented styling, or scenery. Estimate hidden areas conservatively.';
+const CAR_REFERENCE_PROMPT = 'Use the uploaded car image as the source of truth. If it is a two-door muscle or sports coupe, use the dedicated vehicle tool (muscle-coupe) for a contoured body, wheel openings, shaped glass cabin and four detailed wheels, not a stack of boxes. Match its real-world proportions, paint, dark trim and visible paired racing stripes. Build one editable car only, without scenery or duplicate details. Explain which hidden details are estimated and any differences imposed by the coupe template. Do not force other vehicle styles into this template.';
 const STYLE_STORAGE_KEY = 'madhorse-studio-mad-builder-style';
 const BUILD_STYLES: { value: BuilderStyle; label: string }[] = [
   { value: 'polished-game-ready', label: 'Polished game-ready' },

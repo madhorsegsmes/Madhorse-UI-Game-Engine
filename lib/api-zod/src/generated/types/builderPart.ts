@@ -9,6 +9,7 @@ import type { BuilderPartArchitectureStyle } from './builderPartArchitectureStyl
 import type { BuilderPartKind } from './builderPartKind';
 import type { BuilderPartLightKind } from './builderPartLightKind';
 import type { BuilderPartShape } from './builderPartShape';
+import type { BuilderPartVehicleStyle } from './builderPartVehicleStyle';
 import type { BuilderRotation } from './builderRotation';
 import type { BuilderSize } from './builderSize';
 import type { BuilderVector } from './builderVector';
@@ -61,6 +62,10 @@ export interface BuilderPart {
   fov?: number;
   /** Procedural house architecture preset expanded into editable scene geometry. */
   architectureStyle?: BuilderPartArchitectureStyle;
+  /** Contoured two-door coupe expanded locally into editable body, glazing, wheels and trim. Size is full width, height and length in meters. */
+  vehicleStyle?: BuilderPartVehicleStyle;
+  /** Add paired longitudinal stripes only when visible in the vehicle reference. */
+  racingStripes?: boolean;
   /** @pattern ^#[0-9a-fA-F]{6}$ */
   roofColor?: string;
   /** @pattern ^#[0-9a-fA-F]{6}$ */

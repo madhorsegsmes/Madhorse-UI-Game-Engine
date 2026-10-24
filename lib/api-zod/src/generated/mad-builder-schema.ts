@@ -69,7 +69,8 @@ export const builderPlanJsonSchema: Record<string, unknown> = {
               "ui-text",
               "ui-button",
               "ui-health",
-              "architecture"
+              "architecture",
+              "vehicle"
             ]
           },
           "shape": {
@@ -224,6 +225,17 @@ export const builderPlanJsonSchema: Record<string, unknown> = {
               "victorian-house"
             ],
             "description": "Procedural house architecture preset expanded into editable scene geometry."
+          },
+          "vehicleStyle": {
+            "type": "string",
+            "enum": [
+              "muscle-coupe"
+            ],
+            "description": "Contoured two-door coupe expanded locally into editable body, glazing, wheels and trim. Size is full width, height and length in meters."
+          },
+          "racingStripes": {
+            "type": "boolean",
+            "description": "Add paired longitudinal stripes only when visible in the vehicle reference."
           },
           "roofColor": {
             "type": "string",

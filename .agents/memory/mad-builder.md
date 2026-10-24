@@ -37,6 +37,17 @@ limits.
 boundaries; build from a deterministic template, and label hidden elevations as
 estimates rather than claiming exact reconstruction from one image.
 
+Use a bounded contoured vehicle tool for recognized coupe references instead of
+trying to correct a long primitive-only car plan with more prompt wording.
+
+**Why:** The user's comparison images showed that repeated prompt refinements
+still produced a yellow block cluster rather than the curved orange coupe in the
+reference. Better instructions did not supply the missing surface geometry.
+
+**How to apply:** Prefer coherent editable vehicle surfaces and aligned wheels,
+preserve existing builds, and clearly identify template/hidden-view limitations.
+Do not apply a coupe template to unrelated vehicle silhouettes.
+
 Ask for a visual reference before a new Studio build and prioritize its visible
 proportions, silhouette, spacing and openings over decorative part counts.
 

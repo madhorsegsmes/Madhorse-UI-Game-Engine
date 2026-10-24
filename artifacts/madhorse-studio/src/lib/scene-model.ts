@@ -68,7 +68,10 @@ export const primitiveShapes = [
   { value: 'rounded-cube', label: 'Rounded Cube' },
 ] as const;
 
-export type PrimitiveShape = (typeof primitiveShapes)[number]['value'] | 'terrain';
+// Internal surface tools are persisted like primitives, but are not extra entries
+// in the creator's twenty-shape picker.
+export const vehicleSurfaceShapes = ['coupe-body', 'coupe-glazing', 'coupe-grille'] as const;
+export type PrimitiveShape = (typeof primitiveShapes)[number]['value'] | 'terrain' | (typeof vehicleSurfaceShapes)[number];
 export type TerrainSettings = {
   width: number;
   depth: number;
@@ -83,6 +86,8 @@ export type PrimitiveComponent = {
   shape: PrimitiveShape; color: string; textureAssetId: string | null;
   terrainSettings?: TerrainSettings;
   opacity?: number;
+  roughness?: number;
+  metalness?: number;
 };
 export type LightComponent = {
   id: string; type: 'light'; enabled: boolean;
@@ -302,8 +307,11 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
   if (item.type === 'primitive') {
     const validTerrain = item.terrainSettings === undefined || isTerrainSettings(item.terrainSettings);
     return typeof item.enabled === 'boolean' &&
-      (item.shape === 'terrain' || primitiveShapes.some(({ value }) => value === item.shape)) &&
+      (item.shape === 'terrain' || primitiveShapes.some(({ value }) => value === item.shape) ||
+        vehicleSurfaceShapes.some((value) => value === item.shape)) &&
       validTerrain && (item.shape === 'terrain' || item.terrainSettings === undefined) &&
+      (item.roughness === undefined || Number.isFinite(item.roughness) && item.roughness >= 0 && item.roughness <= 1) &&
+      (item.metalness === undefined || Number.isFinite(item.metalness) && item.metalness >= 0 && item.metalness <= 1) &&
       (item.opacity === undefined || Number.isFinite(item.opacity) && item.opacity >= .05 && item.opacity <= 1) &&
       /^#[0-9a-f]{6}$/i.test(item.color) && (item.textureAssetId === null || typeof item.textureAssetId === 'string');
   }
