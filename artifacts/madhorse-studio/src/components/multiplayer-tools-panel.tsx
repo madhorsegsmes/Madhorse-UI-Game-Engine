@@ -172,7 +172,7 @@ export function MultiplayerToolsPanel({ member, snapshot, onMemberChange, onSnap
             <button type="button" onClick={leaveRoom} disabled={busy} className="is-quiet">Leave</button>
           </div>
           <div className="fresh-multiplayer-roster">
-            <strong>Players ({players.length}/8)</strong>
+            <strong>Players ({players.length}/32)</strong>
             {players.map(player => (
               <div key={player.id} className="fresh-multiplayer-player">
                 <span>{player.name}{player.id === member.playerId ? " (you)" : ""}</span>
@@ -216,7 +216,7 @@ export function MultiplayerToolsPanel({ member, snapshot, onMemberChange, onSnap
       <p className="fresh-multiplayer-note">
         Open the same saved scene on each PC, add Network Player to your player, then press Play Test on both.
         The host controls Sync Object movement. Updates arrive twice per second.
-        Rooms support 8 players and reset when the server restarts.
+        Rooms support up to 32 players and reset when the server restarts.
       </p>
       {message && <p className="fresh-multiplayer-status" role="status">{message}</p>}
     </section>

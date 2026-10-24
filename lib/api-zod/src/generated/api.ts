@@ -267,7 +267,7 @@ export const getMultiplayerSessionStateResponsePlayersItemTransformOneScaleYMax 
 export const getMultiplayerSessionStateResponsePlayersItemTransformOneScaleZMin = -10000;
 export const getMultiplayerSessionStateResponsePlayersItemTransformOneScaleZMax = 10000;
 
-export const getMultiplayerSessionStateResponsePlayersMax = 8;
+export const getMultiplayerSessionStateResponsePlayersMax = 32;
 
 export const getMultiplayerSessionStateResponseObjectsItemEntityIdMax = 100;
 
@@ -507,7 +507,7 @@ export const syncMultiplayerSessionStateResponsePlayersItemTransformOneScaleYMax
 export const syncMultiplayerSessionStateResponsePlayersItemTransformOneScaleZMin = -10000;
 export const syncMultiplayerSessionStateResponsePlayersItemTransformOneScaleZMax = 10000;
 
-export const syncMultiplayerSessionStateResponsePlayersMax = 8;
+export const syncMultiplayerSessionStateResponsePlayersMax = 32;
 
 export const syncMultiplayerSessionStateResponseObjectsItemEntityIdMax = 100;
 

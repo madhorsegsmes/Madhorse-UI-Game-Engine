@@ -201,7 +201,7 @@ export interface MultiplayerStateUpdate {
 export interface MultiplayerSessionState {
   /** @pattern ^[A-Z2-9]{6}$ */
   code: string;
-  /** @maxItems 8 */
+  /** @maxItems 32 */
   players: MultiplayerPlayerState[];
   /** @maxItems 256 */
   objects: MultiplayerObjectState[];

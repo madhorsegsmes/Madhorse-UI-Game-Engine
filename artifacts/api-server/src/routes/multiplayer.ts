@@ -23,7 +23,7 @@ import {
 
 const router: IRouter = Router();
 const ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const MAX_ROOM_PLAYERS = 8;
+const MAX_ROOM_PLAYERS = 32;
 const MEMBER_IDLE_MS = 20_000;
 const ROOM_IDLE_MS = 60 * 60_000;
 

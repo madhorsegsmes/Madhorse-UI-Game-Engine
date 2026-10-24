@@ -334,7 +334,7 @@ components:
         code: { type: string, pattern: "^[A-Z2-9]{6}$" }
         players:
           type: array
-          maxItems: 8
+          maxItems: 32
           items: { $ref: "#/components/schemas/MultiplayerPlayerState" }
         objects:
           type: array
