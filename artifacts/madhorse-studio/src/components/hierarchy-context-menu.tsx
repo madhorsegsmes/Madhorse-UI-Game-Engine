@@ -37,23 +37,8 @@ type Props = {
   onAddWater: () => void;
 };
 
-const menuEntries = [
-  ['import', 'Import Asset'],
-  ['camera', 'Create Camera'],
-  ['light', 'Create Light'],
-  ['effect', 'Create Effect'],
-  ['ui', 'Create UI'],
-  ['script', 'Create Script'],
-  ['texture', 'Create Texture'],
-  ['upload-texture', 'Upload 2D Texture'],
-  ['timeline', 'Timeline Your Animation'],
-] as const;
-
 export function HierarchyContextMenu(props: Props) {
-  const [showShapes, setShowShapes] = useState(false);
-  const [showWorldTools, setShowWorldTools] = useState(false);
   const [showAssets, setShowAssets] = useState(false);
-  const [showUIOptions, setShowUIOptions] = useState(false);
   const [dialog, setDialog] = useState<'plane' | 'terrain' | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState(props.point);
@@ -65,7 +50,7 @@ export function HierarchyContextMenu(props: Props) {
     const left = Math.max(8, Math.min(props.point.x, window.innerWidth - bounds.width - 8));
     const top = Math.max(8, Math.min(props.point.y, window.innerHeight - bounds.height - 8));
     setPosition(current => current.x === left && current.y === top ? current : { x: left, y: top });
-  }, [props.point, showShapes, showWorldTools, showAssets, showUIOptions]);
+  }, [props.point, showAssets]);
 
   function run(action: () => void) {
     props.onClose();
@@ -91,89 +76,41 @@ export function HierarchyContextMenu(props: Props) {
           if (event.key === 'Escape') props.onClose();
         }}
       >
-        <button
-          type="button"
-          role="menuitem"
-          className="fresh-context-action"
-          aria-expanded={showShapes}
-          onClick={() => setShowShapes(value => !value)}
-        >
-          <span>Create Object</span><span aria-hidden="true">{showShapes ? '−' : '›'}</span>
-        </button>
-        {showShapes && (
-          <div className="fresh-create-picker">
-            <div className="fresh-shape-picker" aria-label="Choose a 3D shape">
-              {primitiveShapes.map(shape => (
-                <button
-                  type="button"
-                  key={shape.value}
-                  onClick={() => {
-                    if (shape.value === 'plane') setDialog('plane');
-                    else run(() => props.onCreateShape(shape.value));
-                  }}
-                >
-                  {shape.label}
-                </button>
-              ))}
-            </div>
-            <div className="fresh-context-create-actions" aria-label="Create scene objects">
-              <button type="button" data-testid="menu-create-empty" onClick={() => run(props.onCreateEmpty)}>Create Empty Object</button>
-              <button type="button" data-testid="menu-create-plane" onClick={() => setDialog('plane')}>Create Plane</button>
-              <button type="button" data-testid="menu-create-terrain" onClick={() => setDialog('terrain')}>Create Terrain</button>
-            </div>
-          </div>
-        )}
-        <button
-          type="button"
-          role="menuitem"
-          className="fresh-context-action"
-          aria-expanded={showWorldTools}
-          onClick={() => setShowWorldTools(value => !value)}
-          data-testid="hierarchy-world-tools"
-        >
-          <span>World Building Tools</span><span aria-hidden="true">{showWorldTools ? '−' : '›'}</span>
-        </button>
-        {showWorldTools && (
-          <div className="fresh-world-tool-picker" role="group" aria-label="Terrain and world shaping">
-            <button type="button" disabled={!props.terrainAvailable} data-testid="world-tool-raise"
-              onClick={() => run(() => props.onTerrainBrush('raise'))}>Raise Terrain</button>
-            <button type="button" disabled={!props.terrainAvailable} data-testid="world-tool-lower"
-              onClick={() => run(() => props.onTerrainBrush('lower'))}>Lower Terrain</button>
-            <button type="button" disabled={!props.terrainAvailable} data-testid="world-tool-smooth"
-              onClick={() => run(() => props.onTerrainBrush('smooth'))}>Smooth Terrain</button>
-            <button type="button" disabled={!props.terrainAvailable} data-testid="world-tool-trees"
-              onClick={() => run(props.onAddTrees)}>Add Trees</button>
-            <button type="button" disabled={!props.terrainAvailable} data-testid="world-tool-water"
-              onClick={() => run(props.onAddWater)}>Add Water</button>
-            {!props.terrainAvailable && (
-              <p className="fresh-world-tool-hint">Select a Terrain in Hierarchy to enable these tools.</p>
-            )}
-          </div>
-        )}
-        {menuEntries.map(([key, label]) => key === 'ui' ? (
-          <div
-            className="fresh-context-group"
-            key={key}
-            onMouseEnter={() => setShowUIOptions(true)}
-            onMouseLeave={() => setShowUIOptions(false)}
-          >
-            <button
-              type="button"
-              role="menuitem"
-              className="fresh-context-action"
-              aria-haspopup="menu"
-              aria-expanded={showUIOptions}
-              onFocus={() => setShowUIOptions(true)}
-              onClick={() => setShowUIOptions(true)}
-            >
-              <span>{label}</span><span aria-hidden="true">{showUIOptions ? '⌄' : '›'}</span>
-            </button>
-            {showUIOptions && (
-              <div className="fresh-ui-submenu" role="menu" aria-label="Choose a UI element">
+        <div className="fresh-context-columns" data-testid="hierarchy-context-columns">
+          <section className="fresh-context-column" aria-label="Beginner tools">
+            <h3>Beginner</h3>
+            <section className="fresh-context-section" aria-label="Create object">
+              <h4>Create Object</h4>
+              <div className="fresh-shape-picker" aria-label="Choose a 3D shape">
+                {primitiveShapes.map(shape => (
+                  <button
+                    type="button"
+                    key={shape.value}
+                    onClick={() => {
+                      if (shape.value === 'plane') setDialog('plane');
+                      else run(() => props.onCreateShape(shape.value));
+                    }}
+                  >
+                    {shape.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+            <section className="fresh-context-section" aria-label="Basic scene objects">
+              <h4>Scene Objects</h4>
+              <div className="fresh-context-tool-grid">
+                <button type="button" data-testid="menu-create-empty" onClick={() => run(props.onCreateEmpty)}>Create Empty Object</button>
+                <button type="button" data-testid="menu-create-plane" onClick={() => setDialog('plane')}>Create Plane</button>
+                <button type="button" data-testid="menu-create-terrain" onClick={() => setDialog('terrain')}>Create Terrain</button>
+                <button type="button" data-testid="menu-import-asset" onClick={() => run(props.onImportAsset)}>Import Asset</button>
+              </div>
+            </section>
+            <section className="fresh-context-section" aria-label="Create UI">
+              <h4>UI Builder</h4>
+              <div className="fresh-ui-submenu" role="group" aria-label="Choose a UI element">
                 {uiElementKinds.map(kind => (
                   <button
                     type="button"
-                    role="menuitem"
                     key={kind.value}
                     onClick={() => run(() => props.onCreateUI(kind.value))}
                   >
@@ -181,67 +118,85 @@ export function HierarchyContextMenu(props: Props) {
                   </button>
                 ))}
               </div>
-            )}
-          </div>
-        ) : (
-          <button
-            type="button"
-            role="menuitem"
-            className="fresh-context-action"
-            key={key}
-            onClick={() => {
-              if (key === 'import') return run(props.onImportAsset);
-              if (key === 'upload-texture') return run(props.onUploadTexture);
-              if (key === 'camera') return run(props.onCreateCamera);
-              if (key === 'light') return run(props.onCreateLight);
-               if (key === 'effect') return run(props.onCreateEffect);
-              if (key === 'script') return run(props.onCreateScript);
-              if (key === 'texture') return run(props.onCreateTexture);
-              if (key === 'timeline') return run(props.onOpenTimeline);
-            }}
-          >
-            <span>{label}</span>
-          </button>
-        ))}
-        <button
-          type="button"
-          role="menuitem"
-          className="fresh-context-action"
-          aria-expanded={showAssets}
-          onClick={() => setShowAssets(value => !value)}
-        >
-          <span>My Assets ({props.assets.length})</span><span aria-hidden="true">{showAssets ? '−' : '›'}</span>
-        </button>
-        {showAssets && (
-          <div className="fresh-asset-picker" aria-label="Previously imported assets">
-            {props.assets.length === 0
-              ? <span className="fresh-context-empty">No saved assets on this device yet.</span>
-              : props.assets.slice().sort((a, b) => b.addedAt.localeCompare(a.addedAt)).map(asset => (
+            </section>
+            <section className="fresh-context-section" aria-label="Asset library">
+              <h4>Assets</h4>
+              <button
+                type="button"
+                className="fresh-context-action"
+                data-testid="menu-my-assets"
+                aria-expanded={showAssets}
+                onClick={() => setShowAssets(value => !value)}
+              >
+                <span>My Assets ({props.assets.length})</span><span aria-hidden="true">{showAssets ? '−' : '+'}</span>
+              </button>
+              {showAssets && (
+                <div className="fresh-asset-picker" aria-label="Previously imported assets">
+                  {props.assets.length === 0
+                    ? <span className="fresh-context-empty">No saved assets on this device yet.</span>
+                    : props.assets.slice().sort((a, b) => b.addedAt.localeCompare(a.addedAt)).map(asset => (
+                      <button
+                        type="button"
+                        key={asset.id}
+                        title={`${asset.name} · ${asset.kind}`}
+                        onClick={() => run(() => props.onUseAsset(asset))}
+                      >
+                        <span>{asset.name}</span><small>{asset.kind}</small>
+                      </button>
+                    ))}
+                </div>
+              )}
+            </section>
+          </section>
+
+          <section className="fresh-context-column" aria-label="Advanced tools">
+            <h3>Advanced</h3>
+            <section className="fresh-context-section" aria-label="World building tools" data-testid="hierarchy-world-tools">
+              <h4>World Building Tools</h4>
+              <div className="fresh-world-tool-picker" role="group" aria-label="Terrain and world shaping">
+                <button type="button" disabled={!props.terrainAvailable} data-testid="world-tool-raise"
+                  onClick={() => run(() => props.onTerrainBrush('raise'))}>Raise Terrain</button>
+                <button type="button" disabled={!props.terrainAvailable} data-testid="world-tool-lower"
+                  onClick={() => run(() => props.onTerrainBrush('lower'))}>Lower Terrain</button>
+                <button type="button" disabled={!props.terrainAvailable} data-testid="world-tool-smooth"
+                  onClick={() => run(() => props.onTerrainBrush('smooth'))}>Smooth Terrain</button>
+                <button type="button" disabled={!props.terrainAvailable} data-testid="world-tool-trees"
+                  onClick={() => run(props.onAddTrees)}>Add Trees</button>
+                <button type="button" disabled={!props.terrainAvailable} data-testid="world-tool-water"
+                  onClick={() => run(props.onAddWater)}>Add Water</button>
+              </div>
+              {!props.terrainAvailable && (
+                <p className="fresh-world-tool-hint">Select a Terrain in Hierarchy to enable these tools.</p>
+              )}
+            </section>
+            <section className="fresh-context-section" aria-label="Advanced scene tools">
+              <h4>Scene Tools</h4>
+              <div className="fresh-context-tool-grid">
+                <button type="button" data-testid="menu-create-camera" onClick={() => run(props.onCreateCamera)}>Create Camera</button>
+                <button type="button" data-testid="menu-create-light" onClick={() => run(props.onCreateLight)}>Create Light</button>
+                <button type="button" data-testid="menu-create-effect" onClick={() => run(props.onCreateEffect)}>Create Effect</button>
+                <button type="button" data-testid="menu-create-script" onClick={() => run(props.onCreateScript)}>Create Script</button>
+                <button type="button" data-testid="menu-create-texture" onClick={() => run(props.onCreateTexture)}>Create Texture</button>
+                <button type="button" data-testid="menu-upload-texture" onClick={() => run(props.onUploadTexture)}>Upload 2D Texture</button>
+                <button type="button" data-testid="menu-open-timeline" onClick={() => run(props.onOpenTimeline)}>Timeline Your Animation</button>
+              </div>
+            </section>
+            {props.deleteTarget && (
+              <section className="fresh-context-section fresh-context-delete" aria-label="Selected object actions">
+                <h4>Selected Object</h4>
                 <button
                   type="button"
-                  key={asset.id}
-                  title={`${asset.name} · ${asset.kind}`}
-                  onClick={() => run(() => props.onUseAsset(asset))}
+                  className="fresh-context-action is-danger"
+                  data-testid="menu-delete-object"
+                  onClick={() => run(() => props.onDeleteEntity(props.deleteTarget!.id))}
                 >
-                  <span>{asset.name}</span><small>{asset.kind}</small>
+                  <span>Delete {props.deleteTarget.name}</span>
+                  {props.deleteTarget.childCount > 0 && <small>{props.deleteTarget.childCount} child{props.deleteTarget.childCount === 1 ? '' : 'ren'}</small>}
                 </button>
-              ))}
-          </div>
-        )}
-        {props.deleteTarget && (
-          <>
-            <div className="fresh-context-separator" role="separator" />
-            <button
-              type="button"
-              role="menuitem"
-              className="fresh-context-action is-danger"
-              onClick={() => run(() => props.onDeleteEntity(props.deleteTarget!.id))}
-            >
-              <span>Delete {props.deleteTarget.name}</span>
-              {props.deleteTarget.childCount > 0 && <small>{props.deleteTarget.childCount} child{props.deleteTarget.childCount === 1 ? '' : 'ren'}</small>}
-            </button>
-          </>
-        )}
+              </section>
+            )}
+          </section>
+        </div>
       </div>
       {dialog === 'plane' && (
         <PlaneSettingsDialog onCancel={() => { setDialog(null); props.onClose(); }} onCreate={settings => {

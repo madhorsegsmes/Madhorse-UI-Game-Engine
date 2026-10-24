@@ -20,6 +20,14 @@ choosing a tool opens its relevant settings before the user applies it.
 
 **How to apply:** Keep general object creation in Hierarchy; preserve Panel 5 as the world and modeling tool area, with parameters visible before applying changes and without resizing the workspace.
 
+Right-clicking Hierarchy opens a two-column tool palette with **Beginner** and
+**Advanced** groups. Keep all current creation, world, UI, asset, and scene-system
+actions visible in their respective columns.
+
+**Why:** The user asked for a medium-sized two-column right-click menu that presents all tools from beginner to advanced.
+
+**How to apply:** Keep the context palette inside the viewport bounds, make each column independently scrollable when needed, and preserve the underlying workspace dimensions.
+
 The user rejected the rebuilt Studio layout and asked to remove everything visible so they can redo the layout fresh. Start blank, without panels or buttons, and add layout elements only as the user directs. Preserve engine code and saved projects.
 
 **Why:** After trying the rebuilt interface, the user said “i dont like the way that looks remove everything and let me redo the whole layout fresh.”
