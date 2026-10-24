@@ -214,12 +214,12 @@ export function HierarchyContextMenu(props: Props) {
         )}
       </div>
       {dialog === 'plane' && (
-        <PlaneDialog onCancel={() => { setDialog(null); props.onClose(); }} onCreate={settings => {
+        <PlaneSettingsDialog onCancel={() => { setDialog(null); props.onClose(); }} onCreate={settings => {
           setDialog(null); props.onClose(); props.onCreatePlane(settings);
         }} />
       )}
       {dialog === 'terrain' && (
-        <TerrainDialog onCancel={() => { setDialog(null); props.onClose(); }} onCreate={settings => {
+        <TerrainSettingsDialog onCancel={() => { setDialog(null); props.onClose(); }} onCreate={settings => {
           setDialog(null); props.onClose(); props.onCreateTerrain(settings);
         }} />
       )}
@@ -227,7 +227,7 @@ export function HierarchyContextMenu(props: Props) {
   );
 }
 
-function PlaneDialog({ onCancel, onCreate }: {
+export function PlaneSettingsDialog({ onCancel, onCreate }: {
   onCancel: () => void;
   onCreate: (settings: PlaneSettings) => void;
 }) {
@@ -246,7 +246,7 @@ function PlaneDialog({ onCancel, onCreate }: {
   );
 }
 
-function TerrainDialog({ onCancel, onCreate }: {
+export function TerrainSettingsDialog({ onCancel, onCreate }: {
   onCancel: () => void;
   onCreate: (settings: TerrainSettings & { size: number }) => void;
 }) {

@@ -24,7 +24,13 @@ import { createGameCamera, type GameCamera } from '@/lib/game-camera';
 import { cameraWithPose, PRIMARY_CAMERA_ID, primaryCameraEntity } from '@/lib/camera-editor';
 import { SceneObjectGlyph } from './scene-object-glyph';
 import { SceneObjectInspector } from './scene-object-inspector';
-import { HierarchyContextMenu, type HierarchyMenuPoint, type PlaneSettings } from './hierarchy-context-menu';
+import {
+  HierarchyContextMenu,
+  PlaneSettingsDialog,
+  TerrainSettingsDialog,
+  type HierarchyMenuPoint,
+  type PlaneSettings,
+} from './hierarchy-context-menu';
 import { AnimationEditor } from './animation-editor';
 import { isGameAnimationCollection, sampleGameAnimation, type GameAnimation } from '@/lib/game-api';
 import {
@@ -665,6 +671,111 @@ function SceneObjectRow({
   );
 }
 
+type Panel5Toolset = 'world' | 'model';
+
+function WorldToolsPanel({
+  activeToolset,
+  onSelectToolset,
+  onCreateObject,
+  onCreatePlane,
+  onCreateTerrain,
+  onCreateLight,
+  onCreateCamera,
+  onImportAsset,
+  onCreateEmpty,
+  onCreateShape,
+  onUploadTexture,
+  onCreateTexture,
+  onPreviewAnimation,
+}: {
+  activeToolset: Panel5Toolset;
+  onSelectToolset: (toolset: Panel5Toolset) => void;
+  onCreateObject: () => void;
+  onCreatePlane: () => void;
+  onCreateTerrain: () => void;
+  onCreateLight: () => void;
+  onCreateCamera: () => void;
+  onImportAsset: () => void;
+  onCreateEmpty: () => void;
+  onCreateShape: (shape: PrimitiveShape) => void;
+  onUploadTexture: () => void;
+  onCreateTexture: () => void;
+  onPreviewAnimation: () => void;
+}) {
+  return (
+    <div className="fresh-world-tools-panel">
+      <div className="fresh-world-tools-tabs" role="group" aria-label="Panel 5 tool categories">
+        <button
+          type="button"
+          className="fresh-world-tools-tab"
+          aria-pressed={activeToolset === 'world'}
+          data-active={activeToolset === 'world'}
+          onClick={() => onSelectToolset('world')}
+        >
+          World Building Tools
+        </button>
+        <button
+          type="button"
+          className="fresh-world-tools-tab"
+          aria-pressed={activeToolset === 'model'}
+          data-active={activeToolset === 'model'}
+          onClick={() => onSelectToolset('model')}
+        >
+          3D Modeling Tools
+        </button>
+      </div>
+      <div
+        className="fresh-world-tools-content"
+        role="region"
+        aria-label={activeToolset === 'world' ? 'World building tools' : '3D modeling tools'}
+        data-testid="panel5-tool-content"
+      >
+        {activeToolset === 'world' ? (
+          <div className="fresh-world-tool-grid">
+            <button type="button" className="fresh-world-tool-button" data-testid="panel5-create-object" onClick={onCreateObject}>Create Object</button>
+            <button type="button" className="fresh-world-tool-button" data-testid="panel5-create-plane" onClick={onCreatePlane}>Create Plane</button>
+            <button type="button" className="fresh-world-tool-button" data-testid="panel5-create-terrain" onClick={onCreateTerrain}>Create Terrain</button>
+            <button type="button" className="fresh-world-tool-button" data-testid="panel5-create-light" onClick={onCreateLight}>Add Light</button>
+            <button type="button" className="fresh-world-tool-button" data-testid="panel5-create-camera" onClick={onCreateCamera}>Add Camera</button>
+            <button type="button" className="fresh-world-tool-button" data-testid="panel5-import-world-asset" onClick={onImportAsset}>Import Asset</button>
+            <button type="button" className="fresh-world-tool-button" data-testid="panel5-create-empty" onClick={onCreateEmpty}>Empty Object</button>
+          </div>
+        ) : (
+          <>
+            <div className="fresh-world-tool-grid fresh-world-tool-grid-compact" aria-label="Model and texture actions">
+              <button type="button" className="fresh-world-tool-button" data-testid="panel5-import-model" onClick={onImportAsset}>Import Asset</button>
+              <button type="button" className="fresh-world-tool-button" data-testid="panel5-upload-texture" onClick={onUploadTexture}>Upload Texture</button>
+              <button type="button" className="fresh-world-tool-button" data-testid="panel5-create-texture" onClick={onCreateTexture}>Create Texture</button>
+            </div>
+            <p className="fresh-model-shapes-label">Create 3D Shape</p>
+            <div className="fresh-model-shape-grid" aria-label="3D shape tools">
+              {primitiveShapes.map(shape => (
+                <button
+                  type="button"
+                  key={shape.value}
+                  className="fresh-world-tool-button"
+                  data-testid={`panel5-shape-${shape.value}`}
+                  onClick={() => onCreateShape(shape.value)}
+                >
+                  {shape.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+      <button
+        type="button"
+        className="fresh-animation-preview-button"
+        onClick={onPreviewAnimation}
+        data-testid="button-preview-animation-scene"
+      >
+        Preview Animation Scene
+      </button>
+    </div>
+  );
+}
+
 export default function BlankWorkspace() {
   const [initialScene] = useState(() => {
     const entities = [createStarterCube()];
@@ -687,6 +798,8 @@ export default function BlankWorkspace() {
   const [madBuilderOpen, setMadBuilderOpen] = useState(false);
   const [previewEntities, setPreviewEntities] = useState<SceneEntity[] | null>(null);
   const [timelineOpen, setTimelineOpen] = useState(false);
+  const [panel5Toolset, setPanel5Toolset] = useState<Panel5Toolset>('world');
+  const [panel5Dialog, setPanel5Dialog] = useState<'plane' | 'terrain' | null>(null);
   const [status, setStatus] = useState('');
   const importInputRef = useRef<HTMLInputElement>(null);
   const textureInputRef = useRef<HTMLInputElement>(null);
@@ -1222,17 +1335,49 @@ export default function BlankWorkspace() {
               </div>
             </>
           ) : (
-            <div className="fresh-world-tools-headings">
-              <h2>World Building Tools</h2>
-              <h3>3D Modeling Tools</h3>
-              <button type="button" className="fresh-animation-preview-button"
-                onClick={openTimeline} data-testid="button-preview-animation-scene">
-                Preview Animation Scene
-              </button>
-            </div>
+            <WorldToolsPanel
+              activeToolset={panel5Toolset}
+              onSelectToolset={setPanel5Toolset}
+              onCreateObject={() => createPrimitiveEntity('cube', 'Cube')}
+              onCreatePlane={() => setPanel5Dialog('plane')}
+              onCreateTerrain={() => setPanel5Dialog('terrain')}
+              onCreateLight={createLightEntity}
+              onCreateCamera={createCameraEntity}
+              onImportAsset={showImportPicker}
+              onCreateEmpty={createEmptyObject}
+              onCreateShape={shape => {
+                if (shape === 'plane') {
+                  setPanel5Dialog('plane');
+                  return;
+                }
+                const definition = primitiveShapes.find(item => item.value === shape);
+                createPrimitiveEntity(shape, definition?.label ?? 'Object');
+              }}
+              onUploadTexture={showTexturePicker}
+              onCreateTexture={() => { void makeTexture(); }}
+              onPreviewAnimation={openTimeline}
+            />
           )}
         </section>
       ))}
+      {panel5Dialog === 'plane' && (
+        <PlaneSettingsDialog
+          onCancel={() => setPanel5Dialog(null)}
+          onCreate={settings => {
+            setPanel5Dialog(null);
+            createPlane(settings);
+          }}
+        />
+      )}
+      {panel5Dialog === 'terrain' && (
+        <TerrainSettingsDialog
+          onCancel={() => setPanel5Dialog(null)}
+          onCreate={settings => {
+            setPanel5Dialog(null);
+            createTerrain(settings);
+          }}
+        />
+      )}
       {madBuilderOpen && createPortal(
         <div
           className="fresh-mad-builder-backdrop"
