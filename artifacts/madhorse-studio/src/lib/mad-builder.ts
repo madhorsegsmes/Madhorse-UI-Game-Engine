@@ -3,6 +3,7 @@ import type { MadBuilderPlan } from '@workspace/api-client-react';
 import { createSceneEntity, createModelRendererComponent, createSpriteRendererComponent,
   getTransform, getWorldTransform, isSceneGraph, type ProjectAsset, type SceneEntity } from './scene-model';
 import { createUIControlElement, type UIControlElement } from './ui-controls';
+import { createVictorianHouseGeometry } from './victorian-house-geometry';
 import type { BuilderMessage } from '@/components/mad-builder-contract';
 
 export function isBuilderHistory(value: unknown): value is BuilderMessage[] {
@@ -25,6 +26,9 @@ export function compileBuilderPlan(input: unknown, existing: SceneEntity[], asse
   if (plan.parts.some((part) => part.shape && part.kind !== 'box')) {
     throw new Error('A shape can only be assigned to a 3D object.');
   }
+  if (plan.parts.some((part) => part.kind === 'architecture' && part.architectureStyle !== 'victorian-house')) {
+    throw new Error('This architecture tool needs a supported house style.');
+  }
   for (const [kind, limit] of [['terrain', 2], ['light', 8], ['camera', 4], ['model', 4]] as const) {
     if (plan.parts.filter((part) => part.kind === kind).length > limit) throw new Error(`Too many ${kind} objects in one build.`);
   }
@@ -43,6 +47,10 @@ export function compileBuilderPlan(input: unknown, existing: SceneEntity[], asse
     if (part.kind === 'model' && !part.assetId) throw new Error('A model part needs an existing project model.');
   }
   const anchor = getWorldTransform(existing, 'player')?.position ?? { x: 50, y: 50, z: 0 };
+  const previousBuilds = existing.filter((entity) => entity.generatedBy === 'mad-builder').length;
+  // Scene positions use 10 storage units per world unit. Keep builds clear of
+  // the starter cube, then leave enough room for the widest supported house.
+  anchor.x += 140 + previousBuilds * 300;
   const root = createSceneEntity(plan.title, anchor, null, false);
   root.generatedBy = 'mad-builder';
   root.isGroup = true;
@@ -50,6 +58,17 @@ export function compileBuilderPlan(input: unknown, existing: SceneEntity[], asse
   const entities: SceneEntity[] = [root];
   const uiControls: UIControlElement[] = [];
   for (const part of plan.parts) {
+    if (part.kind === 'architecture') {
+      const houseGroup = createSceneEntity(part.name, {
+        x: part.position.x * 10,
+        y: part.position.z * 10,
+        z: part.position.y * 10,
+      }, part.parentKey ? ids.get(part.parentKey)! : root.id, false);
+      houseGroup.id = ids.get(part.key)!;
+      houseGroup.isGroup = true;
+      entities.push(houseGroup, ...createVictorianHouseGeometry(houseGroup.id, part));
+      continue;
+    }
     const entity = createSceneEntity(part.name, {
       x: 50 + part.position.x * 10, y: 50 + part.position.z * 10, z: 50 + part.position.y * 10,
     }, part.parentKey ? ids.get(part.parentKey)! : root.id, false);

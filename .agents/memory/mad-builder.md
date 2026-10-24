@@ -25,6 +25,18 @@ blockouts. Use low-poly geometry only when the user asks for that style.
 deliberate materials and purposeful editable subparts; keep dimensions and
 requested counts faithful.
 
+For a recognized architectural reference with a supported procedural template,
+ask the planner for one high-level architecture instruction and expand it locally
+into named editable parts instead of asking the model for a long list of boxes.
+
+**Why:** Image-guided house plans were flattening into generic shells, and
+repetitive primitive lists were both less faithful and more likely to hit output
+limits.
+
+**How to apply:** Validate the architecture style at the API and editor
+boundaries; build from a deterministic template, and label hidden elevations as
+estimates rather than claiming exact reconstruction from one image.
+
 Ask for a visual reference before a new Studio build and prioritize its visible
 proportions, silhouette, spacing and openings over decorative part counts.
 
