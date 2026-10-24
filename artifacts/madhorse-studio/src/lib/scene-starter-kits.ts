@@ -8,7 +8,7 @@ import {
 
 export type GameStarterKitId = 'shooter' | 'rpg' | 'puzzle';
 export const gameStarterKits: { id: GameStarterKitId; title: string; description: string }[] = [
-  { id: 'shooter', title: 'Shooter Arena', description: 'A playable character with aiming, ammo, targets, health, and a small test arena.' },
+  { id: 'shooter', title: 'FPS Training Arena', description: 'A first-person camera with shooting, ammo, targets, health, and a small test arena.' },
   { id: 'rpg', title: 'RPG Quest', description: 'A player with inventory and spells, a character to meet, and a quest path to explore.' },
   { id: 'puzzle', title: 'Key-and-Gate Puzzle', description: 'Find a key, enter a trigger, and use safe visual logic to open the gate.' },
 ];
@@ -56,6 +56,10 @@ export function createGameStarterKit(kind: GameStarterKitId, anchor: Vector3): {
   const floor = createObject('Starter Arena', 'plane', '#414653',
     { x: center.x, y: center.y, z: center.z - 3 }, { x: 18, y: 18, z: 0.5 });
   const player = createActor('Player', { ...center, z: center.z + 1.4 }, '#6397d8', 'character-controller-player');
+  if (kind === 'shooter') {
+    const controller = player.components.find(component => component.type === 'characterController');
+    if (controller?.type === 'characterController') controller.perspective = 'first-person';
+  }
   player.components = player.components.map(component =>
     component.type === 'physics' ? createPhysicsComponent('dynamic') : component,
   );
@@ -112,7 +116,7 @@ export function createGameStarterKit(kind: GameStarterKitId, anchor: Vector3): {
       trigger.logicNodes = nodes;
     }
     zone.components.push(trigger);
-    player.components.push(createGameFeature('interact'), createGameFeature('inventory'), createGameFeature('status-bar'));
+    player.components.push(createGameFeature('interact'), createGameFeature('inventory'));
     entities.push(key, gate, zone, createStoryboard('Key-and-Gate Puzzle', [
       { title: 'Find the key', note: 'Walk to Puzzle Key and press Interact while nearby.' },
       { title: 'Reach the gate', note: 'Enter Gate Trigger with the key in your inventory.' },

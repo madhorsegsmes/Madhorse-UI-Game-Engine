@@ -1896,18 +1896,32 @@ export default function BlankWorkspace() {
             entity.id === runtimeState.controlledPlayerId,
           ),
         );
-        const followed = actionPlayer ?? thirdPerson;
+        const firstPerson = liveEntities.find(entity =>
+          entity.id === runtimeState.controlledPlayerId && entity.active && entity.components.some(component =>
+            component.type === 'characterController' && component.enabled &&
+            component.role === 'player' && component.perspective === 'first-person',
+          ),
+        );
+        const followed = actionPlayer ?? thirdPerson ?? firstPerson;
         const targetTransform = followed ? getWorldTransform(liveEntities, followed.id) : null;
         if (targetTransform) {
+          const isFirstPerson = followed === firstPerson;
+          const viewHeight = isFirstPerson ? 1.6 : 1.1;
           const target = {
             x: (targetTransform.position.x - 50) / 10,
-            y: targetTransform.position.z / 10 + 1.1,
+            y: targetTransform.position.z / 10 + viewHeight,
             z: (targetTransform.position.y - 50) / 10,
+          };
+          const heading = (targetTransform.rotation.z * Math.PI) / 180;
+          const firstPersonTarget = {
+            x: target.x + Math.sin(heading) * 4,
+            y: target.y,
+            z: target.z + Math.cos(heading) * 4,
           };
           setRuntimeCamera({
             ...camera,
-            target,
-            position: thirdPerson
+            target: isFirstPerson ? firstPersonTarget : target,
+            position: isFirstPerson ? target : thirdPerson
               ? { x: target.x + 2.4, y: target.y + 1.8, z: target.z - 5 }
               : {
                 x: target.x + camera.position.x - camera.target.x,

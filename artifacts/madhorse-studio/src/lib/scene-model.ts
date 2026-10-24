@@ -150,7 +150,7 @@ export type CharacterControllerComponent = {
   type: 'characterController';
   enabled: boolean;
   role: 'player' | 'npc';
-  perspective: 'top-down' | 'third-person';
+  perspective: 'top-down' | 'third-person' | 'first-person';
   behavior: 'direct-control' | 'follow-player' | 'patrol';
   moveSpeed: number;
   jumpHeight: number;
@@ -445,7 +445,7 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
     typeof item.eventName === 'string' && item.eventName.length <= 80;
   if (item.type === 'characterController') return typeof item.enabled === 'boolean' &&
     (item.role === 'player' || item.role === 'npc') &&
-    (item.perspective === 'top-down' || item.perspective === 'third-person') &&
+    (item.perspective === 'top-down' || item.perspective === 'third-person' || item.perspective === 'first-person') &&
     (item.behavior === 'direct-control' || item.behavior === 'follow-player' || item.behavior === 'patrol') &&
     Number.isFinite(item.moveSpeed) && item.moveSpeed >= 0 && item.moveSpeed <= 40 &&
     Number.isFinite(item.jumpHeight) && item.jumpHeight >= 0 && item.jumpHeight <= 20 &&

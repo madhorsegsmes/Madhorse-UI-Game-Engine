@@ -552,6 +552,7 @@ export function SceneObjectInspector({
           {selectField('Camera style', 'controller.perspective', [
             { value: 'top-down', label: 'Top-down' },
             { value: 'third-person', label: 'Third person' },
+          { value: 'first-person', label: 'First person' },
           ])}
           {selectField('NPC behavior', 'controller.behavior', [
             { value: 'direct-control', label: 'Direct control' },
