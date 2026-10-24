@@ -113,3 +113,15 @@ returns validated construction data.
 
 **How to apply:** If changing model settings, confirm a complete request returns
 before increasing generation budgets; report failures without applying partial data.
+
+Reserve enough output capacity for the full structured scene plan rather than
+spending it on reasoning. Prefer concise required fields and purposeful parts
+over large quantities of repetitive details.
+
+**Why:** An image-guided request reached the AI but failed with a length cutoff;
+upload-only tests could not detect that incomplete structured output.
+
+**How to apply:** Check finish reason and token usage, reject incomplete JSON
+atomically, and verify a representative vision request reaches actual scene
+application when changing generation settings. Distinguish output-limit errors
+from upload or schema errors.
