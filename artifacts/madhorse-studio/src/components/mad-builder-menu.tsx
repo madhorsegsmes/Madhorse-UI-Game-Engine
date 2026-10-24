@@ -63,7 +63,7 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; on
             {phase === 'planning' && <div className="mb-status" role="status" data-testid="status-builder-planning"><span className="mb-pulse" />Preparing your build...</div>}
             {phase === 'applying' && <div className="mb-status" role="status" data-testid="status-builder-applying"><span className="mb-pulse" />Building objects in Scene 1...</div>}
             {readOnly && <p className="mb-hint" data-testid="text-builder-readonly">This project is read-only. Planning and building are disabled.</p>}
-            {error && <div className="mb-error" role="alert" data-testid="text-builder-error">{error} Adjust the request if needed and press Build in scene.</div>}
+            {error && <div className="mb-error" role="alert" data-testid="text-builder-error">{error}</div>}
           </div>
 
           {plan && (

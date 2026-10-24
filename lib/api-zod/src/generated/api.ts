@@ -67,13 +67,13 @@ export const planMadBuilderResponsePartsItemRotationZMin = -180;
 export const planMadBuilderResponsePartsItemRotationZMax = 180;
 
 export const planMadBuilderResponsePartsItemSizeXMin = 0.02;
-export const planMadBuilderResponsePartsItemSizeXMax = 10;
+export const planMadBuilderResponsePartsItemSizeXMax = 100;
 
 export const planMadBuilderResponsePartsItemSizeYMin = 0.02;
-export const planMadBuilderResponsePartsItemSizeYMax = 10;
+export const planMadBuilderResponsePartsItemSizeYMax = 100;
 
 export const planMadBuilderResponsePartsItemSizeZMin = 0.02;
-export const planMadBuilderResponsePartsItemSizeZMax = 10;
+export const planMadBuilderResponsePartsItemSizeZMax = 100;
 
 export const planMadBuilderResponsePartsItemColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
 export const planMadBuilderResponsePartsItemOpacityMin = 0.05;
@@ -117,7 +117,7 @@ export const PlanMadBuilderResponse = zod.object({
   "x": zod.number().min(planMadBuilderResponsePartsItemSizeXMin).max(planMadBuilderResponsePartsItemSizeXMax),
   "y": zod.number().min(planMadBuilderResponsePartsItemSizeYMin).max(planMadBuilderResponsePartsItemSizeYMax),
   "z": zod.number().min(planMadBuilderResponsePartsItemSizeZMin).max(planMadBuilderResponsePartsItemSizeZMax)
-}),
+}).describe('Local object size in scene units. Each dimension is bounded by the editor\'s safe scene limit.'),
   "color": zod.string().regex(planMadBuilderResponsePartsItemColorRegExp),
   "opacity": zod.number().min(planMadBuilderResponsePartsItemOpacityMin).max(planMadBuilderResponsePartsItemOpacityMax).optional(),
   "assetId": zod.string().max(planMadBuilderResponsePartsItemAssetIdMax).nullish(),

@@ -72,6 +72,16 @@ without weakening either validator.
 
 **How to apply:** Keep schema export in the standard API generation pipeline.
 
+Keep the API size bounds and planner instructions aligned with the editor's safe
+world-scale ceiling; a narrower schema can reject otherwise buildable geometry.
+
+**Why:** A 10-unit response limit rejected generated dimensions even though the
+scene compiler safely accepts parts up to its 100-unit limit.
+
+**How to apply:** Change the OpenAPI source, regenerate both client/server
+validators, state the same bound in the planner prompt, and retain the compiler's
+world-scale check.
+
 Keep Mad Builder's AI requests within conservative reasoning and output limits.
 Higher reasoning and large output budgets previously hit the Replit AI request
 timeout before returning a plan.

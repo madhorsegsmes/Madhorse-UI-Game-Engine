@@ -69,20 +69,23 @@ export interface BuilderRotation {
   z: number;
 }
 
+/**
+ * Local object size in scene units. Each dimension is bounded by the editor's safe scene limit.
+ */
 export interface BuilderSize {
   /**
      * @minimum 0.02
-     * @maximum 10
+     * @maximum 100
      */
   x: number;
   /**
      * @minimum 0.02
-     * @maximum 10
+     * @maximum 100
      */
   y: number;
   /**
      * @minimum 0.02
-     * @maximum 10
+     * @maximum 100
      */
   z: number;
 }

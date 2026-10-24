@@ -153,6 +153,7 @@ export const builderPlanJsonSchema: Record<string, unknown> = {
             "additionalProperties": false
           },
           "size": {
+            "description": "Local object size in scene units. Each dimension is bounded by the editor's safe scene limit.",
             "type": "object",
             "required": [
               "x",
@@ -163,17 +164,17 @@ export const builderPlanJsonSchema: Record<string, unknown> = {
               "x": {
                 "type": "number",
                 "minimum": 0.02,
-                "maximum": 10
+                "maximum": 100
               },
               "y": {
                 "type": "number",
                 "minimum": 0.02,
-                "maximum": 10
+                "maximum": 100
               },
               "z": {
                 "type": "number",
                 "minimum": 0.02,
-                "maximum": 10
+                "maximum": 100
               }
             },
             "additionalProperties": false

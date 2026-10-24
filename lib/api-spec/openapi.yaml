@@ -86,12 +86,13 @@ components:
         y: { type: number, minimum: -180, maximum: 180 }
         z: { type: number, minimum: -180, maximum: 180 }
     BuilderSize:
+      description: Local object size in scene units. Each dimension is bounded by the editor's safe scene limit.
       type: object
       required: [x, y, z]
       properties:
-        x: { type: number, minimum: 0.02, maximum: 10 }
-        y: { type: number, minimum: 0.02, maximum: 10 }
-        z: { type: number, minimum: 0.02, maximum: 10 }
+        x: { type: number, minimum: 0.02, maximum: 100 }
+        y: { type: number, minimum: 0.02, maximum: 100 }
+        z: { type: number, minimum: 0.02, maximum: 100 }
     BuilderPart:
       type: object
       required: [key, parentKey, kind, name, position, rotation, size, color]
