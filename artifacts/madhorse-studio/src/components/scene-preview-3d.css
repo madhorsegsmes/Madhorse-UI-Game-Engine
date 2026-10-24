@@ -17,8 +17,8 @@
   font-family: 'DM Mono', ui-monospace, monospace;
   isolation: isolate;
 }
-.mh-scene3d__navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 5px 8px; border-bottom: 1px solid #414142; color: #bdb7b0; font-size: 9px; }
-.mh-scene3d__navigation button { border: 1px solid #584541; background: #282123; color: #e3d7ce; padding: 5px 7px; cursor: pointer; font: inherit; }
+.mh-scene3d__navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; padding: 2px 6px; border-bottom: 1px solid #414142; color: #bdb7b0; font-size: 8px; }
+.mh-scene3d__navigation button { min-height: 19px; border: 1px solid #584541; background: #282123; color: #e3d7ce; padding: 2px 5px; cursor: pointer; font: inherit; }
 .mh-scene3d__navigation button:disabled { opacity: .4; cursor: default; }
 .mh-scene3d__navigation label { display: flex; align-items: center; gap: 4px; }
 .mh-scene3d__navigation input { width: 65px; accent-color: #bd4037; }
@@ -37,7 +37,7 @@
 .game-ui-element.is-canvas-root:disabled { visibility: hidden; }
 
 .mh-scene3d__toolbar {
-  min-height: 53px;
+  min-height: 36px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -109,6 +109,10 @@
   border: 1px solid #424344;
   background: #171819;
 }
+.mh-scene3d__tools.is-floating { position: fixed; right: auto; z-index: 110; box-shadow: 0 3px 12px #0008; }
+.mh-scene3d__drag-grip { width: 14px; padding: 0; border: 0; background: #29252e; color: #bda5ce; cursor: grab; touch-action: none; user-select: none; }
+.mh-scene3d__drag-grip:active { cursor: grabbing; }
+.mh-scene3d__drag-grip:focus-visible { outline: 1px solid #c99ce9; }
 
 .mh-scene3d__tool {
   width: 32px;

@@ -1,4 +1,9 @@
-import type { SceneRenderSettings } from '@/hooks/use-scene-render-settings';
+import { useSceneRenderSettings, type SceneRenderSettings } from '@/hooks/use-scene-render-settings';
+
+export function WorkspaceRenderSettings() {
+  const [settings, setSettings] = useSceneRenderSettings();
+  return <SceneRenderSettingsPanel settings={settings} onChange={setSettings} />;
+}
 
 export function SceneRenderSettingsPanel({
   settings, onChange,

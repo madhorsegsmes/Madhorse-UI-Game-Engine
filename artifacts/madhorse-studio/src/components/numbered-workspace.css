@@ -63,12 +63,17 @@ body::-webkit-scrollbar-thumb,
   grid-row: 1;
   align-items: center;
   justify-content: flex-end;
+  gap: 6px;
+  z-index: 20;
   min-width: 0;
   padding: 0 7px;
   border: 1px solid #65419e;
   background: linear-gradient(90deg, rgb(116 53 204 / 12%), rgb(15 11 25 / 40%) 32%, #090710);
   box-shadow: inset 0 1px 0 rgb(239 204 255 / 14%), 0 0 10px rgb(113 50 222 / 10%);
 }
+.fresh-toolbar .mh-scene3d__render-settings { z-index: 25; }
+.fresh-toolbar .mh-scene3d__render-settings summary { padding: 4px 7px; }
+.fresh-toolbar .mh-scene3d__render-panel { max-height: calc(100dvh - 80px); overflow-y: auto; }
 
 .fresh-toolbar::before {
   position: absolute;

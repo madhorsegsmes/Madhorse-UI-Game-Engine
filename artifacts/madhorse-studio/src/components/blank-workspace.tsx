@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import type { Dispatch, DragEvent as ReactDragEvent, KeyboardEvent, MouseEvent, SetStateAction } from 'react';
 import { Activity, ArrowDown, ArrowUp, Box, Check, ChevronDown, ChevronRight, Circle, Cone, Cylinder, Diamond, Donut, Droplets, FileDown, Folder, Grid2X2, ImagePlus, Mountain, Octagon, Palette, Pentagon, Shapes, Trash2, Triangle, Trees, Upload, Waves, Wrench } from 'lucide-react';
 import { ScenePreview3D, type SceneFrameRequest, type SceneTransformMode } from './scene-preview-3d';
+import { WorkspaceRenderSettings } from './scene-render-settings';
 import { MultiplayerToolsPanel } from './multiplayer-tools-panel';
 import { genrePlayerFunctionTools } from '@/lib/player-function-tools';
 import { actionKeyOptions } from '@/lib/player-action-model';
@@ -2878,6 +2879,7 @@ export default function BlankWorkspace() {
   return (
     <main className="fresh-layout" aria-label="Blank Madhorse workspace">
       <div className="fresh-toolbar" role="toolbar" aria-label="Workspace tools">
+        <WorkspaceRenderSettings />
         <button
           type="button"
           className={`fresh-play-test${playTestOn ? ' is-playing' : ''}`}

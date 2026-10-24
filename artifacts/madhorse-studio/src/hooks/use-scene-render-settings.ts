@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore, type Dispatch, type SetStateAction } from 'react';
 
 export type SceneRenderQuality = 'performance' | 'balanced' | 'high';
 
@@ -42,10 +42,29 @@ function readSettings(): SceneRenderSettings {
   }
 }
 
+// One live preference store: the toolbar, scene and game views must update together.
+let snapshot: SceneRenderSettings | undefined;
+const listeners = new Set<() => void>();
+const getSnapshot = () => snapshot ??= readSettings();
+function onStorage(event: StorageEvent) {
+  if (event.key !== storageKey && event.key !== null) return;
+  snapshot = readSettings();
+  listeners.forEach(listener => listener());
+}
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  if (listeners.size === 1) window.addEventListener('storage', onStorage);
+  return () => {
+    listeners.delete(listener);
+    if (!listeners.size) window.removeEventListener('storage', onStorage);
+  };
+}
+const setSettings: Dispatch<SetStateAction<SceneRenderSettings>> = value => {
+  snapshot = typeof value === 'function' ? value(getSnapshot()) : value;
+  try { localStorage.setItem(storageKey, JSON.stringify(snapshot)); } catch { /* Keep session preferences. */ }
+  listeners.forEach(listener => listener());
+};
+
 export function useSceneRenderSettings() {
-  const [settings, setSettings] = useState<SceneRenderSettings>(readSettings);
-  useEffect(() => {
-    try { localStorage.setItem(storageKey, JSON.stringify(settings)); } catch { /* Preferences remain session-local. */ }
-  }, [settings]);
-  return [settings, setSettings] as const;
+  return [useSyncExternalStore(subscribe, getSnapshot, () => DEFAULT_SCENE_RENDER_SETTINGS), setSettings] as const;
 }

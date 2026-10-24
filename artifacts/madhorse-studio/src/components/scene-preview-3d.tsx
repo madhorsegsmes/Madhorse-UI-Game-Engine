@@ -10,7 +10,7 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { TextureLoader } from 'three';
 import { SceneWebGLBoundary } from './scene-webgl-boundary';
 import { SceneRenderFallback } from './scene-render-fallback';
-import { SceneRenderSettingsPanel } from './scene-render-settings';
+import { FloatingTransformToolbar } from './floating-transform-toolbar';
 import { useSceneRenderSettings } from '@/hooks/use-scene-render-settings';
 import { publishDiagnostic } from '@/lib/system-diagnostics';
 import { getSceneObjectTypeLabel, SceneObjectGlyph } from './scene-object-glyph';
@@ -187,7 +187,7 @@ export function ScenePreview3D({
 }: ScenePreview3DProps) {
   const [errors, setErrors] = useState<ErrorEntry[]>([]);
   const [modelStatuses, setModelStatuses] = useState<Record<string, string>>({});
-  const [renderSettings, setRenderSettings] = useSceneRenderSettings();
+  const [renderSettings] = useSceneRenderSettings();
   const skybox = entities.map(getSkybox).find(component => component?.enabled);
   const sceneBackground = skybox?.color ?? (gameView ? '#333538' : renderSettings.background);
   const [mobile, setMobile] = useState(false);
@@ -342,16 +342,16 @@ export function ScenePreview3D({
           </span>
         </div>
         <div className="mh-scene3d__view-label"><i aria-hidden="true" /> {readOnly ? 'RUNTIME PREVIEW' : 'RENDER ON'}</div>
-        {!readOnly && <SceneRenderSettingsPanel settings={renderSettings} onChange={setRenderSettings} />}
       </header>}
       {!gameView && <div className="mh-scene3d__navigation" role="group" aria-label="Scene view navigation">
         <button type="button" onClick={() => setZoom((value) => Math.max(MIN_SCENE_ZOOM, value - 25))} disabled={zoom <= MIN_SCENE_ZOOM} data-testid="scene-zoom-out" aria-label="Zoom scene out">−</button>
         <label>Zoom <input type="range" min={MIN_SCENE_ZOOM} max={MAX_SCENE_ZOOM} step={5} value={zoom} onChange={(event) => setZoom(Number(event.target.value))} aria-label="Scene zoom" data-testid="scene-zoom" /></label>
         <output data-testid="scene-zoom-value">{zoom}%</output>
         <button type="button" onClick={() => setZoom((value) => Math.min(MAX_SCENE_ZOOM, value + 25))} disabled={zoom >= MAX_SCENE_ZOOM} data-testid="scene-zoom-in" aria-label="Zoom scene in">+</button>
-        <button type="button" onClick={frameCamera} data-testid="scene-frame-camera" title="Center the scene view at X = 0, facing the plane from north">Center on plane</button>
+        <button type="button" onClick={frameCamera} data-testid="scene-frame-camera" aria-label="Center on plane" title="Center the scene view at X = 0, facing the plane from north">Center plane</button>
         {editorCamera && onSelectPrimaryCamera && <button type="button" data-testid="scene3d-select-game-camera" aria-pressed={primarySelected}
-          onClick={onSelectPrimaryCamera}>{primarySelected ? 'Camera selected' : 'Select Game Camera'}</button>}
+          aria-label="Select Game Camera" title="Select the Game Camera"
+          onClick={onSelectPrimaryCamera}>{primarySelected ? 'Camera ✓' : 'Select camera'}</button>}
         {selected?.generatedBy === 'mad-builder' && <button type="button" onClick={frameBuild} data-testid="scene-frame-build">Frame build</button>}
         <span className="mh-scene3d__grid-status" data-testid="scene-grid-status" title="Grid spacing: 1 world unit">GRID · 1 UNIT</span>
         <span title="World north is negative Z">N = −Z</span>
@@ -373,7 +373,7 @@ export function ScenePreview3D({
           ));
         }}
       >
-        {!gameView && <div className="mh-scene3d__tools" role="group" aria-label="Transform mode">
+        {!gameView && <FloatingTransformToolbar anchor={rootRef}>
           {modeButtons.map(({ mode, label, shortcut, icon }) => (
             <button
               key={mode}
@@ -389,7 +389,7 @@ export function ScenePreview3D({
               <span aria-hidden="true">{icon}</span><small>{label}</small>
             </button>
           ))}
-        </div>}
+        </FloatingTransformToolbar>}
         {gameView && graphicsAvailable && canOrbitGameCamera && (
           <div className="mh-scene3d__game-controls" role="group" aria-label="Canvas view controls">
             <span className="mh-scene3d__orbit-hint">ORBIT</span>
