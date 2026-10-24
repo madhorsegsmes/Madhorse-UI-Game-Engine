@@ -9,6 +9,7 @@
 export * from './builderAsset';
 export * from './builderAssetKind';
 export * from './builderPart';
+export * from './builderPartArchitectureStyle';
 export * from './builderPartKind';
 export * from './builderPartLightKind';
 export * from './builderPartShape';

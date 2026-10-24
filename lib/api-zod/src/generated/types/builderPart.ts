@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { BuilderPartArchitectureStyle } from './builderPartArchitectureStyle';
 import type { BuilderPartKind } from './builderPartKind';
 import type { BuilderPartLightKind } from './builderPartLightKind';
 import type { BuilderPartShape } from './builderPartShape';
@@ -58,4 +59,12 @@ export interface BuilderPart {
      * @maximum 100
      */
   fov?: number;
+  /** Procedural house architecture preset expanded into editable scene geometry. */
+  architectureStyle?: BuilderPartArchitectureStyle;
+  /** @pattern ^#[0-9a-fA-F]{6}$ */
+  roofColor?: string;
+  /** @pattern ^#[0-9a-fA-F]{6}$ */
+  trimColor?: string;
+  /** @pattern ^#[0-9a-fA-F]{6}$ */
+  accentColor?: string;
 }

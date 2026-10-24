@@ -95,6 +95,9 @@ export const planMadBuilderResponsePartsItemIntensityMax = 50;
 export const planMadBuilderResponsePartsItemFovMin = 10;
 export const planMadBuilderResponsePartsItemFovMax = 100;
 
+export const planMadBuilderResponsePartsItemRoofColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+export const planMadBuilderResponsePartsItemTrimColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
+export const planMadBuilderResponsePartsItemAccentColorRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
 export const planMadBuilderResponsePartsMax = 80;
 
 
@@ -106,7 +109,7 @@ export const PlanMadBuilderResponse = zod.object({
   "parts": zod.array(zod.object({
   "key": zod.string().min(1).max(planMadBuilderResponsePartsItemKeyMax),
   "parentKey": zod.string().max(planMadBuilderResponsePartsItemParentKeyMax).nullable(),
-  "kind": zod.enum(['group', 'box', 'plane', 'terrain', 'sprite', 'model', 'light', 'camera', 'ui-panel', 'ui-text', 'ui-button', 'ui-health']),
+  "kind": zod.enum(['group', 'box', 'plane', 'terrain', 'sprite', 'model', 'light', 'camera', 'ui-panel', 'ui-text', 'ui-button', 'ui-health', 'architecture']),
   "shape": zod.enum(['cube', 'sphere', 'capsule', 'cylinder', 'cone', 'circle', 'ring', 'torus', 'torus-knot', 'icosahedron', 'dodecahedron', 'octahedron', 'tetrahedron', 'pyramid', 'triangular-prism', 'wedge', 'tube', 'hollow-cylinder', 'rounded-cube']).optional(),
   "name": zod.string().min(1).max(planMadBuilderResponsePartsItemNameMax),
   "position": zod.object({
@@ -130,7 +133,11 @@ export const PlanMadBuilderResponse = zod.object({
   "text": zod.string().max(planMadBuilderResponsePartsItemTextMax).optional(),
   "lightKind": zod.enum(['point', 'directional', 'ambient']).optional(),
   "intensity": zod.number().min(planMadBuilderResponsePartsItemIntensityMin).max(planMadBuilderResponsePartsItemIntensityMax).optional(),
-  "fov": zod.number().min(planMadBuilderResponsePartsItemFovMin).max(planMadBuilderResponsePartsItemFovMax).optional()
+  "fov": zod.number().min(planMadBuilderResponsePartsItemFovMin).max(planMadBuilderResponsePartsItemFovMax).optional(),
+  "architectureStyle": zod.enum(['victorian-house']).optional().describe('Procedural house architecture preset expanded into editable scene geometry.'),
+  "roofColor": zod.string().regex(planMadBuilderResponsePartsItemRoofColorRegExp).optional(),
+  "trimColor": zod.string().regex(planMadBuilderResponsePartsItemTrimColorRegExp).optional(),
+  "accentColor": zod.string().regex(planMadBuilderResponsePartsItemAccentColorRegExp).optional()
 })).max(planMadBuilderResponsePartsMax)
 })
 

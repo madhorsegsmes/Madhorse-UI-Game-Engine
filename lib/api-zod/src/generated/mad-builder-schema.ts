@@ -68,7 +68,8 @@ export const builderPlanJsonSchema: Record<string, unknown> = {
               "ui-panel",
               "ui-text",
               "ui-button",
-              "ui-health"
+              "ui-health",
+              "architecture"
             ]
           },
           "shape": {
@@ -216,6 +217,25 @@ export const builderPlanJsonSchema: Record<string, unknown> = {
             "type": "number",
             "minimum": 10,
             "maximum": 100
+          },
+          "architectureStyle": {
+            "type": "string",
+            "enum": [
+              "victorian-house"
+            ],
+            "description": "Procedural house architecture preset expanded into editable scene geometry."
+          },
+          "roofColor": {
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          },
+          "trimColor": {
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          },
+          "accentColor": {
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
           }
         },
         "additionalProperties": false

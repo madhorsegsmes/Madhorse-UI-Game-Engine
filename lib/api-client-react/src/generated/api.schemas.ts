@@ -126,6 +126,7 @@ export const BuilderPartKind = {
   'ui-text': 'ui-text',
   'ui-button': 'ui-button',
   'ui-health': 'ui-health',
+  architecture: 'architecture',
 } as const;
 
 export type BuilderPartShape = typeof BuilderPartShape[keyof typeof BuilderPartShape];
@@ -160,6 +161,16 @@ export const BuilderPartLightKind = {
   point: 'point',
   directional: 'directional',
   ambient: 'ambient',
+} as const;
+
+/**
+ * Procedural house architecture preset expanded into editable scene geometry.
+ */
+export type BuilderPartArchitectureStyle = typeof BuilderPartArchitectureStyle[keyof typeof BuilderPartArchitectureStyle];
+
+
+export const BuilderPartArchitectureStyle = {
+  'victorian-house': 'victorian-house',
 } as const;
 
 export interface BuilderPart {
@@ -208,6 +219,14 @@ export interface BuilderPart {
      * @maximum 100
      */
   fov?: number;
+  /** Procedural house architecture preset expanded into editable scene geometry. */
+  architectureStyle?: BuilderPartArchitectureStyle;
+  /** @pattern ^#[0-9a-fA-F]{6}$ */
+  roofColor?: string;
+  /** @pattern ^#[0-9a-fA-F]{6}$ */
+  trimColor?: string;
+  /** @pattern ^#[0-9a-fA-F]{6}$ */
+  accentColor?: string;
 }
 
 export interface MadBuilderPlan {

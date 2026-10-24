@@ -110,7 +110,7 @@ components:
         parentKey: { type: [string, "null"], maxLength: 40 }
         kind:
           type: string
-          enum: [group, box, plane, terrain, sprite, model, light, camera, ui-panel, ui-text, ui-button, ui-health]
+          enum: [group, box, plane, terrain, sprite, model, light, camera, ui-panel, ui-text, ui-button, ui-health, architecture]
         shape:
           type: string
           enum: [cube, sphere, capsule, cylinder, cone, circle, ring, torus, torus-knot, icosahedron, dodecahedron, octahedron, tetrahedron, pyramid, triangular-prism, wedge, tube, hollow-cylinder, rounded-cube]
@@ -125,6 +125,13 @@ components:
         lightKind: { type: string, enum: [point, directional, ambient] }
         intensity: { type: number, minimum: 0, maximum: 50 }
         fov: { type: number, minimum: 10, maximum: 100 }
+        architectureStyle:
+          type: string
+          enum: [victorian-house]
+          description: Procedural house architecture preset expanded into editable scene geometry.
+        roofColor: { type: string, pattern: "^#[0-9a-fA-F]{6}$" }
+        trimColor: { type: string, pattern: "^#[0-9a-fA-F]{6}$" }
+        accentColor: { type: string, pattern: "^#[0-9a-fA-F]{6}$" }
     MadBuilderPlan:
       type: object
       required: [title, summary, warnings, parts]
