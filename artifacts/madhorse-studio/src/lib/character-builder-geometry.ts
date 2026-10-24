@@ -57,7 +57,10 @@ export function createCharacterBodyMesh(parts: SceneEntity[]): CharacterBodyMesh
     min.min(part.center.clone().sub(part.radii));
     max.max(part.center.clone().add(part.radii));
   }
-  const padding = 0.055;
+  // Leave more than the marching-cubes sampling margin around the target mesh.
+  // A thin margin was smaller than the final unsampled rows and clipped the top
+  // of the head (and fingertips) even though the source ellipsoids were complete.
+  const padding = 0.22;
   min.addScalar(-padding);
   max.addScalar(padding);
   const center = min.clone().add(max).multiplyScalar(0.5);

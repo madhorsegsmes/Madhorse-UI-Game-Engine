@@ -61,11 +61,14 @@ try {
         const body = documentMeshes(document.root).find(mesh => mesh.name === 'Body_Smooth_Skin');
         const bodyPositions = body.geometry.getAttribute('position');
         let upperHeadWidth = 0;
+        let bodyTop = -Infinity;
         for (let vertex = 0; vertex < bodyPositions.count; vertex++) {
+          bodyTop = Math.max(bodyTop, bodyPositions.getY(vertex));
           if (bodyPositions.getY(vertex) > 1.6) upperHeadWidth = Math.max(upperHeadWidth, Math.abs(bodyPositions.getX(vertex)));
         }
         assert(upperHeadWidth > .03 && upperHeadWidth < .25,
           'The head must exist without a flat sampling-boundary strip spanning the arms');
+        assert(bodyTop > 1.78 && bodyTop < 1.83, 'The generated body should include the full 1.8 m head height');
         assert(bodyPositions.count > 1000, 'The actual body surface should retain a smooth, detailed mesh');
         const bones = documentBones(document.root);
         const forearm = bones.find(bone => bone.name === 'LeftForeArm');
