@@ -1,6 +1,9 @@
 import { useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
+import { Save } from 'lucide-react';
 import BlankWorkspace from './blank-workspace';
 import { loadStudioProjects, saveStudioProjects, validateProjectName, type StudioProjectRegistry } from '@/lib/studio-projects';
+import { exportStudioProject } from '@/lib/project-file';
+import type { FreshWorkspaceSnapshot } from '@/lib/fresh-workspace-storage';
 import './studio-projects.css';
 import { getSystemActivity, subscribeSystemActivity } from '@/lib/system-activity';
 
@@ -14,6 +17,8 @@ export default function StudioProjects() {
   const [mode, setMode] = useState<'name' | 'new' | 'rename' | null>(() => active?.name ? null : 'name');
   const [draft, setDraft] = useState('');
   const [error, setError] = useState(initial.error);
+  const [savingProject, setSavingProject] = useState(false);
+  const [exportStatus, setExportStatus] = useState<{ kind: 'progress' | 'success' | 'error'; message: string } | null>(null);
   const menu = useRef<HTMLDetailsElement>(null);
   const activity = useSyncExternalStore(subscribeSystemActivity, getSystemActivity, getSystemActivity);
   if (!registry || !active) return <main className="studio-project-error" role="alert">{error}</main>;
@@ -35,13 +40,39 @@ export default function StudioProjects() {
     const next = mode === 'new'
       ? { activeId: id, projects: [...registry.projects, { id, name }] }
       : { ...registry, projects: registry.projects.map(project => project.id === id ? { ...project, name } : project) };
-    if (persist(next)) { setMode(null); setDraft(''); }
+    if (persist(next)) { setMode(null); setDraft(''); setExportStatus(null); }
+  }
+  async function saveProjectFile(snapshot: FreshWorkspaceSnapshot) {
+    if (savingProject || activity.pending > 0 || !active) return;
+    setSavingProject(true);
+    setExportStatus({ kind: 'progress', message: 'Preparing the project file…' });
+    try {
+      const archive = await exportStudioProject(active.id, active.name, snapshot, message => setExportStatus({ kind: 'progress', message }));
+      const url = URL.createObjectURL(archive.blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = archive.fileName;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      setExportStatus({
+        kind: 'success',
+        message: `Saved ${archive.fileName} with ${archive.attachmentCount} imported file${archive.attachmentCount === 1 ? '' : 's'} and this project's scene data.`,
+      });
+    } catch (cause) {
+      setExportStatus({ kind: 'error', message: cause instanceof Error ? cause.message : 'Could not save the project file.' });
+    } finally {
+      setSavingProject(false);
+    }
   }
   return <>
     <BlankWorkspace key={active.id} projectId={active.id} projectName={active.name}
-      projectControls={readOnly => {
-        const disabled = readOnly || activity.pending > 0;
-        return <details className="studio-project-menu" ref={menu}>
+      projectControls={(readOnly, snapshot) => {
+        const disabled = readOnly || activity.pending > 0 || savingProject;
+        return <>
+        <details className="studio-project-menu" ref={menu}>
         <summary>Project</summary>
         <div className="studio-project-menu-body">
           <button type="button" disabled={disabled || registry.projects.length >= 200} onClick={() => open('new')}>New project</button>
@@ -53,8 +84,16 @@ export default function StudioProjects() {
               if (persist({ ...registry, activeId: project.id }) && menu.current) menu.current.open = false;
             }}>{project.name || 'Name your project'}</button>)}
         </div>
-      </details>;
+        </details>
+        <button type="button" className="studio-save-project" onClick={() => void saveProjectFile(snapshot)}
+          disabled={disabled} title="Download a project file with your scene, imported files, and Vision Board"
+          aria-label={savingProject ? 'Saving project file' : 'Save project file'} data-testid="button-save-project">
+          <Save size={12} aria-hidden="true" /> {savingProject ? 'Saving…' : 'Save'}
+        </button>
+        </>;
       }} />
+    {exportStatus && <div className={`studio-project-notice studio-export-notice is-${exportStatus.kind}`}
+      role={exportStatus.kind === 'error' ? 'alert' : 'status'}>{exportStatus.message}</div>}
     {error && !mode && <div className="studio-project-notice" role="alert">{error}</div>}
     {mode && <div className="studio-project-backdrop">
       <form className="studio-project-dialog" role="dialog" aria-modal="true" aria-labelledby="project-name-heading"

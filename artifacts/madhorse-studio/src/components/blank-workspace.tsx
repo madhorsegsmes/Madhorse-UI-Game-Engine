@@ -74,6 +74,7 @@ import {
 import {
   loadFreshWorkspace,
   saveFreshWorkspace,
+  type FreshWorkspaceSnapshot,
 } from '@/lib/fresh-workspace-storage';
 import { loadLocalAsset, saveLocalAsset } from '@/lib/asset-vault';
 import { MadBuilderMenu } from './mad-builder-menu';
@@ -1617,7 +1618,7 @@ function WorldToolsPanel({
 }
 
 export default function BlankWorkspace({ projectId, projectName, projectControls }: {
-  projectId: string; projectName: string; projectControls: (disabled: boolean) => ReactNode;
+  projectId: string; projectName: string; projectControls: (disabled: boolean, snapshot: FreshWorkspaceSnapshot) => ReactNode;
 }) {
   const [initialScene] = useState(() => {
     const entities = [createStarterCube()];
@@ -1643,6 +1644,11 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
   const [prefabs, setPrefabs] = useState<ScenePrefab[]>(savedWorkspace.prefabs ?? []);
   const [uiControls, setUIControls] = useState<UIControlElement[]>(savedWorkspace.uiControls ?? []);
   const [egoScripts, setEgoScripts] = useState<ScriptFile[]>(savedWorkspace.scripts ?? []);
+  const latestProjectSnapshot: FreshWorkspaceSnapshot = {
+    projectName, egoGameVision, egoGameFlow, egoGameNotes,
+    entities, camera, assets, animations, animationControllers, builderHistory, builderDraft, builderDraftRequest,
+    builderBuildLogs, prefabs, uiControls, scripts: egoScripts,
+  };
   const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
   const [selection, setSelection] = useState<string | null>('starter-cube');
   const [characterFrameRequest, setCharacterFrameRequest] = useState<SceneFrameRequest | null>(null);
@@ -2064,10 +2070,7 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
   useEffect(() => {
     try {
       saveFreshWorkspace({
-        projectName,
-        egoGameVision, egoGameFlow, egoGameNotes,
-        entities, camera, assets, animations, animationControllers, builderHistory, builderDraft, builderDraftRequest,
-        builderBuildLogs, prefabs, uiControls, scripts: egoScripts,
+        ...latestProjectSnapshot,
       }, projectId);
       setSaveFailed(false);
     } catch {
@@ -2937,7 +2940,7 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
           disabled={playTestOn} onClick={() => setCanvasView(value => !value)}>
           <Grid2X2 size={12} aria-hidden="true" /> Canvas
         </button>
-        {projectControls(playTestOn || saveFailed)}
+        {projectControls(playTestOn || saveFailed, latestProjectSnapshot)}
         <WorkspaceRenderSettings />
         <button
           type="button"
