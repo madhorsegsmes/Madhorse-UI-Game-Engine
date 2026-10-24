@@ -284,6 +284,13 @@ function SettingsPanel({
               </div>
             </div>
           </details>
+          <details className="fresh-settings-category fresh-settings-dropdown" data-testid="details-plugins">
+            <summary className="fresh-settings-category-summary" data-testid="button-toggle-plugins">
+              <h2>Plugins</h2>
+              <ChevronDown size={14} aria-hidden="true" />
+            </summary>
+            <div className="fresh-settings-category-content" />
+          </details>
         </div>
       )}
     </div>
