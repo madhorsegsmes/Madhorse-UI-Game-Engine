@@ -59,6 +59,8 @@ test('image plans complete with a dedicated output budget; truncated plans never
     assert.deepEqual(await response.json(), plan);
     assert.equal(captured[0].reasoning_effort, 'none');
     assert.equal(captured[0].max_completion_tokens, 12000);
+    assert.match(captured[0].messages[0].content, /wheelbase, wheel diameter and placement/);
+    assert.match(captured[0].messages[0].content, /exactly four tires/);
     assert.equal(captured[0].messages[1].content[1].image_url.url, body.referenceImage);
     truncate = true;
     response = await send();
