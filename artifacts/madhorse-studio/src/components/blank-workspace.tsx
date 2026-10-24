@@ -82,7 +82,6 @@ function SceneViewport({
   onSelect,
   onTransformCommit,
   onCameraChange,
-  onTogglePlayTest,
 }: {
   entities: SceneEntity[];
   camera: GameCamera;
@@ -97,20 +96,10 @@ function SceneViewport({
     changes: Partial<Pick<TransformComponent, 'position' | 'rotation' | 'scale'>>,
   ) => void;
   onCameraChange: (camera: GameCamera) => void;
-  onTogglePlayTest: () => void;
 }) {
   const [transformMode, setTransformMode] = useState<SceneTransformMode>('translate');
   return (
     <div className="fresh-viewport">
-      <button
-        type="button"
-        className={`fresh-play-test${isPlaying ? ' is-playing' : ''}`}
-        aria-pressed={isPlaying}
-        data-testid="button-play-test"
-        onClick={onTogglePlayTest}
-      >
-        {isPlaying ? 'Stop Test' : 'Play Test'}
-      </button>
       <ScenePreview3D
         primaryCamera={camera}
         gameCamera={camera}
@@ -1699,7 +1688,17 @@ export default function BlankWorkspace() {
 
   return (
     <main className="fresh-layout" aria-label="Blank Madhorse workspace">
-      <div className="fresh-toolbar" role="toolbar" aria-label="Empty toolbar" />
+      <div className="fresh-toolbar" role="toolbar" aria-label="Workspace tools">
+        <button
+          type="button"
+          className={`fresh-play-test${playTestOn ? ' is-playing' : ''}`}
+          aria-pressed={playTestOn}
+          data-testid="button-play-test"
+          onClick={() => setPlayTestOn(value => !value)}
+        >
+          {playTestOn ? 'Stop Test' : 'Play Test'}
+        </button>
+      </div>
       <input
         ref={importInputRef}
         className="fresh-file-input"
@@ -1740,7 +1739,6 @@ export default function BlankWorkspace() {
               onSelect={setSelection}
               onTransformCommit={updateTransform}
               onCameraChange={playTestOn ? setRuntimeCamera : setCamera}
-              onTogglePlayTest={() => setPlayTestOn(value => !value)}
             />
           ) : number === 2 ? (
             <HierarchyPanel
