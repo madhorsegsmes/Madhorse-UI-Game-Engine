@@ -84,6 +84,7 @@ import { publishStatus } from '@/lib/system-diagnostics';
 import { playAudioPreview, stopAudioPlayback, unlockSceneAudio } from '@/lib/game-audio';
 import { playerActionDefinitions } from '@/lib/player-action-model';
 import { createStoryboardComponent } from '@/lib/scene-model';
+import { scriptStorageError, type ScriptFile } from '@/lib/project-scripts';
 import { createGameStarterKit, type GameStarterKitId } from '@/lib/scene-starter-kits';
 import { gameFeatureDefinitions } from '@/lib/game-feature-model';
 import type { ActionHud } from '@/lib/player-action-runtime';
@@ -1595,6 +1596,7 @@ export default function BlankWorkspace() {
   const [builderBuildLogs, setBuilderBuildLogs] = useState<MadBuilderBuildLog[]>(savedWorkspace.builderBuildLogs ?? []);
   const [prefabs, setPrefabs] = useState<ScenePrefab[]>(savedWorkspace.prefabs ?? []);
   const [uiControls, setUIControls] = useState<UIControlElement[]>(savedWorkspace.uiControls ?? []);
+  const [egoScripts, setEgoScripts] = useState<ScriptFile[]>(savedWorkspace.scripts ?? []);
   const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
   const [selection, setSelection] = useState<string | null>('starter-cube');
   const [characterFrameRequest, setCharacterFrameRequest] = useState<SceneFrameRequest | null>(null);
@@ -1669,7 +1671,7 @@ export default function BlankWorkspace() {
     assets,
     prefabs,
     uiControls,
-    scripts: [],
+    scripts: egoScripts,
     builderHistory,
     builderDraft,
     builderDraftRequest,
@@ -1691,7 +1693,34 @@ export default function BlankWorkspace() {
     setBuilderBuildLogs(next.builderBuildLogs ?? []);
     setPrefabs(next.prefabs ?? []);
     setUIControls(next.uiControls ?? []);
+    setEgoScripts(next.scripts ?? []);
   }, []);
+
+  const createEgoProjectScript = useCallback((script: ScriptFile) => {
+    const current = builderProjectRef.current;
+    const error = scriptStorageError(script.content, current.scripts ?? []);
+    if (error) return error;
+    setBuilderProjects([{ ...current, scripts: [...(current.scripts ?? []), script] }]);
+    setStatus(`${script.name} saved to this browser project.`);
+    return '';
+  }, [setBuilderProjects]);
+
+  const updateEgoProjectScript = useCallback((script: ScriptFile) => {
+    const current = builderProjectRef.current;
+    if (!(current.scripts ?? []).some((entry) => entry.id === script.id)) return 'This script is no longer in the project.';
+    const error = scriptStorageError(script.content, current.scripts ?? [], script.id);
+    if (error) return error;
+    setBuilderProjects([{
+      ...current,
+      scripts: (current.scripts ?? []).map((entry) => entry.id === script.id ? script : entry),
+    }]);
+    return '';
+  }, [setBuilderProjects]);
+
+  const deleteEgoProjectScript = useCallback((id: string) => {
+    const current = builderProjectRef.current;
+    setBuilderProjects([{ ...current, scripts: (current.scripts ?? []).filter((script) => script.id !== id) }]);
+  }, [setBuilderProjects]);
 
   const buildEgoUiKit = useCallback((gameTypes: EgoGameType[], gameVision: string) => {
     const current = builderProjectRef.current;
@@ -1857,12 +1886,12 @@ export default function BlankWorkspace() {
     try {
       saveFreshWorkspace({
         entities, camera, assets, animations, builderHistory, builderDraft, builderDraftRequest,
-        builderBuildLogs, prefabs, uiControls,
+        builderBuildLogs, prefabs, uiControls, scripts: egoScripts,
       });
     } catch {
       setStatus('Could not save the scene data in this browser. Check available storage.');
     }
-  }, [entities, camera, assets, animations, builderHistory, builderDraft, builderDraftRequest, builderBuildLogs, prefabs, uiControls]);
+  }, [entities, camera, assets, animations, builderHistory, builderDraft, builderDraftRequest, builderBuildLogs, prefabs, uiControls, egoScripts]);
 
   useEffect(() => {
     if (!playTestOn) {
@@ -2934,8 +2963,14 @@ export default function BlankWorkspace() {
             <EgoAssistant
               project={builderProject}
               animationsCount={animations.length}
+              scripts={egoScripts}
+              camera={camera}
+              selectedEntityId={selection}
               onBuildUi={buildEgoUiKit}
               onAddFunctions={addEgoGameFunctions}
+              onCreateScript={createEgoProjectScript}
+              onUpdateScript={updateEgoProjectScript}
+              onDeleteScript={deleteEgoProjectScript}
               onClose={() => setEgoOpen(false)}
             />
           </section>

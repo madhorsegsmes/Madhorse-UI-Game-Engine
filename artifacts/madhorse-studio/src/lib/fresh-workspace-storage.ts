@@ -7,6 +7,7 @@ import type { MadBuilderPlan } from '@workspace/api-client-react';
 import type { BuilderMessage } from '@/components/mad-builder-contract';
 import { isPrefabCollection, type ScenePrefab } from './scene-authoring';
 import { isUIControlCollection, type UIControlElement } from './ui-controls';
+import { isScriptFileCollection, type ScriptFile } from './project-scripts';
 
 export const FRESH_WORKSPACE_ID = 'madhorse-studio-fresh-workspace';
 const storageKey = 'madhorse-studio:fresh-workspace:v1';
@@ -22,6 +23,7 @@ export type FreshWorkspaceSnapshot = {
   builderBuildLogs: MadBuilderBuildLog[];
   prefabs: ScenePrefab[];
   uiControls: UIControlElement[];
+  scripts: ScriptFile[];
 };
 
 export function loadFreshWorkspace(): Partial<FreshWorkspaceSnapshot> {
@@ -41,6 +43,7 @@ export function loadFreshWorkspace(): Partial<FreshWorkspaceSnapshot> {
       ...(isMadBuilderBuildLogs(value.builderBuildLogs) ? { builderBuildLogs: value.builderBuildLogs } : {}),
       ...(Array.isArray(value.prefabs) && isPrefabCollection(value.prefabs) ? { prefabs: value.prefabs } : {}),
       ...(Array.isArray(value.uiControls) && isUIControlCollection(value.uiControls) ? { uiControls: value.uiControls } : {}),
+      ...(isScriptFileCollection(value.scripts) ? { scripts: value.scripts } : {}),
     };
   } catch {
     return {};

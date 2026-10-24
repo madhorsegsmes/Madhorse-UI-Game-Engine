@@ -21,6 +21,27 @@ export type ScriptFile = {
 };
 export const sourceSize = (content: string) => new TextEncoder().encode(content).byteLength;
 
+export function isScriptFileCollection(value: unknown): value is ScriptFile[] {
+  if (!Array.isArray(value) || value.length > 100) return false;
+  const ids = new Set<string>();
+  let totalSize = 0;
+  for (const entry of value) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return false;
+    const script = entry as Partial<ScriptFile>;
+    if (typeof script.id !== 'string' || !script.id || ids.has(script.id) ||
+        typeof script.name !== 'string' || !script.name || script.name.length > 160 ||
+        typeof script.language !== 'string' || !Object.values(scriptLanguages).includes(script.language) ||
+        typeof script.content !== 'string' || script.content.includes('\u0000') ||
+        typeof script.size !== 'number' || !Number.isInteger(script.size)) return false;
+    const size = sourceSize(script.content);
+    if (size !== script.size || size > maxScriptSize) return false;
+    ids.add(script.id);
+    totalSize += size;
+    if (totalSize > maxProjectScriptsSize) return false;
+  }
+  return true;
+}
+
 export function scriptStorageError(content: string, scripts: ScriptFile[], replacingId?: string): string {
   if (content.includes('\u0000')) return 'Scripts must be plain text (no null characters).';
   const size = sourceSize(content);

@@ -1,6 +1,9 @@
 import { useState } from 'react';
-import { BookOpen, Bot, Boxes, Gamepad2, Layers3, X } from 'lucide-react';
+import { BookOpen, Bot, Boxes, Code2, Gamepad2, Layers3, X } from 'lucide-react';
 import type { BuilderDocument } from '@/hooks/use-mad-builder';
+import type { GameCamera } from '@/lib/game-camera';
+import type { ScriptFile } from '@/lib/project-scripts';
+import { EgoScriptStudio } from './ego-script-studio';
 import {
   egoGameTypes,
   getEgoGameLabel,
@@ -13,6 +16,12 @@ type EgoAssistantProps = {
   animationsCount: number;
   onBuildUi: (gameTypes: EgoGameType[], gameVision: string) => void;
   onAddFunctions: (gameTypes: EgoGameType[]) => void;
+  scripts: ScriptFile[];
+  camera: GameCamera;
+  selectedEntityId: string | null;
+  onCreateScript: (script: ScriptFile) => string;
+  onUpdateScript: (script: ScriptFile) => string;
+  onDeleteScript: (id: string) => void;
   onClose: () => void;
 };
 
@@ -51,7 +60,7 @@ function projectScan(project: BuilderDocument, animationsCount: number) {
   return {
     objects: project.entities.length,
     components: components.length,
-    scripts: components.filter((component) => component.type === 'script').length,
+    scripts: project.scripts?.length ?? components.filter((component) => component.type === 'script').length,
     players: project.entities.filter((entity) =>
       entity.components.some((component) => component.type === 'characterController' && component.role === 'player')).length,
     ui: project.uiControls?.length ?? 0,
@@ -63,10 +72,13 @@ function projectScan(project: BuilderDocument, animationsCount: number) {
   };
 }
 
-export function EgoAssistant({ project, animationsCount, onBuildUi, onAddFunctions, onClose }: EgoAssistantProps) {
+export function EgoAssistant({
+  project, animationsCount, onBuildUi, onAddFunctions, scripts, camera, selectedEntityId,
+  onCreateScript, onUpdateScript, onDeleteScript, onClose,
+}: EgoAssistantProps) {
   const [gameTypes, setGameTypes] = useState<EgoGameType[]>(['rpg']);
   const [gameVision, setGameVision] = useState('');
-  const [activeTab, setActiveTab] = useState<'build' | 'guide'>('build');
+  const [activeTab, setActiveTab] = useState<'build' | 'guide' | 'scripts'>('build');
   const scan = projectScan(project, animationsCount);
   const gameLabel = getEgoGameSelectionLabel(gameTypes);
 
@@ -101,6 +113,16 @@ export function EgoAssistant({ project, animationsCount, onBuildUi, onAddFunctio
             onClick={() => setActiveTab('build')}
           >
             <Layers3 size={14} aria-hidden="true" /> Build UI & functions
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'scripts'}
+            className={activeTab === 'scripts' ? 'is-active' : ''}
+            onClick={() => setActiveTab('scripts')}
+            data-testid="ego-tab-scripts"
+          >
+            <Code2 size={14} aria-hidden="true" /> Scripts & knowledge
           </button>
           <button
             type="button"
@@ -172,6 +194,16 @@ export function EgoAssistant({ project, animationsCount, onBuildUi, onAddFunctio
               Ego uses editable UI templates and supported engine actions. It creates a Player Controller if the project has no player yet.
             </p>
           </section>
+        ) : activeTab === 'scripts' ? (
+          <EgoScriptStudio
+            scripts={scripts}
+            entities={project.entities}
+            camera={camera}
+            selectedEntityId={selectedEntityId}
+            onCreate={onCreateScript}
+            onUpdate={onUpdateScript}
+            onDelete={onDeleteScript}
+          />
         ) : (
           <section className="ego-guide-content" role="tabpanel">
             <h3>Build your {gameLabel} game step by step</h3>

@@ -7,8 +7,10 @@ import { beginSystemActivity } from '@/lib/system-activity';
 import type { MadBuilderBuildLog } from '@/lib/mad-builder-build-log';
 import type { BuilderBuildCategory, BuilderMessage, BuilderStyle, MadBuilderProps } from '@/components/mad-builder-contract';
 import type { AuthoringDocument } from './use-scene-authoring';
+import type { ScriptFile } from '@/lib/project-scripts';
 
-export type BuilderDocument = AuthoringDocument & {
+export type BuilderDocument = Omit<AuthoringDocument, 'scripts'> & {
+  scripts?: ScriptFile[];
   builderHistory?: BuilderMessage[];
   builderDraft?: MadBuilderPlan | null;
   builderDraftRequest?: string;
