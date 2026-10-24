@@ -116,7 +116,7 @@ function SettingsPanel({
   onSaveEntity: (entity: SceneEntity) => void;
 }) {
   const [activeFunctionTab, setActiveFunctionTab] = useState<
-    'game-system' | 'player-functions' | 'game-controls' | 'player-controls' | 'npc-functions' | 'npc-controls'
+    'game-system' | 'player-functions' | 'game-controls' | 'player-controls' | 'npc-functions' | 'ai-navigation' | 'npc-controls'
   >('game-system');
   const [activePluginTab, setActivePluginTab] = useState<
     'game' | 'player-npc' | 'system' | 'lighting' | 'animation' | 'asset' | 'effect' | 'triggers' | 'trigger-zones' | 'skybox' | 'character-builder' | 'behavior-builder' | 'script' | 'third-person-character'
@@ -207,6 +207,16 @@ function SettingsPanel({
                   onClick={() => setActiveFunctionTab('npc-functions')}
                 >
                   NPC Functions
+                </button>
+                <button
+                  type="button"
+                  className="fresh-function-tab"
+                  aria-pressed={activeFunctionTab === 'ai-navigation'}
+                  data-active={activeFunctionTab === 'ai-navigation'}
+                  data-testid="button-ai-navigation-function"
+                  onClick={() => setActiveFunctionTab('ai-navigation')}
+                >
+                  AI Navigation Function
                 </button>
                 <button
                   type="button"
