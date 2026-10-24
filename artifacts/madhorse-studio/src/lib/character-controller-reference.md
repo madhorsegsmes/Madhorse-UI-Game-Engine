@@ -1,4 +1,4 @@
-export const CHARACTER_CONTROLLER_REFERENCE = `CHARACTER CONTROLLER — MODELING AND EDITING GUIDE
+CHARACTER CONTROLLER — MODELING AND EDITING GUIDE
 Read-only system reference for Mad Builder and Madhorse creators
 
 IMPORTANT ENGINE STATUS
@@ -34,4 +34,4 @@ Build/edit guidance: first specify inputs, movement states, acceleration/deceler
 Madhorse status: custom behavior requires a supported, isolated runtime component. Mad Builder must not invent or execute script code, claim custom movement is working, or represent a model-only build as a functioning controller.
 
 MAD BUILDER RULE
-When a request names one of these controllers, preserve the requested type in the explanation. Build the requested character appearance only from supported geometry or project assets. Do not invent controller components, collider shapes, runtime settings, movement scripts, or texture maps. If the user asks for actual movement/collision behavior that the current system cannot supply, include a clear warning and state which runtime capability is missing.`;
+When a request names one of these controllers, preserve the requested type in the explanation. Build the requested character appearance only from supported geometry or project assets. Do not invent controller components, collider shapes, runtime settings, movement scripts, or texture maps. If the user asks for actual movement/collision behavior that the current system cannot supply, include a clear warning and state which runtime capability is missing.

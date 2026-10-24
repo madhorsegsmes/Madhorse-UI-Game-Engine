@@ -43,7 +43,7 @@ import { createMadBuilderModulePlan, getMadBuilderModule, type MadBuilderModuleI
 import type { UIControlElement } from '@/lib/ui-controls';
 import { downloadMadBuilderLogPdf, type MadBuilderBuildLog } from '@/lib/mad-builder-build-log';
 import { createGameTypeLibraryPdf, gameTypeLibraryEntryCount } from '@/lib/game-type-library';
-import { CHARACTER_CONTROLLER_REFERENCE } from '@/lib/character-controller-reference';
+import CHARACTER_CONTROLLER_REFERENCE from '@/lib/character-controller-reference.md?raw';
 import './system-panel-tools.css';
 import './numbered-workspace.css';
 
@@ -259,6 +259,15 @@ function SettingsPanel({
                 <p className="fresh-game-type-library-note">
                   Modeling, texturing, and editing guidance for the four controller patterns, including current Madhorse support.
                 </p>
+                <a
+                  className="fresh-builder-log-download fresh-controller-docx-download"
+                  href={`${import.meta.env.BASE_URL}documents/character-controller-guide.docx`}
+                  download
+                  data-testid="button-download-character-controller-docx"
+                >
+                  <FileDown size={13} aria-hidden="true" />
+                  Download Word file (.docx)
+                </a>
                 <pre className="fresh-controller-reference-text" data-testid="text-character-controller-guide">
                   {CHARACTER_CONTROLLER_REFERENCE}
                 </pre>

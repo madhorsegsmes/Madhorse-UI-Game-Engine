@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "UKcTakiD6JqzVb96KTuUa"
+uri = "file://artifacts/madhorse-studio/public/documents/character-controller-guide.docx"
+type = "word_document"
+title = "Madhorse Character Controller Guide"
+description = "Read-only Word document covering the four controller patterns and Madhorse's current capabilities."
+logical_id = "f46dc5ed-5cf0-4324-ac24-65f0f9dfcc00"
+content_hash = "sha256:51d93c9c93e1d952b5ddd51ae14b92092084fcebb8e0d00370e9c8953efedf8e"
+size = 3897
+mtime_ms = 1792815414842
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:aaeee303-605b-4b36-9487-2f3474459f6d/f46dc5ed-5cf0-4324-ac24-65f0f9dfcc00/2d0bbdcb-516c-4a68-9ebc-934697800870"
+storage_version_token = "1792815435733527"
+content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
