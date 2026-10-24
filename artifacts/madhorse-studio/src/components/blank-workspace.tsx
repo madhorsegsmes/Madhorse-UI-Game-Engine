@@ -111,7 +111,9 @@ function SettingsPanel({
   const [activeFunctionTab, setActiveFunctionTab] = useState<
     'game-system' | 'player-functions' | 'game-controls' | 'player-controls' | 'npc-functions' | 'npc-controls'
   >('game-system');
-  const [activePluginTab, setActivePluginTab] = useState<'game' | 'player-npc' | 'system'>('game');
+  const [activePluginTab, setActivePluginTab] = useState<
+    'game' | 'player-npc' | 'system' | 'lighting' | 'animation' | 'asset'
+  >('game');
   const [gameTypeLibraryPdfUrl, setGameTypeLibraryPdfUrl] = useState<string | null>(null);
   const gameTypeLibraryPdfUrlRef = useRef<string | null>(null);
 
@@ -352,6 +354,36 @@ function SettingsPanel({
                   onClick={() => setActivePluginTab('system')}
                 >
                   System Plugins
+                </button>
+                <button
+                  type="button"
+                  className="fresh-plugin-tab"
+                  aria-pressed={activePluginTab === 'lighting'}
+                  data-active={activePluginTab === 'lighting'}
+                  data-testid="button-lighting-plugins"
+                  onClick={() => setActivePluginTab('lighting')}
+                >
+                  Lighting Plugins
+                </button>
+                <button
+                  type="button"
+                  className="fresh-plugin-tab"
+                  aria-pressed={activePluginTab === 'animation'}
+                  data-active={activePluginTab === 'animation'}
+                  data-testid="button-animation-plugins"
+                  onClick={() => setActivePluginTab('animation')}
+                >
+                  Animation Plugins
+                </button>
+                <button
+                  type="button"
+                  className="fresh-plugin-tab"
+                  aria-pressed={activePluginTab === 'asset'}
+                  data-active={activePluginTab === 'asset'}
+                  data-testid="button-asset-plugins"
+                  onClick={() => setActivePluginTab('asset')}
+                >
+                  Asset Plugins
                 </button>
               </div>
             </div>
