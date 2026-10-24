@@ -5,6 +5,7 @@ import type { Dispatch, DragEvent as ReactDragEvent, KeyboardEvent, MouseEvent, 
 import { Activity, ChevronDown, ChevronRight, FileDown, Folder, Trash2 } from 'lucide-react';
 import { ScenePreview3D, type SceneFrameRequest, type SceneTransformMode } from './scene-preview-3d';
 import {
+  createScriptableObjectAsset,
   createPhysicsComponent,
   createSceneEntity,
   createStarterCube,
@@ -12,6 +13,7 @@ import {
   getModelRenderer,
   getTransform,
   getWorldTransform,
+  isProjectAsset,
   isSceneEntity,
   primitiveShapes,
   projectAssetKind,
@@ -60,6 +62,7 @@ import { playerActionDefinitions } from '@/lib/player-action-model';
 import { gameFeatureDefinitions } from '@/lib/game-feature-model';
 import type { ActionHud } from '@/lib/player-action-runtime';
 import { PlayerActionHud } from './player-action-hud';
+import { ScriptableObjectEditor } from './scriptable-object-editor';
 import { downloadMadBuilderLogPdf, type MadBuilderBuildLog } from '@/lib/mad-builder-build-log';
 import { createGameTypeLibraryPdf, gameTypeLibraryEntryCount } from '@/lib/game-type-library';
 import {
@@ -199,6 +202,8 @@ function SettingsPanel({
   onReturnToSettings,
   onOpenCharacterBuilder,
   onOpenTimeline,
+  onCreateScriptableObject,
+  onEditScriptableObject,
   onAttachPlugin,
   onSaveEntity,
 }: {
@@ -211,6 +216,8 @@ function SettingsPanel({
   onReturnToSettings: () => void;
   onOpenCharacterBuilder: () => void;
   onOpenTimeline: () => void;
+  onCreateScriptableObject: () => void;
+  onEditScriptableObject: (assetId: string) => void;
   onAttachPlugin: (entityId: string, kind: PluginComponentKind) => void;
   onSaveEntity: (entity: SceneEntity) => void;
 }) {
@@ -632,10 +639,14 @@ function SettingsPanel({
               </div>
               <div className="fresh-plugin-workbench">
                 <p className="fresh-plugin-instruction">
-                  These are Madhorse’s simple versions of common Unity and Unreal tools.
-                  {selectedEntity
-                    ? <> <strong>{selectedEntity.name}</strong> is picked. Press Add or drag a tool onto an object name.</>
-                    : 'Pick an object name first. Then press Add or drag a tool onto it.'}
+                  {activePluginTab === 'asset'
+                    ? 'Create a reusable Scriptable Object for project data. It can hold text, numbers, and on/off values.'
+                    : <>
+                      These are Madhorse’s simple versions of common Unity and Unreal tools.
+                      {selectedEntity
+                        ? <> <strong>{selectedEntity.name}</strong> is picked. Press Add or drag a tool onto an object name.</>
+                        : 'Pick an object name first. Then press Add or drag a tool onto it.'}
+                    </>}
                 </p>
                 {pluginEntries.length ? (
                   <div className="fresh-plugin-cards" aria-live="polite">
@@ -668,6 +679,9 @@ function SettingsPanel({
                             <button type="button" className="fresh-plugin-add" onClick={onOpenCharacterBuilder}>Open</button>
                           ) : entry.action === 'animation-timeline' ? (
                             <button type="button" className="fresh-plugin-add" onClick={onOpenTimeline}>Open</button>
+                          ) : entry.action === 'create-scriptable-object' ? (
+                            <button type="button" className="fresh-plugin-add" data-testid="create-scriptable-object"
+                              onClick={onCreateScriptableObject}>Create</button>
                           ) : (
                             <button
                               type="button"
@@ -687,7 +701,22 @@ function SettingsPanel({
                     This plugin family is in the next build pass. The available native components are ready to add above.
                   </p>
                 )}
-                <p className="fresh-plugin-drop-hint">To edit an attached component, double-click its object in Hierarchy.</p>
+                {activePluginTab === 'asset' && assets.some(asset => asset.kind === 'data') && (
+                  <section className="fresh-scriptable-library" aria-label="Scriptable Objects" data-testid="scriptable-object-library">
+                    <strong>Project data assets</strong>
+                    {assets.filter(asset => asset.kind === 'data').map(asset => (
+                      <button type="button" key={asset.id} data-testid={`open-scriptable-${asset.id}`}
+                        onClick={() => onEditScriptableObject(asset.id)}>
+                        <span>{asset.name}</span>
+                        <small>{asset.data?.fields.length ?? 0} fields · Edit</small>
+                      </button>
+                    ))}
+                  </section>
+                )}
+                <p className="fresh-plugin-drop-hint">
+                  {activePluginTab === 'asset' ? 'Scriptable Objects stay in this project; they are not added to the scene.'
+                    : 'To edit an attached component, double-click its object in Hierarchy.'}
+                </p>
               </div>
             </div>
           </details>
@@ -1117,6 +1146,7 @@ export default function BlankWorkspace() {
   const [entities, setEntities] = useState(savedWorkspace.entities ?? initialScene.entities);
   const [camera, setCamera] = useState<GameCamera>(savedWorkspace.camera ?? initialScene.camera);
   const [assets, setAssets] = useState<ProjectAsset[]>(savedWorkspace.assets ?? []);
+  const [editingScriptableObjectId, setEditingScriptableObjectId] = useState<string | null>(null);
   const [animations, setAnimations] = useState<GameAnimation[]>(savedWorkspace.animations ?? []);
   const [builderHistory, setBuilderHistory] = useState<BuilderMessage[]>(savedWorkspace.builderHistory ?? []);
   const [builderDraft, setBuilderDraft] = useState<MadBuilderPlan | null>(savedWorkspace.builderDraft ?? null);
@@ -1163,6 +1193,19 @@ export default function BlankWorkspace() {
   const selectedEntity = selection === PRIMARY_CAMERA_ID
     ? primaryCameraEntity(camera)
     : entities.find(entity => entity.id === selection) ?? null;
+  const editingScriptableObject = assets.find(asset => asset.id === editingScriptableObjectId && asset.kind === 'data') ?? null;
+  function createScriptableObject() {
+    const asset = createScriptableObjectAsset();
+    setAssets(current => [...current, asset]);
+    setEditingScriptableObjectId(asset.id);
+    setStatus('Created a Scriptable Object. Add or change its fields, then save the data asset.');
+  }
+  function saveScriptableObject(asset: ProjectAsset) {
+    if (asset.kind !== 'data' || !isProjectAsset(asset)) return;
+    setAssets(current => current.map(item => item.id === asset.id ? asset : item));
+    setEditingScriptableObjectId(null);
+    setStatus(`${asset.name} saved with this project.`);
+  }
   const builderProject: BuilderDocument = {
     id: FRESH_WORKSPACE_ID,
     entities,
@@ -1458,7 +1501,7 @@ export default function BlankWorkspace() {
     let disposed = false;
     const urls: string[] = [];
     async function loadAssets() {
-      const loaded = await Promise.all(assets.map(async asset => {
+      const loaded = await Promise.all(assets.filter(asset => asset.kind !== 'data').map(async asset => {
         try {
           const blob = await loadLocalAsset(FRESH_WORKSPACE_ID, asset.id);
           return { id: asset.id, blob };
@@ -1972,6 +2015,8 @@ export default function BlankWorkspace() {
               onReturnToSettings={() => setEditingEntityId(null)}
               onOpenCharacterBuilder={openCharacterBuilder}
               onOpenTimeline={openTimeline}
+              onCreateScriptableObject={createScriptableObject}
+              onEditScriptableObject={setEditingScriptableObjectId}
               onAttachPlugin={attachPluginComponent}
               onSaveEntity={updateEntitySettings}
             />
@@ -2075,6 +2120,12 @@ export default function BlankWorkspace() {
         </div>,
         document.body,
       )}
+      {editingScriptableObject && <ScriptableObjectEditor
+        key={editingScriptableObject.id}
+        asset={editingScriptableObject}
+        onClose={() => setEditingScriptableObjectId(null)}
+        onSave={saveScriptableObject}
+      />}
       {status && <div className="fresh-status" role="status">{status}<button type="button" onClick={() => setStatus('')} aria-label="Dismiss status">×</button></div>}
       {modelingOpen && <Suspense fallback={<div className="fresh-status" role="status">Loading modeling workspace…</div>}>
         <ModelingWorkspace onClose={() => setModelingOpen(false)} onSave={saveModelingAsset} initialSource={modelingSource} />

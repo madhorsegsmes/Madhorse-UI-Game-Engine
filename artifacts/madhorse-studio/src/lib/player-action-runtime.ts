@@ -272,7 +272,12 @@ export function advancePlayerActions(
     if (door && entity.active && !state.doors.has(entity.id)) {
       const startsOpen = Boolean(door.settings.startsOpen);
       state.doors.set(entity.id, startsOpen);
-      if (startsOpen) next = next.map(candidate => candidate.id === entity.id ? { ...candidate, active: false } : candidate);
+      if (startsOpen) next = next.map(candidate => candidate.id === entity.id ? {
+        ...candidate,
+        components: candidate.components.map(component => component.type === 'transform'
+          ? { ...component, rotation: { ...component.rotation, z: component.rotation.z + 90 } }
+          : component),
+      } : candidate);
     }
   }
 
@@ -325,7 +330,12 @@ export function advancePlayerActions(
         } else {
           if (!open && locked) current.keys -= 1;
           state.doors.set(entity.id, !open);
-          next = next.map(candidate => candidate.id === entity.id ? { ...candidate, active: open } : candidate);
+          next = next.map(candidate => candidate.id === entity.id ? {
+            ...candidate,
+            components: candidate.components.map(component => component.type === 'transform'
+              ? { ...component, rotation: { ...component.rotation, z: component.rotation.z + (open ? -90 : 90) } }
+              : component),
+          } : candidate);
           playFeatureSound('build');
           say(open ? 'Door closed.' : `Door opened${locked ? ` · ${current.keys} keys left` : ''}.`);
         }

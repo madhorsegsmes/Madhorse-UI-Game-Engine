@@ -162,6 +162,11 @@ body::-webkit-scrollbar-thumb,
 .fresh-action-health { margin: 5px 0; }
 .fresh-action-health-track { height: 8px; background: #3b2937; border-radius: 5px; overflow: hidden; }
 .fresh-action-health-track > span { display: block; height: 100%; background: linear-gradient(90deg,#ef5260,#ff9f68); }
+.fresh-scriptable-library { display: grid; gap: 7px; margin-top: 14px; padding-top: 11px; border-top: 1px solid #35302e; }
+.fresh-scriptable-library > strong { color: #d7cec8; font-size: 11px; }
+.fresh-scriptable-library > button { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 10px; color: #e8ded8; text-align: left; background: #211e1c; border: 1px solid #403936; border-radius: 4px; cursor: pointer; }
+.fresh-scriptable-library > button:hover { border-color: #9e5243; background: #2c2220; }
+.fresh-scriptable-library > button small { color: #b6a9a2; white-space: nowrap; }
 .fresh-action-hud-body > small { color: #b8a5c7; }
 
 .fresh-play-test {

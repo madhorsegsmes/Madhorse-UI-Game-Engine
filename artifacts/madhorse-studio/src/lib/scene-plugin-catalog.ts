@@ -47,11 +47,11 @@ export type PluginComponentKind =
   | 'skybox';
 
 export type ScenePluginDefinition = {
-  id: PluginComponentKind | 'open-character-builder' | 'open-animation-timeline';
+  id: PluginComponentKind | 'open-character-builder' | 'open-animation-timeline' | 'create-scriptable-object';
   label: string;
   description: string;
   componentKind?: PluginComponentKind;
-  action?: 'character-builder' | 'animation-timeline';
+  action?: 'character-builder' | 'animation-timeline' | 'create-scriptable-object';
 };
 
 const playerActionPlugins: ScenePluginDefinition[] = playerActionNames.map(action => ({
@@ -97,6 +97,12 @@ export const scenePluginCatalog: Record<PluginCategory, ScenePluginDefinition[]>
     { id: 'open-animation-timeline', action: 'animation-timeline', label: 'Make it move', description: 'Open the timeline to make or preview an object’s movement.' },
   ],
   asset: [
+    {
+      id: 'create-scriptable-object',
+      action: 'create-scriptable-object',
+      label: 'Create Scriptable Object',
+      description: 'Make a reusable data asset with editable text, numbers, and on/off values. Saved with this project.',
+    },
     { id: 'spriteRenderer', componentKind: 'spriteRenderer', label: 'Show a 2D picture', description: 'Put an imported picture on this object.' },
     { id: 'modelRenderer', componentKind: 'modelRenderer', label: 'Show a 3D model', description: 'Put an imported 3D model on this object.' },
   ],

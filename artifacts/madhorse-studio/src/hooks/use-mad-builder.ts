@@ -92,7 +92,7 @@ export function useMadBuilder<T extends BuilderDocument>({ project, activeProjec
         const result = PlanMadBuilderResponse.parse(await planMadBuilder({
           prompt, selectedName: contextEntity?.name ?? '', style, buildCategory, referenceImages,
           assets: project.assets.slice(0, 40).flatMap(({ id, name, kind }) =>
-            kind === 'audio' ? [] : [{ id, name: name.slice(0, 160), kind }],
+            kind === 'image' || kind === 'model' ? [{ id, name: name.slice(0, 160), kind }] : [],
           ),
         }, { signal: controller.signal }));
         if (token !== session.current || activeProjectRef.current.id !== project.id) return;

@@ -12,8 +12,8 @@ try {
       loader: 'ts',
       contents: `
         import assert from 'node:assert/strict';
-        import { createStarterCube, getTransform, isSceneEntity } from './src/lib/scene-model';
-        import { createPluginComponent, matchesPluginComponent } from './src/lib/scene-plugin-catalog';
+        import { createScriptableObjectAsset, createStarterCube, getTransform, isAssetCollection, isProjectAsset, isSceneEntity } from './src/lib/scene-model';
+        import { createPluginComponent, matchesPluginComponent, scenePluginCatalog } from './src/lib/scene-plugin-catalog';
         import { playerActionNames, playerActionDraft, playerActionFromDraft, playerActionPrefix } from './src/lib/player-action-model';
         import { createGameFeature, gameFeatureNames, gameFeatureDraft, gameFeatureFromDraft, gameFeaturePrefix } from './src/lib/game-feature-model';
         import { advanceSceneRuntime, createSceneRuntimeState } from './src/lib/scene-play-runtime';
@@ -153,6 +153,14 @@ try {
         assert.equal(getTransform(preferred.entities.find(e => e.id === 'player')).position.x, 50);
         assert(getTransform(preferred.entities.find(e => e.id === 'other')).position.x > 50);
         const allFeatures = attachFeatures(player(), ...gameFeatureNames);
+        const dataAssetEntry = scenePluginCatalog.asset.find(item => item.action === 'create-scriptable-object');
+        assert(dataAssetEntry && !dataAssetEntry.componentKind, 'Scriptable Object is created as a reusable asset, not an object component');
+        const scriptableAsset = createScriptableObjectAsset();
+        assert(isProjectAsset(scriptableAsset) && isAssetCollection([scriptableAsset]), 'typed Scriptable Object data is valid project asset data');
+        scriptableAsset.data.fields.push({ id: 'field-custom', name: 'damage', type: 'number', value: 25 });
+        scriptableAsset.size = JSON.stringify(scriptableAsset.data).length;
+        assert(isProjectAsset(JSON.parse(JSON.stringify(scriptableAsset))), 'Scriptable Object fields survive project save and reload');
+        assert(!isProjectAsset({ ...scriptableAsset, size: 0 }), 'invalid Scriptable Object data sizes are rejected');
         assert(isSceneEntity(allFeatures), 'all nine new plugin types can share one object');
         for (const name of gameFeatureNames) {
           const part = feature(allFeatures, name);
@@ -203,10 +211,10 @@ try {
         assert.equal(doorStep.hud.extraControls[0].key, 'e');
         assert.match(doorStep.hud.inventoryText, /Keys 1/);
         doorStep = step(doorStep.entities, doorState, { pressedKeys: ['e'] }, .4);
-        assert.equal(doorStep.entities.find(e => e.id === 'door').active, false, 'a key opens the door');
+        assert.equal(getTransform(doorStep.entities.find(e => e.id === 'door')).rotation.z, 90, 'a key swings the door open');
         assert.match(doorStep.hud.inventoryText, /Keys 0/);
         doorStep = step(doorStep.entities, doorState, { pressedKeys: ['e'] }, .8);
-        assert.equal(doorStep.entities.find(e => e.id === 'door').active, true, 'open doors can be closed again');
+        assert.equal(getTransform(doorStep.entities.find(e => e.id === 'door')).rotation.z, 0, 'open doors can be closed again');
         assert.equal(JSON.stringify(doorScene), doorSaved);
 
         const checkpointPlayer = attachFeatures(player(), 'health', 'interact', 'status-bar');

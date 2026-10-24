@@ -168,10 +168,22 @@ export type SceneEntity = {
 export type ProjectAsset = {
   id: string;
   name: string;
-  kind: 'image' | 'model' | 'audio';
+  kind: 'image' | 'model' | 'audio' | 'data';
   mimeType: string;
   size: number;
   addedAt: string;
+  data?: ScriptableObjectData;
+};
+
+export type ScriptableObjectField = {
+  id: string;
+  name: string;
+  type: 'text' | 'number' | 'boolean';
+  value: string | number | boolean;
+};
+export type ScriptableObjectData = {
+  schemaVersion: 1;
+  fields: ScriptableObjectField[];
 };
 
 export type ProjectAssetKind = ProjectAsset['kind'];
@@ -492,13 +504,58 @@ export function isAssetCollection(values: unknown[]): values is ProjectAsset[] {
   return new Set(values.map((asset) => asset.id)).size === values.length;
 }
 
+export function createScriptableObjectAsset(): ProjectAsset {
+  const data: ScriptableObjectData = {
+    schemaVersion: 1,
+    fields: [
+      { id: crypto.randomUUID(), name: 'displayName', type: 'text', value: 'New Item' },
+      { id: crypto.randomUUID(), name: 'value', type: 'number', value: 0 },
+      { id: crypto.randomUUID(), name: 'enabled', type: 'boolean', value: true },
+    ],
+  };
+  return {
+    id: crypto.randomUUID(),
+    name: 'New Scriptable Object',
+    kind: 'data',
+    mimeType: 'application/x-madhorse-scriptable-object',
+    size: JSON.stringify(data).length,
+    addedAt: new Date().toISOString(),
+    data,
+  };
+}
+
 export function isProjectAsset(value: unknown): value is ProjectAsset {
   if (!value || typeof value !== 'object') return false;
   const asset = value as ProjectAsset;
-  return typeof asset.id === 'string' && typeof asset.name === 'string' &&
-    (asset.kind === 'image' || asset.kind === 'model' || asset.kind === 'audio') &&
-    typeof asset.mimeType === 'string' && Number.isFinite(asset.size) &&
-    asset.size >= 0 && typeof asset.addedAt === 'string';
+  if (typeof asset.id !== 'string' || typeof asset.name !== 'string' ||
+      !['image', 'model', 'audio', 'data'].includes(asset.kind) ||
+      typeof asset.mimeType !== 'string' || !Number.isFinite(asset.size) ||
+      asset.size < 0 || typeof asset.addedAt !== 'string') return false;
+  if (asset.kind !== 'data') return asset.data === undefined;
+  return asset.mimeType === 'application/x-madhorse-scriptable-object' &&
+    isScriptableObjectData(asset.data) && asset.size === JSON.stringify(asset.data).length;
+}
+
+export function isScriptableObjectData(value: unknown): value is ScriptableObjectData {
+  if (!value || typeof value !== 'object') return false;
+  const data = value as ScriptableObjectData;
+  if (Object.keys(data).length !== 2 || data.schemaVersion !== 1 ||
+      !Array.isArray(data.fields) || data.fields.length > 50) return false;
+  const ids = new Set<string>();
+  const names = new Set<string>();
+  return data.fields.every(field => {
+    if (!field || typeof field !== 'object' || typeof field.id !== 'string' || !field.id ||
+        ids.has(field.id) || typeof field.name !== 'string' || !field.name.trim() ||
+        field.name.length > 50 || Object.keys(field).length !== 4) return false;
+    ids.add(field.id);
+    const key = field.name.trim().toLowerCase();
+    if (names.has(key)) return false;
+    names.add(key);
+    if (field.type === 'text') return typeof field.value === 'string' && field.value.length <= 5000;
+    if (field.type === 'number') return typeof field.value === 'number' && Number.isFinite(field.value) &&
+      field.value >= -1_000_000_000 && field.value <= 1_000_000_000;
+    return field.type === 'boolean' && typeof field.value === 'boolean';
+  });
 }
 
 function isVector(value: unknown): value is Vector3 {
