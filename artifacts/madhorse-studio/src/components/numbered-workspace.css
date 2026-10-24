@@ -2040,7 +2040,9 @@ body::-webkit-scrollbar-thumb,
 }
 .ego-vision-hero {
   position: relative;
-  min-height: 184px;
+  width: 100%;
+  min-height: 220px;
+  aspect-ratio: 16 / 9;
   overflow: hidden;
   border: 1px solid #704b8a;
   background: #100d15;
@@ -2051,39 +2053,44 @@ body::-webkit-scrollbar-thumb,
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 68%;
+  object-position: center;
 }
 .ego-vision-hero-overlay {
   position: absolute;
-  inset: 0;
+  top: 19%;
+  left: 15.5%;
   display: flex;
+  width: 43.5%;
+  height: 58%;
+  box-sizing: border-box;
   align-items: flex-start;
   justify-content: center;
   flex-direction: column;
-  padding: 18px;
-  background: linear-gradient(90deg, rgb(8 7 12 / 94%) 0%, rgb(12 8 17 / 84%) 38%, rgb(14 8 18 / 20%) 100%);
+  padding: clamp(8px, 2vw, 16px);
+  background: linear-gradient(110deg, rgb(17 51 80 / 48%), rgb(27 76 112 / 27%));
 }
 .ego-vision-hero-overlay > span {
-  color: #f08aa1;
+  color: #fff;
   font-size: 9px;
   font-weight: 800;
   letter-spacing: .2em;
+  text-shadow: 0 1px 5px #09233a;
 }
 .ego-vision-hero-overlay h3 {
-  max-width: 72%;
-  margin: 9px 0 5px;
+  max-width: 96%;
+  margin: 7px 0 5px;
   color: #fff;
-  font-size: clamp(19px, 3vw, 25px);
+  font-size: clamp(15px, 2.4vw, 21px);
   line-height: 1.15;
-  text-shadow: 0 2px 12px #000;
+  text-shadow: 0 2px 8px #071a2a;
 }
 .ego-vision-hero-overlay p {
-  max-width: 68%;
+  max-width: 96%;
   margin: 0;
-  color: #e2d7e8;
-  font-size: 11px;
+  color: #eff8ff;
+  font-size: 10px;
   line-height: 1.45;
-  text-shadow: 0 1px 8px #000;
+  text-shadow: 0 1px 6px #071a2a;
 }
 .ego-field { display: flex; flex-direction: column; gap: 5px; color: #ddd1e4; font-size: 10px; }
 .ego-field select,
@@ -2098,7 +2105,7 @@ body::-webkit-scrollbar-thumb,
   font-size: 11px;
 }
 .ego-field textarea { min-height: 62px; resize: vertical; }
-.ego-field textarea[data-testid="ego-game-vision"] { min-height: 88px; }
+.ego-field textarea[data-testid="ego-game-vision"] { min-height: 82px; }
 .ego-game-type-picker {
   min-width: 0;
   margin: 0;

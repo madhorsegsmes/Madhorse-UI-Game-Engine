@@ -118,14 +118,14 @@ export function EgoAssistant({ project, animationsCount, onBuildUi, onAddFunctio
             <section className="ego-vision-hero" aria-label="Ego game creation prompt">
               <img
                 className="ego-vision-hero-image"
-                src={`${import.meta.env.BASE_URL}images/ego-vision-hero.webp`}
+                src={`${import.meta.env.BASE_URL}images/ego-robot-panel.webp`}
                 alt=""
                 aria-hidden="true"
               />
               <div className="ego-vision-hero-overlay">
                 <span>CREATE WITH EGO</span>
                 <h3>What do you wish to create?</h3>
-                <p>Describe your idea. Choose one game type or mix several.</p>
+                <p>Describe it in the vision box below.</p>
               </div>
             </section>
             <label className="ego-field">
@@ -135,7 +135,6 @@ export function EgoAssistant({ project, animationsCount, onBuildUi, onAddFunctio
                 onChange={(event) => setGameVision(event.target.value)}
                 maxLength={500}
                 rows={4}
-                placeholder="Tell Ego what the game should look and feel like, and what players can do..."
                 data-testid="ego-game-vision"
               />
             </label>
