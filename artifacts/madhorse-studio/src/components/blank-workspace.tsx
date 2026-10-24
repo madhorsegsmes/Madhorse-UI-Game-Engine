@@ -1,10 +1,11 @@
 /** Fresh workspace with local scene authoring and an intentionally blank panel layout. */
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { Dispatch, DragEvent as ReactDragEvent, KeyboardEvent, MouseEvent, SetStateAction } from 'react';
+import type { Dispatch, DragEvent as ReactDragEvent, KeyboardEvent, MouseEvent, ReactNode, SetStateAction } from 'react';
 import { Activity, ArrowDown, ArrowUp, Box, Check, ChevronDown, ChevronRight, Circle, Cone, Cylinder, Diamond, Donut, Droplets, FileDown, Folder, Grid2X2, ImagePlus, Mountain, Octagon, Palette, Pentagon, Shapes, Trash2, Triangle, Trees, Upload, Waves, Wrench } from 'lucide-react';
 import { ScenePreview3D, type SceneFrameRequest, type SceneTransformMode } from './scene-preview-3d';
 import { WorkspaceRenderSettings } from './scene-render-settings';
+import type { SceneCursorTool } from './scene-tool-cursor';
 import { MultiplayerToolsPanel } from './multiplayer-tools-panel';
 import { genrePlayerFunctionTools } from '@/lib/player-function-tools';
 import { actionKeyOptions } from '@/lib/player-action-model';
@@ -71,7 +72,6 @@ import {
   type EgoAnimationController,
 } from '@/lib/ego-animation-controller';
 import {
-  FRESH_WORKSPACE_ID,
   loadFreshWorkspace,
   saveFreshWorkspace,
 } from '@/lib/fresh-workspace-storage';
@@ -103,7 +103,8 @@ import { downloadMadBuilderLogPdf, type MadBuilderBuildLog } from '@/lib/mad-bui
 import { createGameTypeLibraryPdf, gameTypeLibraryEntryCount } from '@/lib/game-type-library';
 import { createEgoCharacterScene } from '@/lib/character-builder-starter';
 import { detectEgoCharacterRequests, type EgoCharacterSize } from '@/lib/ego-character-anatomy';
-import { createEgoWorkspaceContext } from '@/lib/ego-workspace-context';
+import { createEgoWorkspaceContext, type EgoInterfaceContext } from '@/lib/ego-workspace-context';
+import { EgoPanelBox } from './ego-panel-box';
 import {
   createPluginComponent,
   matchesPluginComponent,
@@ -121,6 +122,7 @@ const WORKSPACE_ASSET_LIMIT = 100 * 1024 * 1024;
 const IMPORT_ACCEPT = '.png,.jpg,.jpeg,.webp,.gif,.svg,.glb,.gltf,.obj,.fbx,.dae,.mp3,.wav,.ogg,.m4a,.aac,.flac';
 
 function SceneViewport({
+  projectName,
   entities,
   camera,
   isPlaying,
@@ -132,7 +134,10 @@ function SceneViewport({
   onTransformCommit,
   onCameraChange,
   actionHud,
+  canvasView,
+  activeTool,
 }: {
+  projectName: string;
   entities: SceneEntity[];
   camera: GameCamera;
   isPlaying: boolean;
@@ -147,14 +152,18 @@ function SceneViewport({
   ) => void;
   onCameraChange: (camera: GameCamera) => void;
   actionHud: ActionHud | null;
+  canvasView: boolean;
+  activeTool: SceneCursorTool | null;
 }) {
   const [transformMode, setTransformMode] = useState<SceneTransformMode>('translate');
   return (
     <div className="fresh-viewport">
       <ScenePreview3D
+        projectName={projectName}
         primaryCamera={camera}
         gameCamera={camera}
-        gameView={isPlaying}
+        gameView={isPlaying || canvasView}
+        activeTool={activeTool}
         entities={entities}
         assets={assets}
         assetUrls={assetUrls}
@@ -233,6 +242,7 @@ const FUNCTION_TAB_HELP: Record<FunctionTabId, string> = {
 };
 
 function SettingsPanel({
+  egoBox,
   entity,
   selectedEntity,
   entities,
@@ -253,6 +263,7 @@ function SettingsPanel({
   onMultiplayerMemberChange,
   onMultiplayerSnapshotChange,
 }: {
+  egoBox: ReactNode;
   entity: SceneEntity | null;
   selectedEntity: SceneEntity | null;
   entities: SceneEntity[];
@@ -826,6 +837,7 @@ function SettingsPanel({
               <h2>Vision Board</h2>
               <ChevronRight size={14} aria-hidden="true" />
           </a>
+          {egoBox}
         </div>
       )}
     </div>
@@ -1181,6 +1193,7 @@ function WorldToolsPanel({
   onCreateTexture,
   onPreviewAnimation,
   onOpenModeling,
+  onActiveToolChange,
 }: {
   activeToolset: Panel5Toolset;
   onSelectToolset: (toolset: Panel5Toolset) => void;
@@ -1197,6 +1210,7 @@ function WorldToolsPanel({
   onCreateTexture: (pattern: TexturePattern, palette: TexturePalette, applyToSelectedObject: boolean) => void;
   onPreviewAnimation: () => void;
   onOpenModeling: (editSelectedModel: boolean) => void;
+  onActiveToolChange: (tool: SceneCursorTool | null) => void;
 }) {
   const [selectedWorldTool, setSelectedWorldTool] = useState<Panel5WorldTool | null>(null);
   const [selectedModelTool, setSelectedModelTool] = useState<Panel5ModelTool | null>(null);
@@ -1250,6 +1264,18 @@ function WorldToolsPanel({
     { id: 'upload-texture', label: 'Upload Texture', Icon: ImagePlus },
     { id: 'create-texture', label: 'Make Texture', Icon: Palette },
   ] as const;
+
+  useEffect(() => {
+    if (activeToolset === 'world') {
+      const tool = worldTools.find(item => item.id === selectedWorldTool);
+      onActiveToolChange(tool ? { label: tool.label, Icon: tool.Icon } : null);
+    } else {
+      const tool = modelingTools.find(item => item.id === selectedModelTool);
+      const shape = primitiveShapes.find(item => item.value === selectedModelTool);
+      onActiveToolChange(tool ? { label: tool.label, Icon: tool.Icon } :
+        shape ? { label: `Create ${shape.label}`, Icon: primitiveShapeIcon(shape.value) } : null);
+    }
+  }, [activeToolset, selectedWorldTool, selectedModelTool, onActiveToolChange]);
 
   function selectModelTool(id: Panel5ModelTool) {
     setSelectedWorldTool(null);
@@ -1589,12 +1615,15 @@ function WorldToolsPanel({
   );
 }
 
-export default function BlankWorkspace() {
+export default function BlankWorkspace({ projectId, projectName, projectControls }: {
+  projectId: string; projectName: string; projectControls: (disabled: boolean) => ReactNode;
+}) {
   const [initialScene] = useState(() => {
     const entities = [createStarterCube()];
     return { entities, camera: createGameCamera(entities) };
   });
-  const [savedWorkspace] = useState(loadFreshWorkspace);
+  const [savedWorkspace] = useState(() => loadFreshWorkspace(projectId));
+  const [saveFailed, setSaveFailed] = useState(false);
   const [entities, setEntities] = useState(savedWorkspace.entities ?? initialScene.entities);
   const [camera, setCamera] = useState<GameCamera>(savedWorkspace.camera ?? initialScene.camera);
   const [assets, setAssets] = useState<ProjectAsset[]>(savedWorkspace.assets ?? []);
@@ -1623,6 +1652,8 @@ export default function BlankWorkspace() {
   const [modelingSource, setModelingSource] = useState<{ url: string; name: string } | undefined>();
   const [previewEntities, setPreviewEntities] = useState<SceneEntity[] | null>(null);
   const [playTestOn, setPlayTestOn] = useState(false);
+  const [canvasView, setCanvasView] = useState(false);
+  const [activeSceneTool, setActiveSceneTool] = useState<SceneCursorTool | null>(null);
   const [runtimeEntities, setRuntimeEntities] = useState<SceneEntity[] | null>(null);
   const [runtimeCamera, setRuntimeCamera] = useState<GameCamera | null>(null);
   const [runtimeActionHud, setRuntimeActionHud] = useState<ActionHud | null>(null);
@@ -1679,7 +1710,7 @@ export default function BlankWorkspace() {
     setStatus(`${asset.name} saved with this project.`);
   }
   const builderProject: BuilderDocument = {
-    id: FRESH_WORKSPACE_ID,
+    id: projectId,
     entities,
     assets,
     prefabs,
@@ -1695,7 +1726,7 @@ export default function BlankWorkspace() {
 
   const setBuilderProjects: Dispatch<SetStateAction<BuilderDocument[]>> = useCallback(update => {
     const projects = typeof update === 'function' ? update([builderProjectRef.current]) : update;
-    const next = projects.find(project => project.id === FRESH_WORKSPACE_ID);
+    const next = projects.find(project => project.id === projectId);
     if (!next) return;
     builderProjectRef.current = next;
     setEntities(next.entities);
@@ -1707,7 +1738,7 @@ export default function BlankWorkspace() {
     setPrefabs(next.prefabs ?? []);
     setUIControls(next.uiControls ?? []);
     setEgoScripts(next.scripts ?? []);
-  }, []);
+  }, [projectId]);
 
   const createEgoProjectScript = useCallback((script: ScriptFile) => {
     const current = builderProjectRef.current;
@@ -1909,6 +1940,13 @@ export default function BlankWorkspace() {
     },
   });
 
+  const egoInterfaceContext: EgoInterfaceContext = {
+    projectName,
+    view: playTestOn ? 'play' : canvasView ? 'canvas' : 'scene',
+    toolset: panel5Toolset,
+    activeTool: activeSceneTool?.label ?? null,
+    inspectorName: editingEntityId === PRIMARY_CAMERA_ID ? 'Game Camera' : entities.find(entity => entity.id === editingEntityId)?.name ?? null,
+  };
   const buildEgoVision = useCallback(async (
     vision: string,
     gameTypes: EgoGameType[],
@@ -1916,7 +1954,7 @@ export default function BlankWorkspace() {
     onProgress: (message: string) => void,
   ) => {
     const project = builderProjectRef.current;
-    const editorContext = createEgoWorkspaceContext(project, selection, camera);
+    const editorContext = createEgoWorkspaceContext(project, selection, camera, egoInterfaceContext);
     const isSpriteAdventure = gameTypes.includes('creature-adventure-2d');
     const requestedCharacters = isSpriteAdventure ? [] : detectEgoCharacterRequests(vision, characterSize);
     const genreGuidance: Partial<Record<EgoGameType, string>> = {
@@ -1935,7 +1973,7 @@ export default function BlankWorkspace() {
       'Build the requested environment and props with clear spacing and a logical hierarchy. Preserve existing objects. Use matching imported project asset IDs when useful; never invent asset IDs. The editor also supplies the exact image/model asset list.',
       'Give visible surfaces realistic material values: use high metalness only for bare metal, keep paint/plastic/wood/stone non-metallic, make glass low-roughness and translucent, and use the project’s imported textures when they fit.',
       selectedGuidance,
-      editorContext.plannerSummary.slice(0, 300),
+      editorContext.plannerSummary.slice(0, 650),
       'For racing, keep kart and real-car silhouettes distinct. Do not create scripts or claim unsupported gameplay systems.',
       ...(requestedCharacters.length ? [
         `Ego will add ${requestedCharacters.length} named editable 3D creature body-plan template(s) locally. Do not create duplicate character bodies.`,
@@ -1991,7 +2029,7 @@ export default function BlankWorkspace() {
         message: `The scene plan was applied, but the anatomy template step failed: ${detail}`,
       };
     }
-  }, [animationControllers, animations, camera, madBuilder.onPlan, selection, setBuilderProjects, setSelection, setStatus]);
+  }, [animationControllers, animations, camera, egoInterfaceContext, madBuilder.onPlan, selection, setBuilderProjects, setSelection, setStatus]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -2022,13 +2060,16 @@ export default function BlankWorkspace() {
   useEffect(() => {
     try {
       saveFreshWorkspace({
+        projectName,
         entities, camera, assets, animations, animationControllers, builderHistory, builderDraft, builderDraftRequest,
         builderBuildLogs, prefabs, uiControls, scripts: egoScripts,
-      });
+      }, projectId);
+      setSaveFailed(false);
     } catch {
+      setSaveFailed(true);
       setStatus('Could not save the scene data in this browser. Check available storage.');
     }
-  }, [entities, camera, assets, animations, animationControllers, builderHistory, builderDraft, builderDraftRequest, builderBuildLogs, prefabs, uiControls, egoScripts]);
+  }, [projectId, projectName, entities, camera, assets, animations, animationControllers, builderHistory, builderDraft, builderDraftRequest, builderBuildLogs, prefabs, uiControls, egoScripts]);
 
   useEffect(() => {
     if (!playTestOn) {
@@ -2271,7 +2312,7 @@ export default function BlankWorkspace() {
     async function loadAssets() {
       const loaded = await Promise.all(assets.filter(asset => asset.kind !== 'data').map(async asset => {
         try {
-          const blob = await loadLocalAsset(FRESH_WORKSPACE_ID, asset.id);
+          const blob = await loadLocalAsset(projectId, asset.id);
           return { id: asset.id, blob };
         } catch {
           return { id: asset.id, blob: null };
@@ -2575,7 +2616,7 @@ export default function BlankWorkspace() {
       id: crypto.randomUUID(), name: file.name, kind: 'model', mimeType: file.type,
       size: file.size, addedAt: new Date().toISOString(),
     };
-    await saveLocalAsset(FRESH_WORKSPACE_ID, asset.id, file);
+    await saveLocalAsset(projectId, asset.id, file);
     const entity = createSceneEntity(file.name.replace(/\.glb$/i, ''), nextPosition(), null, false);
     entity.components = [
       getTransform(entity),
@@ -2613,7 +2654,7 @@ export default function BlankWorkspace() {
       addedAt: new Date().toISOString(),
     };
     try {
-      await saveLocalAsset(FRESH_WORKSPACE_ID, asset.id, file);
+      await saveLocalAsset(projectId, asset.id, file);
       setAssets(current => [...current, asset]);
       if (applyTextureToSelectedObject && kind === 'image') {
         const target = entities.find(entity => entity.id === selection);
@@ -2774,6 +2815,10 @@ export default function BlankWorkspace() {
       setStatus('This Terrain cannot accept another edit. Each terrain supports up to 128 brush edits.');
       return;
     }
+    setActiveSceneTool({
+      label: action === 'raise' ? 'Raise Terrain' : action === 'lower' ? 'Lower Terrain' : 'Smooth Terrain',
+      Icon: action === 'raise' ? ArrowUp : action === 'lower' ? ArrowDown : Waves,
+    });
     setEntities(current => current.map(entity => entity.id === terrainId ? updated : entity));
     setSelection(terrainId);
     const label = action === 'raise' ? 'Raised' : action === 'lower' ? 'Lowered' : 'Smoothed';
@@ -2781,6 +2826,7 @@ export default function BlankWorkspace() {
   }, [entities]);
 
   const addTreesToTerrain = useCallback((terrainId: string, count = 3, spacing: TreeSpacing = 'normal') => {
+    setActiveSceneTool({ label: 'Add Trees', Icon: Trees });
     const terrain = entities.find(entity => entity.id === terrainId);
     if (!terrain) {
       setStatus('Select a Terrain in Hierarchy before adding trees.');
@@ -2812,6 +2858,7 @@ export default function BlankWorkspace() {
       setStatus('Water could not be added to this scene.');
       return;
     }
+    setActiveSceneTool({ label: 'Add Water', Icon: Droplets });
     setEntities(current => [...current, water]);
     setSelection(water.id);
     setStatus('Added an editable water surface to the selected Terrain.');
@@ -2879,6 +2926,13 @@ export default function BlankWorkspace() {
   return (
     <main className="fresh-layout" aria-label="Blank Madhorse workspace">
       <div className="fresh-toolbar" role="toolbar" aria-label="Workspace tools">
+        <button type="button" className="fresh-canvas-button" data-testid="button-canvas"
+          aria-pressed={canvasView} aria-controls="fresh-panel-1"
+          title={canvasView ? 'Return to the 3D scene view' : 'Show the live Game Camera canvas'}
+          disabled={playTestOn} onClick={() => setCanvasView(value => !value)}>
+          <Grid2X2 size={12} aria-hidden="true" /> Canvas
+        </button>
+        {projectControls(playTestOn || saveFailed)}
         <WorkspaceRenderSettings />
         <button
           type="button"
@@ -2923,16 +2977,20 @@ export default function BlankWorkspace() {
       {[1, 2, 3, 4, 5].map((number) => (
         <section
           key={number}
+          id={`fresh-panel-${number}`}
           className={`fresh-panel fresh-panel-${number}`}
           aria-label={`Panel ${number}`}
         >
           {number === 1 ? (
             <SceneViewport
+              projectName={projectName}
               entities={playTestOn ? runtimeEntities ?? entities : entities}
               assets={assets}
               assetUrls={assetUrls}
               camera={playTestOn ? runtimeCamera ?? camera : camera}
               isPlaying={playTestOn}
+              canvasView={canvasView}
+              activeTool={activeSceneTool}
               selection={selection}
               frameRequest={characterFrameRequest}
               onSelect={setSelection}
@@ -2956,6 +3014,8 @@ export default function BlankWorkspace() {
             />
           ) : number === 3 ? (
             <SettingsPanel
+              egoBox={<EgoPanelBox project={builderProject} camera={camera} selectedEntityId={selection}
+                interfaceContext={egoInterfaceContext} onOpen={() => setEgoOpen(true)} />}
               entity={editingEntity}
               selectedEntity={selectedEntity}
               entities={entities}
@@ -2988,6 +3048,7 @@ export default function BlankWorkspace() {
             </>
           ) : (
             <WorldToolsPanel
+              onActiveToolChange={setActiveSceneTool}
               activeToolset={panel5Toolset}
               onSelectToolset={setPanel5Toolset}
               onCreateTerrain={() => setPanel5Dialog('terrain')}
@@ -3092,7 +3153,7 @@ export default function BlankWorkspace() {
         >
           <section className="fresh-mad-builder-dialog" role="dialog" aria-modal="true" aria-label="Mad Builder">
             <MadBuilderMenu
-              key={FRESH_WORKSPACE_ID}
+              key={projectId}
               embedded
               onClose={() => setMadBuilderOpen(false)}
               onAddModule={addMadBuilderModule}
@@ -3112,6 +3173,7 @@ export default function BlankWorkspace() {
         >
           <section className="fresh-mad-builder-dialog ego-dialog" role="dialog" aria-modal="true" aria-label="Ego assistant">
             <EgoAssistant
+              interfaceContext={egoInterfaceContext}
               project={builderProject}
               animationsCount={animations.length}
               animationControllersCount={animationControllers.length}

@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client';
 
-import BlankWorkspace from './components/blank-workspace';
+import StudioProjects from './components/studio-projects';
 import VisionBoardPage from './components/vision-board-page';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { installSystemDiagnostics } from '@/lib/system-diagnostics';
@@ -19,6 +19,6 @@ createRoot(document.getElementById('root')!, {
   },
 }).render(
   <ErrorBoundary>
-    {isVisionBoardPage ? <VisionBoardPage /> : <BlankWorkspace />}
+    {isVisionBoardPage ? <VisionBoardPage /> : <StudioProjects />}
   </ErrorBoundary>,
 );

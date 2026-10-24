@@ -4,6 +4,7 @@ import { createEgoUiKit, egoGameTypes, egoPlayerActions, getEgoGameLabel } from 
 import { analyzeEgoGameVision } from '../src/lib/ego-game-language';
 import { createEgoWorkspaceContext } from '../src/lib/ego-workspace-context';
 import { createSceneEntity } from '../src/lib/scene-model';
+import { PRIMARY_CAMERA_ID } from '../src/lib/camera-editor';
 
 test('Ego includes shooter, kingdom strategy, and separate 2D/3D creature adventure profiles', () => {
   const values = new Set(egoGameTypes.map(type => type.value));
@@ -48,4 +49,18 @@ test('Ego guide reflects current selection, camera, scene objects, and reusable 
   assert.match(context.plannerSummary, /hero\.glb|asset IDs and names are supplied separately/);
   assert.ok(context.steps.some(step => step.includes('Panel 3')));
   assert.ok(context.steps.some(step => step.includes('Panel 5')));
+});
+
+test('Ego reads current project and interface mode without a pixel capture', () => {
+  const camera = { position: { x: 0, y: 6, z: -8 }, target: { x: 0, y: 0, z: 0 }, fov: 50 };
+  const ui = { projectName: 'My Game', view: 'canvas' as const, toolset: 'world' as const, activeTool: 'Raise terrain', inspectorName: null };
+  const context = createEgoWorkspaceContext({ entities: [], assets: [] }, PRIMARY_CAMERA_ID, camera, ui);
+  assert.equal(context.selectedName, 'Game Camera');
+  assert.match(context.interfaceSummary!, /My Game.*Canvas \/ Game Camera.*Raise terrain/);
+  assert.match(context.plannerSummary, /Project: My Game/);
+  assert.ok(context.steps.some(step => step.includes('Press Canvas again')));
+  const playContext = createEgoWorkspaceContext({ entities: [], assets: [] }, null, camera, { ...ui, view: 'play', inspectorName: 'Hero' });
+  assert.ok(playContext.steps.some(step => step.includes('Stop Play Test')));
+  assert.match(playContext.interfaceSummary!, /editing Hero/);
+  assert.ok(playContext.steps.some(step => step.includes('Press Settings')));
 });

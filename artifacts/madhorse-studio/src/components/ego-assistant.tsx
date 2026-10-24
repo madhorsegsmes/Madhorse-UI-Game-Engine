@@ -15,10 +15,12 @@ import {
 } from '@/lib/ego-ui-kit';
 import { egoGraphicsReferences } from '@/lib/ego-visual-quality';
 import './ego-graphics-references.css';
-import { createEgoWorkspaceContext } from '@/lib/ego-workspace-context';
+import { createEgoWorkspaceContext, type EgoInterfaceContext } from '@/lib/ego-workspace-context';
 import { parseVisionAttachments } from '@/lib/vision-node-content';
+import { studioProjectStorageKey } from '@/lib/studio-projects';
 
 type EgoAssistantProps = {
+  interfaceContext?: EgoInterfaceContext;
   project: BuilderDocument;
   animationsCount: number;
   animationControllersCount: number;
@@ -63,7 +65,7 @@ function projectScan(project: BuilderDocument, animationsCount: number, animatio
   for (const asset of project.assets) assetCounts[asset.kind]++;
   let boardCounts = { nodes: 0, images: 0, videos: 0, menus: 0, audio: 0 };
   try {
-    const savedPanels = JSON.parse(localStorage.getItem('madhorse.vision-board-panels.v2') ?? '[]') as unknown;
+    const savedPanels = JSON.parse(localStorage.getItem(studioProjectStorageKey('madhorse.vision-board-panels.v2')) ?? '[]') as unknown;
     if (Array.isArray(savedPanels)) {
       boardCounts = { nodes: savedPanels.length, images: 0, videos: 0, menus: 0, audio: 0 };
       for (const panel of savedPanels) {
@@ -97,6 +99,7 @@ function projectScan(project: BuilderDocument, animationsCount: number, animatio
 }
 
 export function EgoAssistant({
+  interfaceContext,
   project, animationsCount, animationControllersCount, onBuildVision, onBuildUi, onAddFunctions, scripts, camera, selectedEntityId,
   onCreateScript, onUpdateScript, onDeleteScript, onClose,
 }: EgoAssistantProps) {
@@ -110,7 +113,7 @@ export function EgoAssistant({
   const [sceneBuildResult, setSceneBuildResult] = useState('');
   const [activeTab, setActiveTab] = useState<'build' | 'guide' | 'scripts'>('build');
   const scan = projectScan(project, animationsCount, animationControllersCount);
-  const workspaceContext = createEgoWorkspaceContext(project, selectedEntityId, camera);
+  const workspaceContext = createEgoWorkspaceContext(project, selectedEntityId, camera, interfaceContext);
   const gameLabel = getEgoGameSelectionLabel(gameTypes);
   const visionAnalysis = analyzeEgoGameVision(gameVision);
   const visiblePhrases = egoGameLanguageLibrary.filter((entry) =>
@@ -254,6 +257,7 @@ export function EgoAssistant({
               </div>
               <p><b>Selected:</b> {workspaceContext.selectedName ?? 'Nothing selected'} · <Camera size={12} aria-hidden="true" /> <b>Game Camera:</b> {workspaceContext.cameraSummary}</p>
               <p><b>Scene View:</b> {workspaceContext.visibleNames.length ? workspaceContext.visibleNames.join(' · ') : 'No active objects yet'}</p>
+              {workspaceContext.interfaceSummary && <p data-testid="ego-interface-summary">{workspaceContext.interfaceSummary}</p>}
               <div className="ego-editor-assets">
                 <b>Image/model assets Mad Builder can reuse:</b>
                 {workspaceContext.assets.length ? workspaceContext.assets.map(asset => (

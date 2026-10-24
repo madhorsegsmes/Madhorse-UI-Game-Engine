@@ -55,6 +55,10 @@
 }
 
 .mh-scene3d__eyebrow {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   grid-column: 1 / -1;
   color: #c74a41;
   font-size: 8px;

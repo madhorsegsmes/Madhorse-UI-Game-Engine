@@ -4,6 +4,8 @@ import { OrbitControls, TransformControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { SceneWebGLBoundary } from '../scene-webgl-boundary';
 import type { ModelingDocument } from '@/lib/modeling-document';
+import { Bone, Brush, MousePointer2, Move3D, Rotate3D, Scaling, Waves } from 'lucide-react';
+import { SceneToolCursor } from '../scene-tool-cursor';
 
 export type ModelingTool = 'select' | 'sculpt' | 'smooth' | 'weights';
 export type ModelingTransformMode = 'translate' | 'rotate' | 'scale';
@@ -221,7 +223,25 @@ export type ModelingViewportProps = {
 };
 
 export function ModelingViewport(props: ModelingViewportProps) {
-  return <SceneWebGLBoundary fallback={
+  const host = useRef<HTMLDivElement>(null);
+  const tool = useMemo(() => {
+    if (props.tool === 'select' && props.selected) {
+      return {
+        translate: { label: 'Move model', Icon: Move3D },
+        rotate: { label: 'Rotate model', Icon: Rotate3D },
+        scale: { label: 'Scale model', Icon: Scaling },
+      }[props.transformMode];
+    }
+    return {
+      select: { label: 'Select model', Icon: MousePointer2 },
+      sculpt: { label: 'Sculpt', Icon: Brush },
+      smooth: { label: 'Smooth mesh', Icon: Waves },
+      weights: { label: 'Paint rig weights', Icon: Bone },
+    }[props.tool];
+  }, [props.tool, props.selected, props.transformMode]);
+  return <div ref={host} style={{ position: 'relative', width: '100%', height: '100%', minHeight: 0 }}>
+    <SceneToolCursor host={host} tool={tool} />
+    <SceneWebGLBoundary fallback={
     <div className="modeling-viewport-fallback" role="status">
       <strong>WebGL 2 is unavailable in this browser</strong>
       <p>Enable hardware acceleration for the interactive model, rig overlay, and brush tools.</p>
@@ -232,5 +252,5 @@ export function ModelingViewport(props: ModelingViewportProps) {
       onPointerMissed={() => props.onStrokeEnd()}>
       <ModelScene {...props} />
     </Canvas>
-  </SceneWebGLBoundary>;
+  </SceneWebGLBoundary></div>;
 }

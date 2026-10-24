@@ -11,6 +11,7 @@ import { TextureLoader } from 'three';
 import { SceneWebGLBoundary } from './scene-webgl-boundary';
 import { SceneRenderFallback } from './scene-render-fallback';
 import { FloatingTransformToolbar } from './floating-transform-toolbar';
+import { SceneToolCursor, type SceneCursorTool } from './scene-tool-cursor';
 import { useSceneRenderSettings } from '@/hooks/use-scene-render-settings';
 import { publishDiagnostic } from '@/lib/system-diagnostics';
 import { getSceneObjectTypeLabel, SceneObjectGlyph } from './scene-object-glyph';
@@ -45,6 +46,8 @@ export type SceneFrameRequest = { targetId: string; token: number };
 const MIN_SCENE_ZOOM = 25;
 const MAX_SCENE_ZOOM = 400;
 export type ScenePreview3DProps = {
+  projectName?: string;
+  activeTool?: SceneCursorTool | null;
   primaryCamera?: GameCamera;
   gameView?: boolean;
   gameCamera?: GameCamera;
@@ -164,6 +167,8 @@ function TriggerZoneOutline({ zone }: { zone: TriggerZoneComponent }) {
 }
 
 export function ScenePreview3D({
+  projectName,
+  activeTool,
   primaryCamera,
   gameView = false,
   gameCamera,
@@ -333,7 +338,9 @@ export function ScenePreview3D({
       data-scene-entity-count={entities.length} data-scene-zoom={gameView ? undefined : zoom}>
       {!gameView && <header className="mh-scene3d__toolbar">
         <div className="mh-scene3d__heading">
-          <span className="mh-scene3d__eyebrow">VIEWPORT / 01</span>
+          <span className="mh-scene3d__eyebrow" data-testid="scene-project-name" title={projectName}>
+            {projectName || 'Name your project'}
+          </span>
           <strong>Scene view</strong>
           <span className="mh-scene3d__selection" data-testid="scene3d-selection"
             title={selected ? `${getSceneObjectTypeLabel(selected)} · ${selected.name}` : undefined}>
@@ -373,6 +380,7 @@ export function ScenePreview3D({
           ));
         }}
       >
+        {!gameView && !readOnly && <SceneToolCursor host={rootRef} tool={activeTool} />}
         {!gameView && <FloatingTransformToolbar anchor={rootRef}>
           {modeButtons.map(({ mode, label, shortcut, icon }) => (
             <button

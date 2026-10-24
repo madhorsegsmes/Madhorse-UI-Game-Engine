@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowLeft, Bot, Globe2, Plus, Store, X } from 'lucide-react';
 import { VisionNodeCardContent, VisionNodeEditor } from './vision-node-editor';
+import { studioProjectStorageKey } from '@/lib/studio-projects';
 import {
   createBasicVisionNodes, createVisionMenu, defaultVisionEffects, parseVisionAttachments, visionBoardHasFinish,
   type VisionAttachmentRole, type VisionNodeContent, type VisionPanelKind,
@@ -25,10 +26,10 @@ type VisionPanelPointer = {
   bounds: VisionPanelBounds;
 };
 
-const VISION_PANEL_STORAGE_KEY = 'madhorse.vision-board-panels.v2';
-const LEGACY_PANEL_STORAGE_KEY = 'madhorse.vision-board-panel.v1';
-const VISION_BOARDS_STORAGE_KEY = 'madhorse.vision-boards.v1';
-const VISION_ACTIVE_BOARD_KEY = 'madhorse.vision-active-board.v1';
+const VISION_PANEL_STORAGE_KEY = studioProjectStorageKey('madhorse.vision-board-panels.v2');
+const LEGACY_PANEL_STORAGE_KEY = studioProjectStorageKey('madhorse.vision-board-panel.v1');
+const VISION_BOARDS_STORAGE_KEY = studioProjectStorageKey('madhorse.vision-boards.v1');
+const VISION_ACTIVE_BOARD_KEY = studioProjectStorageKey('madhorse.vision-active-board.v1');
 const VISION_MEDIA_DB = 'madhorse-vision-board-media-v1';
 const VISION_MEDIA_STORE = 'media';
 const NEW_PANEL_WIDTH = 280;

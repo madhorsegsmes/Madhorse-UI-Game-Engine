@@ -1,0 +1,15 @@
+.fresh-ego-box { flex: none; padding: 9px; border: 1px solid #685080; background: linear-gradient(140deg, #21152c, #100e19); color: #e6daf1; font: 10px/1.4 system-ui, sans-serif; }
+.fresh-ego-box header { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.fresh-ego-box header img { width: 28px; height: 28px; object-fit: cover; border: 1px solid #765791; }
+.fresh-ego-box header div { display: grid; flex: 1; min-width: 0; }
+.fresh-ego-box header strong { font-size: 13px; }
+.fresh-ego-box header strong small { color: #a7dbbd; font-size: 8px; font-weight: 400; }
+.fresh-ego-box header span { color: #bca5d1; font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fresh-ego-box dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 8px; margin: 0; }
+.fresh-ego-box dl div { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 4px; }
+.fresh-ego-box dt { color: #aa92be; }
+.fresh-ego-box dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fresh-ego-box p { margin: 6px 0 0; color: #ad9bbf; font-size: 9px; }
+.fresh-ego-box button { display: flex; flex: none; gap: 3px; align-items: center; padding: 5px; border: 1px solid #8863a3; background: #30203f; color: #f4e9ff; font: inherit; cursor: pointer; }
+.fresh-ego-box button:hover { background: #412b54; }
+.fresh-ego-box button:focus-visible { outline: 2px solid #d6a0ff; outline-offset: 2px; }
