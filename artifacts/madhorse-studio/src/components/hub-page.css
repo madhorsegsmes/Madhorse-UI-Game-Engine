@@ -160,17 +160,15 @@
 .hub-card-top { display: flex; align-items: center; justify-content: space-between; color: #aaa3a0; font: 8px "DM Mono", monospace; letter-spacing: .12em; }
 .hub-card-index { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid #4b3735; color: #d5745d; }
 .hub-card-graphic { height: 126px; position: relative; margin: 15px 0 14px; overflow: hidden; border: 1px solid rgba(255,255,255,.07); }
-.hub-graphic-studio { background: linear-gradient(145deg, #241f20, #151517 70%); }
-.hub-mini-window { position: absolute; top: 16px; left: 8%; right: 8%; height: 82px; border: 1px solid #63504d; background: #101113; }
-.hub-mini-window > span { display: inline-block; width: 3px; height: 3px; margin: 7px 0 0 7px; border-radius: 50%; background: #c85345; }
-.hub-mini-scene { position: absolute; left: 18%; top: 42px; width: 49%; height: 46px; overflow: hidden; border: 1px solid #543b39; background: linear-gradient(150deg, #452c29, #181719 63%); }
-.hub-mini-scene::after { position: absolute; left: -10%; bottom: -15px; width: 120%; height: 35px; content: ""; border-top: 1px solid #b75b4a; transform: perspective(70px) rotateX(48deg); background-image: linear-gradient(#c66754 1px, transparent 1px), linear-gradient(90deg, #c66754 1px, transparent 1px); background-size: 16px 11px; opacity: .45; }
-.hub-mini-scene i { position: relative; z-index: 1; display: inline-block; width: 10px; height: 20px; margin: 16px 4px 0; background: #5c423e; }
-.hub-mini-scene i:nth-child(2) { height: 29px; }
-.hub-mini-scene b { position: absolute; z-index: 1; top: 5px; right: 15%; width: 14px; height: 14px; border-radius: 50%; background: #d17b5c; box-shadow: 0 0 15px #d17b5c77; }
-.hub-mini-inspector { position: absolute; top: 40px; right: 12%; width: 20%; display: grid; gap: 6px; }
-.hub-mini-inspector span { height: 3px; background: #6d5652; }
-.hub-mini-inspector span:nth-child(2) { width: 75%; background: #a84e41; }
+.hub-graphic-fighting { height: 158px; background: #111318; }
+.hub-fight-screen { position: absolute; inset: 0; overflow: hidden; background: #111318; }
+.hub-fight-toolbar { height: 22px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 8px; border-bottom: 1px solid #383337; background: linear-gradient(90deg, #20191d, #17181c); color: #aaa2a0; font: 7px "DM Mono", monospace; letter-spacing: .08em; }
+.hub-fight-toolbar > span { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.hub-fight-toolbar > span:first-child { color: #e7dfdb; }
+.hub-fight-toolbar > span:first-child i { width: 5px; height: 5px; border-radius: 50%; background: #df584c; box-shadow: 0 0 7px #df584c; }
+.hub-fight-toolbar b { color: #be564c; font-weight: 400; }
+.hub-fight-svg { display: block; width: 100%; height: calc(100% - 22px); }
+.hub-fight-corner { position: absolute; right: 8px; bottom: 7px; padding: 3px 5px; border: 1px solid #71605e; background: #111318d9; color: #d5c7c0; font: 6px "DM Mono", monospace; letter-spacing: .1em; }
 .hub-graphic-vision { background: radial-gradient(ellipse at 85% 12%, rgba(180,73,57,.25), transparent 55%), #19181a; }
 .hub-graphic-vision::before { position: absolute; inset: 0; content: ""; opacity: .28; background-image: linear-gradient(rgba(235,226,219,.11) 1px, transparent 1px), linear-gradient(90deg, rgba(235,226,219,.11) 1px, transparent 1px); background-size: 22px 22px; }
 .hub-board-note { position: absolute; z-index: 2; left: 25%; top: 18px; width: 105px; height: 87px; display: flex; flex-direction: column; gap: 7px; padding: 10px; border: 1px solid #7c4b41; background: #292324; transform: rotate(-4deg); box-shadow: 0 8px 19px #0007; }

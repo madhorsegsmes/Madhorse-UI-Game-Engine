@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Crosshair, Puzzle, Swords, X } from 'lucide-react';
 import { gameStarterKits, type GameStarterKitId } from '@/lib/scene-starter-kits';
 
-const icons = { shooter: Crosshair, rpg: Swords, puzzle: Puzzle };
+const icons = { shooter: Crosshair, rpg: Swords, puzzle: Puzzle, fighting: Swords };
 
 export function GameStarterKitDialog({ onAdd, onClose }: {
   onAdd: (kit: GameStarterKitId) => void;

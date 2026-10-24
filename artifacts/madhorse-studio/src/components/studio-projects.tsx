@@ -6,6 +6,47 @@ import { exportStudioProject } from '@/lib/project-file';
 import type { FreshWorkspaceSnapshot } from '@/lib/fresh-workspace-storage';
 import './studio-projects.css';
 import { getSystemActivity, subscribeSystemActivity } from '@/lib/system-activity';
+import { createEgoUiKit } from '@/lib/ego-ui-kit';
+import { createGameCamera } from '@/lib/game-camera';
+import { createGameStarterKit } from '@/lib/scene-starter-kits';
+import { removeFreshWorkspace, saveFreshWorkspace } from '@/lib/fresh-workspace-storage';
+
+const fightingStarterVision = 'A 2D side-view fighting game with a player, a training rival, editable combat actions, and a round HUD.';
+
+function createFightingStarterSnapshot(projectName: string): FreshWorkspaceSnapshot {
+  const starter = createGameStarterKit('fighting', { x: -15, y: 50, z: 0 });
+  const camera = createGameCamera(starter.entities);
+  camera.position = { x: 0, y: 1.2, z: -17 };
+  camera.target = { x: 0, y: 1.2, z: 0 };
+  camera.fov = 42;
+  camera.placement = 'custom';
+  const uiControls = createEgoUiKit(['fighting'], 0)
+    .filter(control => control.type === 'health-bar' || control.type === 'text');
+  return {
+    projectName,
+    egoGameVision: fightingStarterVision,
+    egoGameFlow: 'undecided',
+    egoGameNotes: 'Move with A and D. Strike with F, block with Control, run with Shift, and crouch with C. Use Play Test to try the arena.',
+    entities: starter.entities,
+    camera,
+    assets: [],
+    animations: [],
+    animationControllers: [],
+    builderHistory: [],
+    builderDraft: null,
+    builderDraftRequest: '',
+    builderBuildLogs: [],
+    prefabs: [],
+    uiControls,
+    scripts: [],
+  };
+}
+
+function clearFightingStarterRequest() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('starter');
+  window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+}
 
 export default function StudioProjects() {
   const [initial] = useState(() => {
@@ -14,8 +55,13 @@ export default function StudioProjects() {
   });
   const [registry, setRegistry] = useState<StudioProjectRegistry | null>(initial.registry);
   const active = registry?.projects.find(project => project.id === registry.activeId);
-  const [mode, setMode] = useState<'name' | 'new' | 'rename' | null>(() => active?.name ? null : 'name');
-  const [draft, setDraft] = useState('');
+  const [mode, setMode] = useState<'name' | 'new' | 'rename' | 'template' | null>(() => {
+    if (new URLSearchParams(window.location.search).get('starter') === '2d-fighting') return 'template';
+    return active?.name ? null : 'name';
+  });
+  const [draft, setDraft] = useState(() =>
+    new URLSearchParams(window.location.search).get('starter') === '2d-fighting' ? 'My 2D Fighting Game' : '',
+  );
   const [error, setError] = useState(initial.error);
   const [savingProject, setSavingProject] = useState(false);
   const [exportStatus, setExportStatus] = useState<{ kind: 'progress' | 'success' | 'error'; message: string } | null>(null);
@@ -35,6 +81,34 @@ export default function StudioProjects() {
     let name: string;
     try { name = validateProjectName(draft); } catch (cause) { setError((cause as Error).message); return; }
     if (!registry || !active) return;
+    if (mode === 'template') {
+      if (registry.projects.length >= 200) {
+        setError('This browser has reached the 200-project limit. Remove or export a project before creating another.');
+        return;
+      }
+      const id = crypto.randomUUID();
+      try {
+        saveFreshWorkspace(createFightingStarterSnapshot(name), id);
+        const next: StudioProjectRegistry = {
+          activeId: id,
+          projects: [...registry.projects, { id, name }],
+        };
+        if (!persist(next)) {
+          removeFreshWorkspace(id);
+          return;
+        }
+        clearFightingStarterRequest();
+        setMode(null);
+        setDraft('');
+        setExportStatus(null);
+      } catch (cause) {
+        try { removeFreshWorkspace(id); } catch { /* Storage may be unavailable. Existing project data stays untouched. */ }
+        setError(cause instanceof Error
+          ? `The fighting-game starter could not be saved. Existing projects were left untouched. ${cause.message}`
+          : 'The fighting-game starter could not be saved. Existing projects were left untouched.');
+      }
+      return;
+    }
     if (mode === 'new' && activity.pending > 0) { setError('Wait for the current operation to finish before creating another project.'); return; }
     const id = mode === 'new' ? crypto.randomUUID() : active.id;
     const next = mode === 'new'
@@ -98,7 +172,12 @@ export default function StudioProjects() {
     {mode && <div className="studio-project-backdrop">
       <form className="studio-project-dialog" role="dialog" aria-modal="true" aria-labelledby="project-name-heading"
         onSubmit={submit} onKeyDown={event => {
-          if (event.key === 'Escape' && mode !== 'name') { event.stopPropagation(); setMode(null); setError(''); }
+          if (event.key === 'Escape' && mode !== 'name') {
+            event.stopPropagation();
+            if (mode === 'template') clearFightingStarterRequest();
+            setMode(null);
+            setError('');
+          }
           if (event.key === 'Tab') {
             const controls = [...event.currentTarget.querySelectorAll<HTMLElement>('input, button')];
             const first = controls[0], last = controls.at(-1);
@@ -106,16 +185,24 @@ export default function StudioProjects() {
             if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
           }
         }}>
-        <h2 id="project-name-heading">{mode === 'new' ? 'New project' : mode === 'rename' ? 'Rename project' : 'Name your project'}</h2>
-        <p>{mode === 'new' ? 'Your current project stays saved in this browser.' : 'This name will appear above the scene view. Your scene and files will be kept.'}</p>
+        <h2 id="project-name-heading">{mode === 'template' ? 'Name your 2D fighting game' : mode === 'new' ? 'New project' : mode === 'rename' ? 'Rename project' : 'Name your project'}</h2>
+        <p>{mode === 'template'
+          ? 'This creates a separate project with a fighting arena, two editable fighters, combat controls, and a Play Test HUD. Your other saved projects stay untouched.'
+          : mode === 'new'
+            ? 'Your current project stays saved in this browser.'
+            : 'This name will appear above the scene view. Your scene and files will be kept.'}</p>
         <label>Project name
           <input autoFocus required maxLength={80} value={draft} onChange={event => setDraft(event.target.value)}
             aria-describedby={error ? 'project-name-error' : undefined} />
         </label>
         {error && <p id="project-name-error" role="alert">{error}</p>}
         <footer>
-          {mode !== 'name' && <button type="button" onClick={() => { setMode(null); setError(''); }}>Cancel</button>}
-          <button type="submit">{mode === 'new' ? 'Create project' : 'Save name'}</button>
+          {mode !== 'name' && <button type="button" onClick={() => {
+            if (mode === 'template') clearFightingStarterRequest();
+            setMode(null);
+            setError('');
+          }}>Cancel</button>}
+          <button type="submit">{mode === 'template' ? 'Create fighting game' : mode === 'new' ? 'Create project' : 'Save name'}</button>
         </footer>
       </form>
     </div>}

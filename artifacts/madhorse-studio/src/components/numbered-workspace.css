@@ -172,6 +172,19 @@ body::-webkit-scrollbar-thumb,
 .fresh-action-hud .fresh-action-key.is-held { background: #55356b; border-color: #c18fe9; }
 .fresh-action-hud kbd { color: #d1a8f5; font: 10px monospace; }
 .fresh-action-hud p { margin: 4px 0; }
+.fresh-fight-match { margin: 0 0 8px; padding: 7px; border: 1px solid #4f3b59; background: linear-gradient(115deg,#21121e,#171927); }
+.fresh-fight-match > header { margin-bottom: 6px; color: #edca7a; text-align: center; font-size: 10px; font-weight: 800; letter-spacing: 1.1px; }
+.fresh-fight-health-row { display: grid; grid-template-columns: 1fr 25px 1fr; align-items: center; gap: 7px; }
+.fresh-fight-health-row > div { min-width: 0; }
+.fresh-fight-health-row > div > span { display: block; overflow: hidden; margin-bottom: 3px; color: #ece5e9; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
+.fresh-fight-health-row > strong { color: #a998a6; text-align: center; font-size: 9px; }
+.fresh-fight-health-track, .fresh-fight-meter { display: block; height: 7px; overflow: hidden; border: 1px solid #55464f; background: #16131a; }
+.fresh-fight-health-track > i, .fresh-fight-meter > i { display: block; height: 100%; transition: width 100ms linear; }
+.fresh-fight-health-track.is-player > i { background: linear-gradient(90deg,#a62b36,#f27960); }
+.fresh-fight-health-track.is-rival > i { margin-left: auto; background: linear-gradient(90deg,#5a91d6,#3060a8); }
+.fresh-fight-meter-row { display: grid; grid-template-columns: auto minmax(30px,1fr) auto; align-items: center; gap: 7px; margin-top: 7px; color: #ccb9d5; font-size: 8px; font-weight: 700; letter-spacing: .6px; }
+.fresh-fight-meter > i { background: linear-gradient(90deg,#a15ce3,#f3ca6b); }
+.fresh-fight-meter-row > b { color: #efd69b; font-size: 8px; white-space: nowrap; }
 .fresh-action-health { margin: 5px 0; }
 .fresh-action-health-track { height: 8px; background: #3b2937; border-radius: 5px; overflow: hidden; }
 .fresh-action-health-track > span { display: block; height: 100%; background: linear-gradient(90deg,#ef5260,#ff9f68); }

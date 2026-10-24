@@ -146,7 +146,7 @@ export const egoPlayerActions: Record<EgoGameType, PlayerActionName[]> = {
   'kart-racing': ['race'],
   'car-racing': ['race'],
   sports: ['run'],
-  fighting: ['fight', 'block'],
+  fighting: ['light-attack', 'heavy-attack', 'special-attack', 'block', 'run', 'crouch'],
   rts: ['command', 'gather', 'build'],
   card: ['draw-card', 'play-card', 'end-turn'],
   mmo: ['fight', 'cast', 'heal', 'follow'],

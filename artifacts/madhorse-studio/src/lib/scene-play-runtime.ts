@@ -7,7 +7,7 @@ import {
   type VisualLogicNode,
 } from './scene-model';
 import {
-  advancePlayerActions, createPlayerActionRuntimeState, resolveActionMovement,
+  advancePlayerActions, createPlayerActionRuntimeState, getPlayerActions, resolveActionMovement,
   type ActionAudioEvent, type ActionHud, type PlayerActionRuntimeState,
 } from './player-action-runtime';
 
@@ -59,7 +59,7 @@ export function createSceneRuntimeState(entities: SceneEntity[], preferredPlayer
     contacts: new Set(),
     jumpVelocity: new Map(),
     patrolOrigins,
-    actions: createPlayerActionRuntimeState(),
+    actions: createPlayerActionRuntimeState(entities),
     controlledPlayerId: preferredPlayerId,
     animationAction: null,
     animationActionUntil: 0,
@@ -90,12 +90,16 @@ export function advanceSceneRuntime(
   if (player) state.controlledPlayerId = player.id;
   const playerController = player ? getController(player) : undefined;
   const playerWorld = player ? getWorldTransform(entities, player.id) : null;
-  const actionMotion = player ? resolveActionMovement(player, input, state.actions, dt) : null;
+  const fighterMode = player ? getPlayerActions(player).some(action =>
+    ['light-attack', 'heavy-attack', 'special-attack'].includes(action.action),
+  ) : false;
+  const playerInput = fighterMode ? { ...input, moveY: 0 } : input;
+  const actionMotion = player ? resolveActionMovement(player, playerInput, state.actions, dt) : null;
   const pressedKeys = new Set(input.pressedKeys ?? []);
   const pressedAction = actionMotion?.actions.find(action =>
-    pressedKeys.has(action.key) && ['fight', 'cast', 'shoot'].includes(action.action),
+    pressedKeys.has(action.key) && ['fight', 'light-attack', 'heavy-attack', 'special-attack', 'cast', 'shoot'].includes(action.action),
   );
-  const nextAnimationAction = pressedAction?.action === 'fight' ? 'attack'
+  const nextAnimationAction = pressedAction && ['fight', 'light-attack', 'heavy-attack', 'special-attack'].includes(pressedAction.action) ? 'attack'
     : pressedAction?.action === 'cast' ? 'cast'
       : pressedAction?.action === 'shoot' ? 'shoot' : null;
   if (input.jumpPressed) {
@@ -109,7 +113,7 @@ export function advanceSceneRuntime(
   const animationState = actionMotion?.driving ? 'drive'
     : activeAnimationAction ? activeAnimationAction
       : actionMotion?.running ? 'run'
-        : input.moveX !== 0 || input.moveY !== 0 ? 'walk'
+        : playerInput.moveX !== 0 || playerInput.moveY !== 0 ? 'walk'
           : 'idle';
 
   const moved = entities.map(entity => {
@@ -120,10 +124,27 @@ export function advanceSceneRuntime(
     let nextScale = transform.scale;
     let nextRotation = transform.rotation;
     if (controller.role === 'player' && player?.id === entity.id && controller.behavior === 'direct-control') {
-      const length = Math.hypot(input.moveX, input.moveY) || 1;
+      const length = Math.hypot(playerInput.moveX, playerInput.moveY) || 1;
       const speed = controller.moveSpeed * (actionMotion?.speedMultiplier ?? 1);
-      nextPosition.x += actionMotion?.driving ? actionMotion.dx : input.moveX / length * speed * dt * 10;
-      nextPosition.y += actionMotion?.driving ? actionMotion.dy : input.moveY / length * speed * dt * 10;
+      nextPosition.x += actionMotion?.driving ? actionMotion.dx : playerInput.moveX / length * speed * dt * 10;
+      nextPosition.y += actionMotion?.driving ? actionMotion.dy : playerInput.moveY / length * speed * dt * 10;
+      if (fighterMode) {
+        const targetId = getPlayerActions(entity).find(action =>
+          ['light-attack', 'heavy-attack', 'special-attack'].includes(action.action) && action.targetId,
+        )?.targetId;
+        const target = targetId ? entities.find(candidate => candidate.id === targetId) : undefined;
+        const targetPosition = target ? getWorldTransform(entities, target.id)?.position : undefined;
+        if (targetPosition && Math.abs(targetPosition.x - transform.position.x) > 0.5) {
+          nextRotation = { ...transform.rotation, z: targetPosition.x > transform.position.x ? 90 : -90 };
+        }
+        const stage = entities.find(candidate => candidate.name === 'Fighting Stage Floor' && candidate.active);
+        const stageTransform = stage ? getWorldTransform(entities, stage.id) : null;
+        const stageScale = stage ? getTransform(stage).scale.x : 0;
+        if (stageTransform && stageScale > 0) {
+          const halfWidth = Math.max(0, stageScale * 5 - transform.scale.x * 5 - 3);
+          nextPosition.x = Math.max(stageTransform.position.x - halfWidth, Math.min(stageTransform.position.x + halfWidth, nextPosition.x));
+        }
+      }
       if (actionMotion) {
         nextScale = {
           ...actionMotion.current.baseScale,
@@ -160,6 +181,11 @@ export function advanceSceneRuntime(
       const dx = playerWorld.position.x - transform.position.x;
       const dy = playerWorld.position.y - transform.position.y;
       const distanceMeters = Math.hypot(dx, dy) / 10;
+      if (getPlayerActions(entity).some(action =>
+        ['light-attack', 'heavy-attack', 'special-attack'].includes(action.action),
+      ) && Math.abs(dx) > 0.5) {
+        nextRotation = { ...transform.rotation, z: dx > 0 ? 90 : -90 };
+      }
       if (distanceMeters > controller.followDistance && distanceMeters > 0.001) {
         const step = Math.min(distanceMeters - controller.followDistance, controller.moveSpeed * dt) * 10 / Math.hypot(dx, dy);
         nextPosition.x += dx * step;

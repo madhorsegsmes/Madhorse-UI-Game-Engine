@@ -14,6 +14,14 @@ export type ActionHud = {
   showInventory: boolean; inventoryText: string;
   resourceText: string;
   message: string;
+  showFightingHud: boolean;
+  matchStatus: string;
+  opponentName: string;
+  opponentHealth: number;
+  opponentMaxHealth: number;
+  comboCount: number;
+  specialMeter: number;
+  maxSpecialMeter: number;
 };
 type PlayerState = {
   baseScale: Vector3; groundZ: number; heading: number; driving: boolean; speed: number;
@@ -22,15 +30,37 @@ type PlayerState = {
   lastContactDamage: number; lastHealthUpdate: number;
   lastUse: Map<string, number>; lastMoveSound: number; wasCrouching: boolean; feedback: string;
   genre: GenreResources;
+  comboCount: number; lastComboAt: number; specialMeter: number; maxSpecialMeter: number;
+  roundTime: number; roundNumber: number; playerRoundsWon: number; rivalRoundsWon: number;
+  roundBreakUntil: number; matchOver: boolean; matchMessage: string; lastMatchTick: number;
+  opponentId: string | null;
 };
 export type PlayerActionRuntimeState = {
   players: Map<string, PlayerState>; health: Map<string, number>;
   doors: Map<string, boolean>;
   orders: Map<string, Vector3>;
   effects: Map<string, { entity: SceneEntity; until: number }>; effectIds: Set<string>; builtCount: number;
+  spawnPositions: Map<string, Vector3>;
+  npcLastAttack: Map<string, number>;
+  npcAttackCount: Map<string, number>;
 };
-export function createPlayerActionRuntimeState(): PlayerActionRuntimeState {
-  return { players: new Map(), health: new Map(), doors: new Map(), orders: new Map(), effects: new Map(), effectIds: new Set(), builtCount: 0 };
+const FIGHTING_ATTACKS = new Set<PlayerActionName>(['fight', 'light-attack', 'heavy-attack', 'special-attack']);
+const ROSTER_ATTACKS = new Set<PlayerActionName>(['light-attack', 'heavy-attack', 'special-attack']);
+
+export function createPlayerActionRuntimeState(entities: SceneEntity[] = []): PlayerActionRuntimeState {
+  const spawnPositions = new Map<string, Vector3>();
+  for (const entity of entities) {
+    if (entity.components.some(component =>
+      component.type === 'characterController' && component.enabled && (component.role === 'player' || component.role === 'npc'),
+    )) {
+      spawnPositions.set(entity.id, { ...getTransform(entity).position });
+    }
+  }
+  return {
+    players: new Map(), health: new Map(), doors: new Map(), orders: new Map(),
+    effects: new Map(), effectIds: new Set(), builtCount: 0, spawnPositions,
+    npcLastAttack: new Map(), npcAttackCount: new Map(),
+  };
 }
 export function getGameFeatures(entity: SceneEntity): GameFeatureComponent[] {
   return entity.components.filter((component): component is GameFeatureComponent =>
@@ -63,6 +93,15 @@ function getPlayerState(entity: SceneEntity, state: PlayerActionRuntimeState) {
       maxHealth, spawn: { ...transform.position }, checkpoint: null, lastContactDamage: -Infinity, lastHealthUpdate: 0,
       lastUse: new Map(), lastMoveSound: -Infinity, wasCrouching: false, feedback: '',
       genre: createGenreResources(actions),
+      comboCount: 0, lastComboAt: -Infinity,
+      specialMeter: Math.min(
+        Number(actions.find(action => action.action === 'special-attack')?.settings.startingMeter ?? 0),
+        Number(actions.find(action => action.action === 'special-attack')?.settings.meterMax ?? 100),
+      ),
+      maxSpecialMeter: Number(actions.find(action => action.action === 'special-attack')?.settings.meterMax ?? 100),
+      roundTime: 99, roundNumber: 1, playerRoundsWon: 0, rivalRoundsWon: 0,
+      roundBreakUntil: 0, matchOver: false, matchMessage: '', lastMatchTick: 0,
+      opponentId: actions.find(action => ROSTER_ATTACKS.has(action.action) && action.targetId)?.targetId ?? null,
     };
     state.players.set(entity.id, current);
   }
@@ -168,6 +207,61 @@ export function advancePlayerActions(
     if (lastFeedback !== message) events.push({ zoneId: player.id, message });
     lastFeedback = message;
   };
+  const fightingActions = actions.filter(action => ROSTER_ATTACKS.has(action.action));
+  const opponentId = fightingActions.find(action => action.targetId)?.targetId ?? current.opponentId;
+  const isFightingMatch = fightingActions.length > 0 && Boolean(opponentId);
+  if (isFightingMatch) current.opponentId = opponentId;
+  const awardRound = (winner: 'player' | 'rival', reason: string) => {
+    if (!isFightingMatch || current.matchOver || current.roundBreakUntil > now) return;
+    if (winner === 'player') current.playerRoundsWon += 1;
+    else current.rivalRoundsWon += 1;
+    const score = `${current.playerRoundsWon}–${current.rivalRoundsWon}`;
+    const wonMatch = current.playerRoundsWon >= 2 || current.rivalRoundsWon >= 2;
+    current.matchMessage = wonMatch
+      ? `${winner === 'player' ? 'PLAYER' : 'RIVAL'} WINS THE MATCH · ${score}`
+      : `${winner === 'player' ? 'PLAYER' : 'RIVAL'} WINS ROUND ${current.roundNumber} · ${reason} · ${score}`;
+    current.matchOver = wonMatch;
+    current.roundBreakUntil = wonMatch ? 0 : now + 2.4;
+    current.comboCount = 0;
+    say(current.matchMessage);
+  };
+  if (isFightingMatch) {
+    if (!current.lastMatchTick) current.lastMatchTick = now;
+    const tick = Math.min(0.25, Math.max(0, now - current.lastMatchTick));
+    current.lastMatchTick = now;
+    if (!current.matchOver && current.roundBreakUntil === 0) {
+      current.roundTime = Math.max(0, current.roundTime - tick);
+      if (current.roundTime === 0) {
+        const rival = opponentId ? next.find(entity => entity.id === opponentId) : undefined;
+        const rivalHealth = rival ? targetHealth(rival, state) : 0;
+        awardRound(current.health >= rivalHealth ? 'player' : 'rival', 'TIME');
+      }
+    }
+    if (!current.matchOver && current.roundBreakUntil > 0 && now >= current.roundBreakUntil) {
+      const rival = opponentId ? next.find(entity => entity.id === opponentId) : undefined;
+      current.roundNumber += 1;
+      current.roundTime = 99;
+      current.roundBreakUntil = 0;
+      current.lastMatchTick = now;
+      current.comboCount = 0;
+      current.health = current.maxHealth;
+      state.health.set(player.id, current.health);
+      if (rival) state.health.set(rival.id, targetMaxHealth(rival));
+      next = next.map(entity => {
+        if (entity.id !== player.id && entity.id !== opponentId) return entity;
+        const spawn = state.spawnPositions.get(entity.id);
+        return {
+          ...entity,
+          active: true,
+          components: spawn ? entity.components.map(component => component.type === 'transform'
+            ? { ...component, position: { ...spawn } }
+            : component) : entity.components,
+        };
+      });
+      state.npcLastAttack.delete(opponentId ?? '');
+      say(`ROUND ${current.roundNumber} — FIGHT!`);
+    }
+  }
   const moving = motion.driving ? Math.abs(current.speed) > 0.2 : Math.hypot(input.moveX, input.moveY) > 0;
   const movementSound = actions.find(action => motion.driving ? action.action === 'race' : motion.running ? action.action === 'run' : motion.crouching ? action.action === 'crouch' : false);
   if (movementSound && moving && Math.abs(position.z - current.groundZ) < 0.5 && now - current.lastMoveSound >= (motion.running ? 0.23 : 0.4)) {
@@ -181,8 +275,15 @@ export function advancePlayerActions(
   current.wasCrouching = motion.crouching;
   for (const action of actions) {
     if (!input.pressedKeys?.includes(action.key) || ['run', 'crouch', 'race', 'block'].includes(action.action)) continue;
+    if (ROSTER_ATTACKS.has(action.action) && isFightingMatch &&
+        (current.matchOver || current.roundBreakUntil > now)) continue;
+    if (action.action === 'special-attack' && current.specialMeter < action.settings.meterCost) {
+      say(`Need ${action.settings.meterCost} special meter. Land light or heavy hits to build it.`);
+      continue;
+    }
     if (now - (current.lastUse.get(action.id) ?? -Infinity) < (action.settings.cooldown ?? 0.3)) continue;
     current.lastUse.set(action.id, now);
+    if (action.action === 'special-attack') current.specialMeter = Math.max(0, current.specialMeter - action.settings.meterCost);
     const genreResult = advanceGenreAction(action, next, player.id, position, current.heading, current, actions, state.orders);
     if (genreResult.handled) {
       next = genreResult.entities;
@@ -191,7 +292,7 @@ export function advancePlayerActions(
       if (genreResult.marker) makeMarker({ ...genreResult.marker, z: genreResult.marker.z + 6 }, '#a2edbd', 0.4, state, now, 0.4);
       continue;
     }
-    if (['fight', 'shoot', 'cast', 'play-card'].includes(action.action)) {
+    if (FIGHTING_ATTACKS.has(action.action) || ['shoot', 'cast', 'play-card'].includes(action.action)) {
       const ammo = actions.find(item => item.action === 'reload');
       if (action.action === 'shoot' && ammo) {
         if (current.genre.ammo < 1) { say('Magazine empty. Press your Reload key.'); continue; }
@@ -205,7 +306,7 @@ export function advancePlayerActions(
         if (current.genre.hand < 1) { say('Your hand is empty. Draw a card first.'); continue; }
         if (current.genre.energy < action.settings.energyCost) { say('Not enough energy. End your turn to refill it.'); continue; }
       }
-      const range = (action.action === 'fight' ? action.settings.reach : action.settings.range) * 10;
+      const range = (FIGHTING_ATTACKS.has(action.action) ? action.settings.reach : action.settings.range) * 10;
       let aim = { x: Math.sin(current.heading), y: Math.cos(current.heading) };
       const selectedTarget = action.targetId ? next.find(entity => entity.id === action.targetId && isPracticeTarget(entity, player.id, state.effectIds)) : undefined;
       if (selectedTarget && (action.action === 'shoot' || action.action === 'cast')) {
@@ -222,7 +323,7 @@ export function advancePlayerActions(
         return { entity, target, distance, projection, offAxis };
       }).filter(candidate => candidate.distance <= range &&
         Math.abs(candidate.target.position.z - position.z) <= Math.max(20, candidate.target.scale.z * 10) &&
-        (action.action === 'fight' || action.action === 'play-card'
+        (FIGHTING_ATTACKS.has(action.action) || action.action === 'play-card'
           ? (!action.targetId || candidate.entity.id === action.targetId)
           : (!action.targetId || candidate.entity.id === action.targetId) &&
             candidate.projection >= 0 && candidate.offAxis <= Math.max(4, Math.max(candidate.target.scale.x, candidate.target.scale.y) * 5)),
@@ -243,11 +344,22 @@ export function advancePlayerActions(
           current.genre.hand -= 1;
           current.genre.energy -= action.settings.energyCost;
         }
+        if (ROSTER_ATTACKS.has(action.action)) {
+          current.comboCount = now - current.lastComboAt <= 1.2 ? current.comboCount + 1 : 1;
+          current.lastComboAt = now;
+          current.specialMeter = Math.min(current.maxSpecialMeter,
+            current.specialMeter + Number(action.settings.meterGain ?? 0));
+        }
         const maximumHealth = targetMaxHealth(hit.entity);
         const health = Math.max(0, targetHealth(hit.entity, state) - action.settings.damage);
         state.health.set(hit.entity.id, health);
-        if (health === 0) next = next.map(entity => entity.id === hit.entity.id ? { ...entity, active: false } : entity);
-        makeMarker({ ...hit.target.position, z: hit.target.position.z + 5 }, '#ff4d40', 0.4, state, now);
+        if (health === 0) {
+          if (isFightingMatch && hit.entity.id === opponentId) awardRound('player', 'KNOCKOUT');
+          else next = next.map(entity => entity.id === hit.entity.id ? { ...entity, active: false } : entity);
+        }
+        const hitColor = action.action === 'special-attack' ? '#ffd36e'
+          : action.action === 'heavy-attack' ? '#e7a06c' : '#ff4d40';
+        makeMarker({ ...hit.target.position, z: hit.target.position.z + 5 }, hitColor, action.action === 'special-attack' ? 0.7 : 0.4, state, now);
         say(`${hit.entity.name}: ${health}/${maximumHealth} health${health === 0 ? ' — defeated in this test' : ''}.`);
       } else say(action.action === 'play-card'
         ? 'No practice target in reach. Your card and energy were kept.'
@@ -406,10 +518,40 @@ export function advancePlayerActions(
     }
   }
 
+  const rival = isFightingMatch && opponentId ? next.find(entity => entity.id === opponentId) : undefined;
+  const rivalCanApproach = Boolean(rival?.components.some(component =>
+    component.type === 'characterController' && component.enabled && component.role === 'npc' && component.behavior === 'follow-player',
+  ));
+  const rivalMoves = rival ? getPlayerActions(rival).filter(action => ROSTER_ATTACKS.has(action.action)) : [];
+  if (isFightingMatch && rival && rivalCanApproach && rivalMoves.length > 0 &&
+      !current.matchOver && current.roundBreakUntil <= now) {
+    const rivalPosition = getWorldTransform(next, rival.id)?.position ?? getTransform(rival).position;
+    const distance = Math.hypot(rivalPosition.x - position.x, rivalPosition.y - position.y);
+    const attackIndex = state.npcAttackCount.get(rival.id) ?? 0;
+    const cpuAction = rivalMoves[attackIndex % rivalMoves.length];
+    const readyAt = state.npcLastAttack.get(rival.id) ?? -Infinity;
+    if (distance <= cpuAction.settings.reach * 10 && now - readyAt >= cpuAction.settings.cooldown) {
+      state.npcLastAttack.set(rival.id, now);
+      state.npcAttackCount.set(rival.id, attackIndex + 1);
+      const block = actions.find(action => action.action === 'block');
+      const damage = Number(cpuAction.settings.damage);
+      const receivedDamage = motion.blocking && block
+        ? Math.round(damage * (1 - block.settings.damageReduction) * 100) / 100
+        : damage;
+      current.health = Math.max(0, current.health - receivedDamage);
+      state.health.set(player.id, current.health);
+      emit(cpuAction);
+      makeMarker({ ...position, z: position.z + 5 }, motion.blocking ? '#9bcbf2' : '#e7a06c', 0.48, state, now);
+      say(`${motion.blocking ? 'BLOCKED' : 'RIVAL HIT'} · ${receivedDamage} damage · ${current.health}/${current.maxHealth} health`);
+      if (current.health === 0) awardRound('rival', 'KNOCKOUT');
+    }
+  }
+
   for (const npc of next) {
     const npcHealth = featureByKind(npc, 'health');
     const npcController = npc.components.find(component => component.type === 'characterController' && component.role === 'npc');
     const damage = Number(npcHealth?.settings.contactDamage ?? 0);
+    if (isFightingMatch && npc.id === opponentId) continue;
     if (!npc.active || !npcController || damage < 1 || now - current.lastContactDamage < 1) continue;
     const npcPosition = getWorldTransform(next, npc.id)?.position ?? getTransform(npc).position;
     if (Math.hypot(npcPosition.x - position.x, npcPosition.y - position.y, npcPosition.z - position.z) > 12) continue;
@@ -421,15 +563,19 @@ export function advancePlayerActions(
     if (motion.blocking && block) emit(block);
     say(`${motion.blocking ? 'Blocked' : 'Ouch!'} ${npc.name} dealt ${receivedDamage} damage. Health: ${current.health}/${current.maxHealth}.`);
     if (current.health === 0) {
-      const respawnAt = current.checkpoint ?? current.spawn;
-      next = next.map(candidate => candidate.id === player.id ? {
-        ...candidate, active: true, components: candidate.components.map(component =>
-          component.type === 'transform' ? { ...component, position: { ...respawnAt } } : component,
-        ),
-      } : candidate);
-      current.health = current.maxHealth;
-      state.health.set(player.id, current.health);
-      say(current.checkpoint ? 'You respawned at your checkpoint.' : 'You respawned at your starting spot.');
+      if (isFightingMatch) {
+        awardRound('rival', 'KNOCKOUT');
+      } else {
+        const respawnAt = current.checkpoint ?? current.spawn;
+        next = next.map(candidate => candidate.id === player.id ? {
+          ...candidate, active: true, components: candidate.components.map(component =>
+            component.type === 'transform' ? { ...component, position: { ...respawnAt } } : component,
+          ),
+        } : candidate);
+        current.health = current.maxHealth;
+        state.health.set(player.id, current.health);
+        say(current.checkpoint ? 'You respawned at your checkpoint.' : 'You respawned at your starting spot.');
+      }
     }
   }
 
@@ -440,6 +586,13 @@ export function advancePlayerActions(
     Boolean(statusBar?.settings.showInventory) ||
     actions.some(action => action.action === 'craft' || action.action === 'build' || action.action === 'gather');
   const showHud = actions.length > 0 || Boolean(interact) || Boolean(statusBar);
+  const hudRival = isFightingMatch && opponentId ? next.find(entity => entity.id === opponentId) : undefined;
+  const score = `${current.playerRoundsWon}–${current.rivalRoundsWon}`;
+  const matchStatus = current.matchOver
+    ? current.matchMessage
+    : current.roundBreakUntil > now
+      ? `ROUND ${current.roundNumber} · ${score} · NEXT ROUND`
+      : `ROUND ${current.roundNumber} · ${Math.ceil(current.roundTime)}s · ${score}`;
   return {
     entities: [...next, ...[...state.effects.values()].map(effect => effect.entity)], events, audioEvents,
     hud: showHud ? {
@@ -456,6 +609,14 @@ export function advancePlayerActions(
         ...(actions.some(action => action.action === 'reload') ? [`Ammo ${current.genre.ammo} · Spare ${current.genre.reserveAmmo}`] : []),
       ].join(' | '),
       message: current.feedback,
+       showFightingHud: isFightingMatch,
+       matchStatus,
+       opponentName: hudRival?.name ?? 'Rival',
+       opponentHealth: hudRival ? targetHealth(hudRival, state) : 0,
+       opponentMaxHealth: hudRival ? targetMaxHealth(hudRival) : 100,
+       comboCount: current.comboCount,
+       specialMeter: current.specialMeter,
+       maxSpecialMeter: current.maxSpecialMeter,
     } : null,
   };
 }

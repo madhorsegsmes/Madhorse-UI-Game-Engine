@@ -1,5 +1,6 @@
 export const playerActionNames = [
   'run', 'crouch', 'fight', 'shoot', 'race', 'craft', 'build',
+  'light-attack', 'heavy-attack', 'special-attack',
   'block', 'heal', 'cast', 'draw-card', 'play-card', 'end-turn',
   'command', 'gather', 'follow', 'reload',
 ] as const;
@@ -119,6 +120,35 @@ export const playerActionDefinitions: Record<PlayerActionName, ActionDefinition>
       { name: 'damage', label: 'Hit strength', default: 25, min: 1, max: 100 },
       { name: 'reach', label: 'Reach (meters)', default: 2.5, min: 0.5, max: 10 },
       { name: 'cooldown', label: 'Time between hits (seconds)', default: 0.4, min: 0.1, max: 5 },
+    ],
+  },
+  'light-attack': {
+    label: 'Light Attack', key: 'f', help: 'Press F for a quick strike. Land hits close together to build a combo and special meter.',
+    fields: [
+      { name: 'damage', label: 'Hit strength', default: 12, min: 1, max: 100 },
+      { name: 'reach', label: 'Attack reach (meters)', default: 2.5, min: 0.5, max: 10 },
+      { name: 'cooldown', label: 'Time between hits (seconds)', default: 0.25, min: 0.1, max: 5 },
+      { name: 'meterGain', label: 'Special meter gained on hit', default: 12, min: 0, max: 100 },
+    ],
+  },
+  'heavy-attack': {
+    label: 'Heavy Attack', key: 'j', help: 'Press J for a slower, stronger strike. Its longer cooldown gives the rival time to react.',
+    fields: [
+      { name: 'damage', label: 'Hit strength', default: 24, min: 1, max: 150 },
+      { name: 'reach', label: 'Attack reach (meters)', default: 2.8, min: 0.5, max: 10 },
+      { name: 'cooldown', label: 'Time between hits (seconds)', default: 0.6, min: 0.1, max: 5 },
+      { name: 'meterGain', label: 'Special meter gained on hit', default: 20, min: 0, max: 100 },
+    ],
+  },
+  'special-attack': {
+    label: 'Special Move', key: 'k', help: 'Press K to spend special meter on a powerful move. Build meter by landing light and heavy attacks.',
+    fields: [
+      { name: 'damage', label: 'Hit strength', default: 42, min: 1, max: 200 },
+      { name: 'reach', label: 'Attack reach (meters)', default: 3.5, min: 0.5, max: 12 },
+      { name: 'cooldown', label: 'Time between moves (seconds)', default: 1.1, min: 0.1, max: 10 },
+      { name: 'meterCost', label: 'Special meter cost', default: 50, min: 1, max: 100 },
+      { name: 'meterMax', label: 'Maximum special meter', default: 100, min: 1, max: 100 },
+      { name: 'startingMeter', label: 'Starting special meter', default: 25, min: 0, max: 100 },
     ],
   },
   shoot: {

@@ -209,3 +209,12 @@ editable.
 **How to apply:** Include the saved vision, game-flow choice, and notes in Ego's
 scene and UI build requests. Recognized concepts are optional additions, never
 requirements or replacements for creator text.
+
+Treat MUGEN-style fighting references as design inspiration for Madhorse's native
+fighter and stage tools, not as a request for MUGEN runtime or file compatibility.
+
+**Why:** The current game runtime can support editable 1v1 actions, health, rounds,
+and a training rival, but does not import MUGEN character or stage formats.
+
+**How to apply:** Build from supported Madhorse scene components and be clear
+about compatibility limits; do not claim DEF/SFF import or full MUGEN behavior.

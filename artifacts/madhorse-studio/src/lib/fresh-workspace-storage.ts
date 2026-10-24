@@ -66,3 +66,8 @@ export function loadFreshWorkspace(projectId = FRESH_WORKSPACE_ID): Partial<Fres
 export function saveFreshWorkspace(snapshot: FreshWorkspaceSnapshot, projectId = FRESH_WORKSPACE_ID) {
   window.localStorage.setItem(studioProjectStorageKey(storageKey, projectId), JSON.stringify(snapshot));
 }
+
+export function removeFreshWorkspace(projectId: string) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(studioProjectStorageKey(storageKey, projectId));
+}
