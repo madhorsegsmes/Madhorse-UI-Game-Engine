@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { ArrowLeft, Plus } from 'lucide-react';
+import { ArrowLeft, Bot, Plus } from 'lucide-react';
 
 type VisionPanelBounds = { x: number; y: number; width: number; height: number };
 type VisionBoardPanel = VisionPanelBounds & { id: string; parentId: string | null };
@@ -245,7 +245,17 @@ export default function VisionBoardPage() {
         </a>
         <h1>Vision Board</h1>
       </header>
-      <div className="fresh-vision-toolbar" aria-label="Vision board toolbar" data-testid="vision-board-toolbar" />
+      <div className="fresh-vision-toolbar" aria-label="Vision board toolbar" data-testid="vision-board-toolbar">
+        <a
+          className="fresh-vision-toolbar-button"
+          href="../?open=mad-builder"
+          title="Open Mad Builder in the Studio"
+          data-testid="vision-board-mad-builder"
+        >
+          <Bot size={14} aria-hidden="true" />
+          <span>Mad Builder</span>
+        </a>
+      </div>
       <section className="fresh-vision-board-layout" aria-label="Vision board workspace" ref={workspaceRef}>
         <div className="fresh-vision-page-canvas" aria-label="Blank canvas" data-testid="vision-board-canvas" />
         <svg className="fresh-vision-connectors" aria-hidden="true" data-testid="vision-board-connectors">

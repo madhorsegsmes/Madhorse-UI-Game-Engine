@@ -1768,6 +1768,18 @@ export default function BlankWorkspace() {
   });
 
   useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('open') !== 'mad-builder') return;
+    setMadBuilderOpen(true);
+    url.searchParams.delete('open');
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  }, []);
+
+  useEffect(() => {
     if (!madBuilderOpen) return;
     const closeOnEscape = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape') setMadBuilderOpen(false);
