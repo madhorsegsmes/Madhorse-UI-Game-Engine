@@ -79,7 +79,7 @@ function PrimitiveVisual({ primitive, url, onError, active }: { primitive: Primi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
   return <mesh geometry={geometry}>
-    <meshStandardMaterial color={primitive.color} map={texture} roughness={.78} side={THREE.DoubleSide}
+    <meshStandardMaterial color={primitive.color} map={texture} roughness={.58} metalness={.08} side={THREE.DoubleSide}
       transparent={!active || (primitive.opacity ?? 1) < 1} opacity={active ? primitive.opacity ?? 1 : .35}
       depthWrite={(primitive.opacity ?? 1) >= 1} />
   </mesh>;

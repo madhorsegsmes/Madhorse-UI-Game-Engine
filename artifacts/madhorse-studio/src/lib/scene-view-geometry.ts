@@ -9,27 +9,27 @@ import type { GameCamera } from './game-camera';
 export function createPrimitiveGeometry(shape: PrimitiveShape, terrainSettings?: TerrainSettings) {
   switch (shape) {
     case 'cube': return new THREE.BoxGeometry(1, 1, 1);
-    case 'sphere': return new THREE.SphereGeometry(.5, 24, 16);
-    case 'capsule': return new THREE.CapsuleGeometry(.28, .44, 6, 12);
-    case 'cylinder': return new THREE.CylinderGeometry(.5, .5, 1, 24);
-    case 'cone': return new THREE.ConeGeometry(.5, 1, 24);
+    case 'sphere': return new THREE.SphereGeometry(.5, 48, 32);
+    case 'capsule': return new THREE.CapsuleGeometry(.28, .44, 12, 32);
+    case 'cylinder': return new THREE.CylinderGeometry(.5, .5, 1, 48);
+    case 'cone': return new THREE.ConeGeometry(.5, 1, 48);
     case 'plane': {
       const geometry = new THREE.PlaneGeometry(10, 10);
       geometry.rotateX(-Math.PI / 2);
       return geometry;
     }
     case 'circle': {
-      const geometry = new THREE.CircleGeometry(.5, 32);
+      const geometry = new THREE.CircleGeometry(.5, 64);
       geometry.rotateX(-Math.PI / 2);
       return geometry;
     }
     case 'ring': {
-      const geometry = new THREE.RingGeometry(.24, .5, 32);
+      const geometry = new THREE.RingGeometry(.24, .5, 64);
       geometry.rotateX(-Math.PI / 2);
       return geometry;
     }
-    case 'torus': return new THREE.TorusGeometry(.34, .16, 12, 32);
-    case 'torus-knot': return new THREE.TorusKnotGeometry(.3, .11, 80, 10, 2, 3);
+    case 'torus': return new THREE.TorusGeometry(.34, .16, 24, 64);
+    case 'torus-knot': return new THREE.TorusKnotGeometry(.3, .11, 128, 18, 2, 3);
     case 'icosahedron': return new THREE.IcosahedronGeometry(.55, 0);
     case 'dodecahedron': return new THREE.DodecahedronGeometry(.55, 0);
     case 'octahedron': return new THREE.OctahedronGeometry(.55, 0);
@@ -53,10 +53,10 @@ export function createPrimitiveGeometry(shape: PrimitiveShape, terrainSettings?:
         new THREE.Vector3(.2, -.3, .1),
         new THREE.Vector3(.45, .3, .2),
       ]);
-      return new THREE.TubeGeometry(path, 40, .12, 10, false);
+      return new THREE.TubeGeometry(path, 80, .12, 20, false);
     }
-    case 'hollow-cylinder': return new THREE.CylinderGeometry(.5, .5, 1, 24, 1, true);
-    case 'rounded-cube': return new RoundedBoxGeometry(1, 1, 1, 3, .12);
+    case 'hollow-cylinder': return new THREE.CylinderGeometry(.5, .5, 1, 48, 1, true);
+    case 'rounded-cube': return new RoundedBoxGeometry(1, 1, 1, 6, .08);
     case 'terrain': return createTerrainGeometry(terrainSettings);
   }
 }
@@ -64,7 +64,7 @@ export function createPrimitiveGeometry(shape: PrimitiveShape, terrainSettings?:
 function createTerrainGeometry(settings?: TerrainSettings) {
   const width = settings?.width ?? 20;
   const depth = settings?.depth ?? 20;
-  const geometry = new THREE.PlaneGeometry(width, depth, 64, 64);
+  const geometry = new THREE.PlaneGeometry(width, depth, 96, 96);
   geometry.rotateX(-Math.PI / 2);
   const positions = geometry.getAttribute('position');
   for (let index = 0; index < positions.count; index++) {

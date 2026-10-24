@@ -15,13 +15,15 @@ Keep AI output as validated construction data, not privileged host code. Review
 before applying; preserve existing scene objects. Any future script execution
 must use the separately isolated language runtimes and explicit run controls.
 
-Favor visually detailed, proportionate builds that explicitly include the
-features named in the request rather than generic box-only blockouts.
+Favor high-definition, proportionate builds that explicitly include the
+features named in the request rather than low-poly or generic box-only
+blockouts. Use low-poly geometry only when the user asks for that style.
 
-**Why:** The user asked for more graphics and more accurate Mad Builder results.
+**Why:** The user wants professional-engine-level detail in Mad Builder output.
 
-**How to apply:** Use the engine's supported geometry types, deliberate colors,
-and purposeful subparts; keep dimensions and requested counts faithful.
+**How to apply:** Use smooth geometry, layered surface detail, supplied textures,
+deliberate materials and purposeful editable subparts; keep dimensions and
+requested counts faithful.
 
 When a new prompt returns a valid plan, immediately create its editable objects
 in the scene rather than stopping at a plan or requiring a second click. Keep
