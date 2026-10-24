@@ -1,0 +1,31 @@
+.ego-graphics-references {
+  margin-top: 10px;
+  padding: 9px 10px;
+  border: 1px solid #493b52;
+  border-radius: 7px;
+  background: #17141a;
+  color: #c7bccf;
+  font-size: 10px;
+}
+
+.ego-graphics-references summary {
+  color: #f0e6f5;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.ego-graphics-references p {
+  line-height: 1.5;
+}
+
+.ego-graphics-references ul {
+  display: grid;
+  gap: 5px;
+  padding-left: 17px;
+}
+
+.ego-graphics-references a {
+  color: #d8a7f2;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

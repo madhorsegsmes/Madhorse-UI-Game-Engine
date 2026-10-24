@@ -5,9 +5,10 @@ import { compileBuilderPlan } from '@/lib/mad-builder';
 import { capturePrefab } from '@/lib/scene-authoring';
 import { beginSystemActivity } from '@/lib/system-activity';
 import type { MadBuilderBuildLog } from '@/lib/mad-builder-build-log';
-import type { BuilderBuildCategory, BuilderMessage, BuilderStyle, MadBuilderProps } from '@/components/mad-builder-contract';
+import type { BuilderBuildCategory, BuilderMessage, BuilderOperationResult, BuilderStyle, MadBuilderProps } from '@/components/mad-builder-contract';
 import type { AuthoringDocument } from './use-scene-authoring';
 import type { ScriptFile } from '@/lib/project-scripts';
+import type { ProjectAsset } from '@/lib/scene-model';
 
 export type BuilderDocument = Omit<AuthoringDocument, 'scripts'> & {
   scripts?: ScriptFile[];
@@ -43,8 +44,10 @@ export function useMadBuilder<T extends BuilderDocument>({ project, activeProjec
       ...entry, builderHistory: [...(entry.builderHistory ?? []), item].slice(-40),
     }));
   }
-  function applyBuilderPlan(planToBuild: MadBuilderPlan, saveAsPrefab: boolean, requestText = '') {
-    if (readOnly || activeProjectRef.current.id !== project.id || planProjectId.current !== project.id) return;
+  function applyBuilderPlan(planToBuild: MadBuilderPlan, saveAsPrefab: boolean, requestText = ''): BuilderOperationResult {
+    if (readOnly || activeProjectRef.current.id !== project.id || planProjectId.current !== project.id) {
+      return { ok: false, message: 'The active project changed, so this build was not applied.' };
+    }
     const finish = beginSystemActivity('Mad Builder is building');
     setPhase('applying'); setError('');
     try {
@@ -71,16 +74,21 @@ export function useMadBuilder<T extends BuilderDocument>({ project, activeProjec
       }));
       setPlan(null); setPhase('idle');
       onBuilt(build.rootId);
+      return { ok: true, message: response.text };
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'The build was rejected. No changes were made.');
+      const detail = failure instanceof Error ? failure.message : 'The build was rejected. No changes were made.';
+      setError(detail);
       setPhase('ready');
+      return { ok: false, message: detail };
     } finally { finish(); }
   }
   return {
     history: project.builderHistory ?? [], phase, plan, error, readOnly,
     onPlan: async (raw, saveAsPrefab, style: BuilderStyle, buildCategory: BuilderBuildCategory, referenceImages) => {
       const prompt = raw.trim();
-      if (readOnly || phase === 'planning' || phase === 'applying' || prompt.length < 3 || prompt.length > 2000) return;
+      if (readOnly || phase === 'planning' || phase === 'applying' || prompt.length < 3 || prompt.length > 2000) {
+        return { ok: false, message: 'Add a vision between 3 and 2,000 characters and wait for the current build to finish.' };
+      }
       cancel();
       const token = session.current;
       const controller = new AbortController();
@@ -93,11 +101,15 @@ export function useMadBuilder<T extends BuilderDocument>({ project, activeProjec
           project.entities.find((entity) => entity.id === 'player');
         const result = PlanMadBuilderResponse.parse(await planMadBuilder({
           prompt, selectedName: contextEntity?.name ?? '', style, buildCategory, referenceImages,
-          assets: project.assets.slice(0, 40).flatMap(({ id, name, kind }) =>
-            kind === 'image' || kind === 'model' ? [{ id, name: name.slice(0, 160), kind }] : [],
-          ),
+           assets: project.assets
+             .filter((asset): asset is ProjectAsset & { kind: 'image' | 'model' } =>
+               asset.kind === 'image' || asset.kind === 'model')
+             .slice(0, 40)
+             .map(({ id, name, kind }) => ({ id, name: name.slice(0, 160), kind })),
         }, { signal: controller.signal }));
-        if (token !== session.current || activeProjectRef.current.id !== project.id) return;
+        if (token !== session.current || activeProjectRef.current.id !== project.id) {
+          return { ok: false, message: 'The build was canceled because the active project changed.' };
+        }
         // Validate on the client before any generated object is added to the scene.
         if (result.parts?.length) compileBuilderPlan(result, activeProjectRef.current.entities, activeProjectRef.current.assets);
         planProjectId.current = project.id;
@@ -108,15 +120,21 @@ export function useMadBuilder<T extends BuilderDocument>({ project, activeProjec
         message(result.summary, 'assistant');
         setPhase('applying');
         await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
-        if (token !== session.current || controller.signal.aborted) return;
-        applyBuilderPlan(result, saveAsPrefab, prompt);
+        if (token !== session.current || controller.signal.aborted) {
+          return { ok: false, message: 'The build was canceled before any objects were added.' };
+        }
+        return applyBuilderPlan(result, saveAsPrefab, prompt);
       } catch (failure) {
-        if (token !== session.current || controller.signal.aborted) return;
+        if (token !== session.current || controller.signal.aborted) {
+          return { ok: false, message: 'The build was canceled before any objects were added.' };
+        }
         const data = failure && typeof failure === 'object' && 'data' in failure ? failure.data : null;
         const detail = data && typeof data === 'object' && 'error' in data && typeof data.error === 'string' ? data.error : null;
-        setError(detail ?? (failure instanceof Error ? failure.message.slice(0, 500) : 'Mad Builder could not build a valid scene.'));
+        const messageText = detail ?? (failure instanceof Error ? failure.message.slice(0, 500) : 'Mad Builder could not build a valid scene.');
+        setError(messageText);
         const draft = activeProjectRef.current.builderDraft ?? null;
         setPlan(draft); setPhase(draft ? 'ready' : 'idle');
+        return { ok: false, message: messageText };
       } finally {
         finish();
         if (request.current?.controller === controller) request.current = null;

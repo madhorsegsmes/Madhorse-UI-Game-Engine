@@ -102,7 +102,9 @@ export function SceneRenderFallback({
         'XYZ',
       );
       assembly.scale.set(transform.scale.x, transform.scale.z, transform.scale.y);
-      const material = new THREE.MeshStandardMaterial({ color: '#d5a07d', roughness: 0.68 });
+      const bodyPart = bodyParts.find(isCharacterBodySurfacePart);
+      const bodyColor = bodyPart ? getPrimitive(bodyPart)?.color ?? '#d5a07d' : '#d5a07d';
+      const material = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.68 });
       const bodyMesh = new THREE.Mesh(body.geometry, material);
       bodyMesh.position.copy(body.center);
       bodyMesh.scale.copy(body.halfExtents);

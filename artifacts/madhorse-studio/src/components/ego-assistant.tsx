@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { BookOpen, Bot, Boxes, Code2, Gamepad2, Layers3, X } from 'lucide-react';
+import { BookOpen, Bot, Boxes, Camera, Code2, Eye, Gamepad2, Layers3, Loader2, X } from 'lucide-react';
 import type { BuilderDocument } from '@/hooks/use-mad-builder';
 import type { GameCamera } from '@/lib/game-camera';
 import type { ScriptFile } from '@/lib/project-scripts';
 import { analyzeEgoGameVision, egoGameLanguageLibrary } from '@/lib/ego-game-language';
+import type { EgoCharacterSize } from '@/lib/ego-character-anatomy';
+import type { BuilderOperationResult } from './mad-builder-contract';
 import { EgoScriptStudio } from './ego-script-studio';
 import {
   egoGameTypes,
@@ -11,10 +13,20 @@ import {
   getEgoGameSelectionLabel,
   type EgoGameType,
 } from '@/lib/ego-ui-kit';
+import { egoGraphicsReferences } from '@/lib/ego-visual-quality';
+import './ego-graphics-references.css';
+import { createEgoWorkspaceContext } from '@/lib/ego-workspace-context';
 
 type EgoAssistantProps = {
   project: BuilderDocument;
   animationsCount: number;
+  animationControllersCount: number;
+  onBuildVision: (
+    vision: string,
+    gameTypes: EgoGameType[],
+    characterSize: EgoCharacterSize,
+    onProgress: (message: string) => void,
+  ) => Promise<BuilderOperationResult>;
   onBuildUi: (gameTypes: EgoGameType[], gameVision: string) => string;
   onAddFunctions: (gameTypes: EgoGameType[]) => string;
   scripts: ScriptFile[];
@@ -29,16 +41,22 @@ type EgoAssistantProps = {
 const guideByGame: Record<EgoGameType, string[]> = {
   rpg: ['Add a Player Controller, then attach Fighting, Healing, or Spell actions.', 'Use the UI Controls panel to move the health bar and quest tracker.', 'Add doors, pickups, and checkpoints from the object tools.'],
   racing: ['Add a vehicle and select its Racing function.', 'Use the UI Controls panel to place speed, lap, and position displays.', 'Press Play/Test to try steering, braking, and the race HUD.'],
+  'kart-racing': ['Build a compact kart and a closed circuit with readable curbs.', 'Ego adds the arcade drive controls and a kart HUD with speed, lap, position, boost, and drift.', 'Press Play/Test; driving is a simple arcade controller, not full wheel or suspension simulation.'],
+  'car-racing': ['Build a proportioned road car and a track with clear boundaries and checkpoints.', 'Ego adds a higher-speed drive profile and a car-racing HUD with speed, lap, position, gear, and RPM.', 'Press Play/Test; this starter controller is arcade-style and does not simulate tire forces or a real gearbox.'],
   sports: ['Create the playing field and add a Player Controller.', 'Use the score panel and stamina bar as your first HUD.', 'Add movement functions to the player; add sport-specific rules as the project grows.'],
   fighting: ['Add a player and an opponent to the scene.', 'Attach Fighting and Block functions to the player.', 'Use the health bars and round display as a starting HUD.'],
   rts: ['Create a terrain and add units to the scene.', 'Attach Command, Gather, and Build functions to a player unit.', 'Use the resource panel and selected-unit panel to plan the screen.'],
   card: ['Add a player object for the local card actions.', 'Attach Draw Card, Play Card, and End Turn functions.', 'Use the hand panel and energy display to arrange the card table.'],
   mmo: ['Create a player, NPCs, and a world area.', 'Attach supported combat, healing, and companion functions.', 'Use the quest, party, health, and mana panels as your first HUD.'],
   shooter: ['Add a Player Controller and a practice target.', 'Attach Shooting, Reload, and Crouch functions to the player.', 'Use Play/Test to try the controls; position the health and ammo displays.'],
+  'third-person-shooter': ['Choose Third-Person Shooter and describe the player, objective, enemies, and map.', 'Ego can block out the player start, cover, targets, scene objects, and a shooter HUD; tune the Game Camera in Panel 3.', 'Use Play/Test to check supported movement and shooting actions. Weapons, missions, and online play need further implementation.'],
+  'kingdom-strategy': ['Choose Kingdom Strategy and describe the map, home base, resource sites, and rival forces.', 'Use World Building tools in Panel 5 for terrain; add units and structures, then attach Command, Gather, or Build actions.', 'Use the starter resource and selected-unit panels; full economies, campaign rules, and online battles still need building.'],
+  'creature-adventure-2d': ['Choose Creature Adventure · 2D and describe exploration, companions, encounters, and the goal.', 'Import creature and environment sprites in Panel 2 · Assets; tell Ego which asset names to reuse.', 'Play/Test the supported movement and action presets, then edit the party and health UI. Without matching sprite assets, Ego cannot invent finished 2D character art.'],
+  'creature-adventure-3d': ['Choose Creature Adventure · 3D and describe the world, player, companions, and encounters.', 'Ego can add editable creature body-plan templates and use matching project model assets when available.', 'Use Play/Test for supported movement and actions; capture, party, battle, and progression rules require further implementation.'],
   platformer: ['Create platforms and add a Player Controller.', 'Attach Running, Crouching, and Fighting functions as needed.', 'Use the health, lives, and pause controls as a starter HUD.'],
 };
 
-function projectScan(project: BuilderDocument, animationsCount: number) {
+function projectScan(project: BuilderDocument, animationsCount: number, animationControllersCount: number) {
   const components = project.entities.flatMap((entity) => entity.components);
   const assetCounts = { image: 0, model: 0, audio: 0, data: 0 };
   for (const asset of project.assets) assetCounts[asset.kind]++;
@@ -66,6 +84,7 @@ function projectScan(project: BuilderDocument, animationsCount: number) {
       entity.components.some((component) => component.type === 'characterController' && component.role === 'player')).length,
     ui: project.uiControls?.length ?? 0,
     animations: animationsCount,
+    animationControllers: animationControllersCount,
     prefabs: project.prefabs?.length ?? 0,
     builds: project.builderBuildLogs?.length ?? 0,
     assets: assetCounts,
@@ -74,43 +93,91 @@ function projectScan(project: BuilderDocument, animationsCount: number) {
 }
 
 export function EgoAssistant({
-  project, animationsCount, onBuildUi, onAddFunctions, scripts, camera, selectedEntityId,
+  project, animationsCount, animationControllersCount, onBuildVision, onBuildUi, onAddFunctions, scripts, camera, selectedEntityId,
   onCreateScript, onUpdateScript, onDeleteScript, onClose,
 }: EgoAssistantProps) {
   const [gameTypes, setGameTypes] = useState<EgoGameType[]>(['rpg']);
   const [gameVision, setGameVision] = useState('');
+  const [characterSize, setCharacterSize] = useState<EgoCharacterSize>('prompt');
   const [phraseFilter, setPhraseFilter] = useState('');
-  const [activityLog, setActivityLog] = useState<Array<{ id: string; action: string; detail: string; time: string }>>([]);
+  const [activityLog, setActivityLog] = useState<Array<{ id: string; action: string; detail: string; time: string; duration?: string }>>([]);
+  const [sceneBuildBusy, setSceneBuildBusy] = useState(false);
+  const [sceneBuildProgress, setSceneBuildProgress] = useState('');
+  const [sceneBuildResult, setSceneBuildResult] = useState('');
   const [activeTab, setActiveTab] = useState<'build' | 'guide' | 'scripts'>('build');
-  const scan = projectScan(project, animationsCount);
+  const scan = projectScan(project, animationsCount, animationControllersCount);
+  const workspaceContext = createEgoWorkspaceContext(project, selectedEntityId, camera);
   const gameLabel = getEgoGameSelectionLabel(gameTypes);
   const visionAnalysis = analyzeEgoGameVision(gameVision);
   const visiblePhrases = egoGameLanguageLibrary.filter((entry) =>
     `${entry.label} ${entry.phrases.join(' ')} ${entry.explanation} ${entry.engineArea}`
       .toLowerCase().includes(phraseFilter.trim().toLowerCase()));
+  const hasUsableSceneObjects = project.entities.some(entity =>
+    !/^(cube|game camera|camera|empty object)$/i.test(entity.name.trim()) &&
+    entity.components.some(component =>
+      ['primitive', 'spriteRenderer', 'modelRenderer', 'characterController'].includes(component.type)));
 
   const toggleGameType = (gameType: EgoGameType) => {
-    setGameTypes(current => current.includes(gameType)
-      ? current.length > 1 ? current.filter(type => type !== gameType) : current
-      : [...current, gameType]);
+    setGameTypes(current => {
+      const opposite = gameType === 'creature-adventure-2d'
+        ? 'creature-adventure-3d'
+        : gameType === 'creature-adventure-3d' ? 'creature-adventure-2d' : null;
+      const next = current.includes(gameType)
+        ? current.length > 1 ? current.filter(type => type !== gameType) : current
+        : [...current.filter(type => type !== opposite), gameType];
+      return next.length ? next : current;
+    });
+  };
+
+  const appendActivity = (action: string, detail: string, duration?: string) => {
+    setActivityLog(current => [...current, {
+      id: crypto.randomUUID(),
+      action,
+      detail,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      ...(duration ? { duration } : {}),
+    }].slice(-20));
   };
 
   const recordAction = (action: string, run: () => string) => {
     try {
-      const detail = run();
-      setActivityLog(current => [...current, {
-        id: crypto.randomUUID(),
-        action,
-        detail,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      }].slice(-20));
+      appendActivity(action, run());
     } catch (failure) {
-      setActivityLog(current => [...current, {
-        id: crypto.randomUUID(),
-        action: `${action} — needs attention`,
-        detail: failure instanceof Error ? failure.message : 'This action could not be completed.',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      }].slice(-20));
+      appendActivity(`${action} — needs attention`, failure instanceof Error ? failure.message : 'This action could not be completed.');
+    }
+  };
+
+  const buildFromVision = async () => {
+    const vision = gameVision.trim();
+    if (vision.length < 3 || sceneBuildBusy) return;
+    const startedAt = performance.now();
+    setSceneBuildBusy(true);
+    setSceneBuildResult('');
+    appendActivity('Read game vision', `Ego found ${visionAnalysis.detected.length} game areas in the description and is preparing a scene build.`);
+    try {
+      setSceneBuildProgress('Planning editable scene objects from the vision…');
+      const sceneResult = await onBuildVision(vision, gameTypes, characterSize, setSceneBuildProgress);
+      if (!sceneResult.ok) {
+        setSceneBuildResult(`Build stopped: ${sceneResult.message}`);
+        appendActivity('Scene build stopped', sceneResult.message);
+        return;
+      }
+      const sceneDuration = Math.max(0.1, (performance.now() - startedAt) / 1000).toFixed(1);
+      appendActivity('Created scene objects', sceneResult.message, `Scene step took ${sceneDuration} seconds.`);
+      setSceneBuildProgress('Adding a player and supported game functions…');
+      const functionResult = onAddFunctions(gameTypes);
+      appendActivity('Added player functions', functionResult);
+      setSceneBuildProgress('Creating an editable starter UI…');
+      const uiResult = onBuildUi(gameTypes, vision);
+      appendActivity('Created UI controls', uiResult);
+      setSceneBuildResult('Scene, supported player functions, and UI starter were added. Select objects in the hierarchy to edit them.');
+    } catch (failure) {
+      const detail = failure instanceof Error ? failure.message : 'The build could not be completed.';
+      setSceneBuildResult(`Build stopped: ${detail} Any earlier completed steps remain editable in the scene.`);
+      appendActivity('Build needs attention', detail);
+    } finally {
+      setSceneBuildBusy(false);
+      setSceneBuildProgress('');
     }
   };
 
@@ -121,7 +188,7 @@ export function EgoAssistant({
           <span className="ego-assistant-robot"><Bot size={18} aria-hidden="true" /></span>
           <div>
             <h2>Ego</h2>
-            <p>Project-aware UI builder and step-by-step guide</p>
+              <p>Central game builder for worlds, characters, creatures, systems, animation, and UI</p>
           </div>
         </div>
         <button type="button" className="ego-assistant-close" onClick={onClose} aria-label="Close Ego">
@@ -176,6 +243,21 @@ export function EgoAssistant({
                 <p>Describe it in the vision box below.</p>
               </div>
             </section>
+            <section className="ego-editor-context" aria-label="Current scene and project assets" data-testid="ego-editor-context">
+              <div className="ego-editor-context-heading">
+                <div><Eye size={14} aria-hidden="true" /><strong>Ego’s live editor context</strong></div>
+                <span>Scene 1 · {workspaceContext.activeObjectCount} objects</span>
+              </div>
+              <p><b>Selected:</b> {workspaceContext.selectedName ?? 'Nothing selected'} · <Camera size={12} aria-hidden="true" /> <b>Game Camera:</b> {workspaceContext.cameraSummary}</p>
+              <p><b>Scene View:</b> {workspaceContext.visibleNames.length ? workspaceContext.visibleNames.join(' · ') : 'No active objects yet'}</p>
+              <div className="ego-editor-assets">
+                <b>Image/model assets Mad Builder can reuse:</b>
+                {workspaceContext.assets.length ? workspaceContext.assets.map(asset => (
+                  <span key={asset.id} title={`${asset.kind} · ${asset.id}`}>{asset.name} · {asset.kind}</span>
+                )) : <span>No imported images or models yet</span>}
+              </div>
+              <small>Ego reads the current hierarchy, selection, camera settings, and asset records—not a screenshot of rendered pixels.</small>
+            </section>
             <label className="ego-field">
               <span>Your game vision</span>
               <textarea
@@ -207,7 +289,51 @@ export function EgoAssistant({
                 ))}
               </div>
               <span className="ego-selected-types">Selected: {gameLabel}</span>
+              <small>Choose a genre or combine genres. Creature Adventure 2D and 3D are separate modes; choose one.</small>
+              {gameTypes.includes('creature-adventure-2d') && (
+                <small className="ego-2d-asset-note">2D mode reuses imported sprites. Upload creature and environment images in Panel 2 · Assets; Ego does not generate finished sprite art yet.</small>
+              )}
             </fieldset>
+            <label className="ego-character-size-picker">
+              <span>Creature size</span>
+              <select
+                value={characterSize}
+                onChange={(event) => setCharacterSize(event.target.value as EgoCharacterSize)}
+                data-testid="ego-character-size"
+              >
+                <option value="prompt">Use size from vision</option>
+                <option value="small">Small · 1.1 m</option>
+                <option value="average">Average · 1.8 m</option>
+                <option value="tall">Tall · 2.4 m</option>
+                <option value="giant">Giant · 3.6 m</option>
+              </select>
+              <small>For humanoids, animals, and monsters. Write an exact size (such as 1.65 m or 6 ft), use a preset, then edit the named anatomy parts in Hierarchy.</small>
+            </label>
+            <section className="ego-vision-build-action" aria-label="Build scene from game vision">
+              <p>
+                {hasUsableSceneObjects
+                  ? 'Ego will keep the current scene and add objects requested by your vision.'
+                  : 'No game objects are ready yet. Ego will create editable scene objects from your vision.'}
+              </p>
+              <button
+                type="button"
+                className="ego-build-vision-button"
+                onClick={() => void buildFromVision()}
+                disabled={gameVision.trim().length < 3 || sceneBuildBusy}
+                data-testid="ego-build-from-vision"
+              >
+                <Bot size={15} aria-hidden="true" />
+                {sceneBuildBusy ? 'Building from vision…' : 'Build scene from vision'}
+              </button>
+              {sceneBuildBusy && (
+                <div className="ego-vision-progress" role="status" data-testid="ego-vision-progress">
+                  <img src={`${import.meta.env.BASE_URL}images/ego-robot-panel.webp`} alt="" aria-hidden="true" />
+                  <Loader2 size={14} className="ego-progress-spinner" aria-hidden="true" />
+                  <span>{sceneBuildProgress}</span>
+                </div>
+              )}
+              {sceneBuildResult && <p className="ego-vision-build-result" role="status">{sceneBuildResult}</p>}
+            </section>
             <section className="ego-vision-understanding" aria-label="Ego vision understanding" data-testid="ego-vision-understanding">
               <div className="ego-section-heading">
                 <div><BookOpen size={14} aria-hidden="true" /><strong>What Ego understood</strong></div>
@@ -253,10 +379,10 @@ export function EgoAssistant({
               </details>
             </section>
             <div className="ego-build-actions">
-              <button type="button" onClick={() => recordAction('Built UI kit', () => onBuildUi(gameTypes, gameVision.trim()))} data-testid="ego-build-ui">
+              <button type="button" disabled={sceneBuildBusy} onClick={() => recordAction('Built UI kit', () => onBuildUi(gameTypes, gameVision.trim()))} data-testid="ego-build-ui">
                 <Layers3 size={15} aria-hidden="true" /> {gameTypes.length > 1 ? 'Create mixed UI kit' : `Create ${getEgoGameLabel(gameTypes[0])} UI kit`}
               </button>
-              <button type="button" className="secondary" onClick={() => recordAction('Added game functions', () => onAddFunctions(gameTypes))} data-testid="ego-add-functions">
+              <button type="button" className="secondary" disabled={sceneBuildBusy} onClick={() => recordAction('Added game functions', () => onAddFunctions(gameTypes))} data-testid="ego-add-functions">
                 <Gamepad2 size={15} aria-hidden="true" /> Add {gameTypes.length > 1 ? 'mixed game functions' : `${getEgoGameLabel(gameTypes[0])} functions`}
               </button>
             </div>
@@ -270,7 +396,7 @@ export function EgoAssistant({
                   <article key={entry.id}>
                     <span>{entry.time} · {entry.action}</span>
                     <p>{entry.detail}</p>
-                    <small>Action estimate: completed immediately. This is not a full-game build.</small>
+                    <small>{entry.duration ?? 'Completed immediately.'} This reports this action only, not full-game completion.</small>
                   </article>
                 )) : (
                   <p className="ego-work-log-empty">Ego has not changed this project during this session. Full-game completion estimates are not available until a complete game-build and export pipeline is connected.</p>
@@ -278,7 +404,7 @@ export function EgoAssistant({
               </div>
             </section>
             <p className="ego-capability-note">
-              Ego uses editable UI templates and supported engine actions. It creates a Player Controller if the project has no player yet. Full-game publishing is not available in this build.
+              Ego coordinates editable scene builds, project assets, supported player actions, animation, and starter UI. These are buildable starting points—not finished AAA campaigns, custom 2D art, advanced economies, or production online games.
             </p>
           </section>
         ) : activeTab === 'scripts' ? (
@@ -294,11 +420,17 @@ export function EgoAssistant({
         ) : (
           <section className="ego-guide-content" role="tabpanel">
             <h3>Build your {gameLabel} game step by step</h3>
+            <section className="ego-guide-current" aria-label="Steps based on the current editor">
+              <h4>What to do in this project now</h4>
+              <ol>{workspaceContext.steps.map(step => <li key={step}>{step}</li>)}</ol>
+              <p><Camera size={12} aria-hidden="true" /> Current Game Camera: {workspaceContext.cameraSummary}</p>
+            </section>
             <ol>
-              <li>Choose one or more game types and describe the idea you want to make.</li>
-              <li>Create the UI kit. Its text, panels, buttons, and bars are added to this project.</li>
-              <li>Add game functions. Ego connects supported actions to the Player Controller.</li>
-              <li>Close Ego, open UI Controls to move and edit the new elements, then use Play/Test.</li>
+              <li>Describe the game in the vision box and choose one or more game types.</li>
+              <li>Press Build scene from vision. Mad Builder plans scene objects; Ego adds supported 3D creature templates, or uses matching imported sprites for Creature Adventure · 2D.</li>
+              <li>Ego then adds the supported Player functions and an editable starter UI kit.</li>
+              <li>When characters are present, Ego adds editable idle, movement, and genre-action clips plus a controller that switches states in Play/Test.</li>
+              <li>Select generated objects in Panel 2 · Hierarchy to edit them, then use Play/Test. Add your own models, sprites, and textures through Panel 2 · Assets.</li>
             </ol>
             {gameTypes.map(gameType => (
               <section className="ego-guide-game" key={gameType}>
@@ -306,7 +438,14 @@ export function EgoAssistant({
                 <ol>{guideByGame[gameType].map((step) => <li key={step}>{step}</li>)}</ol>
               </section>
             ))}
-            <p className="ego-capability-note">Function actions are engine presets, not generated code. Review each object in Hierarchy to edit its settings.</p>
+            <details className="ego-graphics-references">
+              <summary>Graphics and animation references</summary>
+              <p>Ego uses these public Unity and Unreal guides as visual and animation-design references. Madhorse applies the transferable principles with its own renderer; it does not run HDRP, Nanite, Lumen, or Unity/Unreal animation systems.</p>
+              <ul>{egoGraphicsReferences.map(reference => (
+                <li key={reference.url}><a href={reference.url} target="_blank" rel="noreferrer">{reference.label}</a></li>
+              ))}</ul>
+            </details>
+            <p className="ego-capability-note">Ego’s scene context comes from saved project data and camera settings; it does not currently inspect rendered pixels. Function actions are engine presets, not arbitrary generated code. Review each object in Hierarchy to edit its settings.</p>
           </section>
         )}
 
@@ -320,6 +459,7 @@ export function EgoAssistant({
             <span><b>{scan.components}</b> components</span>
             <span><b>{scan.ui}</b> UI elements</span>
             <span><b>{scan.animations}</b> animations</span>
+            <span><b>{scan.animationControllers}</b> animation controllers</span>
             <span><b>{scan.prefabs}</b> prefabs</span>
             <span><b>{scan.builds}</b> Mad Builder builds</span>
             <span><b>{scan.players}</b> player objects</span>

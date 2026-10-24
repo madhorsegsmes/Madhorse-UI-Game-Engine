@@ -18,6 +18,7 @@ import { gameFeatureDefinitions } from '@/lib/game-feature-model';
 import { GameFeatureSettings } from './game-feature-settings';
 import { VisualLogicEditor } from './visual-logic-editor';
 import type { VisualLogicNode } from '@/lib/scene-model';
+import { getPbrSurfacePreset, matchPbrSurfacePreset, pbrSurfacePresets } from '@/lib/pbr-surface-presets';
 
 type Props = {
   entity: SceneEntity;
@@ -49,9 +50,15 @@ function toDraft(entity: SceneEntity) {
         }
       }
     } else if (component.type === 'primitive') {
+      const roughness = component.roughness ?? .58;
+      const metalness = component.metalness ?? .08;
+      const opacity = component.opacity ?? 1;
       values['primitive.shape'] = component.shape;
       values['primitive.color'] = component.color;
-      values['primitive.opacity'] = String(component.opacity ?? 1);
+      values['primitive.opacity'] = String(opacity);
+      values['primitive.roughness'] = String(roughness);
+      values['primitive.metalness'] = String(metalness);
+      values['primitive.surfacePreset'] = matchPbrSurfacePreset(roughness, metalness, opacity);
       values['primitive.textureAssetId'] = component.textureAssetId ?? '';
     } else if (component.type === 'light') {
       values['light.kind'] = component.kind;
@@ -144,7 +151,28 @@ export function SceneObjectInspector({
   const [audioPreviewStatus, setAudioPreviewStatus] = useState('');
   useEffect(() => () => stopAudioPlayback(), []);
   const setValue = (key: string, value: string) => {
-    setValues(current => ({ ...current, [key]: value }));
+    setValues(current => ({
+      ...current,
+      [key]: value,
+      ...(key === 'primitive.roughness' || key === 'primitive.metalness' || key === 'primitive.opacity'
+        ? { 'primitive.surfacePreset': 'custom' }
+        : {}),
+    }));
+    setError('');
+  };
+  const applySurfacePreset = (presetId: string) => {
+    const preset = getPbrSurfacePreset(presetId);
+    if (!preset) {
+      setValue('primitive.surfacePreset', 'custom');
+      return;
+    }
+    setValues(current => ({
+      ...current,
+      'primitive.surfacePreset': preset.id,
+      'primitive.roughness': String(preset.roughness),
+      'primitive.metalness': String(preset.metalness),
+      'primitive.opacity': String(preset.opacity),
+    }));
     setError('');
   };
   const number = (key: string) => Number(values[key]);
@@ -226,6 +254,8 @@ export function SceneObjectInspector({
         terrainEdits: values['primitive.shape'] === 'terrain' ? item.terrainEdits : undefined,
         color: values['primitive.color'],
         opacity: number('primitive.opacity'),
+        roughness: number('primitive.roughness'),
+        metalness: number('primitive.metalness'),
         textureAssetId: values['primitive.textureAssetId'] || null,
       };
       if (item.type === 'light') return {
@@ -408,6 +438,15 @@ export function SceneObjectInspector({
             { value: 'terrain', label: 'Terrain' },
           ])}
           {colorField('Surface color', 'primitive.color')}
+          <label className="fresh-setting">
+            <span>Surface preset</span>
+            <select value={values['primitive.surfacePreset'] ?? 'custom'} onChange={event => applySurfacePreset(event.currentTarget.value)}>
+              <option value="custom">Custom material</option>
+              {pbrSurfacePresets.map(preset => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
+            </select>
+          </label>
+          {numberField('Roughness', 'primitive.roughness', 0, 1, 0.01)}
+          {numberField('Metalness', 'primitive.metalness', 0, 1, 0.01)}
           {numberField('Opacity', 'primitive.opacity', 0.05, 1, 0.05)}
           {selectField('Surface texture', 'primitive.textureAssetId', assetOptions(imageAssets))}
         </>)}

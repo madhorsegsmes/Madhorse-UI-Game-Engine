@@ -8,7 +8,7 @@ const BODY_BLEND = 0.035;
 
 export function isCharacterBuilderModelRoot(entity: SceneEntity) {
   return entity.generatedBy === 'character-builder'
-    && entity.name.startsWith('Default Human');
+    && (entity.name.startsWith('Default Human') || entity.name.startsWith('Character ·'));
 }
 
 export function isCharacterBodySurfacePart(part: SceneEntity | string) {

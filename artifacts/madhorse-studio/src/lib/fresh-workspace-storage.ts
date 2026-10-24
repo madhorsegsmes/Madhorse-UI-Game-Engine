@@ -1,4 +1,5 @@
 import { isGameAnimationCollection, type GameAnimation } from './game-api';
+import { isEgoAnimationControllerCollection, type EgoAnimationController } from './ego-animation-controller';
 import { isGameCamera, type GameCamera } from './game-camera';
 import { isAssetCollection, isSceneGraph, type ProjectAsset, type SceneEntity } from './scene-model';
 import { isBuilderDraft, isBuilderHistory } from './mad-builder';
@@ -17,6 +18,7 @@ export type FreshWorkspaceSnapshot = {
   camera: GameCamera;
   assets: ProjectAsset[];
   animations: GameAnimation[];
+  animationControllers: EgoAnimationController[];
   builderHistory: BuilderMessage[];
   builderDraft: MadBuilderPlan | null;
   builderDraftRequest: string;
@@ -37,6 +39,7 @@ export function loadFreshWorkspace(): Partial<FreshWorkspaceSnapshot> {
       ...(isGameCamera(value.camera) ? { camera: value.camera } : {}),
       ...(Array.isArray(value.assets) && isAssetCollection(value.assets) ? { assets: value.assets } : {}),
       ...(Array.isArray(value.animations) && isGameAnimationCollection(value.animations) ? { animations: value.animations } : {}),
+      ...(isEgoAnimationControllerCollection(value.animationControllers) ? { animationControllers: value.animationControllers } : {}),
       ...(isBuilderHistory(value.builderHistory) ? { builderHistory: value.builderHistory } : {}),
       ...(value.builderDraft !== undefined && isBuilderDraft(value.builderDraft) ? { builderDraft: value.builderDraft } : {}),
       ...(typeof value.builderDraftRequest === 'string' ? { builderDraftRequest: value.builderDraftRequest } : {}),

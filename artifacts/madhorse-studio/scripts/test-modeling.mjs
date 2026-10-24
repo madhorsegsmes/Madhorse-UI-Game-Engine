@@ -19,7 +19,8 @@ try {
           normalizeVertexInfluence, appendRigBone, disposeModelingDocument,
         } from './src/lib/modeling-document';
         import { exportModelingDocument, importModelingFiles } from './src/lib/modeling-io';
-        import { createExtrudedGeometry, createSubdividedGeometry } from './src/lib/modeling-mesh-edit';
+        import { createExtrudedGeometry, createSubdividedGeometry, smoothGeometryVertices } from './src/lib/modeling-mesh-edit';
+        import { getPbrSurfacePreset, matchPbrSurfacePreset, pbrSurfacePresets } from './src/lib/pbr-surface-presets';
         globalThis.ProgressEvent ??= class ProgressEvent extends Event {
           constructor(type, options = {}) { super(type); Object.assign(this, options); }
         };
@@ -35,6 +36,23 @@ try {
             });
           }
         };
+        const smoothingTest = new THREE.PlaneGeometry(2, 2, 2, 2);
+        const smoothingPositions = smoothingTest.getAttribute('position');
+        const centerVertex = Array.from({ length: smoothingPositions.count }, (_, index) => index)
+          .find(index => Math.abs(smoothingPositions.getX(index)) < .001 && Math.abs(smoothingPositions.getY(index)) < .001);
+        assert.notEqual(centerVertex, undefined);
+        smoothingPositions.setZ(centerVertex, 1);
+        const skinWeights = new THREE.Float32BufferAttribute(new Float32Array(smoothingPositions.count * 4).fill(.25), 4);
+        smoothingTest.setAttribute('skinWeight', skinWeights);
+        const weightsBeforeSmooth = new Float32Array(skinWeights.array);
+        assert.equal(smoothGeometryVertices(smoothingTest, new Map([[centerVertex, 1]]), 1), 1);
+        assert.ok(smoothingPositions.getZ(centerVertex) < 1, 'The smoothing brush moves a vertex toward its neighbors');
+        assert.deepEqual(new Float32Array(smoothingTest.getAttribute('skinWeight').array), weightsBeforeSmooth, 'Smoothing preserves rig weights');
+        assert.equal(matchPbrSurfacePreset(.2, 1, 1), 'bare-metal');
+        assert.equal(getPbrSurfacePreset('glass')?.opacity, .25);
+        assert.ok(pbrSurfacePresets.every(preset => preset.roughness >= 0 && preset.roughness <= 1
+          && preset.metalness >= 0 && preset.metalness <= 1 && preset.opacity >= .05 && preset.opacity <= 1));
+        smoothingTest.dispose();
         function validate(document) {
           assert(documentMeshes(document.root).length > 1);
           assert(documentBones(document.root).length >= 23);
@@ -150,7 +168,7 @@ try {
           new File([JSON.stringify(missing)], 'missing.gltf'),
         ]), /Missing local resource/);
         [document, imported, jsonImport, modular].forEach(disposeModelingDocument);
-        console.log('PASS: smooth rigged human, normalized skin weights, actual bone deformation, joint undo/redo, modular equipment, GLB and self-contained glTF round trips, clips, and invalid import handling.');
+        console.log('PASS: smoothing brush preserves skin weights; PBR presets stay in range; rigged human, joint undo/redo, modular equipment, GLB/glTF round trips, clips, and invalid imports.');
       `,
     },
     bundle: true, platform: 'node', format: 'esm', write: false, logLevel: 'warning',

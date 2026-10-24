@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import './system-panel-tools.css';
 import { AnimationEditor } from '@/components/animation-editor';
 import type { GameAnimation } from '@/lib/game-api';
+import type { EgoAnimationController } from '@/lib/ego-animation-controller';
 import type { SceneEntity } from '@/lib/scene-model';
 import type { UIControlElement, UIControlType } from '@/lib/ui-controls';
 
@@ -12,6 +13,7 @@ export function SystemPanelTools({
   onShowGameView,
   readOnly,
   animations,
+  animationControllers = [],
   entities,
   selectedEntityId,
   uiControls,
@@ -28,6 +30,7 @@ export function SystemPanelTools({
   onShowGameView: () => void;
   readOnly: boolean;
   animations: GameAnimation[];
+  animationControllers?: EgoAnimationController[];
   entities: SceneEntity[];
   selectedEntityId: string | null;
   uiControls: UIControlElement[];
@@ -70,6 +73,7 @@ export function SystemPanelTools({
         <summary className="control-button system-tool-button">Animations</summary>
         <AnimationEditor
           animations={animations}
+          controllers={animationControllers}
           entities={entities}
           selectedEntityId={selectedEntityId}
           readOnly={readOnly}

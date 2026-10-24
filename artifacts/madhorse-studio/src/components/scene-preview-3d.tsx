@@ -569,6 +569,7 @@ function SceneRendererSettings({ background, exposure }: { background: string; e
   useEffect(() => {
     gl.setClearColor(background);
     scene.background = new THREE.Color(background);
+    gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = exposure;
     invalidate();
   }, [background, exposure, gl, invalidate, scene]);

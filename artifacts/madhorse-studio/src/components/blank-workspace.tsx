@@ -64,6 +64,12 @@ import {
 import { AnimationEditor } from './animation-editor';
 import { isGameAnimationCollection, sampleGameAnimation, type GameAnimation } from '@/lib/game-api';
 import {
+  applyEgoAnimationController,
+  createEgoAnimationPack,
+  isEgoAnimationControllerCollection,
+  type EgoAnimationController,
+} from '@/lib/ego-animation-controller';
+import {
   FRESH_WORKSPACE_ID,
   loadFreshWorkspace,
   saveFreshWorkspace,
@@ -94,6 +100,9 @@ import { GameStarterKitDialog } from './game-starter-kit-dialog';
 import { StoryboardEditor } from './storyboard-editor';
 import { downloadMadBuilderLogPdf, type MadBuilderBuildLog } from '@/lib/mad-builder-build-log';
 import { createGameTypeLibraryPdf, gameTypeLibraryEntryCount } from '@/lib/game-type-library';
+import { createEgoCharacterScene } from '@/lib/character-builder-starter';
+import { detectEgoCharacterRequests, type EgoCharacterSize } from '@/lib/ego-character-anatomy';
+import { createEgoWorkspaceContext } from '@/lib/ego-workspace-context';
 import {
   createPluginComponent,
   matchesPluginComponent,
@@ -1590,6 +1599,9 @@ export default function BlankWorkspace() {
   const [assets, setAssets] = useState<ProjectAsset[]>(savedWorkspace.assets ?? []);
   const [editingScriptableObjectId, setEditingScriptableObjectId] = useState<string | null>(null);
   const [animations, setAnimations] = useState<GameAnimation[]>(savedWorkspace.animations ?? []);
+  const animationsRef = useRef(animations);
+  const [animationControllers, setAnimationControllers] = useState<EgoAnimationController[]>(savedWorkspace.animationControllers ?? []);
+  const animationControllersRef = useRef(animationControllers);
   const [builderHistory, setBuilderHistory] = useState<BuilderMessage[]>(savedWorkspace.builderHistory ?? []);
   const [builderDraft, setBuilderDraft] = useState<MadBuilderPlan | null>(savedWorkspace.builderDraft ?? null);
   const [builderDraftRequest, setBuilderDraftRequest] = useState(savedWorkspace.builderDraftRequest ?? '');
@@ -1738,10 +1750,14 @@ export default function BlankWorkspace() {
     const current = builderProjectRef.current;
     const existingPlayer = current.entities.find(entity =>
       entity.components.some(component => component.type === 'characterController' && component.role === 'player'));
-    const player = existingPlayer ?? createSceneEntity('Player', { x: 0, y: 0, z: 0 }, null, false);
+    const generatedCharacter = existingPlayer ? undefined : current.entities.find(entity =>
+      entity.generatedBy === 'character-builder' &&
+      /^Character ·/.test(entity.name) &&
+      !entity.components.some(component => component.type === 'characterController'));
+    const player = existingPlayer ?? generatedCharacter ?? createSceneEntity('Player', { x: 0, y: 0, z: 0 }, null, false);
     const components: SceneComponent[] = [...player.components];
-    const createdPlayer = !existingPlayer;
-    if (createdPlayer) {
+    const createdPlayer = !existingPlayer && !generatedCharacter;
+    if (!components.some(component => component.type === 'characterController' && component.role === 'player')) {
       components.push(createPluginComponent('character-controller-player', current.uiControls?.length ?? 0).component);
     }
     const usedKeys = new Set(components.flatMap(component =>
@@ -1764,6 +1780,20 @@ export default function BlankWorkspace() {
       components.push(result.component);
       addedActions.push(playerActionDefinitions[result.component.action].label);
     }
+    const racingTune = gameTypes.includes('car-racing')
+      ? { acceleration: 7, maxSpeed: 48, turnSpeed: 92 }
+      : gameTypes.includes('kart-racing')
+        ? { acceleration: 13, maxSpeed: 24, turnSpeed: 155 }
+        : null;
+    if (racingTune) {
+      const raceActionIndex = components.findIndex(component =>
+        component.type === 'playerAction' && component.action === 'race',
+      );
+      const raceAction = components[raceActionIndex];
+      if (raceAction?.type === 'playerAction') {
+        components[raceActionIndex] = { ...raceAction, settings: { ...raceAction.settings, ...racingTune } };
+      }
+    }
     if (createdPlayer && !components.some(component => component.type === 'physics')) {
       components.push(createPluginComponent('physics', current.uiControls?.length ?? 0).component);
     }
@@ -1775,11 +1805,28 @@ export default function BlankWorkspace() {
     const updatedPlayer = { ...player, components };
     const entities = existingPlayer
       ? current.entities.map(entity => entity.id === player.id ? updatedPlayer : entity)
-      : [...current.entities, updatedPlayer];
+      : generatedCharacter
+        ? current.entities.map(entity => entity.id === player.id ? updatedPlayer : entity)
+        : [...current.entities, updatedPlayer];
+    let animationMessage = '';
+    if (!animationControllersRef.current.some(controller => controller.targetEntityId === player.id)) {
+      const pack = createEgoAnimationPack(entities, player.id, gameTypes);
+      const nextAnimations = [...animationsRef.current, ...pack.animations];
+      const nextControllers = [...animationControllersRef.current, pack.controller];
+      if (isGameAnimationCollection(nextAnimations) && isEgoAnimationControllerCollection(nextControllers)) {
+        animationsRef.current = nextAnimations;
+        animationControllersRef.current = nextControllers;
+        setAnimations(nextAnimations);
+        setAnimationControllers(nextControllers);
+        animationMessage = ` Ego added ${pack.animations.length} editable animation clips and a Play/Test state controller.`;
+      } else {
+        animationMessage = ' Animation storage is full, so no new controller was added.';
+      }
+    }
     setBuilderProjects([{ ...current, entities }]);
     setSelection(player.id);
     setEditingEntityId(null);
-    const message = `Ego added ${addedActions.length ? addedActions.join(', ') : 'a Player Controller'} for ${getEgoGameSelectionLabel(gameTypes)}${createdPlayer ? ' and created a Player object' : ''}.`;
+    const message = `Ego added ${addedActions.length ? addedActions.join(', ') : 'a Player Controller'} for ${getEgoGameSelectionLabel(gameTypes)}${createdPlayer ? ' and created a Player object' : ''}.${animationMessage}`;
     setStatus(message);
     return message;
   }, [setBuilderProjects]);
@@ -1861,6 +1908,90 @@ export default function BlankWorkspace() {
     },
   });
 
+  const buildEgoVision = useCallback(async (
+    vision: string,
+    gameTypes: EgoGameType[],
+    characterSize: EgoCharacterSize,
+    onProgress: (message: string) => void,
+  ) => {
+    const project = builderProjectRef.current;
+    const editorContext = createEgoWorkspaceContext(project, selection, camera);
+    const isSpriteAdventure = gameTypes.includes('creature-adventure-2d');
+    const requestedCharacters = isSpriteAdventure ? [] : detectEgoCharacterRequests(vision, characterSize);
+    const genreGuidance: Partial<Record<EgoGameType, string>> = {
+      'third-person-shooter': 'Stage a third-person shooter starting area with a player start, cover, targets/enemies, readable sight lines, and a useful camera framing. Do not claim advanced weapon simulation or a complete campaign.',
+      'kingdom-strategy': 'Stage a kingdom strategy map with a home base, resource sites, routes, unit groups, and command points. The current economy and multiplayer rules still need implementation.',
+      'creature-adventure-2d': 'Use a 2D sprite-first layout and matching image assets from this project when available. Do not create 3D creature anatomy for this 2D mode; custom sprite art must be imported.',
+      'creature-adventure-3d': 'Stage an explorable 3D creature-adventure area with readable paths, companions, encounters, and places for collectibles; use the editable creature templates Ego adds.',
+      fighting: 'Stage a fighting-game arena with distinct fighter starts and a clear combat space. Use supported fight and block actions; do not claim a complete fighting engine.',
+    };
+    const selectedGuidance = [...new Set(gameTypes)]
+      .flatMap(type => genreGuidance[type] ? [genreGuidance[type]!] : [])
+      .join(' ')
+      .slice(0, 360);
+    const promptContext = [
+      `Create a polished, editable Madhorse starter scene. Game mode(s): ${getEgoGameSelectionLabel(gameTypes)}.`,
+      'Build the requested environment and props with clear spacing and a logical hierarchy. Preserve existing objects. Use matching imported project asset IDs when useful; never invent asset IDs. The editor also supplies the exact image/model asset list.',
+      'Give visible surfaces realistic material values: use high metalness only for bare metal, keep paint/plastic/wood/stone non-metallic, make glass low-roughness and translucent, and use the project’s imported textures when they fit.',
+      selectedGuidance,
+      editorContext.plannerSummary.slice(0, 300),
+      'For racing, keep kart and real-car silhouettes distinct. Do not create scripts or claim unsupported gameplay systems.',
+      ...(requestedCharacters.length ? [
+        `Ego will add ${requestedCharacters.length} named editable 3D creature body-plan template(s) locally. Do not create duplicate character bodies.`,
+      ] : []),
+    ].filter(Boolean).join('\n');
+    const visionLine = `Vision: ${vision}`;
+    const prompt = `${promptContext.slice(0, Math.max(0, 1998 - visionLine.length))}\n${visionLine}`;
+    const result = await madBuilder.onPlan(prompt, false, 'polished-game-ready', 'auto', []);
+    if (result.ok && isSpriteAdventure) {
+      const spriteCount = project.assets.filter(asset => asset.kind === 'image').length;
+      return {
+        ...result,
+        message: `${result.message}${spriteCount ? ' Ego was given the project image assets to reuse as sprites where they fit.' : ' Import matching creature and environment sprites in Panel 2 · Assets; Madhorse does not generate finished 2D character art yet.'}`,
+      };
+    }
+    if (!requestedCharacters.length) return result;
+
+    try {
+      onProgress(`Creating editable creature anatomy for ${requestedCharacters.map(({ displayName }) => displayName).join(', ')}…`);
+      const characterBuilds = requestedCharacters.map((request, index) => {
+        const spacing = (index - (requestedCharacters.length - 1) / 2) * 2.2 + 1.25;
+        return createEgoCharacterScene(request.species, request.heightMeters, { x: spacing, z: 0 }, request.displayName);
+      });
+      const animationPacks = characterBuilds.map(build =>
+        createEgoAnimationPack(build.entities, build.characterId, gameTypes),
+      );
+      const nextAnimations = [...animations, ...animationPacks.flatMap(pack => pack.animations)];
+      const nextControllers = [...animationControllers, ...animationPacks.map(pack => pack.controller)];
+      const animationDataSaved =
+        isGameAnimationCollection(nextAnimations) &&
+        isEgoAnimationControllerCollection(nextControllers);
+      const current = builderProjectRef.current;
+      setBuilderProjects([{
+        ...current,
+        entities: [...current.entities, ...characterBuilds.flatMap((build) => build.entities)],
+      }]);
+      if (animationDataSaved) {
+        animationsRef.current = nextAnimations;
+        animationControllersRef.current = nextControllers;
+        setAnimations(nextAnimations);
+        setAnimationControllers(nextControllers);
+      }
+      setSelection(characterBuilds[0].characterId);
+      setStatus(`Ego added ${requestedCharacters.length} editable creature${requestedCharacters.length === 1 ? '' : 's'}, animation clips, and a Play/Test controller. Edit the named parts in Hierarchy and clips in Animation Timeline.`);
+      return {
+        ok: true,
+        message: `${result.ok ? result.message : `Mad Builder could not add the other requested scene parts: ${result.message}`} Added editable anatomy, animation clips, and game-state controllers for: ${requestedCharacters.map(({ displayName, species, heightMeters }) => `${displayName} (${species}) · ${heightMeters.toFixed(2)} m`).join(', ')}.${animationDataSaved ? '' : ' Animation storage is full, so the creature was added without a new controller.'} Select named parts in Hierarchy; open Animation Timeline to edit clips.`,
+      };
+    } catch (failure) {
+      const detail = failure instanceof Error ? failure.message : 'The character template could not be created.';
+      return {
+        ok: false,
+        message: `The scene plan was applied, but the anatomy template step failed: ${detail}`,
+      };
+    }
+  }, [animationControllers, animations, camera, madBuilder.onPlan, selection, setBuilderProjects, setSelection, setStatus]);
+
   useEffect(() => {
     const url = new URL(window.location.href);
     const requestedTool = url.searchParams.get('open');
@@ -1890,13 +2021,13 @@ export default function BlankWorkspace() {
   useEffect(() => {
     try {
       saveFreshWorkspace({
-        entities, camera, assets, animations, builderHistory, builderDraft, builderDraftRequest,
+        entities, camera, assets, animations, animationControllers, builderHistory, builderDraft, builderDraftRequest,
         builderBuildLogs, prefabs, uiControls, scripts: egoScripts,
       });
     } catch {
       setStatus('Could not save the scene data in this browser. Check available storage.');
     }
-  }, [entities, camera, assets, animations, builderHistory, builderDraft, builderDraftRequest, builderBuildLogs, prefabs, uiControls, egoScripts]);
+  }, [entities, camera, assets, animations, animationControllers, builderHistory, builderDraft, builderDraftRequest, builderBuildLogs, prefabs, uiControls, egoScripts]);
 
   useEffect(() => {
     if (!playTestOn) {
@@ -1977,8 +2108,14 @@ export default function BlankWorkspace() {
       };
       runtimeInput.tapped.clear();
       const result = advanceSceneRuntime(liveEntities, delta, elapsed, input, runtimeState);
+      const activeController = animationControllers.find(controller =>
+        controller.targetEntityId === result.animationTargetId,
+      );
+      const animatedEntities = activeController
+        ? applyEgoAnimationController(result.entities, animations, activeController, result.animationState, elapsed)
+        : result.entities;
       liveEntities = applyMultiplayerSnapshot(
-        result.entities,
+        animatedEntities,
         multiplayerSnapshotRef.current,
         multiplayerMemberRef.current?.playerId ?? null,
         multiplayerSnapshotRef.current?.players.find(player => player.id === multiplayerMemberRef.current?.playerId)?.isHost
@@ -2080,7 +2217,7 @@ export default function BlankWorkspace() {
       document.removeEventListener('visibilitychange', releaseKeys);
       releaseKeys();
     };
-  }, [assetUrls, camera, entities, onRuntimeKey, playTestOn]);
+  }, [animationControllers, animations, assetUrls, camera, entities, onRuntimeKey, playTestOn]);
 
   useEffect(() => {
     if (!multiplayerMember) {
@@ -2251,7 +2388,14 @@ export default function BlankWorkspace() {
 
     setEntities(current => current.filter(entity => !removedIds.has(entity.id)));
     setUIControls(current => current.filter(control => !removedControlIds.has(control.id)));
-    setAnimations(current => current.filter(animation => !removedIds.has(animation.targetEntityId)));
+    const nextAnimations = animationsRef.current.filter(animation => !removedIds.has(animation.targetEntityId));
+    animationsRef.current = nextAnimations;
+    setAnimations(nextAnimations);
+    const nextControllers = animationControllersRef.current.filter(controller =>
+      !removedIds.has(controller.targetEntityId),
+    );
+    animationControllersRef.current = nextControllers;
+    setAnimationControllers(nextControllers);
     setSelection(current => current && removedIds.has(current) ? target.parentId : current);
     setEditingEntityId(current => current && removedIds.has(current) ? null : current);
     setPreviewEntities(null);
@@ -2968,9 +3112,11 @@ export default function BlankWorkspace() {
             <EgoAssistant
               project={builderProject}
               animationsCount={animations.length}
+              animationControllersCount={animationControllers.length}
               scripts={egoScripts}
               camera={camera}
               selectedEntityId={selection}
+              onBuildVision={buildEgoVision}
               onBuildUi={buildEgoUiKit}
               onAddFunctions={addEgoGameFunctions}
               onCreateScript={createEgoProjectScript}
@@ -3009,11 +3155,27 @@ export default function BlankWorkspace() {
             </header>
             <AnimationEditor
               animations={animations}
+              controllers={animationControllers}
               entities={entities}
               selectedEntityId={selection}
               readOnly={false}
               onChange={next => {
-                if (isGameAnimationCollection(next)) setAnimations(next);
+                if (!isGameAnimationCollection(next)) return;
+                animationsRef.current = next;
+                setAnimations(next);
+                const validClipIds = new Set(next.map(animation => animation.id));
+                const nextControllers = animationControllersRef.current.map(controller => ({
+                  ...controller,
+                  states: Object.fromEntries(
+                    Object.entries(controller.states).map(([state, ids]) =>
+                      [state, ids.filter(id => validClipIds.has(id))],
+                    ),
+                  ),
+                }));
+                if (isEgoAnimationControllerCollection(nextControllers)) {
+                  animationControllersRef.current = nextControllers;
+                  setAnimationControllers(nextControllers);
+                }
               }}
               onPreviewFrame={previewAnimationFrame}
             />

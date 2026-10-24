@@ -247,3 +247,90 @@ export function selectedFaceTriangle(geometry: THREE.BufferGeometry, face: numbe
   const vertices = faceIndices(source, face);
   return vertices.map((vertex) => new THREE.Vector3().fromBufferAttribute(source.getAttribute('position'), vertex));
 }
+
+const smoothingNeighbors = new WeakMap<THREE.BufferGeometry, number[][]>();
+
+function getSmoothingNeighbors(geometry: THREE.BufferGeometry) {
+  const cached = smoothingNeighbors.get(geometry);
+  if (cached) return cached;
+  const positions = geometry.getAttribute('position');
+  if (positions.count > 150_000) {
+    throw new Error('This mesh is too dense for live smoothing here. Reduce its polygon count in Blender, then import the working copy.');
+  }
+  const canonicalForVertex = new Uint32Array(positions.count);
+  const representatives: number[] = [];
+  const byPosition = new Map<string, number>();
+  for (let vertex = 0; vertex < positions.count; vertex++) {
+    const key = `${Math.round(positions.getX(vertex) * 1e5)}:${Math.round(positions.getY(vertex) * 1e5)}:${Math.round(positions.getZ(vertex) * 1e5)}`;
+    let canonical = byPosition.get(key);
+    if (canonical === undefined) {
+      canonical = representatives.length;
+      byPosition.set(key, canonical);
+      representatives.push(vertex);
+    }
+    canonicalForVertex[vertex] = canonical;
+  }
+  const adjacent = Array.from({ length: representatives.length }, () => new Set<number>());
+  const triangleIndex = geometry.index;
+  const triangleCount = triangleIndex ? triangleIndex.count : positions.count;
+  for (let offset = 0; offset + 2 < triangleCount; offset += 3) {
+    const a = canonicalForVertex[triangleIndex ? triangleIndex.getX(offset) : offset];
+    const b = canonicalForVertex[triangleIndex ? triangleIndex.getX(offset + 1) : offset + 1];
+    const c = canonicalForVertex[triangleIndex ? triangleIndex.getX(offset + 2) : offset + 2];
+    if (a !== b) { adjacent[a].add(b); adjacent[b].add(a); }
+    if (b !== c) { adjacent[b].add(c); adjacent[c].add(b); }
+    if (c !== a) { adjacent[c].add(a); adjacent[a].add(c); }
+  }
+  const result = Array.from({ length: positions.count }, (_, vertex) =>
+    [...adjacent[canonicalForVertex[vertex]]].map(neighbor => representatives[neighbor]),
+  );
+  smoothingNeighbors.set(geometry, result);
+  return result;
+}
+
+/** Smooths selected positions toward their one-ring neighbor average without changing topology or skin weights. */
+export function smoothGeometryVertices(
+  geometry: THREE.BufferGeometry,
+  falloffs: ReadonlyMap<number, number>,
+  strength: number,
+) {
+  if (geometry.morphAttributes.position?.length) {
+    throw new Error('This mesh has shape keys. Smooth it in Blender so the shape keys can be preserved.');
+  }
+  const positions = geometry.getAttribute('position');
+  const neighbors = getSmoothingNeighbors(geometry);
+  const source = new Float32Array(positions.count * 3);
+  for (let vertex = 0; vertex < positions.count; vertex++) {
+    source[vertex * 3] = positions.getX(vertex);
+    source[vertex * 3 + 1] = positions.getY(vertex);
+    source[vertex * 3 + 2] = positions.getZ(vertex);
+  }
+  const factor = THREE.MathUtils.clamp(strength, 0, 1) * 0.35;
+  let changed = 0;
+  for (const [vertex, falloff] of falloffs) {
+    if (vertex < 0 || vertex >= positions.count || !neighbors[vertex].length) continue;
+    const adjacent = neighbors[vertex];
+    let x = 0, y = 0, z = 0;
+    for (const neighbor of adjacent) {
+      x += source[neighbor * 3];
+      y += source[neighbor * 3 + 1];
+      z += source[neighbor * 3 + 2];
+    }
+    const blend = factor * THREE.MathUtils.clamp(falloff, 0, 1);
+    const inverse = 1 - blend;
+    positions.setXYZ(
+      vertex,
+      source[vertex * 3] * inverse + x / adjacent.length * blend,
+      source[vertex * 3 + 1] * inverse + y / adjacent.length * blend,
+      source[vertex * 3 + 2] * inverse + z / adjacent.length * blend,
+    );
+    changed++;
+  }
+  if (changed) {
+    positions.needsUpdate = true;
+    geometry.computeVertexNormals();
+    geometry.computeBoundingSphere();
+    geometry.computeBoundingBox();
+  }
+  return changed;
+}

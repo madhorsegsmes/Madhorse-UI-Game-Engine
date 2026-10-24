@@ -6,10 +6,13 @@ import {
   type GameAnimation,
   type GameAnimationKeyframe,
 } from '@/lib/game-api';
+import type { EgoAnimationController } from '@/lib/ego-animation-controller';
 import { getTransform, type SceneEntity } from '@/lib/scene-model';
+import './animation-controller-list.css';
 
 type AnimationEditorProps = {
   animations: GameAnimation[];
+  controllers: EgoAnimationController[];
   entities: SceneEntity[];
   selectedEntityId: string | null;
   readOnly: boolean;
@@ -19,6 +22,7 @@ type AnimationEditorProps = {
 
 export function AnimationEditor({
   animations,
+  controllers,
   entities,
   selectedEntityId,
   readOnly,
@@ -180,6 +184,27 @@ export function AnimationEditor({
           + New
         </button>
       </div>
+      {controllers.length > 0 && (
+        <details className="animation-controller-list">
+          <summary>Ego animation controllers ({controllers.length})</summary>
+          <div className="animation-controller-list-body">
+            {controllers.map(controller => (
+              <article key={controller.id}>
+                <strong>{controller.name}</strong>
+                <span>Play/Test switches these states from movement and action input.</span>
+                <ul>
+                  {Object.entries(controller.states).map(([state, clipIds]) => (
+                    <li key={state}>
+                      <b>{state[0].toUpperCase() + state.slice(1)}</b>
+                      <span>{clipIds.map(id => animations.find(animation => animation.id === id)?.name ?? 'Missing clip').join(' · ')}</span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+          </div>
+        </details>
+      )}
       {animations.length === 0 ? (
         <p className="animation-empty">Create an animation to add timed scene keyframes.</p>
       ) : (

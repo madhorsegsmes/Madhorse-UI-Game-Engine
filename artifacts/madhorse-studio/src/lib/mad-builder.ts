@@ -107,7 +107,10 @@ export function compileBuilderPlan(input: unknown, existing: SceneEntity[], asse
       if (part.kind === 'terrain') transform.scale = { x: part.size.x / 20, y: part.size.z / 20, z: part.size.y / 1.3 };
       entity.components.push({ id: crypto.randomUUID(), type: 'primitive', enabled: true,
         shape: part.kind === 'box' ? part.shape ?? 'cube' : part.kind as 'plane' | 'terrain',
-        color: part.color, opacity: part.opacity ?? 1, textureAssetId: part.assetId ?? null });
+        color: part.color, opacity: part.opacity ?? 1,
+        ...(part.roughness === undefined ? {} : { roughness: part.roughness }),
+        ...(part.metalness === undefined ? {} : { metalness: part.metalness }),
+        textureAssetId: part.assetId ?? null });
     } else if (part.kind === 'sprite') {
       transform.scale = { x: 1, y: 1, z: 1 };
       entity.components.push({ ...createSpriteRendererComponent(), tint: part.color,

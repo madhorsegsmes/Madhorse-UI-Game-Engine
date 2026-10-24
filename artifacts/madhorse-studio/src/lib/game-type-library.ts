@@ -71,10 +71,10 @@ const entries: LibraryEntry[] = [
   },
   {
     name: 'Racing and vehicle games',
-    variants: 'Arcade racer, kart racer, drift, rally, circuit, vehicle combat, driving simulation.',
+    variants: 'Kart racing, real-car racing, arcade racer, drift, rally, circuit, vehicle combat, driving simulation.',
     loop: 'Control a vehicle around a route, manage speed and risk, pass rivals or targets, and finish or improve a result.',
-    systems: 'Vehicle movement and suspension, steering, grip, collision, camera follow, track boundaries, checkpoints, lap timing, opponent paths, tuning, race UI, replay or ghost data.',
-    build: 'Prototype one car on a short closed track; set collision and camera; place ordered checkpoints; add lap and position UI; tune handling before adding AI opponents or multiple cars.',
+    systems: 'Kart games emphasize readable arcade steering, boost and drift; real-car games need believable vehicle proportions, steering, grip, suspension, collision, track boundaries, checkpoints, lap timing, opponent paths, tuning, race UI, replay or ghost data.',
+    build: 'For kart racing, prototype one compact kart and a short closed track with boost/drift cues. For real-car racing, build one proportioned car and a test circuit; add collision, camera, ordered checkpoints and lap UI, then tune handling before AI opponents.',
     test: 'Drive every corner at varied speeds, test collisions and recovery, verify checkpoint order, lap counting, camera comfort, and controller remapping.',
   },
   {

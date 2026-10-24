@@ -3,6 +3,18 @@ name: Mad Builder
 description: Product placement, safe AI authoring boundaries, and reliable planner schema handling.
 ---
 
+Ego is the central creation entry point for Madhorse Studio, not a side assistant limited to characters.
+
+**Why:** The user said Ego should be the root of the program and create animals, monsters, and creatures as well as the rest of a game.
+
+**How to apply:** Route supported game-building requests through Ego's scene, creature, animation, UI, and gameplay-tool workflow; keep capability claims aligned with what Madhorse actually implements.
+
+Ego's genre starters should cover third-person shooters, kingdom strategy, creature-adventure games in separate 2D and 3D modes, and fighting games. Ego should reuse matching project image/model assets and guide users through the numbered editor panels using the current selection, scene, and camera context.
+
+**Why:** The user wants Ego to support a broad range of game genres, use assets already in the project, and coach users who build manually.
+
+**How to apply:** Keep genre profiles as editable starter scenes and supported actions rather than claiming complete AAA campaigns or production online games. 2D creature mode needs imported sprite art; Ego can read the structured scene and camera state but not rendered viewport pixels.
+
 In the fresh Madhorse workspace, Mad Builder belongs in Panel 4. It should use
 the engine's actual building tools to make editable project objects from
 requests, not merely return instructions or a picture.

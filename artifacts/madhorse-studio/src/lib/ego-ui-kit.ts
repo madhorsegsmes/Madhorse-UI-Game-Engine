@@ -4,12 +4,18 @@ import type { PlayerActionName } from './player-action-model';
 export const egoGameTypes = [
   { value: 'rpg', label: 'RPG' },
   { value: 'racing', label: 'Racing' },
+  { value: 'kart-racing', label: 'Kart Racing' },
+  { value: 'car-racing', label: 'Real Car Racing' },
   { value: 'sports', label: 'Sports' },
   { value: 'fighting', label: 'Fighting' },
   { value: 'rts', label: 'RTS' },
   { value: 'card', label: 'Card game' },
   { value: 'mmo', label: 'MMO' },
   { value: 'shooter', label: 'Shooter' },
+  { value: 'third-person-shooter', label: 'Third-Person Shooter' },
+  { value: 'kingdom-strategy', label: 'Kingdom Strategy' },
+  { value: 'creature-adventure-2d', label: 'Creature Adventure · 2D' },
+  { value: 'creature-adventure-3d', label: 'Creature Adventure · 3D' },
   { value: 'platformer', label: 'Platformer' },
 ] as const;
 
@@ -39,6 +45,20 @@ const UI_SEEDS: Record<EgoGameType, UiSeed[]> = {
     { type: 'panel', label: 'Position 1 / 8', x: 80, y: 4, width: 180, height: 56, color: '#29272a' },
     { type: 'health-bar', label: 'BOOST', x: 4, y: 86, width: 190, height: 36, color: '#bd4037' },
     { type: 'button', label: 'Pause Race', x: 84, y: 88, width: 130, height: 42, color: '#48415b' },
+  ],
+  'kart-racing': [
+    { type: 'text', label: 'SPEED 000', x: 4, y: 78, width: 180, height: 52, color: '#f0e9e2' },
+    { type: 'text', label: 'LAP 1 / 3', x: 4, y: 5, width: 140, height: 34, color: '#f0e9e2' },
+    { type: 'panel', label: 'POSITION 1 / 8', x: 78, y: 4, width: 178, height: 54, color: '#29272a' },
+    { type: 'health-bar', label: 'BOOST', x: 4, y: 87, width: 180, height: 34, color: '#4ec9a2' },
+    { type: 'text', label: 'DRIFT 000', x: 78, y: 78, width: 155, height: 34, color: '#f5d66f' },
+  ],
+  'car-racing': [
+    { type: 'text', label: 'SPEED 000 km/h', x: 4, y: 78, width: 205, height: 50, color: '#f0e9e2' },
+    { type: 'text', label: 'LAP 1 / 3', x: 4, y: 5, width: 145, height: 34, color: '#f0e9e2' },
+    { type: 'panel', label: 'POSITION 1 / 12', x: 78, y: 4, width: 190, height: 54, color: '#29272a' },
+    { type: 'text', label: 'GEAR 1 · RPM 0000', x: 4, y: 87, width: 218, height: 34, color: '#e2e8f0' },
+    { type: 'button', label: 'Pause Race', x: 83, y: 88, width: 130, height: 40, color: '#48415b' },
   ],
   sports: [
     { type: 'panel', label: 'Match Score', x: 36, y: 3, width: 260, height: 74, color: '#29272a' },
@@ -83,6 +103,34 @@ const UI_SEEDS: Record<EgoGameType, UiSeed[]> = {
     { type: 'button', label: 'Reload', x: 84, y: 94, width: 112, height: 40, color: '#48415b' },
     { type: 'button', label: 'Pause', x: 90, y: 4, width: 110, height: 40, color: '#bd4037' },
   ],
+  'third-person-shooter': [
+    { type: 'health-bar', label: 'Health', x: 3, y: 87, width: 190, height: 36, color: '#c9433c' },
+    { type: 'text', label: 'AMMO 30 / 90', x: 82, y: 87, width: 170, height: 38, color: '#f0e9e2' },
+    { type: 'text', label: '+', x: 49, y: 48, width: 28, height: 28, color: '#f0e9e2' },
+    { type: 'button', label: 'Reload', x: 84, y: 94, width: 112, height: 40, color: '#48415b' },
+    { type: 'button', label: 'Pause', x: 90, y: 4, width: 110, height: 40, color: '#bd4037' },
+  ],
+  'kingdom-strategy': [
+    { type: 'panel', label: 'Kingdom Resources', x: 2, y: 3, width: 280, height: 60, color: '#29272a' },
+    { type: 'text', label: 'GOLD 250 · FOOD 120 · WOOD 180', x: 4, y: 5, width: 270, height: 30, color: '#f0e9e2' },
+    { type: 'panel', label: 'Selected Unit', x: 2, y: 76, width: 230, height: 94, color: '#29272a' },
+    { type: 'button', label: 'Build', x: 80, y: 82, width: 120, height: 40, color: '#bd4037' },
+    { type: 'button', label: 'Gather', x: 80, y: 91, width: 120, height: 40, color: '#526b42' },
+  ],
+  'creature-adventure-2d': [
+    { type: 'health-bar', label: 'Partner Health', x: 3, y: 4, width: 210, height: 36, color: '#55a878' },
+    { type: 'panel', label: 'Party', x: 3, y: 68, width: 230, height: 108, color: '#29272a' },
+    { type: 'text', label: 'CREATURES  1 / 6', x: 4, y: 10, width: 190, height: 30, color: '#f0e9e2' },
+    { type: 'button', label: 'Explore', x: 80, y: 84, width: 124, height: 40, color: '#4a8c66' },
+    { type: 'button', label: 'Items', x: 80, y: 92, width: 112, height: 40, color: '#48415b' },
+  ],
+  'creature-adventure-3d': [
+    { type: 'health-bar', label: 'Partner Health', x: 3, y: 4, width: 210, height: 36, color: '#55a878' },
+    { type: 'panel', label: 'Party', x: 3, y: 68, width: 230, height: 108, color: '#29272a' },
+    { type: 'text', label: 'CREATURES  1 / 6', x: 4, y: 10, width: 190, height: 30, color: '#f0e9e2' },
+    { type: 'button', label: 'Explore', x: 80, y: 84, width: 124, height: 40, color: '#4a8c66' },
+    { type: 'button', label: 'Items', x: 80, y: 92, width: 112, height: 40, color: '#48415b' },
+  ],
   platformer: [
     { type: 'health-bar', label: 'Health', x: 3, y: 4, width: 190, height: 36, color: '#c9433c' },
     { type: 'text', label: 'LIVES 3', x: 82, y: 4, width: 130, height: 32, color: '#f0e9e2' },
@@ -95,12 +143,18 @@ const UI_SEEDS: Record<EgoGameType, UiSeed[]> = {
 export const egoPlayerActions: Record<EgoGameType, PlayerActionName[]> = {
   rpg: ['fight', 'cast', 'heal'],
   racing: ['race', 'run'],
+  'kart-racing': ['race'],
+  'car-racing': ['race'],
   sports: ['run'],
   fighting: ['fight', 'block'],
   rts: ['command', 'gather', 'build'],
   card: ['draw-card', 'play-card', 'end-turn'],
   mmo: ['fight', 'cast', 'heal', 'follow'],
   shooter: ['shoot', 'reload', 'crouch'],
+  'third-person-shooter': ['shoot', 'reload', 'crouch', 'run'],
+  'kingdom-strategy': ['command', 'gather', 'build'],
+  'creature-adventure-2d': ['run', 'fight', 'heal', 'follow'],
+  'creature-adventure-3d': ['run', 'fight', 'heal', 'follow'],
   platformer: ['run', 'crouch', 'fight'],
 };
 

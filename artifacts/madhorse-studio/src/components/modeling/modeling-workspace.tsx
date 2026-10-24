@@ -11,7 +11,8 @@ import { downloadModelingFile, exportModelingDocument, importModelingFiles } fro
 import { createPrimitiveGeometry } from '@/lib/scene-view-geometry';
 import type { PrimitiveShape } from '@/lib/scene-model';
 import { beginSystemActivity } from '@/lib/system-activity';
-import { createExtrudedGeometry, createSubdividedGeometry } from '@/lib/modeling-mesh-edit';
+import { createExtrudedGeometry, createSubdividedGeometry, smoothGeometryVertices } from '@/lib/modeling-mesh-edit';
+import { getPbrSurfacePreset, pbrSurfacePresets } from '@/lib/pbr-surface-presets';
 
 type HistoryAction = { undo: () => void; redo: () => void };
 type AttributeSnapshot = { position: Float32Array; weights?: Float32Array; indices?: Uint16Array };
@@ -22,6 +23,28 @@ type Props = {
   initialSource?: { url: string; name: string };
 };
 const axisNames = ['x', 'y', 'z'] as const;
+const quickShapes: Array<{ shape: PrimitiveShape; label: string }> = [
+  { shape: 'cube', label: 'cube' },
+  { shape: 'rounded-cube', label: 'rounded cube' },
+  { shape: 'sphere', label: 'sphere' },
+  { shape: 'cylinder', label: 'cylinder' },
+  { shape: 'cone', label: 'cone' },
+  { shape: 'capsule', label: 'capsule' },
+];
+const moreShapes: Array<{ shape: PrimitiveShape; label: string }> = [
+  { shape: 'torus', label: 'torus' },
+  { shape: 'ring', label: 'ring' },
+  { shape: 'tube', label: 'tube' },
+  { shape: 'wedge', label: 'wedge' },
+  { shape: 'triangular-prism', label: 'triangular prism' },
+  { shape: 'pyramid', label: 'pyramid' },
+  { shape: 'hollow-cylinder', label: 'hollow cylinder' },
+  { shape: 'icosahedron', label: 'icosahedron' },
+  { shape: 'dodecahedron', label: 'dodecahedron' },
+  { shape: 'octahedron', label: 'octahedron' },
+  { shape: 'tetrahedron', label: 'tetrahedron' },
+  { shape: 'torus-knot', label: 'torus knot' },
+];
 
 function takeSnapshot(mesh: THREE.Mesh): AttributeSnapshot {
   const geometry = mesh.geometry;
@@ -77,6 +100,7 @@ export default function ModelingWorkspace({ onClose, onSave, initialSource }: Pr
   const [radius, setRadius] = useState(.12);
   const [strength, setStrength] = useState(.2);
   const [subtract, setSubtract] = useState(false);
+  const [surfacePreset, setSurfacePreset] = useState('custom');
   const [clip, setClip] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -301,6 +325,7 @@ export default function ModelingWorkspace({ onClose, onSave, initialSource }: Pr
   };
   const editMaterial = (property: 'color' | 'roughness' | 'metalness', value: string | number) => {
     if (!(selected instanceof THREE.Mesh)) return;
+    if (property !== 'color') setSurfacePreset('custom');
     const materials = (Array.isArray(selected.material) ? selected.material : [selected.material]) as THREE.Material[];
     const pbr = materials.filter((material): material is THREE.MeshStandardMaterial => material instanceof THREE.MeshStandardMaterial);
     const before = property === 'color' ? materials.filter((material) => 'color' in material).map((material) => (material as THREE.Material & { color: THREE.Color }).color.getHexString())
@@ -319,6 +344,59 @@ export default function ModelingWorkspace({ onClose, onSave, initialSource }: Pr
     const after = property === 'color' ? materials.filter((material) => 'color' in material).map((material) => (material as THREE.Material & { color: THREE.Color }).color.getHexString())
       : pbr.map((material) => material[property]);
     if (!before.length) return;
+    push({ undo: () => apply(before), redo: () => apply(after) });
+  };
+  const applyPbrSurfacePreset = (presetId: string) => {
+    if (!(selected instanceof THREE.Mesh)) return;
+    const preset = getPbrSurfacePreset(presetId);
+    if (!preset) return;
+    const materials = (Array.isArray(selected.material) ? selected.material : [selected.material])
+      .filter((material): material is THREE.MeshStandardMaterial => material instanceof THREE.MeshStandardMaterial);
+    if (!materials.length) return;
+    const capture = () => materials.map(material => ({
+      roughness: material.roughness,
+      metalness: material.metalness,
+      opacity: material.opacity,
+      transparent: material.transparent,
+      depthWrite: material.depthWrite,
+    }));
+    const apply = (values: ReturnType<typeof capture>) => values.forEach((value, index) => {
+      const material = materials[index];
+      material.roughness = value.roughness;
+      material.metalness = value.metalness;
+      material.opacity = value.opacity;
+      material.transparent = value.transparent;
+      material.depthWrite = value.depthWrite;
+      material.needsUpdate = true;
+    });
+    const before = capture();
+    apply(materials.map(() => ({
+      roughness: preset.roughness,
+      metalness: preset.metalness,
+      opacity: preset.opacity,
+      transparent: preset.opacity < 1,
+      depthWrite: preset.opacity >= 1,
+    })));
+    const after = capture();
+    push({ undo: () => apply(before), redo: () => apply(after) });
+    setSurfacePreset(preset.id);
+  };
+  const editMaterialOpacity = (value: number) => {
+    if (!(selected instanceof THREE.Mesh)) return;
+    setSurfacePreset('custom');
+    const materials = (Array.isArray(selected.material) ? selected.material : [selected.material])
+      .filter((material): material is THREE.MeshStandardMaterial => material instanceof THREE.MeshStandardMaterial);
+    if (!materials.length) return;
+    const capture = () => materials.map(material => ({
+      opacity: material.opacity, transparent: material.transparent, depthWrite: material.depthWrite,
+    }));
+    const apply = (values: ReturnType<typeof capture>) => values.forEach((state, index) => {
+      Object.assign(materials[index], state);
+      materials[index].needsUpdate = true;
+    });
+    const before = capture();
+    apply(materials.map(() => ({ opacity: value, transparent: value < 1, depthWrite: value >= 1 })));
+    const after = capture();
     push({ undo: () => apply(before), redo: () => apply(after) });
   };
   const finishStroke = () => {
@@ -346,6 +424,25 @@ export default function ModelingWorkspace({ onClose, onSave, initialSource }: Pr
     const positions = mesh.geometry.getAttribute('position');
     const normals = mesh.geometry.getAttribute('normal');
     const vertex = new THREE.Vector3();
+    if (tool === 'smooth') {
+      const falloffs = new Map<number, number>();
+      for (let index = 0; index < positions.count; index++) {
+        vertex.fromBufferAttribute(positions, index);
+        if (skinned) skinned.applyBoneTransform(index, vertex);
+        mesh.localToWorld(vertex);
+        const distance = vertex.distanceTo(point);
+        if (distance <= radius) falloffs.set(index, 1 - distance / radius);
+      }
+      try {
+        const smoothed = smoothGeometryVertices(mesh.geometry, falloffs, strength);
+        if (smoothed) changed();
+        else stroke.current.delete(mesh);
+      } catch (error) {
+        stroke.current.delete(mesh);
+        setStatus(error instanceof Error ? error.message : 'Could not smooth this mesh.');
+      }
+      return;
+    }
     for (let index = 0; index < positions.count; index++) {
       vertex.fromBufferAttribute(positions, index);
       if (skinned) skinned.applyBoneTransform(index, vertex);
@@ -427,6 +524,7 @@ export default function ModelingWorkspace({ onClose, onSave, initialSource }: Pr
     : [];
   const selectedColorMaterial = selectedMaterials.find((material) => 'color' in material) as (THREE.Material & { color: THREE.Color }) | undefined;
   const selectedPbrMaterial = selectedMaterials.find((material) => material instanceof THREE.MeshStandardMaterial) as THREE.MeshStandardMaterial | undefined;
+  useEffect(() => setSurfacePreset('custom'), [selected?.uuid]);
   return <ModelingShell onClose={close} status={status}
     toolbar={<>
       <button disabled={busy} onClick={() => input.current?.click()}>Import GLB / glTF</button>
@@ -465,14 +563,16 @@ export default function ModelingWorkspace({ onClose, onSave, initialSource }: Pr
         <p>Shortcuts: G move · R rotate · S scale · Delete selected mesh</p>
       </fieldset>
       <fieldset disabled={busy || playing}><legend>Workspace tools</legend><div className="modeling-row">
-        {(['select', 'sculpt', 'weights'] as const).map((mode) => <button key={mode} aria-pressed={tool === mode}
-          onClick={() => { finishStroke(); setTool(mode); }}>{mode === 'select' ? 'Orbit / select' : mode === 'sculpt' ? 'Sculpt surface' : 'Paint weights'}</button>)}
+        {(['select', 'sculpt', 'smooth', 'weights'] as const).map((mode) => <button key={mode} aria-pressed={tool === mode}
+          onClick={() => { finishStroke(); setTool(mode); }}>{mode === 'select' ? 'Orbit / select' : mode === 'sculpt' ? 'Sculpt surface' : mode === 'smooth' ? 'Smooth surface' : 'Paint weights'}</button>)}
       </div><p>Orbit: drag to rotate, right-drag to pan, wheel/pinch to zoom. Brush tools: drag on the surface; return to Orbit to navigate.</p></fieldset>
       <fieldset disabled={busy || playing}><legend>Modeling</legend><div className="modeling-row">
-        {(['cube', 'rounded-cube', 'sphere', 'capsule'] as const).map((shape) => <button key={shape} onClick={() => addPrimitive(shape)}>
-          Add {shape === 'rounded-cube' ? 'rounded cube' : shape}
+        {quickShapes.map(({ shape, label }) => <button key={shape} onClick={() => addPrimitive(shape)}>
+          Add {label}
         </button>)}
-      </div><label><input type="checkbox" checked={wireframe} onChange={(event) => setWireframe(event.target.checked)} />Wireframe</label></fieldset>
+      </div><details><summary>More shape starters</summary><div className="modeling-row">
+        {moreShapes.map(({ shape, label }) => <button key={shape} onClick={() => addPrimitive(shape)}>Add {label}</button>)}
+      </div></details><label><input type="checkbox" checked={wireframe} onChange={(event) => setWireframe(event.target.checked)} />Wireframe</label></fieldset>
       {editMode && <fieldset disabled={busy || playing}><legend>Mesh edit</legend>
         <p>{editMesh?.name || 'Select a mesh'} · {selectedVertices.length} vertices · {selectedFaces.length} faces selected</p>
         {selectedVertices.length > 0 && editMesh && <div className="modeling-row">
@@ -489,11 +589,12 @@ export default function ModelingWorkspace({ onClose, onSave, initialSource }: Pr
         <button disabled={!selectedVertices.length && !selectedFaces.length} onClick={() => { setSelectedVertices([]); setSelectedFaces([]); }}>Clear mesh selection</button>
         <p>Extrude adds side faces; Subdivide splits a triangle into four. Undo restores the previous mesh. Rigged meshes use the sculpt/weight brushes to preserve skinning.</p>
       </fieldset>}
-      {tool !== 'select' && <fieldset disabled={busy || playing}><legend>{tool === 'weights' ? 'Weight brush' : 'Sculpt brush'}</legend>
+      {tool !== 'select' && <fieldset disabled={busy || playing}><legend>{tool === 'weights' ? 'Weight brush' : tool === 'smooth' ? 'Smooth brush' : 'Sculpt brush'}</legend>
         <label>Radius (m)<input type="range" min=".02" max=".4" step=".01" value={radius} onChange={(event) => setRadius(Number(event.target.value))} />{radius.toFixed(2)}</label>
         <label>Strength<input type="range" min=".01" max="1" step=".01" value={strength} onChange={(event) => setStrength(Number(event.target.value))} />{strength.toFixed(2)}</label>
-        <label><input type="checkbox" checked={subtract} onChange={(event) => setSubtract(event.target.checked)} />{tool === 'weights' ? 'Subtract influence' : 'Lower instead of raise'}</label>
+        {tool !== 'smooth' && <label><input type="checkbox" checked={subtract} onChange={(event) => setSubtract(event.target.checked)} />{tool === 'weights' ? 'Subtract influence' : 'Lower instead of raise'}</label>}
         {tool === 'weights' && <p>Selected bone: {bone?.name ?? 'Choose a bone'}. Blue = no influence; red = full influence. Weights normalize after each stroke.</p>}
+        {tool === 'smooth' && <p>Smooth moves nearby vertices toward their neighbors. It keeps mesh topology and rig weights unchanged; shape-key meshes are protected.</p>}
       </fieldset>}
       <fieldset disabled={busy || playing}><legend>Modular character</legend>
         <label>Height (m)<input type="number" min="1" max="2.5" step=".05" value={options.height}
@@ -552,10 +653,17 @@ export default function ModelingWorkspace({ onClose, onSave, initialSource }: Pr
         <label>Base color<input aria-label="Material base color" type="color" value={`#${selectedColorMaterial.color.getHexString()}`}
           onChange={(event) => editMaterial('color', event.target.value)} /></label>
         {selectedPbrMaterial && <>
+          <label>Surface preset<select aria-label="Material surface preset" value={surfacePreset}
+            onChange={(event) => applyPbrSurfacePreset(event.target.value)}>
+            <option value="custom">Custom material</option>
+            {pbrSurfacePresets.map(preset => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
+          </select></label>
           <label>Roughness<input aria-label="Material roughness" type="range" min="0" max="1" step=".01"
             value={selectedPbrMaterial.roughness} onChange={(event) => editMaterial('roughness', Number(event.target.value))} /></label>
           <label>Metalness<input aria-label="Material metalness" type="range" min="0" max="1" step=".01"
             value={selectedPbrMaterial.metalness} onChange={(event) => editMaterial('metalness', Number(event.target.value))} /></label>
+          <label>Opacity<input aria-label="Material opacity" type="range" min=".05" max="1" step=".01"
+            value={selectedPbrMaterial.opacity} onChange={(event) => editMaterialOpacity(Number(event.target.value))} /></label>
         </>}
         <p>Changes apply to the selected mesh material in this workspace and can be undone.</p>
       </fieldset>}

@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { SceneWebGLBoundary } from '../scene-webgl-boundary';
 import type { ModelingDocument } from '@/lib/modeling-document';
 
-export type ModelingTool = 'select' | 'sculpt' | 'weights';
+export type ModelingTool = 'select' | 'sculpt' | 'smooth' | 'weights';
 export type ModelingTransformMode = 'translate' | 'rotate' | 'scale';
 
 function ModelScene({

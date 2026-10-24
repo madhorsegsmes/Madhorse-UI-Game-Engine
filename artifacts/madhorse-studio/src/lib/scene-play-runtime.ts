@@ -30,6 +30,8 @@ export type SceneRuntimeState = {
   patrolOrigins: Map<string, { x: number; y: number }>;
   actions: PlayerActionRuntimeState;
   controlledPlayerId: string | null;
+  animationAction: 'attack' | 'cast' | 'shoot' | 'jump' | null;
+  animationActionUntil: number;
 };
 
 function getController(entity: SceneEntity): CharacterControllerComponent | undefined {
@@ -53,7 +55,15 @@ export function createSceneRuntimeState(entities: SceneEntity[], preferredPlayer
       patrolOrigins.set(entity.id, { x: transform.position.x, y: transform.position.y });
     }
   }
-  return { contacts: new Set(), jumpVelocity: new Map(), patrolOrigins, actions: createPlayerActionRuntimeState(), controlledPlayerId: preferredPlayerId };
+  return {
+    contacts: new Set(),
+    jumpVelocity: new Map(),
+    patrolOrigins,
+    actions: createPlayerActionRuntimeState(),
+    controlledPlayerId: preferredPlayerId,
+    animationAction: null,
+    animationActionUntil: 0,
+  };
 }
 
 export function advanceSceneRuntime(
@@ -62,7 +72,14 @@ export function advanceSceneRuntime(
   elapsedSeconds: number,
   input: RuntimeInput,
   state: SceneRuntimeState,
-): { entities: SceneEntity[]; events: RuntimeTriggerEvent[]; audioEvents: ActionAudioEvent[]; hud: ActionHud | null } {
+): {
+  entities: SceneEntity[];
+  events: RuntimeTriggerEvent[];
+  audioEvents: ActionAudioEvent[];
+  hud: ActionHud | null;
+  animationTargetId: string | null;
+  animationState: 'idle' | 'walk' | 'run' | 'attack' | 'cast' | 'shoot' | 'drive' | 'jump';
+} {
   const dt = Math.min(0.05, Math.max(0, deltaSeconds));
   const players = entities.filter(entity => {
     const controller = getController(entity);
@@ -74,6 +91,26 @@ export function advanceSceneRuntime(
   const playerController = player ? getController(player) : undefined;
   const playerWorld = player ? getWorldTransform(entities, player.id) : null;
   const actionMotion = player ? resolveActionMovement(player, input, state.actions, dt) : null;
+  const pressedKeys = new Set(input.pressedKeys ?? []);
+  const pressedAction = actionMotion?.actions.find(action =>
+    pressedKeys.has(action.key) && ['fight', 'cast', 'shoot'].includes(action.action),
+  );
+  const nextAnimationAction = pressedAction?.action === 'fight' ? 'attack'
+    : pressedAction?.action === 'cast' ? 'cast'
+      : pressedAction?.action === 'shoot' ? 'shoot' : null;
+  if (input.jumpPressed) {
+    state.animationAction = 'jump';
+    state.animationActionUntil = elapsedSeconds + 0.5;
+  } else if (nextAnimationAction) {
+    state.animationAction = nextAnimationAction;
+    state.animationActionUntil = elapsedSeconds + (nextAnimationAction === 'cast' ? 0.8 : nextAnimationAction === 'shoot' ? 0.24 : 0.42);
+  }
+  const activeAnimationAction = elapsedSeconds < state.animationActionUntil ? state.animationAction : null;
+  const animationState = actionMotion?.driving ? 'drive'
+    : activeAnimationAction ? activeAnimationAction
+      : actionMotion?.running ? 'run'
+        : input.moveX !== 0 || input.moveY !== 0 ? 'walk'
+          : 'idle';
 
   const moved = entities.map(entity => {
     const controller = getController(entity);
@@ -216,5 +253,7 @@ export function advanceSceneRuntime(
     events: [...events, ...actionResult.events],
     audioEvents: actionResult.audioEvents,
     hud: actionResult.hud,
+    animationTargetId: player?.id ?? null,
+    animationState,
   };
 }

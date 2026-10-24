@@ -369,6 +369,16 @@ export interface BuilderPart {
      */
   opacity?: number;
   /**
+     * @minimum 0
+     * @maximum 1
+     */
+  roughness?: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  metalness?: number;
+  /**
      * @maxLength 80
      * @nullable
      */

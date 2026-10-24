@@ -96,6 +96,12 @@ export const planMadBuilderResponsePartsItemColorRegExp = new RegExp('^#[0-9a-fA
 export const planMadBuilderResponsePartsItemOpacityMin = 0.05;
 export const planMadBuilderResponsePartsItemOpacityMax = 1;
 
+export const planMadBuilderResponsePartsItemRoughnessMin = 0;
+export const planMadBuilderResponsePartsItemRoughnessMax = 1;
+
+export const planMadBuilderResponsePartsItemMetalnessMin = 0;
+export const planMadBuilderResponsePartsItemMetalnessMax = 1;
+
 export const planMadBuilderResponsePartsItemAssetIdMax = 80;
 
 export const planMadBuilderResponsePartsItemTextMax = 80;
@@ -140,6 +146,8 @@ export const PlanMadBuilderResponse = zod.object({
 }).describe('Local object size in scene units. Each dimension is bounded by the editor\'s safe scene limit.'),
   "color": zod.string().regex(planMadBuilderResponsePartsItemColorRegExp),
   "opacity": zod.number().min(planMadBuilderResponsePartsItemOpacityMin).max(planMadBuilderResponsePartsItemOpacityMax).optional(),
+  "roughness": zod.number().min(planMadBuilderResponsePartsItemRoughnessMin).max(planMadBuilderResponsePartsItemRoughnessMax).optional(),
+  "metalness": zod.number().min(planMadBuilderResponsePartsItemMetalnessMin).max(planMadBuilderResponsePartsItemMetalnessMax).optional(),
   "assetId": zod.string().max(planMadBuilderResponsePartsItemAssetIdMax).nullish(),
   "text": zod.string().max(planMadBuilderResponsePartsItemTextMax).optional(),
   "lightKind": zod.enum(['point', 'directional', 'ambient']).optional(),

@@ -190,6 +190,16 @@ export const builderPlanJsonSchema: Record<string, unknown> = {
             "minimum": 0.05,
             "maximum": 1
           },
+          "roughness": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "metalness": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
           "assetId": {
             "type": [
               "string",

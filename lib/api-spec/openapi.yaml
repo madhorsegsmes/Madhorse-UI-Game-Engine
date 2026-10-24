@@ -396,6 +396,8 @@ components:
         size: { $ref: "#/components/schemas/BuilderSize" }
         color: { type: string, pattern: "^#[0-9a-fA-F]{6}$" }
         opacity: { type: number, minimum: 0.05, maximum: 1 }
+        roughness: { type: number, minimum: 0, maximum: 1 }
+        metalness: { type: number, minimum: 0, maximum: 1 }
         assetId: { type: [string, "null"], maxLength: 80 }
         text: { type: string, maxLength: 80 }
         lightKind: { type: string, enum: [point, directional, ambient] }
