@@ -4,14 +4,15 @@ import type { BuilderDocument } from '@/hooks/use-mad-builder';
 import {
   egoGameTypes,
   getEgoGameLabel,
+  getEgoGameSelectionLabel,
   type EgoGameType,
 } from '@/lib/ego-ui-kit';
 
 type EgoAssistantProps = {
   project: BuilderDocument;
   animationsCount: number;
-  onBuildUi: (gameType: EgoGameType, gameVision: string) => void;
-  onAddFunctions: (gameType: EgoGameType) => void;
+  onBuildUi: (gameTypes: EgoGameType[], gameVision: string) => void;
+  onAddFunctions: (gameTypes: EgoGameType[]) => void;
   onClose: () => void;
 };
 
@@ -63,10 +64,17 @@ function projectScan(project: BuilderDocument, animationsCount: number) {
 }
 
 export function EgoAssistant({ project, animationsCount, onBuildUi, onAddFunctions, onClose }: EgoAssistantProps) {
-  const [gameType, setGameType] = useState<EgoGameType>('rpg');
+  const [gameTypes, setGameTypes] = useState<EgoGameType[]>(['rpg']);
   const [gameVision, setGameVision] = useState('');
   const [activeTab, setActiveTab] = useState<'build' | 'guide'>('build');
   const scan = projectScan(project, animationsCount);
+  const gameLabel = getEgoGameSelectionLabel(gameTypes);
+
+  const toggleGameType = (gameType: EgoGameType) => {
+    setGameTypes(current => current.includes(gameType)
+      ? current.length > 1 ? current.filter(type => type !== gameType) : current
+      : [...current, gameType]);
+  };
 
   return (
     <div className="ego-assistant" data-testid="ego-assistant">
@@ -84,29 +92,6 @@ export function EgoAssistant({ project, animationsCount, onBuildUi, onAddFunctio
       </header>
 
       <div className="ego-assistant-body">
-        <section className="ego-scan-card" aria-label="Project scan" data-testid="ego-project-scan">
-          <div className="ego-section-heading">
-            <div><Boxes size={15} aria-hidden="true" /><strong>Project scan</strong></div>
-            <span>Saved in this browser</span>
-          </div>
-          <div className="ego-scan-grid">
-            <span><b>{scan.objects}</b> scene objects</span>
-            <span><b>{scan.components}</b> components</span>
-            <span><b>{scan.ui}</b> UI elements</span>
-            <span><b>{scan.animations}</b> animations</span>
-            <span><b>{scan.prefabs}</b> prefabs</span>
-            <span><b>{scan.builds}</b> Mad Builder builds</span>
-            <span><b>{scan.players}</b> player objects</span>
-            <span><b>{scan.scripts}</b> safe script slots</span>
-            <span><b>{scan.board.nodes}</b> Vision Board nodes</span>
-          </div>
-          <p className="ego-asset-summary">
-            Assets: {scan.assets.image} images · {scan.assets.model} models · {scan.assets.audio} audio · {scan.assets.data} data
-          </p>
-          <p className="ego-asset-summary">Vision Board: {scan.board.images} images · {scan.board.menus} menu screens · {scan.board.audio} audio files</p>
-          <p className="ego-privacy-note">Ego reads the saved project in this browser. It does not upload or run project scripts.</p>
-        </section>
-
         <div className="ego-tabs" role="tablist" aria-label="Ego tools">
           <button
             type="button"
@@ -130,29 +115,58 @@ export function EgoAssistant({ project, animationsCount, onBuildUi, onAddFunctio
 
         {activeTab === 'build' ? (
           <section className="ego-build-content" role="tabpanel">
-            <label className="ego-field">
-              <span>What type of game are you making?</span>
-              <select value={gameType} onChange={(event) => setGameType(event.target.value as EgoGameType)}>
-                {egoGameTypes.map((game) => <option key={game.value} value={game.value}>{game.label}</option>)}
-              </select>
-            </label>
+            <section className="ego-vision-hero" aria-label="Ego game creation prompt">
+              <img
+                className="ego-vision-hero-image"
+                src={`${import.meta.env.BASE_URL}images/ego-vision-hero.webp`}
+                alt=""
+                aria-hidden="true"
+              />
+              <div className="ego-vision-hero-overlay">
+                <span>CREATE WITH EGO</span>
+                <h3>What do you wish to create?</h3>
+                <p>Describe your idea. Choose one game type or mix several.</p>
+              </div>
+            </section>
             <label className="ego-field">
               <span>Your game vision</span>
               <textarea
                 value={gameVision}
                 onChange={(event) => setGameVision(event.target.value)}
                 maxLength={500}
-                rows={3}
-                placeholder="Describe the game you want to make..."
+                rows={4}
+                placeholder="Tell Ego what the game should look and feel like, and what players can do..."
                 data-testid="ego-game-vision"
               />
             </label>
+            <fieldset className="ego-game-type-picker" data-testid="ego-game-types">
+              <legend>Choose game types</legend>
+              <p>Select one or combine multiple game types.</p>
+              <div className="ego-game-type-options">
+                {egoGameTypes.map(game => (
+                  <label
+                    key={game.value}
+                    className={`ego-game-type-choice${gameTypes.includes(game.value) ? ' is-selected' : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      value={game.value}
+                      checked={gameTypes.includes(game.value)}
+                      onChange={() => toggleGameType(game.value)}
+                      data-testid={`ego-game-type-${game.value}`}
+                    />
+                    <span>{game.label}</span>
+                  </label>
+                ))}
+              </div>
+              <span className="ego-selected-types">Selected: {gameLabel}</span>
+            </fieldset>
             <div className="ego-build-actions">
-              <button type="button" onClick={() => onBuildUi(gameType, gameVision.trim())} data-testid="ego-build-ui">
-                <Layers3 size={15} aria-hidden="true" /> Create {getEgoGameLabel(gameType)} UI kit
+              <button type="button" onClick={() => onBuildUi(gameTypes, gameVision.trim())} data-testid="ego-build-ui">
+                <Layers3 size={15} aria-hidden="true" /> {gameTypes.length > 1 ? 'Create mixed UI kit' : `Create ${getEgoGameLabel(gameTypes[0])} UI kit`}
               </button>
-              <button type="button" className="secondary" onClick={() => onAddFunctions(gameType)} data-testid="ego-add-functions">
-                <Gamepad2 size={15} aria-hidden="true" /> Add {getEgoGameLabel(gameType)} functions
+              <button type="button" className="secondary" onClick={() => onAddFunctions(gameTypes)} data-testid="ego-add-functions">
+                <Gamepad2 size={15} aria-hidden="true" /> Add {gameTypes.length > 1 ? 'mixed game functions' : `${getEgoGameLabel(gameTypes[0])} functions`}
               </button>
             </div>
             <p className="ego-capability-note">
@@ -161,20 +175,43 @@ export function EgoAssistant({ project, animationsCount, onBuildUi, onAddFunctio
           </section>
         ) : (
           <section className="ego-guide-content" role="tabpanel">
-            <h3>Build your {getEgoGameLabel(gameType)} step by step</h3>
+            <h3>Build your {gameLabel} game step by step</h3>
             <ol>
-              <li>Pick a game type and describe the idea you want to make.</li>
+              <li>Choose one or more game types and describe the idea you want to make.</li>
               <li>Create the UI kit. Its text, panels, buttons, and bars are added to this project.</li>
               <li>Add game functions. Ego connects supported actions to the Player Controller.</li>
               <li>Close Ego, open UI Controls to move and edit the new elements, then use Play/Test.</li>
             </ol>
-            <h4>For this game type</h4>
-            <ol>
-              {guideByGame[gameType].map((step) => <li key={step}>{step}</li>)}
-            </ol>
+            {gameTypes.map(gameType => (
+              <section className="ego-guide-game" key={gameType}>
+                <h4>{getEgoGameLabel(gameType)} setup</h4>
+                <ol>{guideByGame[gameType].map((step) => <li key={step}>{step}</li>)}</ol>
+              </section>
+            ))}
             <p className="ego-capability-note">Function actions are engine presets, not generated code. Review each object in Hierarchy to edit its settings.</p>
           </section>
         )}
+
+        <section className="ego-scan-card" aria-label="Project scan" data-testid="ego-project-scan">
+          <div className="ego-section-heading">
+            <div><Boxes size={15} aria-hidden="true" /><strong>Project scan</strong></div>
+            <span>Saved in this browser</span>
+          </div>
+          <div className="ego-scan-grid">
+            <span><b>{scan.objects}</b> scene objects</span>
+            <span><b>{scan.components}</b> components</span>
+            <span><b>{scan.ui}</b> UI elements</span>
+            <span><b>{scan.animations}</b> animations</span>
+            <span><b>{scan.prefabs}</b> prefabs</span>
+            <span><b>{scan.builds}</b> Mad Builder builds</span>
+            <span><b>{scan.players}</b> player objects</span>
+            <span><b>{scan.scripts}</b> safe script slots</span>
+            <span><b>{scan.board.nodes}</b> Vision Board nodes</span>
+          </div>
+          <p className="ego-asset-summary">Assets: {scan.assets.image} images · {scan.assets.model} models · {scan.assets.audio} audio · {scan.assets.data} data</p>
+          <p className="ego-asset-summary">Vision Board: {scan.board.images} images · {scan.board.menus} menu screens · {scan.board.audio} audio files</p>
+          <p className="ego-privacy-note">Ego reads the saved project in this browser. It does not upload or run project scripts.</p>
+        </section>
       </div>
     </div>
   );

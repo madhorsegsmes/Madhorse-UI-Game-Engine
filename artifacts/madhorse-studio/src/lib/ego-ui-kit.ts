@@ -104,11 +104,24 @@ export const egoPlayerActions: Record<EgoGameType, PlayerActionName[]> = {
   platformer: ['run', 'crouch', 'fight'],
 };
 
-export function createEgoUiKit(gameType: EgoGameType, existingCount: number, gameVision = ''): UIControlElement[] {
-  const controls = UI_SEEDS[gameType].map((seed, index) => ({
-    ...createUIControlElement(seed.type, existingCount + index),
-    ...seed,
-  }));
+export function createEgoUiKit(gameTypes: EgoGameType[], existingCount: number, gameVision = ''): UIControlElement[] {
+  const selectedTypes = [...new Set(gameTypes)];
+  const controls = selectedTypes.flatMap((gameType, genreIndex) => {
+    const column = genreIndex % 3;
+    const row = Math.floor(genreIndex / 3);
+    return UI_SEEDS[gameType].map((seed, index) => ({
+      ...createUIControlElement(seed.type, existingCount + genreIndex * 100 + index),
+      ...seed,
+      ...(selectedTypes.length > 1 ? {
+        // Give each selected genre its own editable HUD region instead of stacking
+        // every starter control at the same coordinates.
+        x: Math.min(88, seed.x * 0.42 + column * 30),
+        y: Math.min(93, seed.y * 0.42 + row * 29),
+        width: Math.max(90, Math.round(seed.width * 0.8)),
+        label: `${getEgoGameLabel(gameType)} · ${seed.label}`.slice(0, 80),
+      } : { label: seed.label }),
+    }));
+  });
   const title = gameVision.trim().replace(/\s+/g, ' ').slice(0, 60);
   if (!title) return controls;
   return [{
@@ -124,4 +137,9 @@ export function createEgoUiKit(gameType: EgoGameType, existingCount: number, gam
 
 export function getEgoGameLabel(gameType: EgoGameType) {
   return egoGameTypes.find((entry) => entry.value === gameType)?.label ?? 'Game';
+}
+
+export function getEgoGameSelectionLabel(gameTypes: EgoGameType[]) {
+  const labels = [...new Set(gameTypes)].map(getEgoGameLabel);
+  return labels.length ? labels.join(' + ') : 'Game';
 }

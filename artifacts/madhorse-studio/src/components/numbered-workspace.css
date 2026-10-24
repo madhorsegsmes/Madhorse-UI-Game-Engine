@@ -2038,6 +2038,53 @@ body::-webkit-scrollbar-thumb,
   border: 1px solid #392e43;
   background: #1a171e;
 }
+.ego-vision-hero {
+  position: relative;
+  min-height: 184px;
+  overflow: hidden;
+  border: 1px solid #704b8a;
+  background: #100d15;
+}
+.ego-vision-hero-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 68%;
+}
+.ego-vision-hero-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  flex-direction: column;
+  padding: 18px;
+  background: linear-gradient(90deg, rgb(8 7 12 / 94%) 0%, rgb(12 8 17 / 84%) 38%, rgb(14 8 18 / 20%) 100%);
+}
+.ego-vision-hero-overlay > span {
+  color: #f08aa1;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .2em;
+}
+.ego-vision-hero-overlay h3 {
+  max-width: 72%;
+  margin: 9px 0 5px;
+  color: #fff;
+  font-size: clamp(19px, 3vw, 25px);
+  line-height: 1.15;
+  text-shadow: 0 2px 12px #000;
+}
+.ego-vision-hero-overlay p {
+  max-width: 68%;
+  margin: 0;
+  color: #e2d7e8;
+  font-size: 11px;
+  line-height: 1.45;
+  text-shadow: 0 1px 8px #000;
+}
 .ego-field { display: flex; flex-direction: column; gap: 5px; color: #ddd1e4; font-size: 10px; }
 .ego-field select,
 .ego-field textarea {
@@ -2051,6 +2098,63 @@ body::-webkit-scrollbar-thumb,
   font-size: 11px;
 }
 .ego-field textarea { min-height: 62px; resize: vertical; }
+.ego-field textarea[data-testid="ego-game-vision"] { min-height: 88px; }
+.ego-game-type-picker {
+  min-width: 0;
+  margin: 0;
+  padding: 9px;
+  border: 1px solid #44364f;
+  background: #151219;
+}
+.ego-game-type-picker legend {
+  padding: 0 5px;
+  color: #eadbf2;
+  font-size: 11px;
+  font-weight: 700;
+}
+.ego-game-type-picker > p {
+  margin: 0 0 8px;
+  color: #a99eae;
+  font-size: 9px;
+}
+.ego-game-type-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+.ego-game-type-choice {
+  display: flex;
+  min-height: 31px;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 7px;
+  border: 1px solid #342b3c;
+  background: #1b171f;
+  color: #cabbd2;
+  cursor: pointer;
+  font-size: 10px;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.ego-game-type-choice:hover { border-color: #8e62a8; }
+.ego-game-type-choice.is-selected {
+  border-color: #c06f93;
+  background: #392331;
+  color: #fff;
+}
+.ego-game-type-choice input {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  margin: 0;
+  accent-color: #dc658b;
+}
+.ego-selected-types {
+  display: block;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+  color: #d5b6e7;
+  font-size: 9px;
+}
 .ego-build-actions { display: flex; flex-wrap: wrap; gap: 7px; }
 .ego-build-actions button {
   display: inline-flex;
@@ -2073,6 +2177,12 @@ body::-webkit-scrollbar-thumb,
 .ego-guide-content h4 { margin: 0; color: #eddcf5; font-size: 12px; }
 .ego-guide-content h4 { margin-top: 3px; color: #d4b4e8; }
 .ego-guide-content ol { display: grid; gap: 6px; margin: 0; padding-left: 22px; color: #d1c5d7; font-size: 10px; line-height: 1.45; }
+.ego-guide-game { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid #392e43; }
+@media (max-width: 620px) {
+  .ego-game-type-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ego-vision-hero { min-height: 168px; }
+  .ego-vision-hero-overlay { padding: 13px; }
+}
 
 .fresh-panel-5 {
   grid-column: 2;

@@ -78,7 +78,7 @@ import { capturePrefab, instantiatePrefab, type ScenePrefab } from '@/lib/scene-
 import { compileBuilderPlan } from '@/lib/mad-builder';
 import { createMadBuilderModulePlan, getMadBuilderModule, type MadBuilderModuleId } from '@/lib/mad-builder-modules';
 import type { UIControlElement } from '@/lib/ui-controls';
-import { createEgoUiKit as createEgoGameUiKit, egoPlayerActions, type EgoGameType, getEgoGameLabel } from '@/lib/ego-ui-kit';
+import { createEgoUiKit as createEgoGameUiKit, egoPlayerActions, type EgoGameType, getEgoGameSelectionLabel } from '@/lib/ego-ui-kit';
 import { advanceSceneRuntime, createSceneRuntimeState } from '@/lib/scene-play-runtime';
 import { publishStatus } from '@/lib/system-diagnostics';
 import { playAudioPreview, stopAudioPlayback, unlockSceneAudio } from '@/lib/game-audio';
@@ -1693,17 +1693,17 @@ export default function BlankWorkspace() {
     setUIControls(next.uiControls ?? []);
   }, []);
 
-  const buildEgoUiKit = useCallback((gameType: EgoGameType, gameVision: string) => {
+  const buildEgoUiKit = useCallback((gameTypes: EgoGameType[], gameVision: string) => {
     const current = builderProjectRef.current;
-    const controls = createEgoGameUiKit(gameType, current.uiControls?.length ?? 0, gameVision);
+    const controls = createEgoGameUiKit(gameTypes, current.uiControls?.length ?? 0, gameVision);
     setBuilderProjects([{
       ...current,
       uiControls: [...(current.uiControls ?? []), ...controls],
     }]);
-    setStatus(`Ego added ${controls.length} editable ${getEgoGameLabel(gameType)} UI elements to the project.`);
+    setStatus(`Ego added ${controls.length} editable ${getEgoGameSelectionLabel(gameTypes)} UI elements to the project.`);
   }, [setBuilderProjects]);
 
-  const addEgoGameFunctions = useCallback((gameType: EgoGameType) => {
+  const addEgoGameFunctions = useCallback((gameTypes: EgoGameType[]) => {
     const current = builderProjectRef.current;
     const existingPlayer = current.entities.find(entity =>
       entity.components.some(component => component.type === 'characterController' && component.role === 'player'));
@@ -1719,7 +1719,8 @@ export default function BlankWorkspace() {
           ? [String(component.settings.key)] : [],
     ));
     const addedActions: string[] = [];
-    for (const action of egoPlayerActions[gameType]) {
+    const selectedActions = [...new Set(gameTypes.flatMap(gameType => egoPlayerActions[gameType]))];
+    for (const action of selectedActions) {
       if (components.some(component => component.type === 'playerAction' && component.action === action)) continue;
       const result = createPluginComponent(`action-${action}` as PluginComponentKind, current.uiControls?.length ?? 0);
       if (result.component.type !== 'playerAction') continue;
@@ -1736,7 +1737,7 @@ export default function BlankWorkspace() {
       components.push(createPluginComponent('physics', current.uiControls?.length ?? 0).component);
     }
     if (!createdPlayer && addedActions.length === 0) {
-      setStatus(`The Player already has the supported ${getEgoGameLabel(gameType)} functions.`);
+      setStatus(`The Player already has the supported ${getEgoGameSelectionLabel(gameTypes)} functions.`);
       return;
     }
     const updatedPlayer = { ...player, components };
@@ -1746,7 +1747,7 @@ export default function BlankWorkspace() {
     setBuilderProjects([{ ...current, entities }]);
     setSelection(player.id);
     setEditingEntityId(null);
-    setStatus(`Ego added ${addedActions.length ? addedActions.join(', ') : 'a Player Controller'}${createdPlayer ? ' and created a Player object' : ''}.`);
+    setStatus(`Ego added ${addedActions.length ? addedActions.join(', ') : 'a Player Controller'} for ${getEgoGameSelectionLabel(gameTypes)}${createdPlayer ? ' and created a Player object' : ''}.`);
   }, [setBuilderProjects]);
 
   const addMadBuilderModule = useCallback((moduleId: MadBuilderModuleId) => {
