@@ -10,11 +10,11 @@ export default function VisionBoardPage() {
         </a>
         <h1>Vision Board</h1>
       </header>
-      <section
-        className="fresh-vision-page-canvas"
-        aria-label="Blank vision board"
-        data-testid="vision-board-canvas"
-      />
+      <div className="fresh-vision-toolbar" aria-label="Vision board toolbar" data-testid="vision-board-toolbar" />
+      <section className="fresh-vision-board-layout" aria-label="Vision board workspace">
+        <div className="fresh-vision-page-canvas" aria-label="Blank canvas" data-testid="vision-board-canvas" />
+        <aside className="fresh-vision-side-panel" aria-label="Blank right-side panel" data-testid="vision-board-side-panel" />
+      </section>
     </main>
   );
 }

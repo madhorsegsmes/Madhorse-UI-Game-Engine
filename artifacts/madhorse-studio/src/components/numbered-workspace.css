@@ -930,7 +930,7 @@ body::-webkit-scrollbar-thumb,
   inset: 0;
   z-index: 2000;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto 32px minmax(0, 1fr);
   gap: 10px;
   box-sizing: border-box;
   min-width: 0;
@@ -977,10 +977,33 @@ body::-webkit-scrollbar-thumb,
   outline: 1px solid #b577e1;
 }
 .fresh-vision-page-canvas {
-  min-width: 0;
-  min-height: 0;
+  position: absolute;
+  inset: 0;
   border: 1px solid rgb(136 100 170 / 32%);
   background: #101015;
+}
+.fresh-vision-toolbar {
+  min-width: 0;
+  border: 1px solid rgb(136 100 170 / 42%);
+  background: linear-gradient(90deg, #141019, #191420 50%, #141019);
+}
+.fresh-vision-board-layout {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgb(136 100 170 / 32%);
+  background: #101015;
+}
+.fresh-vision-side-panel {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: min(420px, calc(100% - 24px));
+  aspect-ratio: 16 / 9;
+  max-height: 240px;
+  border: 1px solid rgb(136 100 170 / 42%);
+  background: #141019;
 }
 .fresh-function-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
 .fresh-function-tab { min-width: 0; min-height: 38px; padding: 6px 8px; border: 1px solid rgb(136 100 170 / 42%); background: rgb(14 11 20 / 76%); color: #c5b6d2; font: 600 9px/1.35 Inter, system-ui, sans-serif; white-space: normal; overflow-wrap: anywhere; cursor: pointer; }
