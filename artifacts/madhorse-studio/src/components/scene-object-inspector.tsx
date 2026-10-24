@@ -1,7 +1,8 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import {
   isSceneEntity,
   primitiveShapes,
+  SCENE_ORIGIN,
   uiElementKinds,
   type ProjectAsset,
   type PrimitiveShape,
@@ -9,11 +10,13 @@ import {
   type SceneEntity,
   type UIElementKind,
 } from '@/lib/scene-model';
+import { playAudioPreview, stopAudioPlayback } from '@/lib/game-audio';
 
 type Props = {
   entity: SceneEntity;
   entities?: SceneEntity[];
   assets: ProjectAsset[];
+  assetUrls: Record<string, string>;
   canRename?: boolean;
   canEditActive?: boolean;
   embedded?: boolean;
@@ -26,7 +29,10 @@ function toDraft(entity: SceneEntity) {
   for (const component of entity.components) {
     if (component.type === 'transform') {
       for (const key of ['position', 'rotation', 'scale'] as const) {
-        for (const axis of ['x', 'y', 'z'] as const) values[`transform.${key}.${axis}`] = String(component[key][axis]);
+        for (const axis of ['x', 'y', 'z'] as const) {
+          const sceneOriginOffset = key === 'position' ? SCENE_ORIGIN[axis] : 0;
+          values[`transform.${key}.${axis}`] = String(component[key][axis] - sceneOriginOffset);
+        }
       }
     } else if (component.type === 'primitive') {
       values['primitive.shape'] = component.shape;
@@ -48,6 +54,18 @@ function toDraft(entity: SceneEntity) {
       values['ui.enabled'] = String(component.enabled);
     } else if (component.type === 'script') {
       values['script.enabled'] = String(component.enabled);
+    } else if (component.type === 'gameAudio') {
+      values['gameAudio.enabled'] = String(component.enabled);
+      values['gameAudio.clipAssetId'] = component.clipAssetId ?? '';
+      values['gameAudio.volume'] = String(component.volume);
+      values['gameAudio.pitch'] = String(component.pitch);
+      values['gameAudio.playOnStart'] = String(component.playOnStart);
+    } else if (component.type === 'playerWalkAudio') {
+      values['playerWalkAudio.enabled'] = String(component.enabled);
+      values['playerWalkAudio.clipAssetId'] = component.clipAssetId ?? '';
+      values['playerWalkAudio.volume'] = String(component.volume);
+      values['playerWalkAudio.pitch'] = String(component.pitch);
+      values['playerWalkAudio.stepInterval'] = String(component.stepInterval);
     } else if (component.type === 'effect') {
       values['effect.color'] = component.color;
       values['effect.intensity'] = String(component.intensity);
@@ -98,6 +116,7 @@ export function SceneObjectInspector({
   entity,
   entities = [],
   assets,
+  assetUrls,
   canRename = true,
   canEditActive = true,
   embedded = false,
@@ -107,6 +126,8 @@ export function SceneObjectInspector({
   const [name, setName] = useState(entity.name);
   const [values, setValues] = useState(() => toDraft(entity));
   const [error, setError] = useState('');
+  const [audioPreviewStatus, setAudioPreviewStatus] = useState('');
+  useEffect(() => () => stopAudioPlayback(), []);
   const setValue = (key: string, value: string) => {
     setValues(current => ({ ...current, [key]: value }));
     setError('');
@@ -164,7 +185,11 @@ export function SceneObjectInspector({
     const nextComponents = entity.components.map((item): SceneComponent => {
       if (item.type === 'transform') return {
         ...item,
-        position: { x: number('transform.position.x'), y: number('transform.position.y'), z: number('transform.position.z') },
+        position: {
+          x: number('transform.position.x') + SCENE_ORIGIN.x,
+          y: number('transform.position.y') + SCENE_ORIGIN.y,
+          z: number('transform.position.z') + SCENE_ORIGIN.z,
+        },
         rotation: { x: number('transform.rotation.x'), y: number('transform.rotation.y'), z: number('transform.rotation.z') },
         scale: { x: number('transform.scale.x'), y: number('transform.scale.y'), z: number('transform.scale.z') },
       };
@@ -195,6 +220,22 @@ export function SceneObjectInspector({
         enabled: values['ui.enabled'] === 'true',
       };
       if (item.type === 'script') return { ...item, enabled: values['script.enabled'] === 'true' };
+      if (item.type === 'gameAudio') return {
+        ...item,
+        enabled: values['gameAudio.enabled'] === 'true',
+        clipAssetId: values['gameAudio.clipAssetId'] || null,
+        volume: number('gameAudio.volume'),
+        pitch: number('gameAudio.pitch'),
+        playOnStart: values['gameAudio.playOnStart'] === 'true',
+      };
+      if (item.type === 'playerWalkAudio') return {
+        ...item,
+        enabled: values['playerWalkAudio.enabled'] === 'true',
+        clipAssetId: values['playerWalkAudio.clipAssetId'] || null,
+        volume: number('playerWalkAudio.volume'),
+        pitch: number('playerWalkAudio.pitch'),
+        stepInterval: number('playerWalkAudio.stepInterval'),
+      };
       if (item.type === 'effect') return {
         ...item,
         color: values['effect.color'],
@@ -275,6 +316,8 @@ export function SceneObjectInspector({
   const camera = component('camera');
   const ui = component('uiCanvas');
   const script = component('script');
+  const gameAudio = component('gameAudio');
+  const playerWalkAudio = component('playerWalkAudio');
   const effect = component('effect');
   const sprite = component('spriteRenderer');
   const model = component('modelRenderer');
@@ -283,6 +326,7 @@ export function SceneObjectInspector({
   const skybox = component('skybox');
   const imageAssets = assets.filter(asset => asset.kind === 'image');
   const modelAssets = assets.filter(asset => asset.kind === 'model');
+  const audioAssets = assets.filter(asset => asset.kind === 'audio');
   const assetOptions = (items: ProjectAsset[]) => [
     { value: '', label: 'None' },
     ...items.map(asset => ({ value: asset.id, label: asset.name })),
@@ -375,6 +419,67 @@ export function SceneObjectInspector({
           {checkboxField('Enabled', 'script.enabled')}
           <p className="fresh-inspector-note">Script source editing is available from the Script tool.</p>
         </>)}
+        {gameAudio && section('Game Audio', <>
+          {checkboxField('Enabled', 'gameAudio.enabled')}
+          {selectField('Sound clip', 'gameAudio.clipAssetId', assetOptions(audioAssets))}
+          {numberField('Volume', 'gameAudio.volume', 0, 1, 0.05)}
+          {numberField('Pitch', 'gameAudio.pitch', 0.25, 2, 0.05)}
+          {checkboxField('Play when test starts', 'gameAudio.playOnStart')}
+          <button
+            type="button"
+            className="is-quiet"
+            onClick={() => {
+              if (values['gameAudio.clipAssetId'] && !assetUrls[values['gameAudio.clipAssetId']]) {
+                setAudioPreviewStatus('The selected sound file is still loading or is missing from this browser.');
+                return;
+              }
+              stopAudioPlayback();
+              void playAudioPreview(
+                assetUrls[values['gameAudio.clipAssetId']] ?? null,
+                number('gameAudio.volume'),
+                number('gameAudio.pitch'),
+                'tone',
+              ).then(played => setAudioPreviewStatus(played ? 'Sound played.' : 'This browser could not play the sound.'));
+            }}
+          >
+            Test sound
+          </button>
+          <p className="fresh-inspector-note">Choose an audio file, or test the built-in tone.</p>
+        </>)}
+        {playerWalkAudio && section('Player Walk Audio', <>
+          {checkboxField('Enabled', 'playerWalkAudio.enabled')}
+          {selectField('Footstep sound', 'playerWalkAudio.clipAssetId', assetOptions(audioAssets))}
+          {numberField('Volume', 'playerWalkAudio.volume', 0, 1, 0.01)}
+          {numberField('Pitch', 'playerWalkAudio.pitch', 0.25, 2, 0.05)}
+          {numberField('Time between steps (seconds)', 'playerWalkAudio.stepInterval', 0.15, 2, 0.01)}
+          <button
+            type="button"
+            className="is-quiet"
+            onClick={() => {
+              if (values['playerWalkAudio.clipAssetId'] && !assetUrls[values['playerWalkAudio.clipAssetId']]) {
+                setAudioPreviewStatus('The selected footstep file is still loading or is missing from this browser.');
+                return;
+              }
+              stopAudioPlayback();
+              void playAudioPreview(
+                assetUrls[values['playerWalkAudio.clipAssetId']] ?? null,
+                number('playerWalkAudio.volume'),
+                number('playerWalkAudio.pitch'),
+                'footstep',
+              ).then(played => setAudioPreviewStatus(played ? 'Footstep played.' : 'This browser could not play the footstep.'));
+            }}
+          >
+            Test footsteps
+          </button>
+          <p className="fresh-inspector-note">Footsteps play while a Player Controller moves in Play Test. Add one from Plugins if needed.</p>
+        </>)}
+        {(gameAudio || playerWalkAudio) && (
+          <button type="button" className="is-quiet" onClick={() => {
+            stopAudioPlayback();
+            setAudioPreviewStatus('Audio preview stopped.');
+          }}>Stop audio preview</button>
+        )}
+        {audioPreviewStatus && <p className="fresh-inspector-note" role="status">{audioPreviewStatus}</p>}
         {controller && section('Character Controller', <>
           {checkboxField('Enabled', 'controller.enabled')}
           {selectField('Role', 'controller.role', [

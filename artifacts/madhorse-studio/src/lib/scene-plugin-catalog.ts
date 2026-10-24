@@ -25,6 +25,8 @@ export type PluginComponentKind =
   | 'camera'
   | 'uiCanvas'
   | 'script'
+  | 'game-audio'
+  | 'player-walk-audio'
   | 'light-point'
   | 'light-directional'
   | 'light-ambient'
@@ -50,57 +52,59 @@ export type ScenePluginDefinition = {
 
 export const scenePluginCatalog: Record<PluginCategory, ScenePluginDefinition[]> = {
   game: [
-    { id: 'physics', componentKind: 'physics', label: 'Physics Body', description: 'Adds a collider and dynamic Rigidbody-style movement. Edit mass, gravity, friction, and bounce.' },
-    { id: 'uiCanvas', componentKind: 'uiCanvas', label: 'UI Canvas', description: 'Adds an editable UI panel to this object and creates a starter panel control.' },
-    { id: 'character-controller-player', componentKind: 'character-controller-player', label: 'Player Controller', description: 'Adds keyboard movement and jumping with safe defaults. Tune speed and jump in object settings.' },
+    { id: 'game-audio', componentKind: 'game-audio', label: 'Game Audio', description: 'Add a sound source. Pick a clip, set its loudness, and test it in Settings.' },
+    { id: 'physics', componentKind: 'physics', label: 'Physics Body', description: 'Set how this object bumps, falls, and bounces. Change its settings on the object.' },
+    { id: 'uiCanvas', componentKind: 'uiCanvas', label: 'UI Canvas', description: 'Add a blank screen panel for menus and buttons.' },
+    { id: 'character-controller-player', componentKind: 'character-controller-player', label: 'Player Controller', description: 'Add walking and jumping. Use W, A, S, D or arrows; press Space to jump.' },
   ],
   'player-npc': [
-    { id: 'character-controller-player', componentKind: 'character-controller-player', label: 'Player Controller', description: 'Adds keyboard movement and jumping with safe defaults.' },
-    { id: 'character-controller-npc', componentKind: 'character-controller-npc', label: 'NPC Agent', description: 'Adds an NPC that follows the nearest player by default; edit its follow range and speed.' },
-    { id: 'script', componentKind: 'script', label: 'Safe Script Slot', description: 'Adds a script attachment. It starts paused until a script is assigned and run in the isolated script tool.' },
+    { id: 'player-walk-audio', componentKind: 'player-walk-audio', label: 'Player Walk Audio', description: 'Play a footstep when the player walks in Play Test. Pick a clip or use the built-in thump.' },
+    { id: 'character-controller-player', componentKind: 'character-controller-player', label: 'Player Controller', description: 'Add walking and jumping to the player.' },
+    { id: 'character-controller-npc', componentKind: 'character-controller-npc', label: 'NPC Agent', description: 'Make this helper walk toward the player. Change its speed in Settings.' },
+    { id: 'script', componentKind: 'script', label: 'Safe Script Slot', description: 'Keep a code file on this object. It stays off until you run it safely.' },
   ],
   system: [
-    { id: 'physics', componentKind: 'physics', label: 'Physics Body', description: 'Adds collision and a dynamic, static, or kinematic body.' },
-    { id: 'camera', componentKind: 'camera', label: 'Camera', description: 'Adds a camera with an editable field of view and look target.' },
-    { id: 'script', componentKind: 'script', label: 'Safe Script Slot', description: 'Adds a disabled-by-default script attachment for the isolated script tool.' },
+    { id: 'physics', componentKind: 'physics', label: 'Physics Body', description: 'Set this object’s collision, weight, gravity, and bounce.' },
+    { id: 'camera', componentKind: 'camera', label: 'Camera', description: 'Add a view. Choose what it looks at in Settings.' },
+    { id: 'script', componentKind: 'script', label: 'Safe Script Slot', description: 'Keep a code file here. It starts turned off and runs in a safe box.' },
   ],
   lighting: [
-    { id: 'light-point', componentKind: 'light-point', label: 'Point Light', description: 'Adds a local light. Edit its color and brightness in object settings.' },
-    { id: 'light-directional', componentKind: 'light-directional', label: 'Directional Light', description: 'Adds a sun-style light with editable color and brightness.' },
-    { id: 'light-ambient', componentKind: 'light-ambient', label: 'Ambient Light', description: 'Adds a broad fill light with editable color and brightness.' },
+    { id: 'light-point', componentKind: 'light-point', label: 'Lamp', description: 'Add a light in one spot. Change its color and brightness.' },
+    { id: 'light-directional', componentKind: 'light-directional', label: 'Sun Light', description: 'Light the whole scene like the sun.' },
+    { id: 'light-ambient', componentKind: 'light-ambient', label: 'Soft Fill Light', description: 'Add gentle light across the scene.' },
   ],
   animation: [
-    { id: 'open-animation-timeline', action: 'animation-timeline', label: 'Animation Timeline', description: 'Open the existing timeline to create or preview an animation for the selected object.' },
+    { id: 'open-animation-timeline', action: 'animation-timeline', label: 'Make it move', description: 'Open the timeline to make or preview an object’s movement.' },
   ],
   asset: [
-    { id: 'spriteRenderer', componentKind: 'spriteRenderer', label: '2D Sprite Renderer', description: 'Adds an editable sprite renderer; assign an image asset in object settings.' },
-    { id: 'modelRenderer', componentKind: 'modelRenderer', label: '3D Model Renderer', description: 'Adds an editable model renderer; assign an imported model in object settings.' },
+    { id: 'spriteRenderer', componentKind: 'spriteRenderer', label: 'Show a 2D picture', description: 'Put an imported picture on this object.' },
+    { id: 'modelRenderer', componentKind: 'modelRenderer', label: 'Show a 3D model', description: 'Put an imported 3D model on this object.' },
   ],
   effect: [
-    { id: 'effect', componentKind: 'effect', label: 'Particle Effect', description: 'Adds the built-in effect renderer with editable color and intensity.' },
+    { id: 'effect', componentKind: 'effect', label: 'Color Effect', description: 'Set an effect color and strength for this object.' },
   ],
   triggers: [
-    { id: 'trigger-event', componentKind: 'trigger-event', label: 'Enter Trigger', description: 'Detects a player entering this object’s trigger volume and runs a simple event.' },
+    { id: 'trigger-event', componentKind: 'trigger-event', label: 'When player enters', description: 'Show a message when the player touches this object.' },
   ],
   'trigger-zones': [
-    { id: 'trigger-zone-box', componentKind: 'trigger-zone-box', label: 'Box Trigger Zone', description: 'Adds an editable box-shaped zone with enter actions.' },
-    { id: 'trigger-zone-sphere', componentKind: 'trigger-zone-sphere', label: 'Sphere Trigger Zone', description: 'Adds an editable sphere-shaped zone with enter actions.' },
+    { id: 'trigger-zone-box', componentKind: 'trigger-zone-box', label: 'Box-shaped zone', description: 'Make a box area that can notice when the player enters.' },
+    { id: 'trigger-zone-sphere', componentKind: 'trigger-zone-sphere', label: 'Round zone', description: 'Make a round area that can notice when the player enters.' },
   ],
   skybox: [
-    { id: 'skybox', componentKind: 'skybox', label: 'Skybox Background', description: 'Sets the scene-wide background color. Add it to an object, then edit the color in object settings.' },
+    { id: 'skybox', componentKind: 'skybox', label: 'Sky Background', description: 'Choose the color behind everything in the scene.' },
   ],
   'character-builder': [
-    { id: 'open-character-builder', action: 'character-builder', label: 'Open Character Builder', description: 'Open the rigged character modeling and animation workspace.' },
+    { id: 'open-character-builder', action: 'character-builder', label: 'Build a character', description: 'Open the tools for making a person and its movements.' },
   ],
   'behavior-builder': [
-    { id: 'character-controller-npc', componentKind: 'character-controller-npc', label: 'Follow Player', description: 'Adds a ready NPC follow behavior with editable speed and stopping distance.' },
-    { id: 'character-controller-patrol', componentKind: 'character-controller-patrol', label: 'Patrol Behavior', description: 'Adds a ready patrol behavior with an editable patrol radius.' },
+    { id: 'character-controller-npc', componentKind: 'character-controller-npc', label: 'Follow the player', description: 'Make a helper walk toward the player.' },
+    { id: 'character-controller-patrol', componentKind: 'character-controller-patrol', label: 'Walk around', description: 'Make a helper walk back and forth near its starting place.' },
   ],
   script: [
-    { id: 'script', componentKind: 'script', label: 'Safe Script Slot', description: 'Attach a script slot to this object. Execution remains isolated and disabled until configured.' },
+    { id: 'script', componentKind: 'script', label: 'Safe Script Slot', description: 'Keep code on this object. It starts off and only runs in a safe box.' },
   ],
   'third-person-character': [
-    { id: 'character-controller-third-person', componentKind: 'character-controller-third-person', label: 'Third-Person Controller', description: 'Adds keyboard movement, jumping, and a camera that follows behind the character.' },
+    { id: 'character-controller-third-person', componentKind: 'character-controller-third-person', label: 'Follow-behind player', description: 'Add walking, jumping, and a camera that follows behind.' },
   ],
 };
 
@@ -128,6 +132,32 @@ export function createPluginComponent(
   }
   if (kind === 'script') {
     return { component: { id, type: 'script', enabled: false, scriptId: crypto.randomUUID() } };
+  }
+  if (kind === 'game-audio') {
+    return {
+      component: {
+        id,
+        type: 'gameAudio',
+        enabled: true,
+        clipAssetId: null,
+        volume: 0.5,
+        pitch: 1,
+        playOnStart: false,
+      },
+    };
+  }
+  if (kind === 'player-walk-audio') {
+    return {
+      component: {
+        id,
+        type: 'playerWalkAudio',
+        enabled: true,
+        clipAssetId: null,
+        volume: 0.28,
+        pitch: 1,
+        stepInterval: 0.38,
+      },
+    };
   }
   if (kind === 'light-point' || kind === 'light-directional' || kind === 'light-ambient') {
     const lightKind = kind.slice('light-'.length) as 'point' | 'directional' | 'ambient';
@@ -197,6 +227,8 @@ export function getPluginComponentIdentity(kind: PluginComponentKind): SceneComp
     camera: 'camera',
     uiCanvas: 'uiCanvas',
     script: 'script',
+    'game-audio': 'gameAudio',
+    'player-walk-audio': 'playerWalkAudio',
     'light-point': 'light',
     'light-directional': 'light',
     'light-ambient': 'light',

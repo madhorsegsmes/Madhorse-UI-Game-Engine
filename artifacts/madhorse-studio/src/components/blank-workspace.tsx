@@ -15,9 +15,11 @@ import {
   isSceneEntity,
   primitiveShapes,
   projectAssetKind,
+  SCENE_ORIGIN,
   uiElementKinds,
   type PrimitiveShape,
   type ProjectAsset,
+  type SceneComponent,
   type SceneEntity,
   type TerrainSettings,
   type TransformComponent,
@@ -53,6 +55,7 @@ import { createMadBuilderModulePlan, getMadBuilderModule, type MadBuilderModuleI
 import type { UIControlElement } from '@/lib/ui-controls';
 import { advanceSceneRuntime, createSceneRuntimeState } from '@/lib/scene-play-runtime';
 import { publishStatus } from '@/lib/system-diagnostics';
+import { playAudioPreview, stopAudioPlayback, unlockSceneAudio } from '@/lib/game-audio';
 import { downloadMadBuilderLogPdf, type MadBuilderBuildLog } from '@/lib/mad-builder-build-log';
 import { createGameTypeLibraryPdf, gameTypeLibraryEntryCount } from '@/lib/game-type-library';
 import {
@@ -69,7 +72,7 @@ import './system-panel-tools.css';
 import './numbered-workspace.css';
 
 const WORKSPACE_ASSET_LIMIT = 100 * 1024 * 1024;
-const IMPORT_ACCEPT = '.png,.jpg,.jpeg,.webp,.gif,.svg,.glb,.gltf,.obj,.fbx,.dae';
+const IMPORT_ACCEPT = '.png,.jpg,.jpeg,.webp,.gif,.svg,.glb,.gltf,.obj,.fbx,.dae,.mp3,.wav,.ogg,.m4a,.aac,.flac';
 
 function SceneViewport({
   entities,
@@ -122,11 +125,69 @@ function SceneViewport({
   );
 }
 
+type FunctionTabId =
+  | 'game-system'
+  | 'player-functions'
+  | 'game-controls'
+  | 'player-controls'
+  | 'npc-functions'
+  | 'ai-navigation'
+  | 'npc-controls';
+
+type FunctionTool = {
+  id: string;
+  label: string;
+  description: string;
+  componentKind: PluginComponentKind;
+};
+
+const FUNCTION_TOOLSETS: Record<FunctionTabId, FunctionTool[]> = {
+  'game-system': [
+    { id: 'make-solid', label: 'Make it solid', description: 'Lets it bump into things. Change weight and bounce in Settings.', componentKind: 'physics' },
+    { id: 'add-camera', label: 'Add a camera', description: 'Choose what this camera can see.', componentKind: 'camera' },
+    { id: 'add-screen-panel', label: 'Add a screen panel', description: 'Start a simple menu or game screen.', componentKind: 'uiCanvas' },
+    { id: 'safe-script-slot', label: 'Add a safe code slot', description: 'Keep code stored safely. It never runs by surprise.', componentKind: 'script' },
+  ],
+  'player-functions': [
+    { id: 'player-walk-jump', label: 'Walk and jump', description: 'W, A, S, D or arrow keys move. Space jumps in Play Test.', componentKind: 'character-controller-player' },
+    { id: 'player-third-person', label: 'Move with camera behind', description: 'Adds walking and a camera that follows from behind.', componentKind: 'character-controller-third-person' },
+  ],
+  'game-controls': [
+    { id: 'keyboard-controls', label: 'Add keyboard controls', description: 'W, A, S, D or arrow keys move. Space jumps; Escape stops Play Test.', componentKind: 'character-controller-player' },
+  ],
+  'player-controls': [
+    { id: 'player-movement-controls', label: 'Set up player movement', description: 'Adds walking and jumping. Change speed in object Settings.', componentKind: 'character-controller-player' },
+  ],
+  'npc-functions': [
+    { id: 'npc-follow-player', label: 'Follow the player', description: 'This helper walks toward the player.', componentKind: 'character-controller-npc' },
+    { id: 'npc-patrol', label: 'Walk back and forth', description: 'This helper walks around near where you put it.', componentKind: 'character-controller-patrol' },
+  ],
+  'ai-navigation': [
+    { id: 'navigation-follow', label: 'Follow the player', description: 'Simple movement toward the player. It does not go around walls yet.', componentKind: 'character-controller-npc' },
+    { id: 'navigation-patrol', label: 'Patrol this spot', description: 'Walks back and forth near its starting place.', componentKind: 'character-controller-patrol' },
+  ],
+  'npc-controls': [
+    { id: 'npc-follow-controls', label: 'Make a helper follow', description: 'Add a helper, then change its speed and distance in Settings.', componentKind: 'character-controller-npc' },
+    { id: 'npc-patrol-controls', label: 'Make a helper patrol', description: 'Add a helper, then change how far it walks in Settings.', componentKind: 'character-controller-patrol' },
+  ],
+};
+
+const FUNCTION_TAB_HELP: Record<FunctionTabId, string> = {
+  'game-system': 'Pick a tool to add it to the selected object.',
+  'player-functions': 'Choose how the player moves. You can change the settings later.',
+  'game-controls': 'Add keyboard movement, then press Play Test.',
+  'player-controls': 'Pick the object that should move and add its controls.',
+  'npc-functions': 'Choose how your helper should move.',
+  'ai-navigation': 'These are simple follow and patrol tools. Wall-avoiding paths are not available yet.',
+  'npc-controls': 'Add a helper, then change its speed or patrol distance in object Settings.',
+};
+
 function SettingsPanel({
   entity,
   selectedEntity,
   entities,
   assets,
+  assetUrls,
   builderBuildLogs,
   onReturnToSettings,
   onOpenCharacterBuilder,
@@ -138,6 +199,7 @@ function SettingsPanel({
   selectedEntity: SceneEntity | null;
   entities: SceneEntity[];
   assets: ProjectAsset[];
+  assetUrls: Record<string, string>;
   builderBuildLogs: MadBuilderBuildLog[];
   onReturnToSettings: () => void;
   onOpenCharacterBuilder: () => void;
@@ -145,22 +207,12 @@ function SettingsPanel({
   onAttachPlugin: (entityId: string, kind: PluginComponentKind) => void;
   onSaveEntity: (entity: SceneEntity) => void;
 }) {
-  const [activeFunctionTab, setActiveFunctionTab] = useState<
-    'game-system' | 'player-functions' | 'game-controls' | 'player-controls' | 'npc-functions' | 'ai-navigation' | 'npc-controls'
-  >('game-system');
+  const [activeFunctionTab, setActiveFunctionTab] = useState<FunctionTabId>('game-system');
   const [activePluginTab, setActivePluginTab] = useState<PluginCategory>('game');
   const [gameTypeLibraryPdfUrl, setGameTypeLibraryPdfUrl] = useState<string | null>(null);
   const gameTypeLibraryPdfUrlRef = useRef<string | null>(null);
   const pluginEntries = scenePluginCatalog[activePluginTab];
-  const functionTabGuidance = {
-    'game-system': 'Add a physics body for collisions, a camera to define a view, or a safe script slot for isolated logic. Attach them from Plugins.',
-    'player-functions': 'Player-specific movement and abilities are installed as editable components. The controller build pass will add these player modules.',
-    'game-controls': 'Input bindings are configured per controller. The player and NPC controller build pass will add editable key and action mappings.',
-    'player-controls': 'Player movement, jump, and camera options will live on the selected player object, not in protected system data.',
-    'npc-functions': 'NPC behavior presets will be editable on each NPC. The behavior build pass will add navigation and patrol modules.',
-    'ai-navigation': 'Navigation will use project-owned walkable areas and editable agent settings. Navigation behavior is added in the player/NPC pass.',
-    'npc-controls': 'NPC input and behavior settings stay separate from player controls and can be changed per NPC.',
-  }[activeFunctionTab];
+  const functionTools = FUNCTION_TOOLSETS[activeFunctionTab];
 
   useEffect(() => () => {
     if (gameTypeLibraryPdfUrlRef.current) URL.revokeObjectURL(gameTypeLibraryPdfUrlRef.current);
@@ -183,6 +235,7 @@ function SettingsPanel({
           entity={entity}
           entities={entities}
           assets={assets}
+          assetUrls={assetUrls}
           canRename={entity.id !== PRIMARY_CAMERA_ID}
           canEditActive={entity.id !== PRIMARY_CAMERA_ID}
           onClose={onReturnToSettings}
@@ -268,9 +321,40 @@ function SettingsPanel({
                   NPC Controls
                 </button>
               </div>
-              <p className="fresh-function-guidance" data-testid="function-tab-guidance">
-                {functionTabGuidance}
-              </p>
+              <div className="fresh-function-tools" data-testid="function-tools-panel">
+                <p className="fresh-function-guidance" data-testid="function-tab-guidance">
+                  {selectedEntity?.id === PRIMARY_CAMERA_ID
+                    ? 'Choose an object in Hierarchy first.'
+                    : selectedEntity
+                      ? `${FUNCTION_TAB_HELP[activeFunctionTab]} Selected: ${selectedEntity.name}.`
+                      : 'Choose an object in Hierarchy first.'}
+                </p>
+                <div className="fresh-function-tool-list">
+                  {functionTools.map(tool => {
+                    const componentType = getPluginComponentIdentity(tool.componentKind);
+                    const alreadyAdded = Boolean(selectedEntity?.components.some(item => item.type === componentType));
+                    const canAdd = Boolean(selectedEntity && selectedEntity.id !== PRIMARY_CAMERA_ID && !alreadyAdded);
+                    return (
+                      <article className="fresh-function-tool-card" key={tool.id} data-testid={`function-tool-${tool.id}`}>
+                        <div>
+                          <strong>{tool.label}</strong>
+                          <p>{tool.description}</p>
+                        </div>
+                        <button
+                          type="button"
+                          className="fresh-function-tool-add"
+                          disabled={!canAdd}
+                          onClick={() => {
+                            if (selectedEntity && canAdd) onAttachPlugin(selectedEntity.id, tool.componentKind);
+                          }}
+                        >
+                          {alreadyAdded ? 'Added' : selectedEntity?.id === PRIMARY_CAMERA_ID || !selectedEntity ? 'Pick object' : 'Add'}
+                        </button>
+                      </article>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </details>
           <details className="fresh-settings-category fresh-settings-dropdown" data-testid="details-system-presets-data">
@@ -542,9 +626,10 @@ function SettingsPanel({
               </div>
               <div className="fresh-plugin-workbench">
                 <p className="fresh-plugin-instruction">
+                  These are Madhorse’s simple versions of common Unity and Unreal tools.
                   {selectedEntity
-                    ? <>Selected object: <strong>{selectedEntity.name}</strong>. Add a tool or drag it onto any object in Hierarchy.</>
-                    : 'Select an object in Hierarchy, or drag a tool directly onto an object.'}
+                    ? <> <strong>{selectedEntity.name}</strong> is picked. Press Add or drag a tool onto an object name.</>
+                    : 'Pick an object name first. Then press Add or drag a tool onto it.'}
                 </p>
                 {pluginEntries.length ? (
                   <div className="fresh-plugin-cards" aria-live="polite">
@@ -1203,10 +1288,25 @@ export default function BlankWorkspace() {
     let jumpPressed = false;
     let frameRequest = 0;
     const pressed = new Set<string>();
+    const lastFootstepTime = new Map<string, number>();
+    const lastFootstepPosition = new Map<string, { x: number; y: number; z: number }>();
     const runtimeState = createSceneRuntimeState(entities);
     setEditingEntityId(null);
     setRuntimeEntities(entities);
     setRuntimeCamera(camera);
+    entities.forEach(entity => {
+      const source = entity.components.find(component => component.type === 'gameAudio');
+      if (entity.active && source?.enabled && source.playOnStart &&
+          (!source.clipAssetId || assetUrls[source.clipAssetId])) {
+        void playAudioPreview(
+          source.clipAssetId ? assetUrls[source.clipAssetId] ?? null : null,
+          source.volume,
+          source.pitch,
+          'tone',
+          'runtime',
+        );
+      }
+    });
 
     const isTextEntry = (target: EventTarget | null) =>
       target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement ||
@@ -1243,6 +1343,34 @@ export default function BlankWorkspace() {
       const result = advanceSceneRuntime(liveEntities, delta, elapsed, input, runtimeState);
       liveEntities = result.entities;
       result.events.forEach(event => setStatus(event.message));
+      for (const entity of liveEntities) {
+        const footsteps = entity.components.find(component => component.type === 'playerWalkAudio');
+        const player = entity.components.find(component =>
+          component.type === 'characterController' && component.role === 'player',
+        );
+        if (!entity.active || !footsteps?.enabled || !player?.enabled) continue;
+        if (footsteps.clipAssetId && !assetUrls[footsteps.clipAssetId]) continue;
+        const position = getWorldTransform(liveEntities, entity.id)?.position ?? getTransform(entity).position;
+        const previousPosition = lastFootstepPosition.get(entity.id);
+        if (previousPosition) {
+          const distance = Math.hypot(
+            position.x - previousPosition.x,
+            position.y - previousPosition.y,
+          );
+          const lastTime = lastFootstepTime.get(entity.id) ?? Number.NEGATIVE_INFINITY;
+          if (distance > 0.02 && now - lastTime >= footsteps.stepInterval * 1000) {
+            void playAudioPreview(
+              footsteps.clipAssetId ? assetUrls[footsteps.clipAssetId] ?? null : null,
+              footsteps.volume,
+              footsteps.pitch,
+              'footstep',
+              'runtime',
+            );
+            lastFootstepTime.set(entity.id, now);
+          }
+        }
+        lastFootstepPosition.set(entity.id, { ...position });
+      }
 
       if (now - lastPublish >= 33) {
         setRuntimeEntities(liveEntities);
@@ -1273,11 +1401,12 @@ export default function BlankWorkspace() {
     };
     frameRequest = window.requestAnimationFrame(frame);
     return () => {
+      stopAudioPlayback('runtime');
       window.cancelAnimationFrame(frameRequest);
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
     };
-  }, [camera, entities, playTestOn]);
+  }, [assetUrls, camera, entities, playTestOn]);
 
   useEffect(() => {
     let disposed = false;
@@ -1387,6 +1516,11 @@ export default function BlankWorkspace() {
       setStatus('The Main Camera is system-managed. Add this component to a scene object instead.');
       return;
     }
+    const existingController = target.components.find(component => component.type === 'characterController');
+    if (kind === 'player-walk-audio' && existingController?.role === 'npc') {
+      setStatus('Player Walk Audio needs a player object. Select a player, or add a Player Controller to another object.');
+      return;
+    }
     const identity = getPluginComponentIdentity(kind);
     if (target.components.some(component => component.type === identity)) {
       setSelection(target.id);
@@ -1394,8 +1528,12 @@ export default function BlankWorkspace() {
       return;
     }
     const created = createPluginComponent(kind, uiControls.length);
-    const components = [created.component];
-    if (created.component.type === 'characterController' &&
+    const components: SceneComponent[] = [created.component];
+    const addPlayerController = kind === 'player-walk-audio' && !existingController;
+    if (addPlayerController) {
+      components.push(createPluginComponent('character-controller-player', 0).component);
+    }
+    if ((created.component.type === 'characterController' || addPlayerController) &&
         !target.components.some(component => component.type === 'physics')) {
       components.push(createPluginComponent('physics', 0).component);
     }
@@ -1411,6 +1549,8 @@ export default function BlankWorkspace() {
       : kind === 'camera' ? 'Camera'
         : kind === 'uiCanvas' ? 'UI Canvas'
           : kind === 'script' ? 'Safe Script Slot'
+            : kind === 'game-audio' ? 'Game Audio'
+              : kind === 'player-walk-audio' ? 'Player Walk Audio'
             : kind === 'spriteRenderer' ? '2D Sprite Renderer'
               : kind === 'modelRenderer' ? '3D Model Renderer'
                 : kind === 'effect' ? 'Particle Effect'
@@ -1420,7 +1560,7 @@ export default function BlankWorkspace() {
                       : kind.startsWith('character-controller') ? 'Character Controller'
                           : kind === 'skybox' ? 'Skybox Background'
                             : 'Trigger Zone';
-    setStatus(`${componentLabel} added to ${target.name}. Double-click the object in Hierarchy to edit it.`);
+    setStatus(`${componentLabel}${addPlayerController ? ' and a Player Controller' : ''} added to ${target.name}. Double-click the object in Hierarchy to edit it.`);
   }, [entities, uiControls.length]);
 
   const openCharacterBuilder = useCallback(() => {
@@ -1437,11 +1577,9 @@ export default function BlankWorkspace() {
     setModelingOpen(true);
   }, [assetUrls, assets, entities, selection]);
 
-  const nextPosition = useCallback(() => ({
-    x: 50 + (entities.length % 8) * 12,
-    y: 50 + Math.floor(entities.length / 8) * 12,
-    z: 0,
-  }), [entities.length]);
+  // The engine stores the scene origin at editor coordinates (50, 50, 0).
+  // All newly placed scene items use this same origin instead of drifting by entity count.
+  const nextPosition = useCallback(() => ({ ...SCENE_ORIGIN }), []);
 
   const createPrimitiveEntity = useCallback((
     shape: PrimitiveShape,
@@ -1480,10 +1618,23 @@ export default function BlankWorkspace() {
         ...entity.components,
         { id: crypto.randomUUID(), type: 'spriteRenderer', enabled: true, assetId: asset.id, tint: '#ffffff', width: 100, height: 100 },
       ];
-    } else {
+    } else if (asset.kind === 'model') {
       entity.components = [
         ...entity.components,
         { id: crypto.randomUUID(), type: 'modelRenderer', enabled: true, assetId: asset.id },
+      ];
+    } else {
+      entity.components = [
+        ...entity.components,
+        {
+          id: crypto.randomUUID(),
+          type: 'gameAudio',
+          enabled: true,
+          clipAssetId: asset.id,
+          volume: 0.5,
+          pitch: 1,
+          playOnStart: false,
+        },
       ];
     }
     addEntity(entity);
@@ -1516,14 +1667,14 @@ export default function BlankWorkspace() {
     }
     const kind = projectAssetKind(file.name, file.type);
     if (!kind || (imagesOnly && kind !== 'image')) {
-      setStatus(imagesOnly ? 'Choose a supported 2D image file.' : 'Choose a supported image or 3D model file.');
+      setStatus(imagesOnly ? 'Choose a supported 2D image file.' : 'Choose a supported image, 3D model, or audio file.');
       return;
     }
     const asset: ProjectAsset = {
       id: crypto.randomUUID(),
       name: file.name,
       kind,
-      mimeType: file.type || (kind === 'image' ? 'application/octet-stream' : 'model/unknown'),
+      mimeType: file.type || (kind === 'image' ? 'application/octet-stream' : kind === 'audio' ? 'audio/unknown' : 'model/unknown'),
       size: file.size,
       addedAt: new Date().toISOString(),
     };
@@ -1694,7 +1845,10 @@ export default function BlankWorkspace() {
           className={`fresh-play-test${playTestOn ? ' is-playing' : ''}`}
           aria-pressed={playTestOn}
           data-testid="button-play-test"
-          onClick={() => setPlayTestOn(value => !value)}
+          onClick={() => {
+            if (!playTestOn) unlockSceneAudio();
+            setPlayTestOn(value => !value);
+          }}
         >
           {playTestOn ? 'Stop Test' : 'Play Test'}
         </button>
@@ -1760,6 +1914,7 @@ export default function BlankWorkspace() {
               selectedEntity={selectedEntity}
               entities={entities}
               assets={assets}
+              assetUrls={assetUrls}
               builderBuildLogs={builderBuildLogs}
               onReturnToSettings={() => setEditingEntityId(null)}
               onOpenCharacterBuilder={openCharacterBuilder}

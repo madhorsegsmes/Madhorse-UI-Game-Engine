@@ -99,7 +99,7 @@ function safeMimeType(file: File, kind: ProjectAsset['kind']): string {
   if (extension === '.obj') return 'model/obj';
   if (extension === '.fbx') return 'model/fbx';
   if (extension === '.dae') return 'model/vnd.collada+xml';
-  return kind === 'image' ? 'image/unknown' : 'model/unknown';
+  return kind === 'image' ? 'image/unknown' : kind === 'audio' ? 'audio/unknown' : 'model/unknown';
 }
 
 export function useSceneEditor<T extends ProjectSceneDocument>({
@@ -128,6 +128,9 @@ export function useSceneEditor<T extends ProjectSceneDocument>({
         getSpriteRenderer(entity)?.assetId,
         getModelRenderer(entity)?.assetId,
         getPrimitive(entity)?.textureAssetId,
+        ...entity.components
+          .filter(component => component.type === 'gameAudio' || component.type === 'playerWalkAudio')
+          .map(component => component.clipAssetId),
       ])
       .filter((assetId): assetId is string => Boolean(assetId)),
   )], [project.entities, project.prefabs]);

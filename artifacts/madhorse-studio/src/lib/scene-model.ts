@@ -1,4 +1,5 @@
 export type Vector3 = { x: number; y: number; z: number };
+export const SCENE_ORIGIN: Vector3 = { x: 50, y: 50, z: 0 };
 
 export type TransformComponent = {
   id: string;
@@ -112,6 +113,14 @@ export type UICanvasComponent = {
 export type ScriptComponent = {
   id: string; type: 'script'; enabled: boolean; scriptId: string;
 };
+export type GameAudioComponent = {
+  id: string; type: 'gameAudio'; enabled: boolean; clipAssetId: string | null;
+  volume: number; pitch: number; playOnStart: boolean;
+};
+export type PlayerWalkAudioComponent = {
+  id: string; type: 'playerWalkAudio'; enabled: boolean; clipAssetId: string | null;
+  volume: number; pitch: number; stepInterval: number;
+};
 export type EffectComponent = {
   id: string; type: 'effect'; enabled: boolean; color: string; intensity: number;
 };
@@ -142,7 +151,7 @@ export type TriggerZoneComponent = {
 };
 export type SceneComponent = TransformComponent | SpriteRendererComponent | ModelRendererComponent |
   PrimitiveComponent | LightComponent | CameraComponent | UICanvasComponent | PhysicsComponent | ScriptComponent |
-  EffectComponent | SkyboxComponent | CharacterControllerComponent | TriggerZoneComponent;
+  GameAudioComponent | PlayerWalkAudioComponent | EffectComponent | SkyboxComponent | CharacterControllerComponent | TriggerZoneComponent;
 
 export type SceneEntity = {
   id: string;
@@ -157,17 +166,18 @@ export type SceneEntity = {
 export type ProjectAsset = {
   id: string;
   name: string;
-  kind: 'image' | 'model';
+  kind: 'image' | 'model' | 'audio';
   mimeType: string;
   size: number;
   addedAt: string;
 };
 
-export type SpriteAssetKind = ProjectAsset['kind'] | null;
+export type ProjectAssetKind = ProjectAsset['kind'];
+export type SpriteAssetKind = Exclude<ProjectAssetKind, 'audio'> | null;
 
 export const spriteComponentTypes = ['transform', 'spriteRenderer'] as const;
 
-export function createTransformComponent(position: Vector3 = { x: 50, y: 50, z: 0 }): TransformComponent {
+export function createTransformComponent(position: Vector3 = SCENE_ORIGIN): TransformComponent {
   return {
     id: crypto.randomUUID(),
     type: 'transform',
@@ -257,7 +267,7 @@ export function createStarterCube(): SceneEntity {
 
 export function createSceneEntity(
   name: string,
-  position: Vector3 = { x: 50, y: 50, z: 0 },
+  position: Vector3 = SCENE_ORIGIN,
   parentId: string | null = null,
   withSprite = true,
 ): SceneEntity {
@@ -363,6 +373,16 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
     (item.frame === undefined || typeof item.frame === 'boolean');
   if (item.type === 'script') return typeof item.enabled === 'boolean' &&
     typeof item.scriptId === 'string' && item.scriptId.length > 0 && item.scriptId.length <= 128;
+  if (item.type === 'gameAudio') return typeof item.enabled === 'boolean' &&
+    (item.clipAssetId === null || typeof item.clipAssetId === 'string') &&
+    Number.isFinite(item.volume) && item.volume >= 0 && item.volume <= 1 &&
+    Number.isFinite(item.pitch) && item.pitch >= 0.25 && item.pitch <= 2 &&
+    typeof item.playOnStart === 'boolean';
+  if (item.type === 'playerWalkAudio') return typeof item.enabled === 'boolean' &&
+    (item.clipAssetId === null || typeof item.clipAssetId === 'string') &&
+    Number.isFinite(item.volume) && item.volume >= 0 && item.volume <= 1 &&
+    Number.isFinite(item.pitch) && item.pitch >= 0.25 && item.pitch <= 2 &&
+    Number.isFinite(item.stepInterval) && item.stepInterval >= 0.15 && item.stepInterval <= 2;
   if (item.type === 'effect') return typeof item.enabled === 'boolean' &&
     /^#[0-9a-f]{6}$/i.test(item.color) && Number.isFinite(item.intensity) &&
     item.intensity >= 0 && item.intensity <= 10;
@@ -460,7 +480,7 @@ export function isProjectAsset(value: unknown): value is ProjectAsset {
   if (!value || typeof value !== 'object') return false;
   const asset = value as ProjectAsset;
   return typeof asset.id === 'string' && typeof asset.name === 'string' &&
-    (asset.kind === 'image' || asset.kind === 'model') &&
+    (asset.kind === 'image' || asset.kind === 'model' || asset.kind === 'audio') &&
     typeof asset.mimeType === 'string' && Number.isFinite(asset.size) &&
     asset.size >= 0 && typeof asset.addedAt === 'string';
 }
@@ -482,11 +502,13 @@ function isTerrainSettings(value: unknown): value is TerrainSettings {
     Number.isInteger(settings.riverCount) && settings.riverCount >= 0 && settings.riverCount <= 10;
 }
 
-export function projectAssetKind(fileName: string, mimeType: string): SpriteAssetKind {
+export function projectAssetKind(fileName: string, mimeType: string): ProjectAssetKind | null {
   const extension = fileName.slice(fileName.lastIndexOf('.')).toLowerCase();
   if (['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg'].includes(extension) ||
       mimeType.startsWith('image/')) return 'image';
   if (['.glb', '.gltf', '.obj', '.fbx', '.dae'].includes(extension)) return 'model';
+  if (['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac'].includes(extension) ||
+      mimeType.startsWith('audio/')) return 'audio';
   return null;
 }
 

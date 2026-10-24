@@ -91,7 +91,9 @@ export function useMadBuilder<T extends BuilderDocument>({ project, activeProjec
           project.entities.find((entity) => entity.id === 'player');
         const result = PlanMadBuilderResponse.parse(await planMadBuilder({
           prompt, selectedName: contextEntity?.name ?? '', style, buildCategory, referenceImages,
-          assets: project.assets.slice(0, 40).map(({ id, name, kind }) => ({ id, name: name.slice(0, 160), kind })),
+          assets: project.assets.slice(0, 40).flatMap(({ id, name, kind }) =>
+            kind === 'audio' ? [] : [{ id, name: name.slice(0, 160), kind }],
+          ),
         }, { signal: controller.signal }));
         if (token !== session.current || activeProjectRef.current.id !== project.id) return;
         // Validate on the client before any generated object is added to the scene.
