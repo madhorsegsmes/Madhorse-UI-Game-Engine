@@ -13,6 +13,9 @@ import {
 import { playAudioPreview, stopAudioPlayback } from '@/lib/game-audio';
 import { playerActionDraft, playerActionFromDraft } from '@/lib/player-action-model';
 import { PlayerActionSettings } from './player-action-settings';
+import { gameFeatureDraft, gameFeatureFromDraft } from '@/lib/game-feature-model';
+import { gameFeatureDefinitions } from '@/lib/game-feature-model';
+import { GameFeatureSettings } from './game-feature-settings';
 
 type Props = {
   entity: SceneEntity;
@@ -29,7 +32,9 @@ type Props = {
 function toDraft(entity: SceneEntity) {
   const values: Record<string, string> = { active: String(entity.active) };
   for (const component of entity.components) {
-    if (component.type === 'playerAction') {
+    if (component.type === 'gameFeature') {
+      Object.assign(values, gameFeatureDraft(component));
+    } else if (component.type === 'playerAction') {
       Object.assign(values, playerActionDraft(component));
     } else if (component.type === 'transform') {
       for (const key of ['position', 'rotation', 'scale'] as const) {
@@ -187,6 +192,7 @@ export function SceneObjectInspector({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextComponents = entity.components.map((item): SceneComponent => {
+      if (item.type === 'gameFeature') return gameFeatureFromDraft(item, values);
       if (item.type === 'playerAction') return playerActionFromDraft(item, values);
       if (item.type === 'transform') return {
         ...item,
@@ -308,8 +314,13 @@ export function SceneObjectInspector({
       setError('Enter a name for this object.');
       return;
     }
-    const enabledActions = nextComponents.filter(component => component.type === 'playerAction' && component.enabled);
-    if (new Set(enabledActions.map(component => component.type === 'playerAction' ? component.key : '')).size !== enabledActions.length) {
+    const enabledKeys = [
+      ...nextComponents.filter(component => component.type === 'playerAction' && component.enabled)
+        .map(component => component.type === 'playerAction' ? component.key : ''),
+      ...nextComponents.filter(component => component.type === 'gameFeature' && component.enabled && component.kind === 'interact')
+        .map(component => component.type === 'gameFeature' ? String(component.settings.key) : ''),
+    ];
+    if (new Set(enabledKeys).size !== enabledKeys.length) {
       setError('Two enabled actions use the same key. Give each action its own key.');
       return;
     }
@@ -434,6 +445,11 @@ export function SceneObjectInspector({
           values={values} setValue={setValue} assets={assets} assetUrls={assetUrls}
           entities={entities} ownerId={entity.id} onStatus={setAudioPreviewStatus}
         />
+        <GameFeatureSettings
+          features={entity.components.filter(component => component.type === 'gameFeature')}
+          values={values} setValue={setValue} assets={assets} assetUrls={assetUrls}
+          onStatus={setAudioPreviewStatus}
+        />
         {gameAudio && section('Game Audio', <>
           {checkboxField('Enabled', 'gameAudio.enabled')}
           {selectField('Sound clip', 'gameAudio.clipAssetId', assetOptions(audioAssets))}
@@ -488,7 +504,9 @@ export function SceneObjectInspector({
           </button>
           <p className="fresh-inspector-note">Footsteps play while a Player Controller moves in Play Test. Add one from Plugins if needed.</p>
         </>)}
-        {(gameAudio || playerWalkAudio || entity.components.some(component => component.type === 'playerAction')) && (
+        {(gameAudio || playerWalkAudio || entity.components.some(component =>
+          component.type === 'playerAction' || component.type === 'gameFeature' && Boolean(gameFeatureDefinitions[component.kind].audio),
+        )) && (
           <button type="button" className="is-quiet" onClick={() => {
             stopAudioPlayback();
             setAudioPreviewStatus('Audio preview stopped.');

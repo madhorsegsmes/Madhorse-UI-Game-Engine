@@ -129,8 +129,11 @@ export function useSceneEditor<T extends ProjectSceneDocument>({
         getModelRenderer(entity)?.assetId,
         getPrimitive(entity)?.textureAssetId,
         ...entity.components
-          .filter(component => component.type === 'gameAudio' || component.type === 'playerWalkAudio' || component.type === 'playerAction')
-          .map(component => component.clipAssetId),
+          .filter(component => component.type === 'gameAudio' || component.type === 'playerWalkAudio' ||
+            component.type === 'playerAction' || component.type === 'gameFeature')
+          .map(component => component.type === 'gameFeature' ? component.clipAssetId :
+            component.type === 'playerAction' || component.type === 'gameAudio' || component.type === 'playerWalkAudio'
+              ? component.clipAssetId : null),
       ])
       .filter((assetId): assetId is string => Boolean(assetId)),
   )], [project.entities, project.prefabs]);

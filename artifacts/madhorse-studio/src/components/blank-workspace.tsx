@@ -57,6 +57,7 @@ import { advanceSceneRuntime, createSceneRuntimeState } from '@/lib/scene-play-r
 import { publishStatus } from '@/lib/system-diagnostics';
 import { playAudioPreview, stopAudioPlayback, unlockSceneAudio } from '@/lib/game-audio';
 import { playerActionDefinitions } from '@/lib/player-action-model';
+import { gameFeatureDefinitions } from '@/lib/game-feature-model';
 import type { ActionHud } from '@/lib/player-action-runtime';
 import { PlayerActionHud } from './player-action-hud';
 import { downloadMadBuilderLogPdf, type MadBuilderBuildLog } from '@/lib/mad-builder-build-log';
@@ -1306,7 +1307,9 @@ export default function BlankWorkspace() {
     runtimeInputRef.current = runtimeInput;
     const pressed = runtimeInput.held;
     const actionKeys = new Set(entities.flatMap(entity => entity.components.flatMap(component =>
-      component.type === 'playerAction' && component.enabled ? [component.key] : [],
+      component.type === 'playerAction' && component.enabled ? [component.key] :
+        component.type === 'gameFeature' && component.enabled && component.kind === 'interact'
+          ? [String(component.settings.key)] : [],
     )));
     const lastFootstepTime = new Map<string, number>();
     const lastFootstepPosition = new Map<string, { x: number; y: number; z: number }>();
@@ -1560,7 +1563,8 @@ export default function BlankWorkspace() {
       return;
     }
     const existingController = target.components.find(component => component.type === 'characterController');
-    if ((kind === 'player-walk-audio' || kind.startsWith('action-')) && existingController?.role === 'npc') {
+    if ((kind === 'player-walk-audio' || kind.startsWith('action-') || kind === 'feature-interact' ||
+        kind === 'feature-inventory' || kind === 'feature-status-bar') && existingController?.role === 'npc') {
       setStatus('This plugin needs a player object. Select a player, or change this object’s controller role to Player.');
       return;
     }
@@ -1571,7 +1575,8 @@ export default function BlankWorkspace() {
     }
     const created = createPluginComponent(kind, uiControls.length);
     const components: SceneComponent[] = [created.component];
-    const addPlayerController = (kind === 'player-walk-audio' || kind.startsWith('action-')) && !existingController;
+    const addPlayerController = (kind === 'player-walk-audio' || kind.startsWith('action-') ||
+      kind === 'feature-interact' || kind === 'feature-inventory' || kind === 'feature-status-bar') && !existingController;
     if (addPlayerController) {
       components.push(createPluginComponent(kind === 'action-race' ? 'character-controller-third-person' : 'character-controller-player', 0).component);
     }
@@ -1602,7 +1607,8 @@ export default function BlankWorkspace() {
                       : kind.startsWith('character-controller') ? 'Character Controller'
                           : kind === 'skybox' ? 'Skybox Background'
                             : 'Trigger Zone';
-    const label = created.component.type === 'playerAction' ? `${playerActionDefinitions[created.component.action].label} + Sound` : componentLabel;
+    const label = created.component.type === 'playerAction' ? `${playerActionDefinitions[created.component.action].label} + Sound`
+      : created.component.type === 'gameFeature' ? gameFeatureDefinitions[created.component.kind].label : componentLabel;
     setStatus(`${label}${addPlayerController ? ' and a Player Controller' : ''} added to ${target.name}. Double-click the object in Hierarchy to edit it.`);
   }, [entities, uiControls.length]);
 

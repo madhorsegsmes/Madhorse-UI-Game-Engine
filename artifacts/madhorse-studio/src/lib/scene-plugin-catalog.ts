@@ -4,6 +4,7 @@ import {
 } from './scene-model';
 import { createUIControlElement } from './ui-controls';
 import { createPlayerAction, playerActionDefinitions, playerActionNames, type PlayerActionName } from './player-action-model';
+import { createGameFeature, gameFeatureDefinitions, gameFeatureNames, type GameFeatureName } from './game-feature-model';
 
 export type PluginCategory =
   | 'game'
@@ -23,6 +24,7 @@ export type PluginCategory =
 
 export type PluginComponentKind =
   | `action-${PlayerActionName}`
+  | `feature-${GameFeatureName}`
   | 'physics'
   | 'camera'
   | 'uiCanvas'
@@ -57,9 +59,15 @@ const playerActionPlugins: ScenePluginDefinition[] = playerActionNames.map(actio
   label: `${playerActionDefinitions[action].label} + Sound`,
   description: playerActionDefinitions[action].help,
 }));
+const featurePlugin = (name: GameFeatureName): ScenePluginDefinition => ({
+  id: `feature-${name}`, componentKind: `feature-${name}`,
+  label: gameFeatureDefinitions[name].label, description: gameFeatureDefinitions[name].help,
+});
 
 export const scenePluginCatalog: Record<PluginCategory, ScenePluginDefinition[]> = {
   game: [
+    ...(['pickup', 'door', 'checkpoint'] as const).map(featurePlugin),
+    featurePlugin('inventory'),
     ...playerActionPlugins.filter(entry => ['action-race', 'action-craft', 'action-build'].includes(entry.id)),
     { id: 'game-audio', componentKind: 'game-audio', label: 'Game Audio', description: 'Add a sound source. Pick a clip, set its loudness, and test it in Settings.' },
     { id: 'physics', componentKind: 'physics', label: 'Physics Body', description: 'Set how this object bumps, falls, and bounces. Change its settings on the object.' },
@@ -67,6 +75,7 @@ export const scenePluginCatalog: Record<PluginCategory, ScenePluginDefinition[]>
     { id: 'character-controller-player', componentKind: 'character-controller-player', label: 'Player Controller', description: 'Add walking and jumping. Use W, A, S, D or arrows; press Space to jump.' },
   ],
   'player-npc': [
+    ...(['health', 'inventory', 'interact'] as const).map(featurePlugin),
     ...playerActionPlugins,
     { id: 'player-walk-audio', componentKind: 'player-walk-audio', label: 'Player Walk Audio', description: 'Play a footstep when the player walks in Play Test. Pick a clip or use the built-in thump.' },
     { id: 'character-controller-player', componentKind: 'character-controller-player', label: 'Player Controller', description: 'Add walking and jumping to the player.' },
@@ -74,6 +83,7 @@ export const scenePluginCatalog: Record<PluginCategory, ScenePluginDefinition[]>
     { id: 'script', componentKind: 'script', label: 'Safe Script Slot', description: 'Keep a code file on this object. It stays off until you run it safely.' },
   ],
   system: [
+    featurePlugin('status-bar'),
     { id: 'physics', componentKind: 'physics', label: 'Physics Body', description: 'Set this object’s collision, weight, gravity, and bounce.' },
     { id: 'camera', componentKind: 'camera', label: 'Camera', description: 'Add a view. Choose what it looks at in Settings.' },
     { id: 'script', componentKind: 'script', label: 'Safe Script Slot', description: 'Keep a code file here. It starts turned off and runs in a safe box.' },
@@ -91,9 +101,11 @@ export const scenePluginCatalog: Record<PluginCategory, ScenePluginDefinition[]>
     { id: 'modelRenderer', componentKind: 'modelRenderer', label: 'Show a 3D model', description: 'Put an imported 3D model on this object.' },
   ],
   effect: [
+    featurePlugin('visual-effect'),
     { id: 'effect', componentKind: 'effect', label: 'Color Effect', description: 'Set an effect color and strength for this object.' },
   ],
   triggers: [
+    featurePlugin('message'),
     { id: 'trigger-event', componentKind: 'trigger-event', label: 'When player enters', description: 'Show a message when the player touches this object.' },
   ],
   'trigger-zones': [
@@ -122,6 +134,9 @@ export function createPluginComponent(
   kind: PluginComponentKind,
   uiControlCount: number,
 ): { component: SceneComponent; uiControl?: ReturnType<typeof createUIControlElement> } {
+  if (kind.startsWith('feature-')) {
+    return { component: createGameFeature(kind.slice(8) as GameFeatureName) };
+  }
   if (kind.startsWith('action-')) {
     return { component: createPlayerAction(kind.slice(7) as PlayerActionName) };
   }
@@ -236,6 +251,7 @@ export function createPluginComponent(
 
 export function getPluginComponentIdentity(kind: PluginComponentKind): SceneComponent['type'] {
   const identity: Record<PluginComponentKind, SceneComponent['type']> = {
+    ...Object.fromEntries(gameFeatureNames.map(name => [`feature-${name}`, 'gameFeature' as const])) as Record<`feature-${GameFeatureName}`, SceneComponent['type']>,
     'action-run': 'playerAction',
     'action-crouch': 'playerAction',
     'action-fight': 'playerAction',
@@ -268,6 +284,7 @@ export function getPluginComponentIdentity(kind: PluginComponentKind): SceneComp
 }
 
 export function matchesPluginComponent(component: SceneComponent, kind: PluginComponentKind): boolean {
+  if (kind.startsWith('feature-')) return component.type === 'gameFeature' && component.kind === kind.slice(8);
   if (kind.startsWith('action-')) return component.type === 'playerAction' && component.action === kind.slice(7);
   return component.type === getPluginComponentIdentity(kind);
 }

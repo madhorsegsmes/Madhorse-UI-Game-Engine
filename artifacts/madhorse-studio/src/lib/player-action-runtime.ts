@@ -1,24 +1,40 @@
 import { createPhysicsComponent, createTransformComponent, getTransform, getWorldTransform, type SceneEntity, type Vector3 } from './scene-model';
 import { playerActionDefinitions, type PlayerActionComponent, type PlayerActionName } from './player-action-model';
+import { gameFeatureDefinitions, type GameFeatureComponent, type GameFeatureName } from './game-feature-model';
+import type { AudioPlayStyle } from './game-audio';
 
 export type ActionInput = { moveX: number; moveY: number; heldKeys?: readonly string[]; pressedKeys?: readonly string[] };
-export type ActionAudioEvent = { action: PlayerActionName; clipAssetId: string | null; volume: number; pitch: number };
+export type ActionAudioEvent = { action: AudioPlayStyle; clipAssetId: string | null; volume: number; pitch: number };
 export type ActionHud = {
   playerId: string; player: string; mode: string; wood: number; planks: number; speed: number;
   controls: { action: PlayerActionName; key: string; label: string }[];
+  extraControls: { key: string; label: string }[];
+  showHealth: boolean; health: number; maxHealth: number;
+  showInventory: boolean; inventoryText: string;
   message: string;
 };
 type PlayerState = {
   baseScale: Vector3; groundZ: number; heading: number; driving: boolean; speed: number;
-  wood: number; planks: number; lastUse: Map<string, number>; lastMoveSound: number;
-  wasCrouching: boolean; feedback: string;
+  wood: number; planks: number; coins: number; keys: number;
+  health: number; maxHealth: number; spawn: Vector3; checkpoint: Vector3 | null;
+  lastContactDamage: number; lastHealthUpdate: number;
+  lastUse: Map<string, number>; lastMoveSound: number; wasCrouching: boolean; feedback: string;
 };
 export type PlayerActionRuntimeState = {
   players: Map<string, PlayerState>; health: Map<string, number>;
+  doors: Map<string, boolean>;
   effects: Map<string, { entity: SceneEntity; until: number }>; effectIds: Set<string>; builtCount: number;
 };
 export function createPlayerActionRuntimeState(): PlayerActionRuntimeState {
-  return { players: new Map(), health: new Map(), effects: new Map(), effectIds: new Set(), builtCount: 0 };
+  return { players: new Map(), health: new Map(), doors: new Map(), effects: new Map(), effectIds: new Set(), builtCount: 0 };
+}
+export function getGameFeatures(entity: SceneEntity): GameFeatureComponent[] {
+  return entity.components.filter((component): component is GameFeatureComponent =>
+    component.type === 'gameFeature' && component.enabled,
+  );
+}
+export function getGameFeature(entity: SceneEntity, kind: GameFeatureName) {
+  return getGameFeatures(entity).find(feature => feature.kind === kind);
 }
 export function getPlayerActions(entity: SceneEntity): PlayerActionComponent[] {
   return entity.components.filter((component): component is PlayerActionComponent =>
@@ -30,11 +46,17 @@ function getPlayerState(entity: SceneEntity, state: PlayerActionRuntimeState) {
   if (!current) {
     const transform = getTransform(entity);
     const actions = getPlayerActions(entity);
+    const inventory = getGameFeature(entity, 'inventory');
+    const healthFeature = getGameFeature(entity, 'health');
+    const maxHealth = Number(healthFeature?.settings.maxHealth ?? 100);
     current = {
       baseScale: { ...transform.scale }, groundZ: transform.position.z,
       heading: transform.rotation.z * Math.PI / 180, driving: false, speed: 0,
-      wood: actions.find(action => action.action === 'craft')?.settings.startingWood ?? 0,
-      planks: actions.find(action => action.action === 'build')?.settings.startingPlanks ?? 0,
+      wood: Number(inventory?.settings.startingWood ?? actions.find(action => action.action === 'craft')?.settings.startingWood ?? 0),
+      planks: Number(inventory?.settings.startingPlanks ?? actions.find(action => action.action === 'build')?.settings.startingPlanks ?? 0),
+      coins: Number(inventory?.settings.startingCoins ?? 0), keys: Number(inventory?.settings.startingKeys ?? 0),
+      health: Math.min(maxHealth, Number(healthFeature?.settings.startingHealth ?? maxHealth)),
+      maxHealth, spawn: { ...transform.position }, checkpoint: null, lastContactDamage: -Infinity, lastHealthUpdate: 0,
       lastUse: new Map(), lastMoveSound: -Infinity, wasCrouching: false, feedback: '',
     };
     state.players.set(entity.id, current);
@@ -88,7 +110,21 @@ function isPracticeTarget(entity: SceneEntity, playerId: string, effects: Set<st
       (component.type === 'spriteRenderer' && component.enabled),
     );
 }
-function makeMarker(position: Vector3, color: string, size: number, state: PlayerActionRuntimeState, now: number) {
+function featureByKind(entity: SceneEntity, kind: GameFeatureName) {
+  return entity.components.find((component): component is GameFeatureComponent =>
+    component.type === 'gameFeature' && component.enabled && component.kind === kind,
+  );
+}
+function targetMaxHealth(entity: SceneEntity) {
+  return Number(featureByKind(entity, 'health')?.settings.maxHealth ?? 100);
+}
+function targetHealth(entity: SceneEntity, state: PlayerActionRuntimeState) {
+  const savedHealth = state.health.get(entity.id);
+  if (savedHealth !== undefined) return savedHealth;
+  const feature = featureByKind(entity, 'health');
+  return Math.min(targetMaxHealth(entity), Number(feature?.settings.startingHealth ?? targetMaxHealth(entity)));
+}
+function makeMarker(position: Vector3, color: string, size: number, state: PlayerActionRuntimeState, now: number, duration = 0.16) {
   // Keep transient graphics bounded, even when multiple actions are used quickly.
   if (state.effects.size >= 64) return;
   const id = `runtime-effect-${crypto.randomUUID()}`;
@@ -98,7 +134,7 @@ function makeMarker(position: Vector3, color: string, size: number, state: Playe
     id, name: 'Action preview', active: true, parentId: null,
     components: [transform, { id: crypto.randomUUID(), type: 'primitive', enabled: true, shape: 'sphere', color, textureAssetId: null }],
   };
-  state.effects.set(id, { entity, until: now + 0.16 });
+  state.effects.set(id, { entity, until: now + duration });
   state.effectIds.add(id);
 }
 
@@ -119,9 +155,11 @@ export function advancePlayerActions(
   const emit = (action: PlayerActionComponent, pitch = 1) => {
     if (action.volume > 0) audioEvents.push({ action: action.action, volume: action.volume, clipAssetId: action.clipAssetId, pitch });
   };
+  let lastFeedback = current.feedback;
   const say = (message: string) => {
     current.feedback = message;
-    events.push({ zoneId: player.id, message });
+    if (lastFeedback !== message) events.push({ zoneId: player.id, message });
+    lastFeedback = message;
   };
   const moving = motion.driving ? Math.abs(current.speed) > 0.2 : Math.hypot(input.moveX, input.moveY) > 0;
   const movementSound = actions.find(action => motion.driving ? action.action === 'race' : motion.running ? action.action === 'run' : motion.crouching ? action.action === 'crouch' : false);
@@ -172,11 +210,12 @@ export function advancePlayerActions(
         makeMarker({ x: position.x + aim.x * 8, y: position.y + aim.y * 8, z: position.z + 5 }, '#ff7854', 0.5, state, now);
       }
       if (hit) {
-        const health = Math.max(0, (state.health.get(hit.entity.id) ?? 100) - action.settings.damage);
+        const maximumHealth = targetMaxHealth(hit.entity);
+        const health = Math.max(0, targetHealth(hit.entity, state) - action.settings.damage);
         state.health.set(hit.entity.id, health);
         if (health === 0) next = next.map(entity => entity.id === hit.entity.id ? { ...entity, active: false } : entity);
         makeMarker({ ...hit.target.position, z: hit.target.position.z + 5 }, '#ff4d40', 0.4, state, now);
-        say(`${hit.entity.name}: ${health}/100 health${health === 0 ? ' — defeated in this test' : ''}.`);
+        say(`${hit.entity.name}: ${health}/${maximumHealth} health${health === 0 ? ' — defeated in this test' : ''}.`);
       } else say(action.action === 'shoot' ? 'Shot fired — no target hit.' : 'Swing — no target within reach.');
     } else if (action.action === 'craft') {
       if (current.wood < action.settings.woodCost) { say('Not enough wood to craft planks.'); continue; }
@@ -221,12 +260,141 @@ export function advancePlayerActions(
       say(`Block placed. ${current.planks} planks left. This test building is temporary.`);
     }
   }
+  const healthFeature = featureByKind(player, 'health');
+  if (healthFeature && current.health < current.maxHealth) {
+    current.health = Math.min(current.maxHealth, current.health + Number(healthFeature.settings.regeneration) * Math.min(0.05, now - (current.lastHealthUpdate ?? now)));
+  }
+  current.lastHealthUpdate = now;
+  state.health.set(player.id, current.health);
+
+  for (const entity of next) {
+    const door = featureByKind(entity, 'door');
+    if (door && entity.active && !state.doors.has(entity.id)) {
+      const startsOpen = Boolean(door.settings.startsOpen);
+      state.doors.set(entity.id, startsOpen);
+      if (startsOpen) next = next.map(candidate => candidate.id === entity.id ? { ...candidate, active: false } : candidate);
+    }
+  }
+
+  const interact = featureByKind(player, 'interact');
+  const interactKey = interact ? String(interact.settings.key) : null;
+  if (interact && interactKey && input.pressedKeys?.includes(interactKey) &&
+      now - (current.lastUse.get(interact.id) ?? -Infinity) >= 0.25) {
+    current.lastUse.set(interact.id, now);
+    const reach = Number(interact.settings.range) * 10;
+    const candidates = next.flatMap(entity => {
+      if (entity.id === player.id || entity.isGroup) return [];
+      const feature = getGameFeatures(entity).find(item =>
+        ['pickup', 'door', 'checkpoint', 'message', 'visual-effect'].includes(item.kind) &&
+        (entity.active || item.kind === 'door' && state.doors.get(entity.id) === true),
+      );
+      if (!feature) return [];
+      const target = getWorldTransform(next, entity.id) ?? getTransform(entity);
+      const distance = Math.hypot(target.position.x - position.x, target.position.y - position.y, target.position.z - position.z);
+      return distance <= reach + Math.max(target.scale.x, target.scale.y) * 5 ? [{ entity, feature, target, distance }] : [];
+    }).sort((left, right) => left.distance - right.distance);
+    const picked = candidates[0];
+    if (!picked) {
+      say('Nothing close enough to use. Walk near an item, door, checkpoint, or sign.');
+    } else {
+      const { entity, feature, target } = picked;
+      const playFeatureSound = (style: AudioPlayStyle) => {
+        if (feature.volume && feature.volume > 0) audioEvents.push({
+          action: style, clipAssetId: feature.clipAssetId ?? null, volume: feature.volume, pitch: 1,
+        });
+      };
+      if (feature.kind === 'pickup') {
+        const item = String(feature.settings.item);
+        const amount = Number(feature.settings.amount);
+        const maximum = item === 'keys' ? 99 : item === 'health' ? current.maxHealth : 999;
+        if (item === 'wood') current.wood = Math.min(maximum, current.wood + amount);
+        if (item === 'planks') current.planks = Math.min(maximum, current.planks + amount);
+        if (item === 'coins') current.coins = Math.min(maximum, current.coins + amount);
+        if (item === 'keys') current.keys = Math.min(maximum, current.keys + amount);
+        if (item === 'health') current.health = Math.min(current.maxHealth, current.health + amount);
+        next = next.map(candidate => candidate.id === entity.id ? { ...candidate, active: false } : candidate);
+        playFeatureSound('craft');
+        say(item === 'health'
+          ? `Picked up ${amount} health. Health: ${current.health}/${current.maxHealth}.`
+          : `Picked up ${amount} ${item}. Wood ${current.wood} · planks ${current.planks} · coins ${current.coins} · keys ${current.keys}.`);
+      } else if (feature.kind === 'door') {
+        const open = state.doors.get(entity.id) ?? false;
+        const locked = Boolean(feature.settings.locked);
+        if (!open && locked && current.keys < 1) {
+          say('This door is locked. Find a key pickup first.');
+        } else {
+          if (!open && locked) current.keys -= 1;
+          state.doors.set(entity.id, !open);
+          next = next.map(candidate => candidate.id === entity.id ? { ...candidate, active: open } : candidate);
+          playFeatureSound('build');
+          say(open ? 'Door closed.' : `Door opened${locked ? ` · ${current.keys} keys left` : ''}.`);
+        }
+      } else if (feature.kind === 'checkpoint') {
+        current.checkpoint = { ...target.position };
+        if (feature.settings.restoreHealth) current.health = current.maxHealth;
+        playFeatureSound('tone');
+        say(`Checkpoint saved at ${entity.name}.`);
+      } else if (feature.kind === 'message') {
+        playFeatureSound('tone');
+        say(String(feature.settings.text));
+      } else if (feature.kind === 'visual-effect') {
+        const radius = Number(feature.settings.size) * 10;
+        const color = String(feature.settings.color);
+        const duration = 1.2;
+        for (let index = 0; index < 8; index++) {
+          const angle = Math.PI * 2 * index / 8;
+          makeMarker({
+            x: target.position.x + Math.cos(angle) * radius,
+            y: target.position.y + Math.sin(angle) * radius,
+            z: target.position.z + 5 + (index % 2) * radius * 0.5,
+          }, color, 0.35, state, now, duration);
+        }
+        playFeatureSound('tone');
+        say(`Sparkle effect played at ${entity.name}.`);
+      }
+    }
+  }
+
+  for (const npc of next) {
+    const npcHealth = featureByKind(npc, 'health');
+    const npcController = npc.components.find(component => component.type === 'characterController' && component.role === 'npc');
+    const damage = Number(npcHealth?.settings.contactDamage ?? 0);
+    if (!npc.active || !npcController || damage < 1 || now - current.lastContactDamage < 1) continue;
+    const npcPosition = getWorldTransform(next, npc.id)?.position ?? getTransform(npc).position;
+    if (Math.hypot(npcPosition.x - position.x, npcPosition.y - position.y, npcPosition.z - position.z) > 12) continue;
+    current.lastContactDamage = now;
+    current.health = Math.max(0, current.health - damage);
+    state.health.set(player.id, current.health);
+    say(`Ouch! ${npc.name} hit you. Health: ${current.health}/${current.maxHealth}.`);
+    if (current.health === 0) {
+      const respawnAt = current.checkpoint ?? current.spawn;
+      next = next.map(candidate => candidate.id === player.id ? {
+        ...candidate, active: true, components: candidate.components.map(component =>
+          component.type === 'transform' ? { ...component, position: { ...respawnAt } } : component,
+        ),
+      } : candidate);
+      current.health = current.maxHealth;
+      state.health.set(player.id, current.health);
+      say(current.checkpoint ? 'You respawned at your checkpoint.' : 'You respawned at your starting spot.');
+    }
+  }
+
+  const statusBar = featureByKind(player, 'status-bar');
+  const inventoryFeature = featureByKind(player, 'inventory');
+  const showHealth = Boolean(statusBar?.settings.showHealth && healthFeature);
+  const showInventory = Boolean(inventoryFeature) ||
+    Boolean(statusBar?.settings.showInventory) ||
+    actions.some(action => action.action === 'craft' || action.action === 'build');
+  const showHud = actions.length > 0 || Boolean(interact) || Boolean(statusBar);
   return {
     entities: [...next, ...[...state.effects.values()].map(effect => effect.entity)], events, audioEvents,
-    hud: actions.length ? {
+    hud: showHud ? {
       playerId: player.id, player: player.name, mode: motion.driving ? 'Driving' : motion.crouching ? 'Crouching' : motion.running ? 'Running' : 'Walking',
       wood: current.wood, planks: current.planks, speed: Math.round(Math.abs(current.speed) * 3.6),
       controls: actions.map(action => ({ action: action.action, key: action.key, label: playerActionDefinitions[action.action].label })),
+      extraControls: interact && interactKey ? [{ key: interactKey, label: 'Interact' }] : [],
+      showHealth, health: current.health, maxHealth: current.maxHealth,
+      showInventory, inventoryText: `Wood ${current.wood} · Planks ${current.planks} · Coins ${current.coins} · Keys ${current.keys}`,
       message: current.feedback,
     } : null,
   };

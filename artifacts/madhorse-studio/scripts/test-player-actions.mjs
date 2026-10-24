@@ -15,6 +15,7 @@ try {
         import { createStarterCube, getTransform, isSceneEntity } from './src/lib/scene-model';
         import { createPluginComponent, matchesPluginComponent } from './src/lib/scene-plugin-catalog';
         import { playerActionNames, playerActionDraft, playerActionFromDraft, playerActionPrefix } from './src/lib/player-action-model';
+        import { createGameFeature, gameFeatureNames, gameFeatureDraft, gameFeatureFromDraft, gameFeaturePrefix } from './src/lib/game-feature-model';
         import { advanceSceneRuntime, createSceneRuntimeState } from './src/lib/scene-play-runtime';
         const idle = { moveX: 0, moveY: 0, jumpPressed: false, heldKeys: [], pressedKeys: [] };
         const player = (...actions) => {
@@ -31,6 +32,11 @@ try {
           return entity;
         };
         const action = (entity, kind) => entity.components.find(c => c.type === 'playerAction' && c.action === kind);
+        const feature = (entity, kind) => entity.components.find(c => c.type === 'gameFeature' && c.kind === kind);
+        const attachFeatures = (entity, ...kinds) => {
+          for (const kind of kinds) entity.components.push(createPluginComponent('feature-' + kind, 0).component);
+          return entity;
+        };
         const step = (scene, state, input = idle, time = .05) => advanceSceneRuntime(scene, .05, time, { ...idle, ...input }, state);
         const all = player(...playerActionNames);
         assert(isSceneEntity(all), 'all seven plugins coexist and validate');
@@ -146,7 +152,103 @@ try {
         const preferred = step([walker, other], createSceneRuntimeState([walker, other], 'other'), { moveX: 1 });
         assert.equal(getTransform(preferred.entities.find(e => e.id === 'player')).position.x, 50);
         assert(getTransform(preferred.entities.find(e => e.id === 'other')).position.x > 50);
-        console.log('PASS: seven action defaults, save/restore, key conflicts, run/crouch, damage/cooldowns/aim, racing, crafting, building/resources, sounds, transient cleanup, selected player, and saved-scene isolation.');
+        const allFeatures = attachFeatures(player(), ...gameFeatureNames);
+        assert(isSceneEntity(allFeatures), 'all nine new plugin types can share one object');
+        for (const name of gameFeatureNames) {
+          const part = feature(allFeatures, name);
+          assert(isSceneEntity({ ...allFeatures, components: allFeatures.components.map(c => c === part ? gameFeatureFromDraft(part, gameFeatureDraft(part)) : c) }));
+          assert(isSceneEntity({ ...createStarterCube(), components: [...createStarterCube().components, part] }));
+        }
+        const invalidFeatures = structuredClone(allFeatures);
+        feature(invalidFeatures, 'health').settings.startingHealth = 101;
+        assert(!isSceneEntity(invalidFeatures), 'starting health cannot exceed maximum');
+        const conflictingFeatures = structuredClone(allFeatures);
+        feature(conflictingFeatures, 'interact').settings.key = 'c';
+        conflictingFeatures.components.push(createPluginComponent('action-crouch', 0).component);
+        assert(!isSceneEntity(conflictingFeatures), 'interact key conflicts cannot be saved');
+        const featureAudio = feature(allFeatures, 'door');
+        featureAudio.volume = 1.1;
+        assert(!isSceneEntity(allFeatures), 'feature sound volume is bounded');
+
+        const collector = attachFeatures(player(), 'health', 'inventory', 'interact', 'status-bar');
+        const woodPickup = target(65);
+        const pickup = createPluginComponent('feature-pickup', 0).component;
+        pickup.settings.item = 'wood'; pickup.settings.amount = 5;
+        woodPickup.components.push(pickup);
+        const pickupScene = [collector, woodPickup];
+        const pickupSaved = JSON.stringify(pickupScene);
+        const pickupState = createSceneRuntimeState(pickupScene);
+        const gathered = step(pickupScene, pickupState, { pressedKeys: ['e'] });
+        assert.equal(gathered.hud.wood, 15);
+        assert.equal(gathered.hud.health, 100);
+        assert.equal(gathered.hud.showHealth, true);
+        assert.match(gathered.hud.inventoryText, /Wood 15/);
+        assert.equal(gathered.entities.find(e => e.id === 'target').active, false);
+        assert.equal(gathered.audioEvents[0].action, 'craft');
+        assert.equal(JSON.stringify(pickupScene), pickupSaved, 'pickup only changes Play Test data');
+
+        const doorPlayer = attachFeatures(player(), 'inventory', 'interact');
+        const keyPickup = target(60);
+        const keyComponent = createPluginComponent('feature-pickup', 0).component;
+        keyComponent.settings.item = 'keys';
+        keyPickup.components.push(keyComponent);
+        const lockedDoor = target(75, 50);
+        lockedDoor.id = 'door'; lockedDoor.name = 'Locked Door';
+        lockedDoor.components.push(createPluginComponent('feature-door', 0).component);
+        feature(lockedDoor, 'door').settings.locked = true;
+        const doorScene = [doorPlayer, keyPickup, lockedDoor];
+        const doorSaved = JSON.stringify(doorScene);
+        const doorState = createSceneRuntimeState(doorScene);
+        let doorStep = step(doorScene, doorState, { pressedKeys: ['e'] }, .1);
+        assert.equal(doorStep.hud.extraControls[0].key, 'e');
+        assert.match(doorStep.hud.inventoryText, /Keys 1/);
+        doorStep = step(doorStep.entities, doorState, { pressedKeys: ['e'] }, .4);
+        assert.equal(doorStep.entities.find(e => e.id === 'door').active, false, 'a key opens the door');
+        assert.match(doorStep.hud.inventoryText, /Keys 0/);
+        doorStep = step(doorStep.entities, doorState, { pressedKeys: ['e'] }, .8);
+        assert.equal(doorStep.entities.find(e => e.id === 'door').active, true, 'open doors can be closed again');
+        assert.equal(JSON.stringify(doorScene), doorSaved);
+
+        const checkpointPlayer = attachFeatures(player(), 'health', 'interact', 'status-bar');
+        feature(checkpointPlayer, 'health').settings.startingHealth = 20;
+        const checkpoint = target(70); checkpoint.id = 'checkpoint'; checkpoint.name = 'Save Point';
+        checkpoint.components.push(createPluginComponent('feature-checkpoint', 0).component);
+        const attacker = target(200); attacker.id = 'npc'; attacker.name = 'Practice Enemy';
+        const enemyController = createPluginComponent('character-controller-npc', 0).component;
+        enemyController.enabled = false;
+        attacker.components.push(enemyController);
+        const enemyHealth = createPluginComponent('feature-health', 0).component;
+        enemyHealth.settings.contactDamage = 20;
+        attacker.components.push(enemyHealth);
+        const checkpointScene = [checkpointPlayer, checkpoint, attacker];
+        const checkpointSaved = JSON.stringify(checkpointScene);
+        const checkpointState = createSceneRuntimeState(checkpointScene);
+        let marked = step(checkpointScene, checkpointState, { pressedKeys: ['e'] }, .1);
+        assert.match(marked.hud.message, /Checkpoint saved/);
+        assert.equal(marked.hud.health, 100, 'checkpoint restores health');
+        let nearEnemy = marked.entities.map(e => e.id === 'npc' ? {
+          ...e, components: e.components.map(c => c.type === 'transform' ? { ...c, position: { ...c.position, y: 60 } } : c),
+        } : e);
+        for (const time of [1.1, 2.1, 3.1, 4.1, 5.1]) nearEnemy = step(nearEnemy, checkpointState, idle, time).entities;
+        const restored = step(nearEnemy, checkpointState, idle, 6.1);
+        assert.equal(restored.hud.health, 100, 'health returns after respawn at zero');
+        assert.deepEqual(getTransform(restored.entities.find(e => e.id === 'player')).position, { x: 50, y: 70, z: 0 });
+        assert.equal(JSON.stringify(checkpointScene), checkpointSaved);
+
+        const reader = attachFeatures(player(), 'interact', 'status-bar');
+        const sign = target(70); sign.id = 'sign';
+        sign.components.push(createPluginComponent('feature-message', 0).component);
+        const textScene = [reader, sign];
+        const told = step(textScene, createSceneRuntimeState(textScene), { pressedKeys: ['e'] });
+        assert.equal(told.hud.message, 'Welcome!');
+        const effectTarget = target(70); effectTarget.id = 'sparkle';
+        effectTarget.components.push(createPluginComponent('feature-visual-effect', 0).component);
+        const effectScene = [reader, effectTarget];
+        const effected = step(effectScene, createSceneRuntimeState(effectScene), { pressedKeys: ['e'] });
+        assert.match(effected.hud.message, /Sparkle effect/);
+        assert.equal(effected.entities.filter(e => e.id.startsWith('runtime-effect-')).length, 8);
+        assert.equal(JSON.stringify(effectScene), JSON.stringify([reader, effectTarget]), 'effects leave the authored scene untouched');
+        console.log('PASS: player action controls and all three plugin sets, feature settings, health/damage/respawn, inventory, interaction/pickups, locked doors, checkpoints, signs, effects, sounds, and saved-scene isolation.');
       `,
     },
     bundle: true, platform: 'node', format: 'esm', write: false,

@@ -1,4 +1,5 @@
 import { isPlayerActionComponent, type PlayerActionComponent } from './player-action-model';
+import { isGameFeatureComponent, type GameFeatureComponent } from './game-feature-model';
 export type Vector3 = { x: number; y: number; z: number };
 export const SCENE_ORIGIN: Vector3 = { x: 50, y: 50, z: 0 };
 
@@ -152,7 +153,7 @@ export type TriggerZoneComponent = {
 };
 export type SceneComponent = TransformComponent | SpriteRendererComponent | ModelRendererComponent |
   PrimitiveComponent | LightComponent | CameraComponent | UICanvasComponent | PhysicsComponent | ScriptComponent |
-  GameAudioComponent | PlayerWalkAudioComponent | PlayerActionComponent | EffectComponent | SkyboxComponent | CharacterControllerComponent | TriggerZoneComponent;
+  GameAudioComponent | PlayerWalkAudioComponent | PlayerActionComponent | GameFeatureComponent | EffectComponent | SkyboxComponent | CharacterControllerComponent | TriggerZoneComponent;
 
 export type SceneEntity = {
   id: string;
@@ -334,6 +335,7 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
   const item = value as SceneComponent;
   if (typeof item.id !== 'string') return false;
   if (item.type === 'playerAction') return isPlayerActionComponent(item);
+  if (item.type === 'gameFeature') return isGameFeatureComponent(item);
   if (item.type === 'transform') {
     return item.enabled === true &&
       isVector(item.position) && isVector(item.rotation) && isVector(item.scale) &&
@@ -456,7 +458,15 @@ export function isSceneEntity(value: unknown): value is SceneEntity {
       !entity.components.every(isSceneComponent)) return false;
   const actions = entity.components.filter(component => component.type === 'playerAction');
   const enabledActions = actions.filter(component => component.enabled);
+  const features = entity.components.filter(component => component.type === 'gameFeature');
+  const enabledInteractions = features.filter(component => component.enabled && component.kind === 'interact');
+  const enabledKeys = [
+    ...enabledActions.map(component => component.key),
+    ...enabledInteractions.map(component => String(component.settings.key)),
+  ];
   return new Set(actions.map(component => component.action)).size === actions.length &&
+    new Set(features.map(component => component.kind)).size === features.length &&
+    new Set(enabledKeys).size === enabledKeys.length &&
     new Set(enabledActions.map(component => component.key)).size === enabledActions.length &&
     entity.components.filter((component) => component.type === 'transform').length === 1 &&
     ['primitive', 'light', 'camera', 'uiCanvas', 'script', 'effect', 'skybox', 'characterController', 'triggerZone'].every((type) => entity.components.filter((component) => component.type === type).length <= 1) &&

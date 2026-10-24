@@ -159,6 +159,9 @@ body::-webkit-scrollbar-thumb,
 .fresh-action-hud .fresh-action-key.is-held { background: #55356b; border-color: #c18fe9; }
 .fresh-action-hud kbd { color: #d1a8f5; font: 10px monospace; }
 .fresh-action-hud p { margin: 4px 0; }
+.fresh-action-health { margin: 5px 0; }
+.fresh-action-health-track { height: 8px; background: #3b2937; border-radius: 5px; overflow: hidden; }
+.fresh-action-health-track > span { display: block; height: 100%; background: linear-gradient(90deg,#ef5260,#ff9f68); }
 .fresh-action-hud-body > small { color: #b8a5c7; }
 
 .fresh-play-test {
