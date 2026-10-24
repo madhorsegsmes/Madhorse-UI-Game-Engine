@@ -59,7 +59,14 @@ try {
         const document = createModularCharacter(DEFAULT_CHARACTER_OPTIONS);
         validate(document);
         const body = documentMeshes(document.root).find(mesh => mesh.name === 'Body_Smooth_Skin');
-        assert(body.geometry.getAttribute('position').count > 5000);
+        const bodyPositions = body.geometry.getAttribute('position');
+        let upperHeadWidth = 0;
+        for (let vertex = 0; vertex < bodyPositions.count; vertex++) {
+          if (bodyPositions.getY(vertex) > 1.6) upperHeadWidth = Math.max(upperHeadWidth, Math.abs(bodyPositions.getX(vertex)));
+        }
+        assert(upperHeadWidth > .03 && upperHeadWidth < .25,
+          'The head must exist without a flat sampling-boundary strip spanning the arms');
+        assert(bodyPositions.count > 1000, 'The actual body surface should retain a smooth, detailed mesh');
         const bones = documentBones(document.root);
         const forearm = bones.find(bone => bone.name === 'LeftForeArm');
         const hand = bones.find(bone => bone.name === 'LeftHand');

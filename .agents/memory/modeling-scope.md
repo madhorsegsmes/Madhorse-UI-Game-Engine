@@ -20,3 +20,15 @@ Editing an imported model should make a working copy; saving a model to a projec
 **Why:** Rich modeling/rig edits can be destructive, and the user has repeatedly requested preservation of existing features and project data.
 
 **How to apply:** Save a separate model asset unless the user explicitly chooses replacement. Treat animation preview as temporary, not a persistent pose edit.
+
+Check the full content bounds when verifying responsive modeling panels, not just the panel rectangles.
+
+**Why:** A panel can occupy the correct grid cell while its compressed contents visibly overflow into the next panel.
+
+**How to apply:** At stacked tablet/phone widths, verify the complete controls fit their sections and remain reachable by scrolling.
+
+Trace suspicious viewport lines before assuming they are rig helpers.
+
+**Why:** A generated body surface artifact resembled a floating helper line; disabling the skeleton did not remove it.
+
+**How to apply:** Toggle overlays to distinguish helper visuals from mesh geometry, then verify the actual source rather than hiding unrelated controls.

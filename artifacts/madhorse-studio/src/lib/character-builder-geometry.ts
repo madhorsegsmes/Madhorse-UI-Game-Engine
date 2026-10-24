@@ -67,6 +67,9 @@ export function createCharacterBodyMesh(parts: SceneEntity[]): CharacterBodyMesh
   const surface = new MarchingCubes(BODY_RESOLUTION, material, false, false, MAX_BODY_TRIANGLES);
   surface.isolation = 0;
   surface.reset();
+  // Unvisited boundary samples must also be outside the zero isosurface.
+  // Leaving reset()'s zero values here creates a flat shell around the body.
+  surface.field.fill(-1);
 
   const size = surface.size;
   const halfsize = surface.halfsize;
