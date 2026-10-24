@@ -138,6 +138,15 @@ that it be attached to every Mad Builder request by default.
 it for finish/detail quality only. A user target image takes precedence for the
 requested object's appearance; never copy the coupe subject onto unrelated builds.
 
+Keep Mad Builder logs inside the read-only System Presets & Data disclosure, and
+generate the PDF as a static report with no edit controls.
+
+**Why:** The user asked that build records stay in System Presets & Data and not
+be changeable by users.
+
+**How to apply:** Display builds as read-only data; do not add log-edit or PDF-edit
+features. Explain that a downloaded copy can be modified outside Studio if asked.
+
 Keep Mad Builder's AI requests within conservative reasoning and output limits.
 Higher reasoning and large output budgets previously hit the Replit AI request
 timeout before returning a plan.

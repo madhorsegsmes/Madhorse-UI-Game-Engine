@@ -130,45 +130,53 @@ function SettingsPanel({
           <section className="fresh-settings-category">
             <h2>Functions &amp; Controls</h2>
           </section>
-          <section className="fresh-settings-category">
-            <h2>System Presets &amp; Data</h2>
-            <div className="fresh-builder-log">
-              <div className="fresh-builder-log-heading">
-                <strong>Mad Builder build log</strong>
-                <button
-                  type="button"
-                  className="fresh-builder-log-download"
-                  disabled={builderBuildLogs.length === 0}
-                  onClick={() => downloadMadBuilderLogPdf('Scene 1', builderBuildLogs)}
-                  data-testid="button-download-builder-log"
-                ><FileDown size={14} /> Download PDF</button>
+          <details className="fresh-settings-category fresh-settings-dropdown" data-testid="details-system-presets-data">
+            <summary className="fresh-settings-category-summary" data-testid="button-toggle-system-presets-data">
+              <h2>System Presets &amp; Data</h2>
+              <ChevronDown size={14} aria-hidden="true" />
+            </summary>
+            <div className="fresh-settings-category-content">
+              <div className="fresh-builder-log" role="region" aria-label="Read-only Mad Builder build log" data-testid="builder-log-readonly">
+                <div className="fresh-builder-log-heading">
+                  <div>
+                    <strong>Mad Builder build log</strong>
+                    <span className="fresh-builder-log-readonly">READ ONLY</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="fresh-builder-log-download"
+                    disabled={builderBuildLogs.length === 0}
+                    onClick={() => downloadMadBuilderLogPdf('Scene 1', builderBuildLogs)}
+                    data-testid="button-download-builder-log"
+                  ><FileDown size={14} /> Download PDF</button>
+                </div>
+                <p className="fresh-builder-log-note">This system log and its generated PDF are read-only in Studio. Completed builds are saved with this scene in this browser.</p>
+                {builderBuildLogs.length === 0 ? (
+                  <p className="fresh-builder-log-empty" data-testid="builder-log-empty">No completed builds yet.</p>
+                ) : (
+                  <ol className="fresh-builder-log-list" data-testid="builder-build-log-list">
+                    {[...builderBuildLogs].reverse().map((log, index) => (
+                      <li key={log.id} data-testid={`builder-build-log-${log.id}`}>
+                        <details>
+                          <summary>
+                            <span>{builderBuildLogs.length - index}. {log.plan.title}</span>
+                            <small>{new Date(log.createdAt).toLocaleString()}</small>
+                          </summary>
+                          <p>{log.plan.summary}</p>
+                          {log.request && <p><b>Request:</b> {log.request}</p>}
+                          <p><b>{log.objectNames.length} objects:</b> {log.objectNames.join(', ') || 'None'}</p>
+                          {log.uiControlNames.length > 0 && <p><b>UI controls:</b> {log.uiControlNames.join(', ')}</p>}
+                          <ul>{log.plan.parts.map(part => (
+                            <li key={part.key}>{part.name} · {part.kind} · size {part.size.x} × {part.size.y} × {part.size.z}</li>
+                          ))}</ul>
+                        </details>
+                      </li>
+                    ))}
+                  </ol>
+                )}
               </div>
-              <p className="fresh-builder-log-note">Completed builds are saved with this scene in this browser.</p>
-              {builderBuildLogs.length === 0 ? (
-                <p className="fresh-builder-log-empty" data-testid="builder-log-empty">No completed builds yet.</p>
-              ) : (
-                <ol className="fresh-builder-log-list" data-testid="builder-build-log-list">
-                  {[...builderBuildLogs].reverse().map((log, index) => (
-                    <li key={log.id} data-testid={`builder-build-log-${log.id}`}>
-                      <details>
-                        <summary>
-                          <span>{builderBuildLogs.length - index}. {log.plan.title}</span>
-                          <small>{new Date(log.createdAt).toLocaleString()}</small>
-                        </summary>
-                        <p>{log.plan.summary}</p>
-                        {log.request && <p><b>Request:</b> {log.request}</p>}
-                        <p><b>{log.objectNames.length} objects:</b> {log.objectNames.join(', ') || 'None'}</p>
-                        {log.uiControlNames.length > 0 && <p><b>UI controls:</b> {log.uiControlNames.join(', ')}</p>}
-                        <ul>{log.plan.parts.map(part => (
-                          <li key={part.key}>{part.name} · {part.kind} · size {part.size.x} × {part.size.y} × {part.size.z}</li>
-                        ))}</ul>
-                      </details>
-                    </li>
-                  ))}
-                </ol>
-              )}
             </div>
-          </section>
+          </details>
         </div>
       )}
     </div>

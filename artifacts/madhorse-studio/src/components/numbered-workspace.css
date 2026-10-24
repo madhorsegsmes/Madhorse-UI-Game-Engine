@@ -613,6 +613,14 @@ body::-webkit-scrollbar-thumb,
   border: 1px solid rgb(136 100 170 / 32%);
   background: linear-gradient(90deg, rgb(79 46 155 / 12%), rgb(8 7 14 / 50%));
 }
+.fresh-settings-dropdown { padding: 0; }
+.fresh-settings-category-summary { min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 9px; cursor: pointer; list-style: none; }
+.fresh-settings-category-summary::-webkit-details-marker { display: none; }
+.fresh-settings-category-summary h2 { flex: 1; }
+.fresh-settings-category-summary svg { color: #d8b9f4; transition: transform .15s ease; }
+.fresh-settings-dropdown[open] > .fresh-settings-category-summary { border-bottom: 1px solid rgb(136 100 170 / 32%); }
+.fresh-settings-dropdown[open] > .fresh-settings-category-summary svg { transform: rotate(180deg); }
+.fresh-settings-category-content { padding: 0 9px 9px; }
 
 .fresh-settings-category h2 {
   margin: 0;
@@ -641,6 +649,8 @@ body::-webkit-scrollbar-thumb,
   color: #eee1fa;
   font: 700 11px/1.3 Inter, system-ui, sans-serif;
 }
+.fresh-builder-log-heading > div { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.fresh-builder-log-readonly { padding: 2px 4px; border: 1px solid rgb(136 100 170 / 48%); color: #c9b3df; font: 700 7px/1 Inter, system-ui, sans-serif; letter-spacing: .08em; }
 
 .fresh-builder-log-download {
   display: inline-flex;
