@@ -104,7 +104,9 @@ function SettingsPanel({
   onReturnToSettings: () => void;
   onSaveEntity: (entity: SceneEntity) => void;
 }) {
-  const [activeFunctionTab, setActiveFunctionTab] = useState<'game-system' | 'game-controls'>('game-system');
+  const [activeFunctionTab, setActiveFunctionTab] = useState<
+    'game-system' | 'game-controls' | 'player-controls' | 'npc-controls'
+  >('game-system');
 
   return (
     <div className="fresh-settings-panel">
@@ -155,6 +157,26 @@ function SettingsPanel({
                   onClick={() => setActiveFunctionTab('game-controls')}
                 >
                   Game Controls
+                </button>
+                <button
+                  type="button"
+                  className="fresh-function-tab"
+                  aria-pressed={activeFunctionTab === 'player-controls'}
+                  data-active={activeFunctionTab === 'player-controls'}
+                  data-testid="button-player-controls"
+                  onClick={() => setActiveFunctionTab('player-controls')}
+                >
+                  Player Controls
+                </button>
+                <button
+                  type="button"
+                  className="fresh-function-tab"
+                  aria-pressed={activeFunctionTab === 'npc-controls'}
+                  data-active={activeFunctionTab === 'npc-controls'}
+                  data-testid="button-npc-controls"
+                  onClick={() => setActiveFunctionTab('npc-controls')}
+                >
+                  NPC Controls
                 </button>
               </div>
             </div>
