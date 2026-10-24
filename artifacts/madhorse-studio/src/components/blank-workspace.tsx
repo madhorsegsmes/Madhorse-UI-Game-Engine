@@ -118,7 +118,7 @@ function SettingsPanel({
     'game-system' | 'player-functions' | 'game-controls' | 'player-controls' | 'npc-functions' | 'npc-controls'
   >('game-system');
   const [activePluginTab, setActivePluginTab] = useState<
-    'game' | 'player-npc' | 'system' | 'lighting' | 'animation' | 'asset' | 'effect' | 'triggers' | 'trigger-zones'
+    'game' | 'player-npc' | 'system' | 'lighting' | 'animation' | 'asset' | 'effect' | 'triggers' | 'trigger-zones' | 'skybox'
   >('game');
   const [gameTypeLibraryPdfUrl, setGameTypeLibraryPdfUrl] = useState<string | null>(null);
   const gameTypeLibraryPdfUrlRef = useRef<string | null>(null);
@@ -420,6 +420,16 @@ function SettingsPanel({
                   onClick={() => setActivePluginTab('trigger-zones')}
                 >
                   Trigger Zones
+                </button>
+                <button
+                  type="button"
+                  className="fresh-plugin-tab"
+                  aria-pressed={activePluginTab === 'skybox'}
+                  data-active={activePluginTab === 'skybox'}
+                  data-testid="button-skybox-plugins"
+                  onClick={() => setActivePluginTab('skybox')}
+                >
+                  Sky Box Plugins
                 </button>
               </div>
             </div>
