@@ -118,7 +118,7 @@ function SettingsPanel({
     'game-system' | 'player-functions' | 'game-controls' | 'player-controls' | 'npc-functions' | 'npc-controls'
   >('game-system');
   const [activePluginTab, setActivePluginTab] = useState<
-    'game' | 'player-npc' | 'system' | 'lighting' | 'animation' | 'asset'
+    'game' | 'player-npc' | 'system' | 'lighting' | 'animation' | 'asset' | 'effect'
   >('game');
   const [gameTypeLibraryPdfUrl, setGameTypeLibraryPdfUrl] = useState<string | null>(null);
   const gameTypeLibraryPdfUrlRef = useRef<string | null>(null);
@@ -390,6 +390,16 @@ function SettingsPanel({
                   onClick={() => setActivePluginTab('asset')}
                 >
                   Asset Plugins
+                </button>
+                <button
+                  type="button"
+                  className="fresh-plugin-tab"
+                  aria-pressed={activePluginTab === 'effect'}
+                  data-active={activePluginTab === 'effect'}
+                  data-testid="button-effect-plugins"
+                  onClick={() => setActivePluginTab('effect')}
+                >
+                  Effect Plugins
                 </button>
               </div>
             </div>
