@@ -309,7 +309,7 @@ export function ScenePreview3D({
         data-testid="scene3d-viewport"
         tabIndex={0}
         role="application"
-        aria-label={gameView ? 'Canvas: live Game Camera view. Drag to orbit around its target; choose free, Y-axis, or X-axis rotation.' : '3D scene viewport. Scroll to zoom, middle-drag to pan, and drag to orbit. Select objects, use W to move, E to rotate, R to scale.'}
+        aria-label={gameView ? 'Canvas: live Game Camera view. Drag to orbit around its target; choose free, Y-axis, or X-axis rotation.' : '3D scene viewport. Click and drag the Game Camera to move it horizontally. Select objects, use W to move, E to rotate, R to scale.'}
         onKeyDown={gameView ? undefined : handleViewportKeyDown}
         onWheel={gameView ? undefined : (event) => {
           if (event.deltaY === 0) return;
@@ -408,7 +408,7 @@ export function ScenePreview3D({
         </SceneWebGLBoundary>
         {!gameView && editorCamera && <button ref={cameraMarkerRef} type="button" className="mh-scene3d__camera-marker"
           onClick={() => { if (onSelectPrimaryCamera) onSelectPrimaryCamera(); else frameCamera(); }} data-testid="scene-camera-marker" aria-label="Select the game camera" data-selected={primarySelected}
-          title="Game Camera. Click to select it, then move (W) or rotate (E). This marker stays visible when the camera is off screen.">
+          title="Click and drag the Game Camera in the scene to move it horizontally. Use the move gizmo for height and the rotate tool to aim it. This marker stays visible when the camera is off screen.">
           {primaryEntity && <SceneObjectGlyph entity={primaryEntity} />}
           Main Camera{primarySelected ? ' · Selected' : ''}
         </button>}
@@ -496,7 +496,12 @@ function SceneWorld(props: SceneWorldProps) {
   const gameOrbitDragging = useRef(false);
   const gameOrbitCommitTimer = useRef<number | null>(null);
   const [selectedObject, setSelectedObject] = useState<THREE.Group | null>(null);
+  const [cameraDirectDragging, setCameraDirectDragging] = useState(false);
   const { camera, invalidate } = useThree();
+  const changeCameraDrag = useCallback((dragging: boolean) => {
+    if (orbitRef.current) orbitRef.current.enabled = !dragging;
+    setCameraDirectDragging(dragging);
+  }, []);
   const selected = props.selectedEntityId
     ? props.entities.find((entity) => entity.id === props.selectedEntityId)
     : undefined;
@@ -594,6 +599,7 @@ function SceneWorld(props: SceneWorldProps) {
       {!props.gameView && <OrbitControls
         ref={orbitRef}
         makeDefault
+        enabled={!cameraDirectDragging}
         enableDamping
         dampingFactor={props.mobile ? 0.12 : 0.08}
         enableZoom={false}
@@ -609,7 +615,8 @@ function SceneWorld(props: SceneWorldProps) {
         zoom={props.sceneZoom} frameToken={props.frameToken} focus={props.sceneFocus} controls={orbitRef} marker={props.cameraMarkerRef} />}
       <Suspense fallback={null}>
         {(props.childrenByParent.get(null) ?? []).map((entity) => (
-          <EntityNode key={entity.id} {...props} entity={entity} onSelectedObject={setSelectedObject} />
+          <EntityNode key={entity.id} {...props} entity={entity} onSelectedObject={setSelectedObject}
+            onCameraDragChange={changeCameraDrag} />
         ))}
       </Suspense>
       {!props.gameView && !props.readOnly && selected && selectedObject && (
@@ -646,7 +653,25 @@ function AutomaticGameLighting({ target }: { target: GameCamera['target'] }) {
   </>;
 }
 
-function EntityNode(props: SceneWorldProps & { entity: SceneEntity; onSelectedObject: (object: THREE.Group | null) => void }) {
+type CameraDragSession = {
+  pointerId: number;
+  captureTarget: { setPointerCapture?: (pointerId: number) => void; releasePointerCapture?: (pointerId: number) => void } | null;
+  nativeCaptureTarget: HTMLElement | null;
+  object: THREE.Group;
+  plane: THREE.Plane;
+  startPoint: THREE.Vector3;
+  startPosition: THREE.Vector3;
+  moved: boolean;
+};
+
+function EntityNode(props: SceneWorldProps & {
+  entity: SceneEntity;
+  onSelectedObject: (object: THREE.Group | null) => void;
+  onCameraDragChange: (dragging: boolean) => void;
+}) {
+  const entityGroupRef = useRef<THREE.Group | null>(null);
+  const cameraDragRef = useRef<CameraDragSession | null>(null);
+  const invalidate = useThree((state) => state.invalidate);
   const rawEntity = props.entity;
   const isPrimary = rawEntity.id === props.primaryEntityId;
   const entity = !isPrimary && getCamera(rawEntity) ? cameraDisplayEntity(props.realEntities, rawEntity) : rawEntity;
@@ -660,10 +685,12 @@ function EntityNode(props: SceneWorldProps & { entity: SceneEntity; onSelectedOb
   const model = getModelRenderer(entity);
   const effective = isEffectivelyActive(entity, props.byId);
   const selectedEntity = !props.gameView && props.selectedEntityId === entity.id;
+  const canDirectDragCamera = isPrimary && !props.gameView && !props.readOnly;
   const modelAsset = model?.assetId ? props.assets.find((asset) => asset.id === model.assetId) : undefined;
   const modelUrl = model?.assetId ? props.assetUrls[model.assetId] : undefined;
   const spriteUrl = sprite?.assetId ? props.assetUrls[sprite.assetId] : undefined;
   const setGroupRef = useCallback((node: THREE.Group | null) => {
+    entityGroupRef.current = node;
     if (selectedEntity) props.onSelectedObject(node);
   }, [selectedEntity, props.onSelectedObject]);
   if (props.gameView && !effective) return null;
@@ -679,9 +706,75 @@ function EntityNode(props: SceneWorldProps & { entity: SceneEntity; onSelectedOb
         event.stopPropagation();
         if (!props.gameView) props.onSelectEntity(entity.id);
       }}
+      onPointerDown={(event) => {
+        if (!canDirectDragCamera || event.button !== 0) return;
+        const object = entityGroupRef.current;
+        if (!object) return;
+        const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -object.position.y);
+        const startPoint = event.ray.intersectPlane(plane, new THREE.Vector3());
+        if (!startPoint) return;
+        event.stopPropagation();
+        props.onSelectEntity(entity.id);
+        cameraDragRef.current = {
+          pointerId: event.pointerId,
+          captureTarget: event.target as unknown as CameraDragSession['captureTarget'],
+          nativeCaptureTarget: event.nativeEvent.target instanceof HTMLElement ? event.nativeEvent.target : null,
+          object,
+          plane,
+          startPoint,
+          startPosition: object.position.clone(),
+          moved: false,
+        };
+        props.onCameraDragChange(true);
+        document.body.style.cursor = 'grabbing';
+        try { cameraDragRef.current.captureTarget?.setPointerCapture?.(event.pointerId); } catch { /* Capture may already be owned by the Canvas. */ }
+        try { cameraDragRef.current.nativeCaptureTarget?.setPointerCapture(event.pointerId); } catch { /* Canvas may already own capture. */ }
+      }}
+      onPointerMove={(event) => {
+        const drag = cameraDragRef.current;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        event.stopPropagation();
+        const point = event.ray.intersectPlane(drag.plane, new THREE.Vector3());
+        if (!point) return;
+        const delta = point.sub(drag.startPoint);
+        if (delta.lengthSq() > 0.0004) drag.moved = true;
+        if (!drag.moved) return;
+        drag.object.position.set(
+          drag.startPosition.x + delta.x,
+          drag.startPosition.y,
+          drag.startPosition.z + delta.z,
+        );
+        invalidate();
+      }}
+      onPointerUp={(event) => {
+        const drag = cameraDragRef.current;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        event.stopPropagation();
+        cameraDragRef.current = null;
+        props.onCameraDragChange(false);
+        document.body.style.cursor = '';
+        try { drag.captureTarget?.releasePointerCapture?.(event.pointerId); } catch { /* Capture may have ended already. */ }
+        try { drag.nativeCaptureTarget?.releasePointerCapture(event.pointerId); } catch { /* Capture may have ended already. */ }
+        if (drag.moved) {
+          props.onTransformCommit(entity.id, transformToProject(
+            entity, drag.object.position, drag.object.rotation, drag.object.scale,
+          ));
+        }
+      }}
+      onPointerCancel={(event) => {
+        const drag = cameraDragRef.current;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        drag.object.position.copy(drag.startPosition);
+        cameraDragRef.current = null;
+        props.onCameraDragChange(false);
+        document.body.style.cursor = '';
+        try { drag.captureTarget?.releasePointerCapture?.(event.pointerId); } catch { /* Capture may have ended already. */ }
+        try { drag.nativeCaptureTarget?.releasePointerCapture(event.pointerId); } catch { /* Capture may have ended already. */ }
+        invalidate();
+      }}
       onPointerOver={(event) => {
         event.stopPropagation();
-        if (!props.gameView && !props.readOnly) document.body.style.cursor = 'pointer';
+        if (!props.gameView && !props.readOnly) document.body.style.cursor = canDirectDragCamera ? 'grab' : 'pointer';
       }}
       onPointerOut={() => { document.body.style.cursor = ''; }}
     >
