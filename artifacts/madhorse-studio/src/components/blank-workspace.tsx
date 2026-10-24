@@ -119,7 +119,7 @@ function SettingsPanel({
     'game-system' | 'player-functions' | 'game-controls' | 'player-controls' | 'npc-functions' | 'npc-controls'
   >('game-system');
   const [activePluginTab, setActivePluginTab] = useState<
-    'game' | 'player-npc' | 'system' | 'lighting' | 'animation' | 'asset' | 'effect' | 'triggers' | 'trigger-zones' | 'skybox'
+    'game' | 'player-npc' | 'system' | 'lighting' | 'animation' | 'asset' | 'effect' | 'triggers' | 'trigger-zones' | 'skybox' | 'character-builder' | 'behavior-builder'
   >('game');
   const [gameTypeLibraryPdfUrl, setGameTypeLibraryPdfUrl] = useState<string | null>(null);
   const gameTypeLibraryPdfUrlRef = useRef<string | null>(null);
@@ -443,6 +443,26 @@ function SettingsPanel({
                   onClick={() => setActivePluginTab('skybox')}
                 >
                   Sky Box Plugins
+                </button>
+                <button
+                  type="button"
+                  className="fresh-plugin-tab"
+                  aria-pressed={activePluginTab === 'character-builder'}
+                  data-active={activePluginTab === 'character-builder'}
+                  data-testid="button-character-builder-plugin"
+                  onClick={() => setActivePluginTab('character-builder')}
+                >
+                  Character Builder Plugin
+                </button>
+                <button
+                  type="button"
+                  className="fresh-plugin-tab"
+                  aria-pressed={activePluginTab === 'behavior-builder'}
+                  data-active={activePluginTab === 'behavior-builder'}
+                  data-testid="button-behavior-builder-plugin"
+                  onClick={() => setActivePluginTab('behavior-builder')}
+                >
+                  Behavior Builder Plugin
                 </button>
               </div>
             </div>
