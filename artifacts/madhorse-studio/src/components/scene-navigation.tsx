@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, type RefObject } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { PerspectiveCamera, Vector3 } from 'three';
 import type { GameCamera } from '@/lib/game-camera';
-import { sceneFrameDistance, type SceneFocus } from '@/lib/scene-view-geometry';
+import { sceneEditorFramePose, type SceneFocus } from '@/lib/scene-view-geometry';
 
 type Controls = { target: Vector3; update: () => void };
 /**
@@ -21,16 +21,10 @@ export function SceneNavigation({ settings, zoom, frameToken, controls, marker, 
   useLayoutEffect(() => {
     if (!(camera instanceof PerspectiveCamera)) return;
     const current = settingsRef.current;
-    const center = new Vector3(
-      focus?.center.x ?? (current.position.x + current.target.x) / 2,
-      focus?.center.y ?? (current.position.y + current.target.y) / 2,
-      focus?.center.z ?? (current.position.z + current.target.z) / 2,
-    );
     const aspect = size.width / Math.max(1, size.height);
-    const angle = Math.min(camera.fov * Math.PI / 360, Math.atan(Math.tan(camera.fov * Math.PI / 360) * Math.max(.1, aspect)));
-    const distance = (focus ? (focus.radius + .5) / Math.sin(angle) * 1.1 : sceneFrameDistance(current, aspect, camera.fov)) / (lastZoom.current / 100);
-    const direction = new Vector3(1, .9, 1.2).normalize();
-    camera.position.copy(center).addScaledVector(direction, distance);
+    const pose = sceneEditorFramePose(current, aspect, lastZoom.current, focus, camera.fov);
+    const center = new Vector3(pose.target.x, pose.target.y, pose.target.z);
+    camera.position.set(pose.position.x, pose.position.y, pose.position.z);
     camera.lookAt(center);
     camera.updateMatrixWorld();
     if (controls.current) { controls.current.target.copy(center); controls.current.update(); }

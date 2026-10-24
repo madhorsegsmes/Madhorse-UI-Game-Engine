@@ -138,6 +138,18 @@ export function sceneFrameDistance(settings: GameCamera, aspect: number, fov = 4
 
 export type SceneFocus = { center: { x: number; y: number; z: number }; radius: number };
 
+/** Center the editor (not the saved game camera) on the plane from world north. */
+export function sceneEditorFramePose(settings: GameCamera, aspect: number, zoom = 100, focus?: SceneFocus | null, fov = 48) {
+  const target = focus ? { ...focus.center } : { x: 0, y: 0, z: 0 };
+  const angle = Math.min(fov * Math.PI / 360, Math.atan(Math.tan(fov * Math.PI / 360) * Math.max(.1, aspect)));
+  const distance = (focus ? (focus.radius + .5) / Math.sin(angle) * 1.1 : sceneFrameDistance(settings, aspect, fov)) / (zoom / 100);
+  const direction = new THREE.Vector3(0, .75, -1).normalize().multiplyScalar(distance);
+  return {
+    target,
+    position: { x: target.x, y: target.y + direction.y, z: target.z + direction.z },
+  };
+}
+
 export function sceneEntityFocus(entities: SceneEntity[], rootId: string): SceneFocus | null {
   const members = new Set([rootId]);
   for (let count = 0, changed = true; changed && count < entities.length; count++) {

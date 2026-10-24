@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { SVGRenderer } from 'three/examples/jsm/renderers/SVGRenderer.js';
 import { getCamera, getEffect, getLight, getPrimitive, getSpriteRenderer, getUICanvas, getWorldTransform, type SceneEntity } from '@/lib/scene-model';
-import { createPrimitiveGeometry } from '@/lib/scene-view-geometry';
+import { createPrimitiveGeometry, sceneEditorFramePose } from '@/lib/scene-view-geometry';
 import type { SceneFocus } from '@/lib/scene-view-geometry';
 import { createCharacterBodyMesh, isCharacterBodySurfacePart, isCharacterBuilderModelRoot } from '@/lib/character-builder-geometry';
 import type { GameCamera } from '@/lib/game-camera';
@@ -251,16 +251,9 @@ export function SceneRenderFallback({
       renderer.setSize(width, height);
       viewCamera.aspect = width / height;
       viewCamera.updateProjectionMatrix();
-      const distance = 5.5 * (100 / Math.max(30, zoom));
-      const target = sceneFocus
-        ? new THREE.Vector3(sceneFocus.center.x, sceneFocus.center.y, sceneFocus.center.z)
-        : new THREE.Vector3(0, 0, 0);
-      viewCamera.position.set(
-        target.x + distance * 0.58,
-        target.y + distance * 0.52,
-        target.z + distance * 0.63,
-      );
-      viewCamera.lookAt(target);
+      const pose = sceneEditorFramePose(mainCamera, width / height, zoom, sceneFocus, viewCamera.fov);
+      viewCamera.position.set(pose.position.x, pose.position.y, pose.position.z);
+      viewCamera.lookAt(pose.target.x, pose.target.y, pose.target.z);
       renderer.render(scene, viewCamera);
       renderer.domElement.dataset.renderedFaces = String(renderer.info.render.faces);
       if (renderer.domElement.parentElement !== host) {

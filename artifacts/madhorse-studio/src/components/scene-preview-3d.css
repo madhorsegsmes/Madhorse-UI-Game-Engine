@@ -99,17 +99,20 @@
 .mh-scene3d__render-background input { width: 28px; height: 22px; margin-left: auto; padding: 1px; border: 1px solid #58595b; background: #222; cursor: pointer; }
 
 .mh-scene3d__tools {
+  position: absolute;
+  top: 122px;
+  right: 8px;
+  z-index: 4;
   display: flex;
-  gap: 3px;
-  margin-left: auto;
-  padding: 3px;
+  gap: 2px;
+  padding: 2px;
   border: 1px solid #424344;
   background: #171819;
 }
 
 .mh-scene3d__tool {
-  width: 47px;
-  height: 36px;
+  width: 32px;
+  height: 26px;
   display: grid;
   place-items: center;
   align-content: center;
@@ -123,11 +126,11 @@
 }
 
 .mh-scene3d__tool > span {
-  font: 14px/1 'DM Mono', monospace;
+  font: 11px/1 'DM Mono', monospace;
 }
 
 .mh-scene3d__tool small {
-  font: 8px/1 'DM Mono', monospace;
+  font: 7px/1 'DM Mono', monospace;
   letter-spacing: .05em;
   text-transform: uppercase;
 }

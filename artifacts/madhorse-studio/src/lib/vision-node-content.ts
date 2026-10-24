@@ -26,6 +26,21 @@ export type VisionNodeContent = {
   complete?: boolean;
   attachments?: VisionNodeAttachment[];
 };
+
+/** New boards are drafts; creators choose all steps and add their own Finish. */
+export function createBasicVisionNodes(): (VisionNodeContent & {
+  parentId: null; x: number; y: number; width: number; height: number;
+})[] {
+  return [{
+    id: 'root', parentId: null, kind: 'start', label: 'Start',
+    details: 'Add your nodes with +. Add a Finish node when your game plan is ready.',
+    attachments: [], x: 24, y: 24, width: 270, height: 190,
+  }];
+}
+
+export function visionBoardHasFinish(nodes: Pick<VisionNodeContent, 'kind'>[]): boolean {
+  return nodes.some(node => node.kind === 'finish');
+}
 export const defaultVisionEffects: VisionEffects = {
   preset: 'none', brightness: 100, contrast: 100, saturation: 100, blur: 0,
 };

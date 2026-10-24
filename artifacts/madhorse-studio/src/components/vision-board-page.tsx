@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent as Re
 import { ArrowLeft, Bot, Globe2, Plus, Store, X } from 'lucide-react';
 import { VisionNodeCardContent, VisionNodeEditor } from './vision-node-editor';
 import {
-  createVisionMenu, defaultVisionEffects, parseVisionAttachments,
+  createBasicVisionNodes, createVisionMenu, defaultVisionEffects, parseVisionAttachments, visionBoardHasFinish,
   type VisionAttachmentRole, type VisionNodeContent, type VisionPanelKind,
 } from '@/lib/vision-node-content';
 
@@ -139,43 +139,7 @@ function readSavedPanels(): VisionBoardPanel[] | null {
 }
 
 function starterWorkflowPanels(): VisionBoardPanel[] {
-  const missionId = crypto.randomUUID();
-  return [
-    { id: 'root', parentId: null, kind: 'start', label: 'Start', details: 'Choose the game idea, player, and first scene.', x: 24, y: 24, width: 270, height: 190 },
-    { id: missionId, parentId: 'root', kind: 'mission', label: 'Mission 1', details: 'Write one clear goal the player can complete.', x: 340, y: 24, width: 270, height: 190 },
-    { id: crypto.randomUUID(), parentId: missionId, kind: 'finish', label: 'Finish', details: 'Describe how the game tells the player they are done.', x: 656, y: 24, width: 270, height: 190 },
-  ];
-}
-
-function ensureWorkflowPanels(input: VisionBoardPanel[]): VisionBoardPanel[] {
-  const panels = [...input];
-  const root = panels.find(panel => panel.parentId === null);
-  if (!root) return starterWorkflowPanels();
-  const start = panels.find(panel => panel.kind === 'start');
-  if (!start) {
-    root.kind = 'start';
-    root.label = root.label || 'Start';
-    root.details = root.details || 'Choose the game idea, player, and first scene.';
-  }
-  const startPanel = start ?? root;
-  let mission = panels.find(panel => panel.kind === 'mission');
-  if (!mission && panels.length < 100) {
-    mission = {
-      id: crypto.randomUUID(), parentId: startPanel.id, kind: 'mission', label: 'Mission 1',
-      details: 'Write one clear goal the player can complete.',
-      x: startPanel.x + startPanel.width + 46, y: startPanel.y, width: 270, height: 190,
-    };
-    panels.push(mission);
-  }
-  if (!panels.some(panel => panel.kind === 'finish') && panels.length < 100) {
-    panels.push({
-      id: crypto.randomUUID(), parentId: mission?.id ?? startPanel.id, kind: 'finish', label: 'Finish',
-      details: 'Describe how the game tells the player they are done.',
-      x: (mission?.x ?? startPanel.x + startPanel.width + 46) + 316,
-      y: mission?.y ?? startPanel.y, width: 270, height: 190,
-    });
-  }
-  return panels;
+  return createBasicVisionNodes();
 }
 
 function parseVisionBoards(value: unknown): VisionBoardDocument[] | null {
@@ -201,7 +165,7 @@ function readSavedBoards(): VisionBoardDocument[] {
     return [{
       id: 'main-game',
       name: 'Main Game',
-      panels: ensureWorkflowPanels(legacyPanels ?? starterWorkflowPanels()),
+      panels: legacyPanels ?? starterWorkflowPanels(),
     }];
   } catch {
     return [{ id: 'main-game', name: 'Main Game', panels: starterWorkflowPanels() }];
@@ -588,6 +552,10 @@ export default function VisionBoardPage() {
           <span>Mad Builder</span>
         </a>
         <div className="fresh-vision-community-actions">
+          <span className="fresh-vision-workflow-status" data-testid="vision-board-workflow-status"
+            title="Add a Finish node to complete your board. Drafts are saved automatically.">
+            {visionBoardHasFinish(panels) ? 'Finish node added' : 'Basic · Add a Finish node'}
+          </span>
           <button
             type="button"
             className="fresh-vision-toolbar-button"

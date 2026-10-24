@@ -3,6 +3,7 @@
 .fresh-vision-page .fresh-vision-page-header h1 { font-size: 12px; }
 .fresh-vision-page .fresh-vision-back { min-height: 24px; left: 4px; }
 .fresh-vision-page .fresh-vision-add-menu { max-height: min(360px, 55vh); overflow-y: auto; scrollbar-width: thin; }
+.fresh-vision-workflow-status { color: #cdb9dc; font-size: 10px; white-space: nowrap; }
 
 .vision-node-card { position: absolute; inset: 24px 6px 8px; display: flex; flex-direction: column; gap: 4px; overflow: auto; min-height: 0; color: #eee6f5; font: 11px/1.35 system-ui, sans-serif; scrollbar-width: thin; scrollbar-color: #7042a1 #100c18; }
 .vision-node-card-top { display: flex; align-items: center; gap: 6px; }

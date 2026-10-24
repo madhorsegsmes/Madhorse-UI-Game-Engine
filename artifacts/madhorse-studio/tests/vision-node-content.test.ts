@@ -1,8 +1,19 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  createVisionMenu, defaultVisionEffects, parseVisionAttachments, parseVisionEffects, visionMediaFilter,
+  createBasicVisionNodes, createVisionMenu, defaultVisionEffects, parseVisionAttachments, parseVisionEffects, visionBoardHasFinish, visionMediaFilter,
 } from '../src/lib/vision-node-content';
+
+test('basic boards begin with only Start and require a creator-added Finish', () => {
+  const nodes = createBasicVisionNodes();
+  assert.equal(nodes.length, 1);
+  assert.equal(nodes[0].kind, 'start');
+  assert.equal(visionBoardHasFinish(nodes), false);
+  assert.equal(visionBoardHasFinish([...nodes, { kind: 'mission' }]), false);
+  assert.equal(visionBoardHasFinish([...nodes, { kind: 'finish' }]), true);
+  nodes[0].label = 'Edited';
+  assert.equal(createBasicVisionNodes()[0].label, 'Start');
+});
 
 test('legacy image and menu nodes retain their attachments without moving file bytes', () => {
   const migrated = parseVisionAttachments(undefined, {

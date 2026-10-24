@@ -341,23 +341,6 @@ export function ScenePreview3D({
             {selected?.name ?? 'No selection'}
           </span>
         </div>
-        <div className="mh-scene3d__tools" role="group" aria-label="Transform mode">
-          {modeButtons.map(({ mode, label, shortcut, icon }) => (
-            <button
-              key={mode}
-              type="button"
-              className={`mh-scene3d__tool ${effectiveMode === mode ? 'is-active' : ''}`}
-              aria-pressed={effectiveMode === mode}
-              aria-label={`${label} tool (${shortcut})`}
-              title={`${label} · ${shortcut}`}
-              data-testid={`scene3d-mode-${mode}`}
-              disabled={readOnly || (mode === 'scale' && selectedIsCamera)}
-              onClick={() => onTransformModeChange(mode)}
-            >
-              <span aria-hidden="true">{icon}</span><small>{label}</small>
-            </button>
-          ))}
-        </div>
         <div className="mh-scene3d__view-label"><i aria-hidden="true" /> {readOnly ? 'RUNTIME PREVIEW' : 'RENDER ON'}</div>
         {!readOnly && <SceneRenderSettingsPanel settings={renderSettings} onChange={setRenderSettings} />}
       </header>}
@@ -366,7 +349,7 @@ export function ScenePreview3D({
         <label>Zoom <input type="range" min={MIN_SCENE_ZOOM} max={MAX_SCENE_ZOOM} step={5} value={zoom} onChange={(event) => setZoom(Number(event.target.value))} aria-label="Scene zoom" data-testid="scene-zoom" /></label>
         <output data-testid="scene-zoom-value">{zoom}%</output>
         <button type="button" onClick={() => setZoom((value) => Math.min(MAX_SCENE_ZOOM, value + 25))} disabled={zoom >= MAX_SCENE_ZOOM} data-testid="scene-zoom-in" aria-label="Zoom scene in">+</button>
-        <button type="button" onClick={frameCamera} data-testid="scene-frame-camera">Frame square + camera</button>
+        <button type="button" onClick={frameCamera} data-testid="scene-frame-camera" title="Center the scene view at X = 0, facing the plane from north">Center on plane</button>
         {editorCamera && onSelectPrimaryCamera && <button type="button" data-testid="scene3d-select-game-camera" aria-pressed={primarySelected}
           onClick={onSelectPrimaryCamera}>{primarySelected ? 'Camera selected' : 'Select Game Camera'}</button>}
         {selected?.generatedBy === 'mad-builder' && <button type="button" onClick={frameBuild} data-testid="scene-frame-build">Frame build</button>}
@@ -390,6 +373,23 @@ export function ScenePreview3D({
           ));
         }}
       >
+        {!gameView && <div className="mh-scene3d__tools" role="group" aria-label="Transform mode">
+          {modeButtons.map(({ mode, label, shortcut, icon }) => (
+            <button
+              key={mode}
+              type="button"
+              className={`mh-scene3d__tool ${effectiveMode === mode ? 'is-active' : ''}`}
+              aria-pressed={effectiveMode === mode}
+              aria-label={`${label} tool (${shortcut})`}
+              title={`${label} · ${shortcut}`}
+              data-testid={`scene3d-mode-${mode}`}
+              disabled={readOnly || (mode === 'scale' && selectedIsCamera)}
+              onClick={() => onTransformModeChange(mode)}
+            >
+              <span aria-hidden="true">{icon}</span><small>{label}</small>
+            </button>
+          ))}
+        </div>}
         {gameView && graphicsAvailable && canOrbitGameCamera && (
           <div className="mh-scene3d__game-controls" role="group" aria-label="Canvas view controls">
             <span className="mh-scene3d__orbit-hint">ORBIT</span>
@@ -430,7 +430,7 @@ export function ScenePreview3D({
           onUnavailable={markGraphicsUnavailable}
         >
         <Canvas
-          camera={{ position: [10, 8, 12], fov: 48, near: 0.1, far: 3000 }}
+          camera={{ position: [0, 12, -16], fov: 48, near: 0.1, far: 3000 }}
           dpr={renderDpr}
           frameloop={gameView ? 'always' : 'demand'}
           gl={{ antialias: !mobile, powerPreference: 'low-power', alpha: false }}
