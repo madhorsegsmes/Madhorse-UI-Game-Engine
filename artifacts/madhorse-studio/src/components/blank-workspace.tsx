@@ -118,7 +118,7 @@ function SettingsPanel({
     'game-system' | 'player-functions' | 'game-controls' | 'player-controls' | 'npc-functions' | 'npc-controls'
   >('game-system');
   const [activePluginTab, setActivePluginTab] = useState<
-    'game' | 'player-npc' | 'system' | 'lighting' | 'animation' | 'asset' | 'effect'
+    'game' | 'player-npc' | 'system' | 'lighting' | 'animation' | 'asset' | 'effect' | 'triggers' | 'trigger-zones'
   >('game');
   const [gameTypeLibraryPdfUrl, setGameTypeLibraryPdfUrl] = useState<string | null>(null);
   const gameTypeLibraryPdfUrlRef = useRef<string | null>(null);
@@ -400,6 +400,26 @@ function SettingsPanel({
                   onClick={() => setActivePluginTab('effect')}
                 >
                   Effect Plugins
+                </button>
+                <button
+                  type="button"
+                  className="fresh-plugin-tab"
+                  aria-pressed={activePluginTab === 'triggers'}
+                  data-active={activePluginTab === 'triggers'}
+                  data-testid="button-triggers-plugins"
+                  onClick={() => setActivePluginTab('triggers')}
+                >
+                  Triggers
+                </button>
+                <button
+                  type="button"
+                  className="fresh-plugin-tab"
+                  aria-pressed={activePluginTab === 'trigger-zones'}
+                  data-active={activePluginTab === 'trigger-zones'}
+                  data-testid="button-trigger-zones-plugins"
+                  onClick={() => setActivePluginTab('trigger-zones')}
+                >
+                  Trigger Zones
                 </button>
               </div>
             </div>
