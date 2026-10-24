@@ -105,7 +105,7 @@ function SettingsPanel({
   onSaveEntity: (entity: SceneEntity) => void;
 }) {
   const [activeFunctionTab, setActiveFunctionTab] = useState<
-    'game-system' | 'game-controls' | 'player-controls' | 'npc-controls'
+    'game-system' | 'player-functions' | 'game-controls' | 'player-controls' | 'npc-controls'
   >('game-system');
 
   return (
@@ -147,6 +147,16 @@ function SettingsPanel({
                   onClick={() => setActiveFunctionTab('game-system')}
                 >
                   Game and System Functions
+                </button>
+                <button
+                  type="button"
+                  className="fresh-function-tab"
+                  aria-pressed={activeFunctionTab === 'player-functions'}
+                  data-active={activeFunctionTab === 'player-functions'}
+                  data-testid="button-player-functions"
+                  onClick={() => setActiveFunctionTab('player-functions')}
+                >
+                  Player Functions
                 </button>
                 <button
                   type="button"
