@@ -1,20 +1,21 @@
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowLeft, Bot, Globe2, Plus, Store, X } from 'lucide-react';
+import { VisionNodeCardContent, VisionNodeEditor } from './vision-node-editor';
+import {
+  createVisionMenu, defaultVisionEffects, parseVisionAttachments,
+  type VisionAttachmentRole, type VisionNodeContent, type VisionPanelKind,
+} from '@/lib/vision-node-content';
 
 type VisionPanelBounds = { x: number; y: number; width: number; height: number };
-type VisionPanelKind = 'blank' | 'image' | 'menu-screen' | 'audio' | 'start' | 'mission' | 'finish';
-type VisionBoardPanel = VisionPanelBounds & {
-  id: string;
+type VisionBoardPanel = VisionPanelBounds & VisionNodeContent & {
   parentId: string | null;
-  kind: VisionPanelKind;
-  label?: string;
-  details?: string;
-  complete?: boolean;
   mediaId?: string;
   mediaName?: string;
 };
 type VisionBoardDocument = { id: string; name: string; panels: VisionBoardPanel[] };
-type PendingMediaUpload = { parentId: string; kind: 'image' | 'audio' };
+type PendingMediaUpload = {
+  boardId: string; parentId: string; kind: 'image' | 'audio' | 'video'; role: VisionAttachmentRole;
+};
 type VisionPanelPointer = {
   panelId: string;
   mode: 'move' | 'resize';
@@ -27,10 +28,11 @@ type VisionPanelPointer = {
 const VISION_PANEL_STORAGE_KEY = 'madhorse.vision-board-panels.v2';
 const LEGACY_PANEL_STORAGE_KEY = 'madhorse.vision-board-panel.v1';
 const VISION_BOARDS_STORAGE_KEY = 'madhorse.vision-boards.v1';
+const VISION_ACTIVE_BOARD_KEY = 'madhorse.vision-active-board.v1';
 const VISION_MEDIA_DB = 'madhorse-vision-board-media-v1';
 const VISION_MEDIA_STORE = 'media';
 const NEW_PANEL_WIDTH = 280;
-const NEW_PANEL_HEIGHT = 140;
+const NEW_PANEL_HEIGHT = 220;
 
 function openVisionMediaDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -98,7 +100,7 @@ function parsePanels(value: unknown): VisionBoardPanel[] | null {
     const bounds = parseBounds(entry);
     if (!bounds || typeof entry.id !== 'string' || !entry.id ||
       (entry.parentId !== null && typeof entry.parentId !== 'string')) return null;
-    const kind: VisionPanelKind = ['blank', 'image', 'menu-screen', 'audio', 'start', 'mission', 'finish'].includes(entry.kind ?? '')
+    const kind: VisionPanelKind = ['blank', 'image', 'video', 'menu-screen', 'audio', 'start', 'mission', 'finish'].includes(entry.kind ?? '')
       ? entry.kind as VisionPanelKind
       : 'blank';
     panels.push({
@@ -111,6 +113,7 @@ function parsePanels(value: unknown): VisionBoardPanel[] | null {
       ...(typeof entry.complete === 'boolean' ? { complete: entry.complete } : {}),
       ...(typeof entry.mediaId === 'string' ? { mediaId: entry.mediaId } : {}),
       ...(typeof entry.mediaName === 'string' ? { mediaName: entry.mediaName.slice(0, 180) } : {}),
+      attachments: parseVisionAttachments(entry.attachments, entry),
     });
   }
   const ids = new Set(panels.map(panel => panel.id));
@@ -183,7 +186,7 @@ function parseVisionBoards(value: unknown): VisionBoardDocument[] | null {
     const entry = item as Partial<VisionBoardDocument>;
     const panels = parsePanels(entry.panels);
     if (typeof entry.id !== 'string' || !entry.id || typeof entry.name !== 'string' || !panels) return null;
-    boards.push({ id: entry.id, name: entry.name.slice(0, 80) || 'Untitled Game', panels: ensureWorkflowPanels(panels) });
+    boards.push({ id: entry.id, name: entry.name.slice(0, 80) || 'Untitled Game', panels });
   }
   if (new Set(boards.map(board => board.id)).size !== boards.length) return null;
   return boards;
@@ -250,7 +253,13 @@ export default function VisionBoardPage() {
   const pointerRef = useRef<VisionPanelPointer | null>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const [boards, setBoards] = useState<VisionBoardDocument[]>(readSavedBoards);
-  const [activeBoardId, setActiveBoardId] = useState(() => boards[0]?.id ?? 'main-game');
+  const [activeBoardId, setActiveBoardId] = useState(() => {
+    try {
+      const saved = localStorage.getItem(VISION_ACTIVE_BOARD_KEY);
+      if (saved && boards.some(board => board.id === saved)) return saved;
+    } catch { /* Keep the board usable when browser storage is unavailable. */ }
+    return boards[0]?.id ?? 'main-game';
+  });
   const activeBoard = boards.find(board => board.id === activeBoardId) ?? boards[0];
   const panels = activeBoard?.panels ?? [];
   const setPanels = (update: VisionBoardPanel[] | ((current: VisionBoardPanel[]) => VisionBoardPanel[])) => {
@@ -266,6 +275,8 @@ export default function VisionBoardPage() {
   const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
   const [uploadMessage, setUploadMessage] = useState('');
   const [communityPanel, setCommunityPanel] = useState<'published' | 'store' | null>(null);
+  const [editingPanelId, setEditingPanelId] = useState<string | null>(null);
+  const [uploadBusy, setUploadBusy] = useState(false);
 
   useEffect(() => {
     const workspace = workspaceRef.current;
@@ -289,22 +300,25 @@ export default function VisionBoardPage() {
     try {
       localStorage.setItem(VISION_BOARDS_STORAGE_KEY, JSON.stringify(boards));
       localStorage.setItem(VISION_PANEL_STORAGE_KEY, JSON.stringify(panels));
+      localStorage.setItem(VISION_ACTIVE_BOARD_KEY, activeBoardId);
     } catch {
       setUploadMessage('Browser storage is full or unavailable. The board is still open, but changes may not survive refresh.');
     }
-  }, [layoutReady, boards, panels]);
+  }, [layoutReady, boards, panels, activeBoardId]);
 
-  const mediaKey = panels.filter(panel => panel.mediaId).map(panel => `${panel.id}:${panel.mediaId}`).join('|');
+  const mediaIds = [...new Set(panels.flatMap(panel => (panel.attachments ?? [])
+    .flatMap(attachment => attachment.mediaId ? [attachment.mediaId] : [])))];
+  const mediaKey = `${activeBoardId}:${mediaIds.join('|')}`;
   useEffect(() => {
     let cancelled = false;
     const urls: string[] = [];
-    const mediaPanels = panels.filter(panel => panel.mediaId);
-    void Promise.all(mediaPanels.map(async panel => {
-      const blob = await loadVisionMedia(panel.mediaId!);
+    setMediaUrls({});
+    void Promise.all(mediaIds.map(async mediaId => {
+      const blob = await loadVisionMedia(mediaId);
       if (!blob) return null;
       const url = URL.createObjectURL(blob);
       urls.push(url);
-      return [panel.id, url] as const;
+      return [mediaId, url] as const;
     })).then(entries => {
       if (cancelled) {
         urls.forEach(URL.revokeObjectURL);
@@ -329,6 +343,7 @@ export default function VisionBoardPage() {
     };
     setBoards(current => [...current, board]);
     setActiveBoardId(id);
+    setEditingPanelId(null);
     setOpenMenuPanelId(null);
     setUploadMessage('New game board created. Your boards are saved in this browser.');
   };
@@ -349,12 +364,20 @@ export default function VisionBoardPage() {
     const remaining = boards.filter(board => board.id !== activeBoardId);
     setBoards(remaining);
     setActiveBoardId(remaining[0].id);
+    setEditingPanelId(null);
     setOpenMenuPanelId(null);
     setUploadMessage(`“${name}” was deleted from this browser.`);
   };
 
   const updatePanel = (panelId: string, changes: Partial<VisionBoardPanel>) => {
-    setPanels(current => current.map(panel => panel.id === panelId ? { ...panel, ...changes } : panel));
+    setPanels(current => current.map(panel => {
+      if (panel.id !== panelId) return panel;
+      const updated = { ...panel, ...changes };
+      if (changes.kind === 'menu-screen' && !(updated.attachments?.length)) {
+        updated.attachments = [createVisionMenu()];
+      }
+      return updated;
+    }));
   };
 
   const beginPanelPointer = (
@@ -436,6 +459,7 @@ export default function VisionBoardPage() {
         id: crypto.randomUUID(),
         parentId,
         kind,
+        label: kind === 'blank' ? 'New node' : undefined,
         ...bounds,
         ...(kind === 'mission' ? { label: `Mission ${siblingCount + 1}`, details: 'Write one clear goal the player can complete.', complete: false } : {}),
         ...(kind === 'finish' ? { label: 'Finish', details: 'Describe how the game tells the player they are done.', complete: false } : {}),
@@ -444,12 +468,17 @@ export default function VisionBoardPage() {
     });
   };
 
-  const beginMediaUpload = (parentId: string, kind: 'image' | 'audio') => {
+  const beginMediaUpload = (parentId: string, kind: 'image' | 'audio' | 'video', role: VisionAttachmentRole = 'reference') => {
+    if (uploadBusy) { setUploadMessage('Wait for the current file to finish saving.'); return; }
+    if ((panels.find(panel => panel.id === parentId)?.attachments?.length ?? 0) >= 20) {
+      setUploadMessage('Each node can hold 20 attachments. Remove one before adding another.');
+      return;
+    }
     setUploadMessage('');
-    setPendingMediaUpload({ parentId, kind });
+    setPendingMediaUpload({ boardId: activeBoardId, parentId, kind, role });
     setOpenMenuPanelId(null);
     if (mediaInputRef.current) {
-      mediaInputRef.current.accept = kind === 'image' ? 'image/*' : 'audio/*';
+      mediaInputRef.current.accept = `${kind}/*`;
       mediaInputRef.current.value = '';
     }
     mediaInputRef.current?.click();
@@ -461,33 +490,44 @@ export default function VisionBoardPage() {
     const pending = pendingMediaUpload;
     input.value = '';
     if (!file || !pending) return;
-    const isImage = pending.kind === 'image' && file.type.startsWith('image/');
-    const isAudio = pending.kind === 'audio' && file.type.startsWith('audio/');
-    if (!isImage && !isAudio) {
-      setUploadMessage(pending.kind === 'image' ? 'Choose an image file.' : 'Choose an audio file.');
+    if (!file.type.startsWith(`${pending.kind}/`)) {
+      setUploadMessage(`Choose ${pending.kind === 'image' ? 'an image' : pending.kind === 'audio' ? 'an audio' : 'a video'} file.`);
       setPendingMediaUpload(null);
       return;
     }
-    const maxBytes = pending.kind === 'image' ? 12 * 1024 * 1024 : 24 * 1024 * 1024;
+    const maxMb = pending.kind === 'image' ? 12 : pending.kind === 'audio' ? 24 : 80;
+    const maxBytes = maxMb * 1024 * 1024;
     if (file.size > maxBytes) {
-      setUploadMessage(`This ${pending.kind} is too large. The limit is ${pending.kind === 'image' ? '12 MB' : '24 MB'}.`);
+      setUploadMessage(`This ${pending.kind} is too large. The limit is ${maxMb} MB.`);
       setPendingMediaUpload(null);
       return;
     }
     const mediaId = crypto.randomUUID();
+    setUploadBusy(true);
     setUploadMessage('Saving this file in this browser…');
     try {
       await saveVisionMedia(mediaId, file);
-      addConnectedPanel(pending.parentId, pending.kind, { id: mediaId, name: file.name });
-      setUploadMessage(`${file.name} added to the board. It stays in this browser.`);
+      setBoards(current => current.map(board => board.id !== pending.boardId ? board : {
+        ...board,
+        panels: board.panels.map(panel => panel.id !== pending.parentId ? panel : {
+          ...panel,
+          attachments: [...(panel.attachments ?? []), {
+            id: crypto.randomUUID(), kind: pending.kind, name: file.name.slice(0, 180),
+            mediaId, role: pending.role, effects: { ...defaultVisionEffects },
+          }].slice(0, 20),
+        }),
+      }));
+      setUploadMessage(`${file.name} attached to the node and saved in this browser.`);
     } catch (failure) {
       setUploadMessage(failure instanceof Error ? failure.message : 'This file could not be saved in the browser.');
     } finally {
       setPendingMediaUpload(null);
+      setUploadBusy(false);
     }
   };
 
   const panelsById = new Map(panels.map(panel => [panel.id, panel]));
+  const editingPanel = panels.find(panel => panel.id === editingPanelId);
 
   return (
     <main className="fresh-vision-page" data-testid="vision-board-page">
@@ -514,6 +554,7 @@ export default function VisionBoardPage() {
             value={activeBoardId}
             onChange={event => {
               setActiveBoardId(event.target.value);
+              setEditingPanelId(null);
               setOpenMenuPanelId(null);
               setUploadMessage('');
             }}
@@ -568,8 +609,8 @@ export default function VisionBoardPage() {
           ref={mediaInputRef}
           type="file"
           className="fresh-vision-file-input"
-          accept={pendingMediaUpload?.kind === 'image' ? 'image/*' : 'audio/*'}
-          aria-label={pendingMediaUpload?.kind === 'image' ? 'Choose an image for the board' : 'Choose audio for the board'}
+          accept={`${pendingMediaUpload?.kind ?? 'image'}/*`}
+          aria-label="Choose media for the node"
           onChange={handleMediaFileSelection}
           data-testid="vision-board-media-input"
         />
@@ -614,7 +655,7 @@ export default function VisionBoardPage() {
             );
           })}
         </svg>
-        {panels.map((panel, index) => (
+        {panels.map(panel => (
           <aside
             key={panel.id}
             className={`fresh-vision-side-panel vision-kind-${panel.kind}${openMenuPanelId === panel.id ? ' is-menu-open' : ''}`}
@@ -631,8 +672,7 @@ export default function VisionBoardPage() {
               aria-label="Add to this branch"
               aria-haspopup="menu"
               aria-expanded={openMenuPanelId === panel.id}
-              title="Add a node, image, menu screen, or audio"
-              disabled={panels.length >= 100}
+              title="Add a node or attach images, videos, menu screens, and audio"
               onClick={() => setOpenMenuPanelId(current => current === panel.id ? null : panel.id)}
               data-testid={panel.id === 'root' ? 'vision-board-add-panel' : `vision-board-add-panel-${panel.id}`}
             >
@@ -643,7 +683,7 @@ export default function VisionBoardPage() {
                 <button type="button" role="menuitem" onClick={() => {
                   setOpenMenuPanelId(null);
                   addConnectedPanel(panel.id);
-                }}>Create another node</button>
+                }} disabled={panels.length >= 100}>Create another node</button>
                 <button type="button" role="menuitem" onClick={() => {
                   setOpenMenuPanelId(null);
                   addConnectedPanel(panel.id, 'mission');
@@ -652,66 +692,27 @@ export default function VisionBoardPage() {
                   setOpenMenuPanelId(null);
                   addConnectedPanel(panel.id, 'finish');
                 }}>Add finish point</button>
-                <button type="button" role="menuitem" onClick={() => beginMediaUpload(panel.id, 'image')}>Add image</button>
+                <button type="button" role="menuitem" onClick={() => beginMediaUpload(panel.id, 'image')}>Attach image</button>
+                <button type="button" role="menuitem" onClick={() => beginMediaUpload(panel.id, 'video')}>Attach video</button>
+                <button type="button" role="menuitem" onClick={() => beginMediaUpload(panel.id, 'image', 'scene')}>Attach scene image</button>
+                <button type="button" role="menuitem" onClick={() => beginMediaUpload(panel.id, 'video', 'scene')}>Attach scene video</button>
+                <button type="button" role="menuitem" onClick={() => beginMediaUpload(panel.id, 'image', 'menu')}>Attach menu image</button>
+                <button type="button" role="menuitem" onClick={() => beginMediaUpload(panel.id, 'video', 'menu')}>Attach menu video</button>
                 <button type="button" role="menuitem" onClick={() => {
                   setOpenMenuPanelId(null);
-                  addConnectedPanel(panel.id, 'menu-screen');
-                }}>Add menu screen</button>
-                <button type="button" role="menuitem" onClick={() => beginMediaUpload(panel.id, 'audio')}>Add audio</button>
+                  if ((panel.attachments?.length ?? 0) >= 20) {
+                    setUploadMessage('Each node can hold 20 attachments.');
+                    return;
+                  }
+                  updatePanel(panel.id, { attachments: [...(panel.attachments ?? []), createVisionMenu()] });
+                  setEditingPanelId(panel.id);
+                }}>Attach menu screen</button>
+                <button type="button" role="menuitem" onClick={() => beginMediaUpload(panel.id, 'audio')}>Attach audio</button>
               </div>
             )}
-            {['start', 'mission', 'finish'].includes(panel.kind) && (
-              <div className="fresh-vision-stage-content" data-testid={`vision-board-stage-${panel.id}`}>
-                <span className={`fresh-vision-stage-badge${panel.complete ? ' is-complete' : ''}`}>
-                  {panel.complete ? 'STEP COMPLETE' : panel.kind === 'start' ? 'START THE GAME' : panel.kind === 'finish' ? 'GAME END POINT' : 'MISSION STEP'}
-                </span>
-                <input
-                  aria-label={`${panel.kind} step name`}
-                  value={panel.label ?? (panel.kind === 'start' ? 'Start' : panel.kind === 'finish' ? 'Finish' : 'Mission')}
-                  maxLength={100}
-                  onChange={event => updatePanel(panel.id, { label: event.target.value })}
-                />
-                <textarea
-                  aria-label={`${panel.kind} step details`}
-                  value={panel.details ?? ''}
-                  maxLength={1000}
-                  placeholder={panel.kind === 'start' ? 'What does the player begin with?' : panel.kind === 'finish' ? 'How does the player finish the game?' : 'What must the player do?'}
-                  onChange={event => updatePanel(panel.id, { details: event.target.value })}
-                />
-                <button
-                  type="button"
-                  className="fresh-vision-step-toggle"
-                  onClick={() => updatePanel(panel.id, { complete: !panel.complete })}
-                >
-                  {panel.complete ? 'Reopen step' : 'Mark step done'}
-                </button>
-              </div>
-            )}
-            {panel.kind === 'image' && (
-              <div className="fresh-vision-media-content">
-                {mediaUrls[panel.id]
-                  ? <img src={mediaUrls[panel.id]} alt={panel.mediaName ?? 'Vision board reference'} draggable={false} />
-                  : <span>{panel.mediaName ? 'Loading image…' : 'Image file unavailable'}</span>}
-                <small>{panel.mediaName}</small>
-              </div>
-            )}
-            {panel.kind === 'audio' && (
-              <div className="fresh-vision-media-content fresh-vision-audio-content">
-                <strong>{panel.mediaName ?? 'Audio reference'}</strong>
-                {mediaUrls[panel.id]
-                  ? <audio controls preload="metadata" src={mediaUrls[panel.id]} aria-label={`Play ${panel.mediaName ?? 'audio reference'}`} />
-                  : <span>Loading audio…</span>}
-              </div>
-            )}
-            {panel.kind === 'menu-screen' && (
-              <div className="fresh-vision-menu-screen" data-testid={`vision-board-menu-screen-${panel.id}`}>
-                <small>MENU SCREEN</small>
-                <strong>YOUR GAME</strong>
-                <button type="button" disabled>Play</button>
-                <button type="button" disabled>Settings</button>
-                <button type="button" disabled>Exit</button>
-              </div>
-            )}
+            <VisionNodeCardContent panel={panel} mediaUrls={mediaUrls}
+              onEdit={() => { setOpenMenuPanelId(null); setEditingPanelId(panel.id); }}
+              onUpdate={changes => updatePanel(panel.id, changes)} />
             <button
               type="button"
               className="fresh-vision-panel-drag"
@@ -743,6 +744,11 @@ export default function VisionBoardPage() {
           </aside>
         ))}
       </section>
+      {editingPanel && <VisionNodeEditor panel={editingPanel} mediaUrls={mediaUrls}
+        status={uploadMessage} busy={uploadBusy}
+        onClose={() => setEditingPanelId(null)}
+        onUpdate={changes => updatePanel(editingPanel.id, changes)}
+        onUpload={(kind, role) => beginMediaUpload(editingPanel.id, kind, role)} />}
       {communityPanel && (
         <div className="fresh-vision-community-backdrop" onClick={event => {
           if (event.target === event.currentTarget) setCommunityPanel(null);

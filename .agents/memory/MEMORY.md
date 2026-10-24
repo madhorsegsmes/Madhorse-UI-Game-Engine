@@ -14,3 +14,4 @@
 - [Beginner-friendly engine tools](beginner-engine-tools.md) — explain Unity/Unreal-style Madhorse tools with plain labels and simple steps.
 - [Editor platform scope](editor-platform-scope.md) — PC-only authoring; mobile games remain a supported output target, not a phone editor interface.
 - [Multiplayer authority](multiplayer-authority.md) — shared objects have one host writer; delayed host snapshots must not reset its running simulation.
+- [Vision Board authoring](vision-board-authoring.md) — media belongs to each node; creative effects must preserve the original files.

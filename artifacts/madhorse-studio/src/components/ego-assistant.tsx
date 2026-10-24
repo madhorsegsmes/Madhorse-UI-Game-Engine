@@ -16,6 +16,7 @@ import {
 import { egoGraphicsReferences } from '@/lib/ego-visual-quality';
 import './ego-graphics-references.css';
 import { createEgoWorkspaceContext } from '@/lib/ego-workspace-context';
+import { parseVisionAttachments } from '@/lib/vision-node-content';
 
 type EgoAssistantProps = {
   project: BuilderDocument;
@@ -60,17 +61,20 @@ function projectScan(project: BuilderDocument, animationsCount: number, animatio
   const components = project.entities.flatMap((entity) => entity.components);
   const assetCounts = { image: 0, model: 0, audio: 0, data: 0 };
   for (const asset of project.assets) assetCounts[asset.kind]++;
-  let boardCounts = { nodes: 0, images: 0, menus: 0, audio: 0 };
+  let boardCounts = { nodes: 0, images: 0, videos: 0, menus: 0, audio: 0 };
   try {
     const savedPanels = JSON.parse(localStorage.getItem('madhorse.vision-board-panels.v2') ?? '[]') as unknown;
     if (Array.isArray(savedPanels)) {
-      boardCounts = { nodes: savedPanels.length, images: 0, menus: 0, audio: 0 };
+      boardCounts = { nodes: savedPanels.length, images: 0, videos: 0, menus: 0, audio: 0 };
       for (const panel of savedPanels) {
         if (!panel || typeof panel !== 'object') continue;
-        const kind = (panel as { kind?: unknown }).kind;
-        if (kind === 'image') boardCounts.images++;
-        if (kind === 'menu-screen') boardCounts.menus++;
-        if (kind === 'audio') boardCounts.audio++;
+        const item = panel as { id?: string; kind?: string; mediaId?: string; mediaName?: string; attachments?: unknown };
+        for (const attachment of parseVisionAttachments(item.attachments, item)) {
+          if (attachment.kind === 'image') boardCounts.images++;
+          if (attachment.kind === 'video') boardCounts.videos++;
+          if (attachment.kind === 'menu-screen') boardCounts.menus++;
+          if (attachment.kind === 'audio') boardCounts.audio++;
+        }
       }
     }
   } catch {
@@ -467,7 +471,7 @@ export function EgoAssistant({
             <span><b>{scan.board.nodes}</b> Vision Board nodes</span>
           </div>
           <p className="ego-asset-summary">Assets: {scan.assets.image} images · {scan.assets.model} models · {scan.assets.audio} audio · {scan.assets.data} data</p>
-          <p className="ego-asset-summary">Vision Board: {scan.board.images} images · {scan.board.menus} menu screens · {scan.board.audio} audio files</p>
+          <p className="ego-asset-summary">Vision Board: {scan.board.images} images · {scan.board.videos} videos · {scan.board.menus} menu screens · {scan.board.audio} audio files</p>
           <p className="ego-privacy-note">Ego reads the saved project in this browser. It does not upload or run project scripts.</p>
         </section>
       </div>
