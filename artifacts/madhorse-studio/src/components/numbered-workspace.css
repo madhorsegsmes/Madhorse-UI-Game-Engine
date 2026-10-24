@@ -419,22 +419,59 @@ body::-webkit-scrollbar-thumb,
   box-shadow: 0 14px 38px rgb(0 0 0 / 62%), 0 0 20px rgb(137 69 217 / 20%);
 }
 
+.fresh-context-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding: 1px 2px 6px;
+  border-bottom: 1px solid rgb(169 107 235 / 35%);
+}
+
+.fresh-context-titlebar strong {
+  color: #e8d7f7;
+  font: 700 10px/1.2 Inter, system-ui, sans-serif;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.fresh-context-back {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 1px solid rgb(169 107 235 / 50%);
+  background: #21152e;
+  color: #f0e2ff;
+  font: 600 10px/1 Inter, system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.fresh-context-back:hover,
+.fresh-context-back:focus-visible {
+  border-color: #c179ff;
+  outline: none;
+  background: #352047;
+}
+
 .fresh-context-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  max-height: min(700px, calc(100dvh - 34px));
+  max-height: min(660px, calc(100dvh - 74px));
 }
 
 .fresh-context-column {
   display: flex;
   min-width: 0;
-  max-height: min(700px, calc(100dvh - 34px));
+  max-height: min(660px, calc(100dvh - 74px));
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 8px;
+  padding: 6px;
   border: 1px solid rgb(169 107 235 / 48%);
   background: linear-gradient(145deg, rgb(29 20 40 / 94%), rgb(10 8 15 / 94%));
   overscroll-behavior: contain;
@@ -445,13 +482,13 @@ body::-webkit-scrollbar-thumb,
 .fresh-context-column > h3 {
   position: sticky;
   z-index: 1;
-  top: -8px;
-  margin: -8px -8px 0;
-  padding: 9px 10px;
+  top: -6px;
+  margin: -6px -6px 0;
+  padding: 8px 9px;
   border-bottom: 1px solid rgb(169 107 235 / 42%);
   background: linear-gradient(120deg, #2b1a3c, #17111f);
   color: #f4eaff;
-  font: 800 12px/1.2 Inter, system-ui, sans-serif;
+  font: 800 11px/1.2 Inter, system-ui, sans-serif;
   letter-spacing: .08em;
   text-transform: uppercase;
 }
@@ -459,8 +496,8 @@ body::-webkit-scrollbar-thumb,
 .fresh-context-section {
   display: grid;
   min-width: 0;
-  gap: 6px;
-  padding: 8px;
+  gap: 4px;
+  padding: 6px;
   border: 1px solid rgb(126 87 161 / 30%);
   background: rgb(6 5 10 / 45%);
 }
@@ -481,12 +518,12 @@ body::-webkit-scrollbar-thumb,
 
 .fresh-context-tool-grid button {
   min-width: 0;
-  min-height: 34px;
-  padding: 6px 8px;
+  min-height: 28px;
+  padding: 4px 6px;
   border: 1px solid rgb(120 82 157 / 48%);
   background: #15101e;
   color: #e6d9f7;
-  font: 500 10px/1.25 Inter, system-ui, sans-serif;
+  font: 500 9px/1.25 Inter, system-ui, sans-serif;
   text-align: left;
   cursor: pointer;
 }
@@ -503,10 +540,23 @@ body::-webkit-scrollbar-thumb,
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.fresh-context-column .fresh-shape-picker button,
+.fresh-context-column .fresh-world-tool-picker button {
+  min-height: 27px;
+  padding: 3px 5px;
+  font-size: 9px;
+}
+
 .fresh-context-column .fresh-ui-submenu {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   max-height: none;
   margin: 0;
+}
+
+.fresh-context-column .fresh-ui-submenu button {
+  min-height: 26px;
+  padding: 3px 6px;
+  font-size: 9px;
 }
 
 .fresh-context-column .fresh-world-tool-picker {
@@ -521,8 +571,11 @@ body::-webkit-scrollbar-thumb,
 
 .fresh-context-column .fresh-context-action {
   width: 100%;
+  min-height: 28px;
+  padding: 4px 7px;
   border-color: rgb(120 82 157 / 42%);
   background: #15101e;
+  font-size: 10px;
 }
 
 .fresh-context-column .fresh-context-action.is-danger {

@@ -76,6 +76,18 @@ export function HierarchyContextMenu(props: Props) {
           if (event.key === 'Escape') props.onClose();
         }}
       >
+        <header className="fresh-context-titlebar">
+          <strong>Hierarchy Tools</strong>
+          <button
+            type="button"
+            role="menuitem"
+            className="fresh-context-back"
+            data-testid="hierarchy-menu-back"
+            onClick={props.onClose}
+          >
+            <span aria-hidden="true">←</span> Back
+          </button>
+        </header>
         <div className="fresh-context-columns" data-testid="hierarchy-context-columns">
           <section className="fresh-context-column" aria-label="Beginner tools">
             <h3>Beginner</h3>
@@ -86,6 +98,7 @@ export function HierarchyContextMenu(props: Props) {
                   <button
                     type="button"
                     key={shape.value}
+                    title={shape.label}
                     onClick={() => {
                       if (shape.value === 'plane') setDialog('plane');
                       else run(() => props.onCreateShape(shape.value));

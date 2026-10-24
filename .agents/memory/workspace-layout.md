@@ -28,6 +28,12 @@ actions visible in their respective columns.
 
 **How to apply:** Keep the context palette inside the viewport bounds, make each column independently scrollable when needed, and preserve the underlying workspace dimensions.
 
+Keep context-menu action rows compact and provide a **Back** control that closes the palette and returns to the editor.
+
+**Why:** The user asked for slimmer rows and a back button in the Hierarchy right-click menu.
+
+**How to apply:** Reduce row height without making labels hard to read; Back dismisses the menu without changing project state.
+
 The user rejected the rebuilt Studio layout and asked to remove everything visible so they can redo the layout fresh. Start blank, without panels or buttons, and add layout elements only as the user directs. Preserve engine code and saved projects.
 
 **Why:** After trying the rebuilt interface, the user said “i dont like the way that looks remove everything and let me redo the whole layout fresh.”
