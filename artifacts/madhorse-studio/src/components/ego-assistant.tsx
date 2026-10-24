@@ -3,6 +3,7 @@ import { BookOpen, Bot, Boxes, Code2, Gamepad2, Layers3, X } from 'lucide-react'
 import type { BuilderDocument } from '@/hooks/use-mad-builder';
 import type { GameCamera } from '@/lib/game-camera';
 import type { ScriptFile } from '@/lib/project-scripts';
+import { analyzeEgoGameVision, egoGameLanguageLibrary } from '@/lib/ego-game-language';
 import { EgoScriptStudio } from './ego-script-studio';
 import {
   egoGameTypes,
@@ -14,8 +15,8 @@ import {
 type EgoAssistantProps = {
   project: BuilderDocument;
   animationsCount: number;
-  onBuildUi: (gameTypes: EgoGameType[], gameVision: string) => void;
-  onAddFunctions: (gameTypes: EgoGameType[]) => void;
+  onBuildUi: (gameTypes: EgoGameType[], gameVision: string) => string;
+  onAddFunctions: (gameTypes: EgoGameType[]) => string;
   scripts: ScriptFile[];
   camera: GameCamera;
   selectedEntityId: string | null;
@@ -78,14 +79,39 @@ export function EgoAssistant({
 }: EgoAssistantProps) {
   const [gameTypes, setGameTypes] = useState<EgoGameType[]>(['rpg']);
   const [gameVision, setGameVision] = useState('');
+  const [phraseFilter, setPhraseFilter] = useState('');
+  const [activityLog, setActivityLog] = useState<Array<{ id: string; action: string; detail: string; time: string }>>([]);
   const [activeTab, setActiveTab] = useState<'build' | 'guide' | 'scripts'>('build');
   const scan = projectScan(project, animationsCount);
   const gameLabel = getEgoGameSelectionLabel(gameTypes);
+  const visionAnalysis = analyzeEgoGameVision(gameVision);
+  const visiblePhrases = egoGameLanguageLibrary.filter((entry) =>
+    `${entry.label} ${entry.phrases.join(' ')} ${entry.explanation} ${entry.engineArea}`
+      .toLowerCase().includes(phraseFilter.trim().toLowerCase()));
 
   const toggleGameType = (gameType: EgoGameType) => {
     setGameTypes(current => current.includes(gameType)
       ? current.length > 1 ? current.filter(type => type !== gameType) : current
       : [...current, gameType]);
+  };
+
+  const recordAction = (action: string, run: () => string) => {
+    try {
+      const detail = run();
+      setActivityLog(current => [...current, {
+        id: crypto.randomUUID(),
+        action,
+        detail,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      }].slice(-20));
+    } catch (failure) {
+      setActivityLog(current => [...current, {
+        id: crypto.randomUUID(),
+        action: `${action} — needs attention`,
+        detail: failure instanceof Error ? failure.message : 'This action could not be completed.',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      }].slice(-20));
+    }
   };
 
   return (
@@ -182,16 +208,77 @@ export function EgoAssistant({
               </div>
               <span className="ego-selected-types">Selected: {gameLabel}</span>
             </fieldset>
+            <section className="ego-vision-understanding" aria-label="Ego vision understanding" data-testid="ego-vision-understanding">
+              <div className="ego-section-heading">
+                <div><BookOpen size={14} aria-hidden="true" /><strong>What Ego understood</strong></div>
+                <span>{visionAnalysis.detected.length} game areas found</span>
+              </div>
+              {visionAnalysis.detected.length ? (
+                <div className="ego-understood-grid">
+                  {visionAnalysis.detected.map(({ concept, matches }) => (
+                    <article key={concept.id}>
+                      <strong>{concept.label}</strong>
+                      <span>Words found: {matches.join(', ')}</span>
+                      <p>{concept.explanation}</p>
+                      <small>Uses: {concept.engineArea}</small>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="ego-vision-hint">
+                  {visionAnalysis.unmatched || 'Write your idea in everyday words. Try who the player is, what they do, and what they are trying to finish.'}
+                </p>
+              )}
+              <div className="ego-vision-milestones" aria-label="Game build milestones">
+                <article><b>START</b><span>{visionAnalysis.start}</span></article>
+                <article><b>MISSION</b><span>{visionAnalysis.mission}</span></article>
+                <article><b>FINISH</b><span>{visionAnalysis.finish}</span></article>
+              </div>
+              <details className="ego-phrase-library">
+                <summary>Read Ego’s game-building phrase library</summary>
+                <label>
+                  <span>Find a word or phrase</span>
+                  <input value={phraseFilter} onChange={(event) => setPhraseFilter(event.target.value)} />
+                </label>
+                <div className="ego-phrase-entries">
+                  {visiblePhrases.map((entry) => (
+                    <article key={entry.id}>
+                      <strong>{entry.label}</strong>
+                      <span>{entry.phrases.join(' · ')}</span>
+                      <small>{entry.explanation}</small>
+                    </article>
+                  ))}
+                  {!visiblePhrases.length && <p>No matching phrase yet.</p>}
+                </div>
+              </details>
+            </section>
             <div className="ego-build-actions">
-              <button type="button" onClick={() => onBuildUi(gameTypes, gameVision.trim())} data-testid="ego-build-ui">
+              <button type="button" onClick={() => recordAction('Built UI kit', () => onBuildUi(gameTypes, gameVision.trim()))} data-testid="ego-build-ui">
                 <Layers3 size={15} aria-hidden="true" /> {gameTypes.length > 1 ? 'Create mixed UI kit' : `Create ${getEgoGameLabel(gameTypes[0])} UI kit`}
               </button>
-              <button type="button" className="secondary" onClick={() => onAddFunctions(gameTypes)} data-testid="ego-add-functions">
+              <button type="button" className="secondary" onClick={() => recordAction('Added game functions', () => onAddFunctions(gameTypes))} data-testid="ego-add-functions">
                 <Gamepad2 size={15} aria-hidden="true" /> Add {gameTypes.length > 1 ? 'mixed game functions' : `${getEgoGameLabel(gameTypes[0])} functions`}
               </button>
             </div>
+            <section className="ego-work-log" aria-label="Ego work log" data-testid="ego-work-log">
+              <header>
+                <img src={`${import.meta.env.BASE_URL}images/ego-robot-panel.webp`} alt="" aria-hidden="true" />
+                <div><strong>Ego work log</strong><span>Updates appear here after each completed action.</span></div>
+              </header>
+              <div className="ego-work-log-entries" role="log" aria-live="polite">
+                {activityLog.length ? activityLog.map(entry => (
+                  <article key={entry.id}>
+                    <span>{entry.time} · {entry.action}</span>
+                    <p>{entry.detail}</p>
+                    <small>Action estimate: completed immediately. This is not a full-game build.</small>
+                  </article>
+                )) : (
+                  <p className="ego-work-log-empty">Ego has not changed this project during this session. Full-game completion estimates are not available until a complete game-build and export pipeline is connected.</p>
+                )}
+              </div>
+            </section>
             <p className="ego-capability-note">
-              Ego uses editable UI templates and supported engine actions. It creates a Player Controller if the project has no player yet.
+              Ego uses editable UI templates and supported engine actions. It creates a Player Controller if the project has no player yet. Full-game publishing is not available in this build.
             </p>
           </section>
         ) : activeTab === 'scripts' ? (
