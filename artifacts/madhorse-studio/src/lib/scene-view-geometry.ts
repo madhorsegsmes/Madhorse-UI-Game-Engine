@@ -2,12 +2,16 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import {
   getModelRenderer, getPrimitive, getSpriteRenderer, getWorldTransform,
-  type PrimitiveShape, type TerrainSettings, type SceneEntity,
+  type PrimitiveShape, type TerrainBrushEdit, type TerrainSettings, type SceneEntity,
 } from './scene-model';
 import type { GameCamera } from './game-camera';
 import { createVehicleSurfaceGeometry } from './vehicle-surface-geometry';
 
-export function createPrimitiveGeometry(shape: PrimitiveShape, terrainSettings?: TerrainSettings) {
+export function createPrimitiveGeometry(
+  shape: PrimitiveShape,
+  terrainSettings?: TerrainSettings,
+  terrainEdits?: TerrainBrushEdit[],
+) {
   switch (shape) {
     case 'coupe-body':
     case 'coupe-glazing':
@@ -62,21 +66,23 @@ export function createPrimitiveGeometry(shape: PrimitiveShape, terrainSettings?:
     }
     case 'hollow-cylinder': return new THREE.CylinderGeometry(.5, .5, 1, 48, 1, true);
     case 'rounded-cube': return new RoundedBoxGeometry(1, 1, 1, 6, .08);
-    case 'terrain': return createTerrainGeometry(terrainSettings);
+    case 'terrain': return createTerrainGeometry(terrainSettings, terrainEdits);
   }
 }
 
-function createTerrainGeometry(settings?: TerrainSettings) {
+function createTerrainGeometry(settings?: TerrainSettings, edits?: TerrainBrushEdit[]) {
   const width = settings?.width ?? 20;
   const depth = settings?.depth ?? 20;
-  const geometry = new THREE.PlaneGeometry(width, depth, 96, 96);
+  const segments = 96;
+  const geometry = new THREE.PlaneGeometry(width, depth, segments, segments);
   geometry.rotateX(-Math.PI / 2);
   const positions = geometry.getAttribute('position');
+  const heights = new Float32Array(positions.count);
   for (let index = 0; index < positions.count; index++) {
     const x = positions.getX(index);
     const z = positions.getZ(index);
     if (!settings) {
-      positions.setY(index, Math.sin(x * .45) * Math.cos(z * .4) * .65 - .05);
+      heights[index] = Math.sin(x * .45) * Math.cos(z * .4) * .65 - .05;
       continue;
     }
     const nx = x / Math.max(width / 2, .5);
@@ -90,8 +96,34 @@ function createTerrainGeometry(settings?: TerrainSettings) {
       const bankWidth = Math.max(width * .025, .1);
       river = Math.max(river, settings.riverDepth * .08 * Math.max(0, 1 - distance / bankWidth));
     }
-    positions.setY(index, base + ridge - river);
+    heights[index] = base + ridge - river;
   }
+  for (const edit of edits ?? []) {
+    const before = edit.action === 'smooth' ? heights.slice() : null;
+    for (let index = 0; index < positions.count; index++) {
+      const x = positions.getX(index);
+      const z = positions.getZ(index);
+      const distance = Math.hypot(x - edit.x, z - edit.z);
+      if (distance >= edit.radius) continue;
+      const falloff = Math.pow(1 - distance / edit.radius, 2);
+      if (edit.action === 'raise' || edit.action === 'lower') {
+        heights[index] += (edit.action === 'raise' ? 1 : -1) * edit.strength * falloff;
+      } else if (before) {
+        const column = index % (segments + 1);
+        const row = Math.floor(index / (segments + 1));
+        let total = before[index];
+        let count = 1;
+        if (column > 0) { total += before[index - 1]; count++; }
+        if (column < segments) { total += before[index + 1]; count++; }
+        if (row > 0) { total += before[index - segments - 1]; count++; }
+        if (row < segments) { total += before[index + segments + 1]; count++; }
+        const average = total / count;
+        const blend = Math.min(1, edit.strength) * falloff;
+        heights[index] = before[index] + (average - before[index]) * blend;
+      }
+    }
+  }
+  for (let index = 0; index < positions.count; index++) positions.setY(index, heights[index]);
   geometry.computeVertexNormals();
   return geometry;
 }

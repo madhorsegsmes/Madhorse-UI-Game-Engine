@@ -83,11 +83,20 @@ export type TerrainSettings = {
   riverDepth: number;
   riverCount: number;
 };
+export type TerrainBrushEdit = {
+  id: string;
+  action: 'raise' | 'lower' | 'smooth';
+  x: number;
+  z: number;
+  radius: number;
+  strength: number;
+};
 
 export type PrimitiveComponent = {
   id: string; type: 'primitive'; enabled: boolean;
   shape: PrimitiveShape; color: string; textureAssetId: string | null;
   terrainSettings?: TerrainSettings;
+  terrainEdits?: TerrainBrushEdit[];
   opacity?: number;
   roughness?: number;
   metalness?: number;
@@ -366,10 +375,14 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
   }
   if (item.type === 'primitive') {
     const validTerrain = item.terrainSettings === undefined || isTerrainSettings(item.terrainSettings);
+    const validTerrainEdits = item.terrainEdits === undefined ||
+      Array.isArray(item.terrainEdits) && item.terrainEdits.length <= 128 &&
+      item.terrainEdits.every(isTerrainBrushEdit);
     return typeof item.enabled === 'boolean' &&
       (item.shape === 'terrain' || primitiveShapes.some(({ value }) => value === item.shape) ||
         vehicleSurfaceShapes.some((value) => value === item.shape)) &&
-      validTerrain && (item.shape === 'terrain' || item.terrainSettings === undefined) &&
+      validTerrain && validTerrainEdits &&
+      (item.shape === 'terrain' || (item.terrainSettings === undefined && item.terrainEdits === undefined)) &&
       (item.roughness === undefined || Number.isFinite(item.roughness) && item.roughness >= 0 && item.roughness <= 1) &&
       (item.metalness === undefined || Number.isFinite(item.metalness) && item.metalness >= 0 && item.metalness <= 1) &&
       (item.opacity === undefined || Number.isFinite(item.opacity) && item.opacity >= .05 && item.opacity <= 1) &&
@@ -573,6 +586,17 @@ function isTerrainSettings(value: unknown): value is TerrainSettings {
     Number.isFinite(settings.mountainHeight) && settings.mountainHeight >= 0 && settings.mountainHeight <= 100 &&
     Number.isFinite(settings.riverDepth) && settings.riverDepth >= 0 && settings.riverDepth <= 50 &&
     Number.isInteger(settings.riverCount) && settings.riverCount >= 0 && settings.riverCount <= 10;
+}
+
+function isTerrainBrushEdit(value: unknown): value is TerrainBrushEdit {
+  if (!value || typeof value !== 'object') return false;
+  const edit = value as TerrainBrushEdit;
+  return typeof edit.id === 'string' && edit.id.length > 0 && edit.id.length <= 128 &&
+    ['raise', 'lower', 'smooth'].includes(edit.action) &&
+    Number.isFinite(edit.x) && Math.abs(edit.x) <= 500 &&
+    Number.isFinite(edit.z) && Math.abs(edit.z) <= 500 &&
+    Number.isFinite(edit.radius) && edit.radius >= 0.5 && edit.radius <= 100 &&
+    Number.isFinite(edit.strength) && edit.strength >= 0.05 && edit.strength <= 10;
 }
 
 export function projectAssetKind(fileName: string, mimeType: string): ProjectAssetKind | null {

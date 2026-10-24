@@ -11,9 +11,11 @@ import {
   createStarterCube,
   getCamera,
   getModelRenderer,
+  getPrimitive,
   getTransform,
   getWorldTransform,
   isProjectAsset,
+  isSceneGraph,
   isSceneEntity,
   primitiveShapes,
   projectAssetKind,
@@ -29,6 +31,7 @@ import {
 } from '@/lib/scene-model';
 import { createGameCamera, type GameCamera } from '@/lib/game-camera';
 import { cameraWithPose, PRIMARY_CAMERA_ID, primaryCameraEntity } from '@/lib/camera-editor';
+import { appendTerrainBrushEdit, createTerrainTreeGrove, createTerrainWater } from '@/lib/terrain-authoring';
 import { SceneObjectGlyph } from './scene-object-glyph';
 import { SceneObjectInspector } from './scene-object-inspector';
 import { SystemDebugger } from './system-debugger';
@@ -805,6 +808,9 @@ function HierarchyPanel({
   }
 
   const contextEntity = entities.find(entity => entity.id === menuEntityId);
+  const terrainTargetId = entities.find(entity =>
+    entity.id === (menuEntityId ?? selection) && getPrimitive(entity)?.shape === 'terrain',
+  )?.id ?? null;
   return (
     <aside className="fresh-hierarchy" aria-label="Hierarchy"
       aria-description="Right-click to create scene objects, delete an object, import assets, or open the animation timeline. Use the trash button to delete an object. Double-click or double-tap an object to rename it and edit its settings."
@@ -836,6 +842,7 @@ function HierarchyPanel({
         <HierarchyContextMenu
           point={menuPoint}
           assets={assets}
+          terrainAvailable={terrainTargetId !== null}
           deleteTarget={contextEntity && contextEntity.id !== 'player' ? {
             id: contextEntity.id,
             name: contextEntity.name,
@@ -857,6 +864,9 @@ function HierarchyPanel({
           onCreateTexture={actions.onCreateTexture}
           onOpenTimeline={actions.onOpenTimeline}
           onCreateEmpty={actions.onCreateEmpty}
+          onTerrainBrush={action => terrainTargetId && actions.onTerrainBrush(terrainTargetId, action)}
+          onAddTrees={() => terrainTargetId && actions.onAddTrees(terrainTargetId)}
+          onAddWater={() => terrainTargetId && actions.onAddWater(terrainTargetId)}
         />
       )}
     </aside>
@@ -879,6 +889,9 @@ type HierarchyActions = {
   onCreateTexture: () => void;
   onOpenTimeline: () => void;
   onCreateEmpty: () => void;
+  onTerrainBrush: (terrainId: string, action: 'raise' | 'lower' | 'smooth') => void;
+  onAddTrees: (terrainId: string) => void;
+  onAddWater: (terrainId: string) => void;
 };
 
 function SceneObjectRows({
@@ -1879,6 +1892,55 @@ export default function BlankWorkspace() {
     });
   }, [createPrimitiveEntity]);
 
+  const applyTerrainBrush = useCallback((terrainId: string, action: 'raise' | 'lower' | 'smooth') => {
+    const terrain = entities.find(entity => entity.id === terrainId);
+    if (!terrain) {
+      setStatus('Select a Terrain in Hierarchy before using a terrain brush.');
+      return;
+    }
+    const updated = appendTerrainBrushEdit(terrain, action);
+    if (!updated) {
+      setStatus('This Terrain cannot accept another edit. Each terrain supports up to 128 brush edits.');
+      return;
+    }
+    setEntities(current => current.map(entity => entity.id === terrainId ? updated : entity));
+    setSelection(terrainId);
+    const label = action === 'raise' ? 'Raised' : action === 'lower' ? 'Lowered' : 'Smoothed';
+    setStatus(`${label} a circular area at the center of ${terrain.name}. The change is saved with the project.`);
+  }, [entities]);
+
+  const addTreesToTerrain = useCallback((terrainId: string) => {
+    const terrain = entities.find(entity => entity.id === terrainId);
+    if (!terrain) {
+      setStatus('Select a Terrain in Hierarchy before adding trees.');
+      return;
+    }
+    const grove = createTerrainTreeGrove(terrain);
+    if (!isSceneGraph([...entities, ...grove])) {
+      setStatus('The tree group could not be added to this scene.');
+      return;
+    }
+    setEntities(current => [...current, ...grove]);
+    setSelection(grove[0].id);
+    setStatus('Added a grove of three editable trees under the selected Terrain.');
+  }, [entities]);
+
+  const addWaterToTerrain = useCallback((terrainId: string) => {
+    const terrain = entities.find(entity => entity.id === terrainId);
+    if (!terrain) {
+      setStatus('Select a Terrain in Hierarchy before adding water.');
+      return;
+    }
+    const water = createTerrainWater(terrain);
+    if (!isSceneGraph([...entities, water])) {
+      setStatus('Water could not be added to this scene.');
+      return;
+    }
+    setEntities(current => [...current, water]);
+    setSelection(water.id);
+    setStatus('Added an editable water surface to the selected Terrain.');
+  }, [entities]);
+
   const showImportPicker = useCallback(() => importInputRef.current?.click(), []);
   const showTexturePicker = useCallback(() => textureInputRef.current?.click(), []);
   const openTimeline = useCallback(() => {
@@ -1927,6 +1989,9 @@ export default function BlankWorkspace() {
     onCreateTexture: () => { void makeTexture(); },
     onOpenTimeline: openTimeline,
     onCreateEmpty: createEmptyObject,
+    onTerrainBrush: applyTerrainBrush,
+    onAddTrees: addTreesToTerrain,
+    onAddWater: addWaterToTerrain,
   };
 
   return (

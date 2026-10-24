@@ -14,6 +14,7 @@ export type PlaneSettings = { size: number; width: number; depth: number };
 type Props = {
   point: HierarchyMenuPoint;
   assets: ProjectAsset[];
+  terrainAvailable: boolean;
   deleteTarget: { id: string; name: string; childCount: number } | null;
   onClose: () => void;
   onDeleteEntity: (entityId: string) => void;
@@ -31,11 +32,12 @@ type Props = {
   onCreateTexture: () => void;
   onOpenTimeline: () => void;
   onCreateEmpty: () => void;
+  onTerrainBrush: (action: 'raise' | 'lower' | 'smooth') => void;
+  onAddTrees: () => void;
+  onAddWater: () => void;
 };
 
 const menuEntries = [
-  ['plane', 'Create Plane'],
-  ['terrain', 'Create Terrain'],
   ['import', 'Import Asset'],
   ['camera', 'Create Camera'],
   ['light', 'Create Light'],
@@ -45,11 +47,11 @@ const menuEntries = [
   ['texture', 'Create Texture'],
   ['upload-texture', 'Upload 2D Texture'],
   ['timeline', 'Timeline Your Animation'],
-  ['empty', 'Create Empty Object'],
 ] as const;
 
 export function HierarchyContextMenu(props: Props) {
   const [showShapes, setShowShapes] = useState(false);
+  const [showWorldTools, setShowWorldTools] = useState(false);
   const [showAssets, setShowAssets] = useState(false);
   const [showUIOptions, setShowUIOptions] = useState(false);
   const [dialog, setDialog] = useState<'plane' | 'terrain' | null>(null);
@@ -63,7 +65,7 @@ export function HierarchyContextMenu(props: Props) {
     const left = Math.max(8, Math.min(props.point.x, window.innerWidth - bounds.width - 8));
     const top = Math.max(8, Math.min(props.point.y, window.innerHeight - bounds.height - 8));
     setPosition(current => current.x === left && current.y === top ? current : { x: left, y: top });
-  }, [props.point, showShapes, showAssets, showUIOptions]);
+  }, [props.point, showShapes, showWorldTools, showAssets, showUIOptions]);
 
   function run(action: () => void) {
     props.onClose();
@@ -99,19 +101,53 @@ export function HierarchyContextMenu(props: Props) {
           <span>Create Object</span><span aria-hidden="true">{showShapes ? '−' : '›'}</span>
         </button>
         {showShapes && (
-          <div className="fresh-shape-picker" aria-label="Choose a 3D shape">
-            {primitiveShapes.map(shape => (
-              <button
-                type="button"
-                key={shape.value}
-                onClick={() => {
-                  if (shape.value === 'plane') setDialog('plane');
-                  else run(() => props.onCreateShape(shape.value));
-                }}
-              >
-                {shape.label}
-              </button>
-            ))}
+          <div className="fresh-create-picker">
+            <div className="fresh-shape-picker" aria-label="Choose a 3D shape">
+              {primitiveShapes.map(shape => (
+                <button
+                  type="button"
+                  key={shape.value}
+                  onClick={() => {
+                    if (shape.value === 'plane') setDialog('plane');
+                    else run(() => props.onCreateShape(shape.value));
+                  }}
+                >
+                  {shape.label}
+                </button>
+              ))}
+            </div>
+            <div className="fresh-context-create-actions" aria-label="Create scene objects">
+              <button type="button" data-testid="menu-create-empty" onClick={() => run(props.onCreateEmpty)}>Create Empty Object</button>
+              <button type="button" data-testid="menu-create-plane" onClick={() => setDialog('plane')}>Create Plane</button>
+              <button type="button" data-testid="menu-create-terrain" onClick={() => setDialog('terrain')}>Create Terrain</button>
+            </div>
+          </div>
+        )}
+        <button
+          type="button"
+          role="menuitem"
+          className="fresh-context-action"
+          aria-expanded={showWorldTools}
+          onClick={() => setShowWorldTools(value => !value)}
+          data-testid="hierarchy-world-tools"
+        >
+          <span>World Building Tools</span><span aria-hidden="true">{showWorldTools ? '−' : '›'}</span>
+        </button>
+        {showWorldTools && (
+          <div className="fresh-world-tool-picker" role="group" aria-label="Terrain and world shaping">
+            <button type="button" disabled={!props.terrainAvailable} data-testid="world-tool-raise"
+              onClick={() => run(() => props.onTerrainBrush('raise'))}>Raise Terrain</button>
+            <button type="button" disabled={!props.terrainAvailable} data-testid="world-tool-lower"
+              onClick={() => run(() => props.onTerrainBrush('lower'))}>Lower Terrain</button>
+            <button type="button" disabled={!props.terrainAvailable} data-testid="world-tool-smooth"
+              onClick={() => run(() => props.onTerrainBrush('smooth'))}>Smooth Terrain</button>
+            <button type="button" disabled={!props.terrainAvailable} data-testid="world-tool-trees"
+              onClick={() => run(props.onAddTrees)}>Add Trees</button>
+            <button type="button" disabled={!props.terrainAvailable} data-testid="world-tool-water"
+              onClick={() => run(props.onAddWater)}>Add Water</button>
+            {!props.terrainAvailable && (
+              <p className="fresh-world-tool-hint">Select a Terrain in Hierarchy to enable these tools.</p>
+            )}
           </div>
         )}
         {menuEntries.map(([key, label]) => key === 'ui' ? (
@@ -154,10 +190,6 @@ export function HierarchyContextMenu(props: Props) {
             className="fresh-context-action"
             key={key}
             onClick={() => {
-              if (key === 'plane' || key === 'terrain') {
-                setDialog(key);
-                return;
-              }
               if (key === 'import') return run(props.onImportAsset);
               if (key === 'upload-texture') return run(props.onUploadTexture);
               if (key === 'camera') return run(props.onCreateCamera);
@@ -166,11 +198,9 @@ export function HierarchyContextMenu(props: Props) {
               if (key === 'script') return run(props.onCreateScript);
               if (key === 'texture') return run(props.onCreateTexture);
               if (key === 'timeline') return run(props.onOpenTimeline);
-              if (key === 'empty') return run(props.onCreateEmpty);
             }}
           >
             <span>{label}</span>
-            {(key === 'plane' || key === 'terrain') && <span aria-hidden="true">›</span>}
           </button>
         ))}
         <button

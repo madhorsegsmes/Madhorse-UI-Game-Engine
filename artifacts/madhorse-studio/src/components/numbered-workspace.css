@@ -525,12 +525,29 @@ body::-webkit-scrollbar-thumb,
   background: rgb(6 5 10 / 56%);
 }
 
+.fresh-create-picker {
+  display: grid;
+  max-height: min(360px, 56dvh);
+  gap: 4px;
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid rgb(136 87 179 / 32%);
+  background: rgb(6 5 10 / 56%);
+  scrollbar-color: #7042a1 #100c18;
+  scrollbar-width: thin;
+}
+
 .fresh-shape-picker {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .fresh-shape-picker button,
-.fresh-asset-picker button {
+.fresh-asset-picker button,
+.fresh-context-create-actions button,
+.fresh-world-tool-picker button {
   min-width: 0;
   min-height: 34px;
   padding: 5px;
@@ -544,9 +561,35 @@ body::-webkit-scrollbar-thumb,
 }
 
 .fresh-shape-picker button:hover,
-.fresh-asset-picker button:hover {
+.fresh-asset-picker button:hover,
+.fresh-context-create-actions button:hover,
+.fresh-world-tool-picker button:not(:disabled):hover {
   border-color: #c179ff;
   background: #29183a;
+}
+
+.fresh-context-create-actions,
+.fresh-world-tool-picker {
+  display: grid;
+  gap: 3px;
+  padding: 4px;
+  border-top: 1px solid rgb(192 155 222 / 22%);
+}
+
+.fresh-context-create-actions button,
+.fresh-world-tool-picker button {
+  text-align: left;
+}
+
+.fresh-world-tool-picker button:disabled {
+  cursor: not-allowed;
+  opacity: .42;
+}
+
+.fresh-world-tool-hint {
+  margin: 3px 4px 1px;
+  color: #b7a5c9;
+  font: 10px/1.4 Inter, system-ui, sans-serif;
 }
 
 .fresh-asset-picker {

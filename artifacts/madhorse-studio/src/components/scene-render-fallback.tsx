@@ -141,7 +141,7 @@ export function SceneRenderFallback({
       const primitive = getPrimitive(entity);
       const effect = getEffect(entity);
       if (primitive?.enabled) {
-        const geometry = createPrimitiveGeometry(primitive.shape, primitive.terrainSettings);
+        const geometry = createPrimitiveGeometry(primitive.shape, primitive.terrainSettings, primitive.terrainEdits);
         const material = new THREE.MeshStandardMaterial({
           color: primitive.color,
           roughness: primitive.roughness ?? 0.58,

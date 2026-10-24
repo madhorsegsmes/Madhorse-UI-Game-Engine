@@ -386,6 +386,11 @@ export function SceneObjectInspector({
           {numberField('Opacity', 'primitive.opacity', 0.05, 1, 0.05)}
           {selectField('Surface texture', 'primitive.textureAssetId', assetOptions(imageAssets))}
         </>)}
+        {primitive?.shape === 'terrain' && section('World Building Tools',
+          <p className="fresh-world-tool-hint" data-testid="terrain-sculpt-summary">
+            {primitive.terrainEdits?.length ?? 0} terrain sculpt edits saved. Right-click this Terrain in Hierarchy to raise, lower, or smooth it, or add trees and water.
+          </p>,
+        )}
         {physics && section('Physics', <>
           {checkboxField('Enabled', 'physics.enabled')}
           {checkboxField('Collider enabled', 'physics.colliderEnabled')}
