@@ -26,11 +26,12 @@ function transformOf(entity: SceneEntity): MultiplayerTransform {
 export function createMultiplayerUpdate(
   entities: SceneEntity[],
   playing: boolean,
+  isHost = true,
 ): MultiplayerRoomUpdate {
   if (!playing) return { playerTransform: null, objects: [] };
   const player = entities.find(entity => entity.active && multiplayerComponent(entity, "player"));
   const objects = entities
-    .filter(entity => entity.active && multiplayerComponent(entity, "object"))
+    .filter(entity => isHost && entity.active && multiplayerComponent(entity, "object"))
     .slice(0, 256)
     .map(entity => ({ entityId: entity.id, transform: transformOf(entity) }));
   return {
@@ -83,13 +84,14 @@ export function applyMultiplayerSnapshot(
   liveEntities: SceneEntity[],
   snapshot: MultiplayerRoomSnapshot | null,
   localPlayerId: string | null,
+  isHost = false,
 ): SceneEntity[] {
   const withoutRemotePlayers = liveEntities.filter(entity => !entity.id.startsWith("multiplayer-peer:"));
   if (!snapshot) return withoutRemotePlayers;
 
   const objectTransforms = new Map(snapshot.objects.map(object => [object.entityId, object.transform]));
   const withRemoteObjects = withoutRemotePlayers.map(entity => {
-    if (!multiplayerComponent(entity, "object")) return entity;
+    if (isHost || !multiplayerComponent(entity, "object")) return entity;
     const synced = objectTransforms.get(entity.id);
     return synced ? withTransform(entity, synced) : entity;
   });

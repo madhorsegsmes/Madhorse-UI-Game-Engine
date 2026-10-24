@@ -211,10 +211,15 @@ router.put("/multiplayer/sessions/:code/state", (req, res): void => {
     res.status(400).json({ error: "The multiplayer state update is invalid." });
     return;
   }
-  access.member.transform = parsed.data.playerTransform;
-  for (const object of parsed.data.objects) {
-    access.room.objects.set(object.entityId, object);
+  if (access.member.isHost) {
+    const ids = new Set([...access.room.objects.keys(), ...parsed.data.objects.map(object => object.entityId)]);
+    if (ids.size > 256) {
+      res.status(400).json({ error: "A room supports up to 256 synchronized objects." });
+      return;
+    }
+    for (const object of parsed.data.objects) access.room.objects.set(object.entityId, object);
   }
+  access.member.transform = parsed.data.playerTransform;
   res.json(SyncMultiplayerSessionStateResponse.parse(buildState(access.room)));
 });
 

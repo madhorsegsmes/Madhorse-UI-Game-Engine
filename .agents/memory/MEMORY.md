@@ -13,3 +13,4 @@
 - [Inspector save checks](inspector-save-checks.md) — verify actual submission and persistence; browser number validation can silently block otherwise valid object settings.
 - [Beginner-friendly engine tools](beginner-engine-tools.md) — explain Unity/Unreal-style Madhorse tools with plain labels and simple steps.
 - [Editor platform scope](editor-platform-scope.md) — PC-only authoring; mobile games remain a supported output target, not a phone editor interface.
+- [Multiplayer authority](multiplayer-authority.md) — shared objects have one host writer; delayed host snapshots must not reset its running simulation.

@@ -9,19 +9,24 @@ import {
 } from "@/lib/multiplayer-client";
 
 type Props = {
+  objectEventName?: string;
   member: MultiplayerRoomMember | null;
   snapshot: MultiplayerRoomSnapshot | null;
   onMemberChange: (member: MultiplayerRoomMember | null) => void;
   onSnapshotChange: Dispatch<SetStateAction<MultiplayerRoomSnapshot | null>>;
 };
 
-export function MultiplayerToolsPanel({ member, snapshot, onMemberChange, onSnapshotChange }: Props) {
+export function MultiplayerToolsPanel({ member, snapshot, onMemberChange, onSnapshotChange, objectEventName }: Props) {
   const [playerName, setPlayerName] = useState("Player");
   const [roomCode, setRoomCode] = useState("");
   const [eventName, setEventName] = useState("player.ready");
   const [eventPayload, setEventPayload] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (objectEventName) setEventName(objectEventName);
+  }, [objectEventName]);
 
   useEffect(() => {
     if (member) {
@@ -209,7 +214,9 @@ export function MultiplayerToolsPanel({ member, snapshot, onMemberChange, onSnap
       )}
 
       <p className="fresh-multiplayer-note">
-        Use the same project on each computer for object syncing. Rooms are temporary and support up to 8 players.
+        Open the same saved scene on each PC, add Network Player to your player, then press Play Test on both.
+        The host controls Sync Object movement. Updates arrive twice per second.
+        Rooms support 8 players and reset when the server restarts.
       </p>
       {message && <p className="fresh-multiplayer-status" role="status">{message}</p>}
     </section>

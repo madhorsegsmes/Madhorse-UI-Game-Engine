@@ -253,6 +253,9 @@ function SettingsPanel({
   const [gameTypeLibraryPdfUrl, setGameTypeLibraryPdfUrl] = useState<string | null>(null);
   const gameTypeLibraryPdfUrlRef = useRef<string | null>(null);
   const pluginEntries = scenePluginCatalog[activePluginTab];
+  const selectedEventComponent = selectedEntity?.components.find(component =>
+    component.type === 'multiplayerPlugin' && component.mode === 'event' && component.enabled,
+  );
   const functionTools = FUNCTION_TOOLSETS[activeFunctionTab];
 
   useEffect(() => () => {
@@ -697,6 +700,8 @@ function SettingsPanel({
                 </p>
                 {activePluginTab === 'multiplayer' && (
                   <MultiplayerToolsPanel
+                    objectEventName={selectedEventComponent?.type === 'multiplayerPlugin'
+                      ? selectedEventComponent.eventName : undefined}
                     member={multiplayerMember}
                     snapshot={multiplayerSnapshot}
                     onMemberChange={onMultiplayerMemberChange}
@@ -1832,6 +1837,8 @@ export default function BlankWorkspace() {
         result.entities,
         multiplayerSnapshotRef.current,
         multiplayerMemberRef.current?.playerId ?? null,
+        multiplayerSnapshotRef.current?.players.find(player => player.id === multiplayerMemberRef.current?.playerId)?.isHost
+          ?? multiplayerMemberRef.current?.isHost ?? false,
       );
       result.events.forEach(event => setStatus(event.message));
       result.audioEvents.forEach(event => {
@@ -1932,8 +1939,10 @@ export default function BlankWorkspace() {
       try {
         const playing = playTestOnRef.current;
         const sceneEntities = runtimeEntitiesRef.current ?? [];
+        const isHost = multiplayerSnapshotRef.current?.players.find(player => player.id === multiplayerMember.playerId)?.isHost
+          ?? multiplayerMember.isHost;
         const snapshot = playing
-          ? await syncMultiplayerRoomState(multiplayerMember, createMultiplayerUpdate(sceneEntities, true))
+          ? await syncMultiplayerRoomState(multiplayerMember, createMultiplayerUpdate(sceneEntities, true, isHost))
           : await getMultiplayerRoomState(multiplayerMember);
         if (!disposed) {
           multiplayerSnapshotRef.current = snapshot;
