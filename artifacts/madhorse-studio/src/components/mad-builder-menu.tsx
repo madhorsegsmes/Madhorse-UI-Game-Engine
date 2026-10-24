@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { MouseEvent } from 'react';
-import type { BuilderStyle, MadBuilderProps } from './mad-builder-contract';
+import type { BuilderBuildCategory, BuilderStyle, MadBuilderProps } from './mad-builder-contract';
 import type { BuilderReferenceImage } from '@workspace/api-client-react';
 import { prepareBuilderReference } from '@/lib/builder-reference-image';
+import { getMadBuilderModules, type MadBuilderModuleCategory, type MadBuilderModuleId } from '@/lib/mad-builder-modules';
 import './workspace-browser-menus.css';
 import './mad-builder-menu.css';
 
@@ -10,7 +11,16 @@ const EXAMPLE = 'Build a small 3D house with four walls, a pitched roof, a front
 const CAR_REFERENCE_PROMPT = 'Use the uploaded car image as the source of truth. If it is a two-door muscle or sports coupe, use the dedicated vehicle tool (muscle-coupe) for a contoured body, wheel openings, shaped glass cabin and four detailed wheels, not a stack of boxes. Match its real-world proportions, paint, dark trim and visible paired racing stripes. Build one editable car only, without scenery or duplicate details. Explain which hidden details are estimated and any differences imposed by the coupe template. Do not force other vehicle styles into this template.';
 const STYLE_STORAGE_KEY = 'madhorse-studio-mad-builder-style';
 const DEFAULT_REFERENCE_STORAGE_KEY = 'madhorse-studio-mad-builder-default-reference';
-const DEFAULT_REFERENCE_URL = `${import.meta.env.BASE_URL}references/default-style-coupe.webp`;
+const BUILD_CATEGORY_STORAGE_KEY = 'madhorse-studio-mad-builder-build-category';
+const DEFAULT_REFERENCE_URLS = {
+  vehicle: `${import.meta.env.BASE_URL}references/default-style-coupe.webp`,
+  house: `${import.meta.env.BASE_URL}references/default-style-house.webp`,
+};
+const BUILD_CATEGORIES: { value: BuilderBuildCategory; label: string }[] = [
+  { value: 'auto', label: 'Automatic — follow the prompt' },
+  { value: 'vehicle', label: 'Vehicle — orange coupe reference' },
+  { value: 'house', label: 'House — Victorian reference' },
+];
 const BUILD_STYLES: { value: BuilderStyle; label: string }[] = [
   { value: 'polished-game-ready', label: 'Polished game-ready' },
   { value: 'realistic-game-ready', label: 'Realistic game asset' },
@@ -31,23 +41,50 @@ function readDefaultReferenceEnabled() {
   catch { return true; }
 }
 
-export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; onClose?: () => void }) {
+function readSavedBuildCategory(): BuilderBuildCategory {
+  try {
+    const saved = window.localStorage.getItem(BUILD_CATEGORY_STORAGE_KEY);
+    return BUILD_CATEGORIES.find((category) => category.value === saved)?.value ?? 'vehicle';
+  } catch {
+    return 'vehicle';
+  }
+}
+
+export function MadBuilderMenu(props: MadBuilderProps & {
+  embedded?: boolean;
+  onClose?: () => void;
+  onAddModule?: (moduleId: MadBuilderModuleId) => void;
+}) {
   const { embedded = false } = props;
   const { history, plan, phase, error, readOnly, onPlan, onCancel, onDiscard, onApply } = props;
   const [prompt, setPrompt] = useState('');
   const [asPrefab, setAsPrefab] = useState(false);
   const [buildStyle, setBuildStyle] = useState<BuilderStyle>(readSavedStyle);
+  const [buildCategory, setBuildCategory] = useState<BuilderBuildCategory>(readSavedBuildCategory);
+  const [moduleCategory, setModuleCategory] = useState<MadBuilderModuleCategory>(() =>
+    buildCategory === 'house' ? 'house' : 'vehicle');
+  const [moduleId, setModuleId] = useState<MadBuilderModuleId>(() =>
+    getMadBuilderModules(buildCategory === 'house' ? 'house' : 'vehicle')[0].id);
   const [defaultReferenceEnabled, setDefaultReferenceEnabled] = useState(readDefaultReferenceEnabled);
   const [defaultReferenceImage, setDefaultReferenceImage] = useState('');
+  const [defaultReferenceLoadedFor, setDefaultReferenceLoadedFor] = useState<BuilderBuildCategory | ''>('');
   const [defaultReferenceError, setDefaultReferenceError] = useState('');
   const [preparingDefaultReference, setPreparingDefaultReference] = useState(false);
   const [referenceImage, setReferenceImage] = useState('');
   const [referenceName, setReferenceName] = useState('');
   const [referenceError, setReferenceError] = useState('');
   const [preparingImage, setPreparingImage] = useState(false);
+  const defaultReferenceReady = defaultReferenceEnabled && !!defaultReferenceImage &&
+    defaultReferenceLoadedFor === buildCategory;
+  const defaultReferenceName = buildCategory === 'house' ? 'Victorian house' : 'orange coupe';
+  const defaultReferenceUrl = buildCategory === 'house' ? DEFAULT_REFERENCE_URLS.house : DEFAULT_REFERENCE_URLS.vehicle;
+  const defaultReferenceRole = buildCategory === 'auto' ? 'global-style' as const : 'category-default' as const;
+  const moduleOptions = getMadBuilderModules(moduleCategory);
+  const selectedModule = moduleOptions.find((module) => module.id === moduleId) ?? moduleOptions[0];
   const len = prompt.trim().length;
-  const hasReference = Boolean(referenceImage || (defaultReferenceEnabled && defaultReferenceImage));
-  const valid = (len >= 3 || len === 0 && Boolean(referenceImage)) && prompt.length <= 2000 && hasReference;
+  const hasReference = Boolean(referenceImage || defaultReferenceReady);
+  const canBuildFromReferenceOnly = Boolean(referenceImage || (defaultReferenceReady && buildCategory !== 'auto'));
+  const valid = (len >= 3 || len === 0 && canBuildFromReferenceOnly) && prompt.length <= 2000 && hasReference;
   const busy = phase === 'planning' || phase === 'applying' || preparingImage || preparingDefaultReference;
   const canPlan = !readOnly && !busy && valid;
   const partCount = plan?.parts.length ?? 0;
@@ -55,33 +92,46 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; on
 
   const close = (e: MouseEvent<HTMLButtonElement>) => { e.currentTarget.closest('details')?.removeAttribute('open'); };
   useEffect(() => {
-    if (!defaultReferenceEnabled || defaultReferenceImage) return;
+    if (!defaultReferenceEnabled) {
+      setPreparingDefaultReference(false);
+      return;
+    }
     const controller = new AbortController();
     setPreparingDefaultReference(true);
     setDefaultReferenceError('');
-    void fetch(DEFAULT_REFERENCE_URL, { signal: controller.signal })
+    void fetch(defaultReferenceUrl, { signal: controller.signal })
       .then((response) => {
-        if (!response.ok) throw new Error('The shared default reference could not be loaded.');
+        if (!response.ok) throw new Error('The selected default reference could not be loaded.');
         return response.blob();
       })
-      .then((blob) => prepareBuilderReference(new File([blob], 'Orange coupe style reference.webp', {
+      .then((blob) => prepareBuilderReference(new File([blob], `${defaultReferenceName} default reference.webp`, {
         type: blob.type || 'image/webp',
       })))
-      .then((image) => { if (!controller.signal.aborted) setDefaultReferenceImage(image); })
+      .then((image) => {
+        if (!controller.signal.aborted) {
+          setDefaultReferenceImage(image);
+          setDefaultReferenceLoadedFor(buildCategory);
+        }
+      })
       .catch((failure) => {
         if (!controller.signal.aborted) setDefaultReferenceError(failure instanceof Error
-          ? failure.message : 'The shared default reference could not be loaded.');
+          ? failure.message : 'The selected default reference could not be loaded.');
       })
       .finally(() => { if (!controller.signal.aborted) setPreparingDefaultReference(false); });
     return () => controller.abort();
-  }, [defaultReferenceEnabled, defaultReferenceImage]);
+  }, [defaultReferenceEnabled, buildCategory, defaultReferenceName, defaultReferenceUrl]);
   const requestReferences = (): BuilderReferenceImage[] => [
-    ...(defaultReferenceEnabled && defaultReferenceImage
-      ? [{ role: 'global-style' as const, dataUrl: defaultReferenceImage }] : []),
+    ...(defaultReferenceReady
+      ? [{ role: defaultReferenceRole, dataUrl: defaultReferenceImage }] : []),
     ...(referenceImage ? [{ role: 'user-target' as const, dataUrl: referenceImage }] : []),
   ];
   const submit = () => {
-    if (canPlan) void onPlan(prompt.trim() || 'Create the requested object using the default visual style reference.', asPrefab, buildStyle, requestReferences()).catch(() => undefined);
+    const fallbackPrompt = buildCategory === 'house'
+      ? 'Build a Victorian-style house based on the selected House reference.'
+      : buildCategory === 'vehicle'
+        ? 'Build a vehicle based on the selected Vehicle reference.'
+        : 'Build the object shown in the uploaded target reference.';
+    if (canPlan) void onPlan(prompt.trim() || fallbackPrompt, asPrefab, buildStyle, buildCategory, requestReferences()).catch(() => undefined);
   };
   const uploadReference = async (file: File | undefined) => {
     if (!file) return;
@@ -103,6 +153,24 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; on
     setDefaultReferenceEnabled(enabled);
     try { window.localStorage.setItem(DEFAULT_REFERENCE_STORAGE_KEY, String(enabled)); } catch { /* Keep this choice for the current session. */ }
   };
+  const updateBuildCategory = (value: string) => {
+    const next = BUILD_CATEGORIES.find((category) => category.value === value)?.value ?? 'vehicle';
+    setBuildCategory(next);
+    setDefaultReferenceImage('');
+    setDefaultReferenceLoadedFor('');
+    if (next !== 'auto') {
+      const category = next as MadBuilderModuleCategory;
+      setModuleCategory(category);
+      setModuleId(getMadBuilderModules(category)[0].id);
+    }
+    try { window.localStorage.setItem(BUILD_CATEGORY_STORAGE_KEY, next); } catch { /* Keep this choice for the current session. */ }
+  };
+  const updateModuleCategory = (value: string) => {
+    const next: MadBuilderModuleCategory = value === 'house' ? 'house' : 'vehicle';
+    const nextModule = getMadBuilderModules(next)[0];
+    setModuleCategory(next);
+    setModuleId(nextModule.id);
+  };
 
   const panel = (
     <section className="workspace-browser-panel browser-builder-panel" aria-label="Mad Builder" data-testid="panel-mad-builder">
@@ -121,18 +189,55 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; on
             <details className="mb-settings-dropdown" data-testid="details-builder-settings">
               <summary data-testid="button-builder-settings"><span>Settings</span><span className="mb-settings-chevron" aria-hidden="true">⌄</span></summary>
               <div className="mb-settings-content">
+                <label className="mb-style-row" htmlFor="mad-builder-category">
+                  <span>Build category</span>
+                  <select id="mad-builder-category" className="mb-style-select" value={buildCategory}
+                    disabled={readOnly || busy} onChange={(event) => updateBuildCategory(event.target.value)}
+                    data-testid="select-builder-category">
+                    {BUILD_CATEGORIES.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}
+                  </select>
+                </label>
+                <p className="mb-hint">Vehicle selects the orange coupe reference; House selects the Victorian reference. Automatic follows your prompt.</p>
                 <label className="mb-check">
                   <input type="checkbox" checked={defaultReferenceEnabled} disabled={readOnly || busy}
                     onChange={(event) => updateDefaultReference(event.target.checked)} data-testid="checkbox-builder-default-reference" />
-                  Use the shared coupe style reference on every request
+                  Use the selected default reference on every request
                 </label>
-                <p className="mb-hint">This bundled image guides visual quality, not the subject or colors of unrelated builds. An uploaded target image is sent separately and takes priority for the requested object.</p>
-                {preparingDefaultReference && <p className="mb-hint" role="status">Loading shared style reference…</p>}
-                {defaultReferenceImage && <div className="mb-default-reference">
-                  <img src={defaultReferenceImage} alt="Shared orange coupe style reference" data-testid="image-builder-default-reference" />
-                  <span>Shared orange coupe reference · sent with every request while enabled</span>
+                <p className="mb-hint">Vehicle and House references guide the selected subject. Automatic uses the coupe for finish only. An uploaded target image takes priority for the object's appearance.</p>
+                {preparingDefaultReference && defaultReferenceEnabled && <p className="mb-hint" role="status">Loading selected reference…</p>}
+                {defaultReferenceReady && <div className="mb-default-reference">
+                  <img src={defaultReferenceImage} alt={`${defaultReferenceName} default reference`} data-testid="image-builder-default-reference" />
+                  <span>{buildCategory === 'auto'
+                    ? 'Orange coupe finish reference · subject follows your prompt'
+                    : `${buildCategory === 'house' ? 'Victorian house' : 'Orange coupe'} subject reference · sent with each request`}</span>
                 </div>}
                 {defaultReferenceError && <p className="mb-error" role="alert" data-testid="text-builder-default-reference-error">{defaultReferenceError}</p>}
+                <div className="mb-module-tools" data-testid="section-builder-modules">
+                  <div className="mb-module-tools-title">MODULAR TOOLS</div>
+                  <label className="mb-style-row" htmlFor="mad-builder-module-kit">
+                    <span>Module kit</span>
+                    <select id="mad-builder-module-kit" className="mb-style-select" value={moduleCategory}
+                      disabled={readOnly || busy} onChange={(event) => updateModuleCategory(event.target.value)}
+                      data-testid="select-builder-module-kit">
+                      <option value="vehicle">Vehicle</option>
+                      <option value="house">House</option>
+                    </select>
+                  </label>
+                  <label className="mb-style-row" htmlFor="mad-builder-module">
+                    <span>Reusable part</span>
+                    <select id="mad-builder-module" className="mb-style-select" value={selectedModule?.id ?? ''}
+                      disabled={readOnly || busy} onChange={(event) => setModuleId(event.target.value as MadBuilderModuleId)}
+                      data-testid="select-builder-module">
+                      {moduleOptions.map((module) => <option key={module.id} value={module.id}>{module.label}</option>)}
+                    </select>
+                  </label>
+                  <p className="mb-hint">{selectedModule?.description} Parts remain individually editable. The first insert saves a reusable prefab; later inserts use that saved module.</p>
+                  <button type="button" className="mb-module-add" disabled={readOnly || busy || !selectedModule || !props.onAddModule}
+                    onClick={() => selectedModule && props.onAddModule?.(selectedModule.id)}
+                    data-testid="button-builder-add-module">
+                    Add module to scene and library
+                  </button>
+                </div>
               </div>
             </details>
             <label className="mb-prompt-label" htmlFor="mad-builder-reference">Optional target image for this build</label>
@@ -146,18 +251,18 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; on
               <button type="button" disabled={busy} onClick={() => { setReferenceImage(''); setReferenceName(''); }}>Remove</button>
             </div>}
             {referenceError && <p className="mb-error" role="alert">{referenceError}</p>}
-            <p className="mb-hint">An uploaded image guides the requested object's visible design. The shared style reference remains separate. Hidden sides are estimated; an exact 3D copy is not guaranteed.</p>
+            <p className="mb-hint">An uploaded image guides the requested object's visible design. The selected category reference remains separate. Hidden sides are estimated; an exact 3D copy is not guaranteed.</p>
             <label className="mb-prompt-label" htmlFor="mad-builder-prompt">What should Mad Bot build?</label>
             <textarea
               id="mad-builder-prompt" className="mb-textarea" value={prompt} maxLength={2000} rows={4}
               disabled={readOnly || busy} autoFocus={embedded && Boolean(props.onClose)}
-              placeholder="Describe what to build; an uploaded target image can be used without text."
+              placeholder="Describe what to build; a selected Vehicle or House reference can be built without extra text."
               aria-invalid={prompt.length > 0 && !valid}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); } }}
               data-testid="input-builder-prompt"
             />
-            <div className="mb-meta"><span>{len > 0 && len < 3 ? 'Min 3 characters, or leave blank' : !hasReference ? 'Enable the shared reference or upload a target image' : 'Tap Build in scene or press Ctrl+Enter'}</span><span data-testid="text-builder-char-count">{prompt.length}/2000</span></div>
+            <div className="mb-meta"><span>{len > 0 && len < 3 ? 'Min 3 characters, or leave blank' : !hasReference ? 'Enable the selected reference or upload a target image' : len === 0 && buildCategory === 'auto' && !referenceImage ? 'Enter a request or upload a target image' : 'Tap Build in scene or press Ctrl+Enter'}</span><span data-testid="text-builder-char-count">{prompt.length}/2000</span></div>
             <label className="mb-style-row" htmlFor="mad-builder-style">
               <span>Build style</span>
               <select id="mad-builder-style" className="mb-style-select" value={buildStyle}
@@ -239,13 +344,14 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; on
               <li>Sprites plus models and textures already in this project</li>
               <li>Point, directional and ambient lights; cameras</li>
               <li>UI panels, text, buttons and health bars</li>
-              <li>Grouped objects, optionally saved as a prefab</li>
+              <li>Editable vehicle and Victorian-house construction systems</li>
+              <li>Reusable vehicle and house modules saved into project prefabs</li>
             </ul>
             <p className="mb-hint">Submitting a request automatically builds editable objects in Scene 1. Existing objects are kept; delete the generated group in the hierarchy to remove it. No code is run and no files or scripts are touched.</p>
           </details>
           <div className="mb-section">
             <p className="mb-fine" data-testid="text-builder-credits">Uses OpenAI via Replit AI Integrations. No API key needed; usage is billed to your Replit credits.</p>
-            <p className="mb-fine" data-testid="text-builder-privacy">The shared style image, any optional target image, your request, selected object name and project asset names/types are sent to the existing OpenAI planner when you build. Images are transient input, not saved as project assets. The shared image is bundled with Studio; uploaded images must be selected again after closing this panel. Saved projects stay in this browser.</p>
+            <p className="mb-fine" data-testid="text-builder-privacy">The selected bundled reference, any optional target image, your request, build category, selected object name and project asset names/types are sent to the existing OpenAI planner when you build. Images are transient input, not saved as project assets. The bundled references are included with Studio; uploaded images must be selected again after closing this panel. Saved projects stay in this browser.</p>
           </div>
         </div>
       </section>

@@ -8,6 +8,7 @@
 import type { BuilderReferenceImageRole } from './builderReferenceImageRole';
 
 export interface BuilderReferenceImage {
+  /** global-style guides finish only; category-default anchors the selected Vehicle or House type; user-target is the specific object reference. */
   role: BuilderReferenceImageRole;
   /**
      * @maxLength 1500000

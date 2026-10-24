@@ -7,6 +7,7 @@
  */
 import type { BuilderAsset } from './builderAsset';
 import type { BuilderReferenceImage } from './builderReferenceImage';
+import type { MadBuilderInputBuildCategory } from './madBuilderInputBuildCategory';
 import type { MadBuilderInputStyle } from './madBuilderInputStyle';
 
 export interface MadBuilderInput {
@@ -17,6 +18,8 @@ export interface MadBuilderInput {
   prompt: string;
   /** @maxLength 80 */
   selectedName: string;
+  /** Selected target type. Vehicle and house use their matching protected reference; auto follows the prompt. */
+  buildCategory?: MadBuilderInputBuildCategory;
   /**
      * Legacy single-image input. New clients should use referenceImages.
      * @maxLength 1500000
@@ -24,7 +27,7 @@ export interface MadBuilderInput {
      */
   referenceImage?: string;
   /**
-     * Optional global style reference and user-specific target, forwarded transiently to the vision planner.
+     * Optional selected category reference and user-specific target, forwarded transiently to the vision planner.
      * @maxItems 2
      */
   referenceImages?: BuilderReferenceImage[];

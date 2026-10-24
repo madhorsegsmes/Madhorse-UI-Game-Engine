@@ -37,7 +37,9 @@ import { MadBuilderMenu } from './mad-builder-menu';
 import { useMadBuilder, type BuilderDocument } from '@/hooks/use-mad-builder';
 import type { BuilderMessage } from './mad-builder-contract';
 import type { MadBuilderPlan } from '@workspace/api-client-react';
-import type { ScenePrefab } from '@/lib/scene-authoring';
+import { capturePrefab, instantiatePrefab, type ScenePrefab } from '@/lib/scene-authoring';
+import { compileBuilderPlan } from '@/lib/mad-builder';
+import { createMadBuilderModulePlan, getMadBuilderModule, type MadBuilderModuleId } from '@/lib/mad-builder-modules';
 import type { UIControlElement } from '@/lib/ui-controls';
 import { downloadMadBuilderLogPdf, type MadBuilderBuildLog } from '@/lib/mad-builder-build-log';
 import { createGameTypeLibraryPdf, gameTypeLibraryEntryCount } from '@/lib/game-type-library';
@@ -617,6 +619,69 @@ export default function BlankWorkspace() {
     setUIControls(next.uiControls ?? []);
   }, []);
 
+  const addMadBuilderModule = useCallback((moduleId: MadBuilderModuleId) => {
+    try {
+      const current = builderProjectRef.current;
+      const module = getMadBuilderModule(moduleId);
+      const modulePlan = createMadBuilderModulePlan(moduleId);
+      const savedPrefab = (current.prefabs ?? []).find((prefab) => prefab.name === module.prefabName);
+      let newPrefab: ScenePrefab | null = null;
+      let moduleEntities: SceneEntity[];
+      let moduleControls: UIControlElement[] = [];
+      let rootId: string;
+
+      if (savedPrefab) {
+        const instance = instantiatePrefab(savedPrefab);
+        moduleEntities = instance.entities;
+        moduleControls = instance.uiControls;
+        rootId = instance.rootId;
+        const root = moduleEntities.find((entity) => entity.id === rootId);
+        if (root) {
+          getTransform(root).position = {
+            x: 50 + (current.entities.length % 8) * 12,
+            y: 50 + Math.floor(current.entities.length / 8) * 12,
+            z: 0,
+          };
+        }
+      } else {
+        const build = compileBuilderPlan(modulePlan, current.entities, current.assets);
+        moduleEntities = build.entities;
+        moduleControls = build.uiControls;
+        rootId = build.rootId;
+        newPrefab = capturePrefab(build.entities, build.rootId, module.prefabName, build.uiControls);
+      }
+
+      const request = `Add reusable ${module.category} module: ${module.label}`;
+      const response: BuilderMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        text: `Added ${module.label} as ${moduleEntities.length - 1} editable parts${savedPrefab ? ' from the reusable module library.' : ' and saved it to the reusable module library.'}`,
+      };
+      const buildLog: MadBuilderBuildLog = {
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+        request,
+        plan: modulePlan,
+        objectNames: moduleEntities.map((entity) => entity.name),
+        uiControlNames: [],
+        prefabSaved: true,
+      };
+      setBuilderProjects([{
+        ...current,
+        entities: [...current.entities, ...moduleEntities],
+        uiControls: [...(current.uiControls ?? []), ...moduleControls],
+        prefabs: newPrefab ? [...(current.prefabs ?? []), newPrefab] : current.prefabs,
+        builderHistory: [...(current.builderHistory ?? []), response].slice(-40),
+        builderBuildLogs: [...(current.builderBuildLogs ?? []), buildLog],
+      }]);
+      setSelection(rootId);
+      setEditingEntityId(null);
+      setStatus(`${module.label} added to Scene 1 as editable parts and saved as a reusable prefab.`);
+    } catch (failure) {
+      setStatus(failure instanceof Error ? failure.message : 'Could not add this reusable module.');
+    }
+  }, [setBuilderProjects]);
+
   const madBuilder = useMadBuilder({
     project: builderProject,
     activeProjectRef: builderProjectRef,
@@ -1077,6 +1142,7 @@ export default function BlankWorkspace() {
               key={FRESH_WORKSPACE_ID}
               embedded
               onClose={() => setMadBuilderOpen(false)}
+              onAddModule={addMadBuilderModule}
               {...madBuilder}
             />
           </section>

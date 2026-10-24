@@ -127,16 +127,19 @@ paid generation.
 **How to apply:** Use the local Mad Builder style profile and original scene
 geometry unless the user approves a different runtime model provider.
 
-The orange coupe reference is the shared Mad Builder default style image and is
-enabled for every request for all users; optional user uploads stay separate as
-the target image.
+Mad Builder's selected default reference follows its build category: Vehicle uses
+the orange coupe and House uses the provided Victorian house image; Automatic
+follows the prompt and treats the coupe as finish guidance only. User targets
+override the category reference's appearance. Modular builds stay editable and
+the built-in module palette stores reusable project prefabs.
 
-**Why:** The user explicitly chose the orange coupe reference only and requested
-that it be attached to every Mad Builder request by default.
+**Why:** The user chose coupe for Vehicle, Victorian for House, and requested
+both separately editable parts and reusable modules.
 
-**How to apply:** Keep the global image on by default in Studio settings, but use
-it for finish/detail quality only. A user target image takes precedence for the
-requested object's appearance; never copy the coupe subject onto unrelated builds.
+**How to apply:** Keep the selected reference enabled by default and pass the
+category to the planner. Never use the coupe as a house subject. Preserve the
+custom target as separate input, and keep first-insert modules in the project's
+reusable prefab collection so later inserts can instantiate them.
 
 Keep Mad Builder logs inside the read-only System Presets & Data disclosure, and
 generate the PDF as a static report with no edit controls.

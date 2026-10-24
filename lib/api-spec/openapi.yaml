@@ -60,6 +60,10 @@ components:
       properties:
         prompt: { type: string, minLength: 3, maxLength: 2000 }
         selectedName: { type: string, maxLength: 80 }
+        buildCategory:
+          type: string
+          enum: [auto, vehicle, house]
+          description: Selected target type. Vehicle and house use their matching protected reference; auto follows the prompt.
         referenceImage:
           type: string
           maxLength: 1500000
@@ -68,7 +72,7 @@ components:
         referenceImages:
           type: array
           maxItems: 2
-          description: Optional global style reference and user-specific target, forwarded transiently to the vision planner.
+          description: Optional selected category reference and user-specific target, forwarded transiently to the vision planner.
           items: { $ref: "#/components/schemas/BuilderReferenceImage" }
         style:
           type: string
@@ -89,7 +93,10 @@ components:
       type: object
       required: [role, dataUrl]
       properties:
-        role: { type: string, enum: [global-style, user-target] }
+        role:
+          type: string
+          enum: [global-style, category-default, user-target]
+          description: global-style guides finish only; category-default anchors the selected Vehicle or House type; user-target is the specific object reference.
         dataUrl:
           type: string
           maxLength: 1500000

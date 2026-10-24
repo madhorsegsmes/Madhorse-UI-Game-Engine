@@ -6,10 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * global-style guides finish only; category-default anchors the selected Vehicle or House type; user-target is the specific object reference.
+ */
 export type BuilderReferenceImageRole = typeof BuilderReferenceImageRole[keyof typeof BuilderReferenceImageRole];
 
 
 export const BuilderReferenceImageRole = {
   'global-style': 'global-style',
+  'category-default': 'category-default',
   'user-target': 'user-target',
 } as const;

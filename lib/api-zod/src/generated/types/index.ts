@@ -21,5 +21,6 @@ export * from './builderSize';
 export * from './builderVector';
 export * from './healthStatus';
 export * from './madBuilderInput';
+export * from './madBuilderInputBuildCategory';
 export * from './madBuilderInputStyle';
 export * from './madBuilderPlan';

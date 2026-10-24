@@ -37,11 +37,12 @@ export const planMadBuilderBodyAssetsMax = 40;
 export const PlanMadBuilderBody = zod.object({
   "prompt": zod.string().min(planMadBuilderBodyPromptMin).max(planMadBuilderBodyPromptMax),
   "selectedName": zod.string().max(planMadBuilderBodySelectedNameMax),
+  "buildCategory": zod.enum(['auto', 'vehicle', 'house']).optional().describe('Selected target type. Vehicle and house use their matching protected reference; auto follows the prompt.'),
   "referenceImage": zod.string().max(planMadBuilderBodyReferenceImageMax).regex(planMadBuilderBodyReferenceImageRegExp).optional().describe('Legacy single-image input. New clients should use referenceImages.'),
   "referenceImages": zod.array(zod.object({
-  "role": zod.enum(['global-style', 'user-target']),
+  "role": zod.enum(['global-style', 'category-default', 'user-target']).describe('global-style guides finish only; category-default anchors the selected Vehicle or House type; user-target is the specific object reference.'),
   "dataUrl": zod.string().max(planMadBuilderBodyReferenceImagesItemDataUrlMax).regex(planMadBuilderBodyReferenceImagesItemDataUrlRegExp)
-})).max(planMadBuilderBodyReferenceImagesMax).optional().describe('Optional global style reference and user-specific target, forwarded transiently to the vision planner.'),
+})).max(planMadBuilderBodyReferenceImagesMax).optional().describe('Optional selected category reference and user-specific target, forwarded transiently to the vision planner.'),
   "style": zod.enum(['polished-game-ready', 'realistic-game-ready', 'stylized-high-detail']).optional().describe('Visual quality guidance for newly generated scene objects.'),
   "assets": zod.array(zod.object({
   "id": zod.string().max(planMadBuilderBodyAssetsItemIdMax),

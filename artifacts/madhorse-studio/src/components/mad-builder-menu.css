@@ -43,6 +43,10 @@
 .mb-settings-content { padding: 8px; }
 .mb-default-reference { display: flex; align-items: center; gap: 9px; margin-top: 7px; color: #aaa3a0; font-size: 10px; line-height: 1.4; }
 .mb-default-reference img { width: 86px; height: 56px; flex: 0 0 auto; border: 1px solid #68504d; object-fit: cover; background: #111; }
+.mb-module-tools { margin-top: 10px; padding: 8px; border: 1px solid #3e393b; background: #141315; }
+.mb-module-tools-title { margin-bottom: 5px; color: #c38b82; font-size: 9px; font-weight: 750; letter-spacing: .14em; }
+.mb-module-tools .mb-style-row { margin-top: 7px; }
+.mb-module-add { width: 100%; margin-top: 7px; }
 .mb-title { display: flex; align-items: center; gap: 7px; margin: 0 0 8px; color: #aa7770; font-size: 9px; font-weight: 700; letter-spacing: .16em; }
 .mb-num { color: #d8867c; font: 9px ui-monospace, SFMono-Regular, Menlo, monospace; border: 1px solid #5d3935; padding: 2px 4px; letter-spacing: 0; }
 .mb-rule { flex: 1; height: 1px; background: #393536; }
