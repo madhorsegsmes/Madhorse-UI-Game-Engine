@@ -805,6 +805,15 @@ function SettingsPanel({
               </div>
             </div>
           </details>
+          <details className="fresh-settings-category fresh-settings-dropdown" data-testid="details-vision-board">
+            <summary className="fresh-settings-category-summary" data-testid="button-toggle-vision-board">
+              <h2>Vision Board</h2>
+              <ChevronDown size={14} aria-hidden="true" />
+            </summary>
+            <div className="fresh-settings-category-content">
+              <div className="fresh-vision-board-blank" role="region" aria-label="Blank vision board" data-testid="vision-board-blank" />
+            </div>
+          </details>
         </div>
       )}
     </div>
