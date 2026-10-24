@@ -626,6 +626,11 @@ body::-webkit-scrollbar-thumb,
 .fresh-function-tab:hover { border-color: #aa79d6; color: #f4e9ff; }
 .fresh-function-tab[data-active="true"] { border-color: #a86dde; background: rgb(92 48 128 / 45%); color: #f4e9ff; box-shadow: inset 0 0 0 1px rgb(168 109 222 / 18%); }
 .fresh-function-tab:focus-visible { outline: 2px solid #d2a9f4; outline-offset: 2px; }
+.fresh-plugin-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.fresh-plugin-tab { min-width: 0; min-height: 42px; padding: 6px 5px; border: 1px solid rgb(136 100 170 / 42%); background: rgb(14 11 20 / 76%); color: #c5b6d2; font: 600 8px/1.35 Inter, system-ui, sans-serif; white-space: normal; overflow-wrap: anywhere; cursor: pointer; }
+.fresh-plugin-tab[data-active="true"] { border-color: #a86dde; background: rgb(92 48 128 / 45%); color: #f4e9ff; box-shadow: inset 0 0 0 1px rgb(168 109 222 / 18%); }
+.fresh-plugin-tab:hover { border-color: #aa79d6; color: #f4e9ff; }
+.fresh-plugin-tab:focus-visible { outline: 2px solid #d2a9f4; outline-offset: 2px; }
 .fresh-game-type-library { display: grid; gap: 7px; margin: 2px 0 4px; padding: 8px; border: 1px solid rgb(136 100 170 / 32%); background: rgb(9 8 15 / 45%); }
 .fresh-game-type-library-summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #eadcf6; font: 700 10px/1.4 Inter, system-ui, sans-serif; cursor: pointer; list-style: none; }
 .fresh-game-type-library-summary::-webkit-details-marker { display: none; }

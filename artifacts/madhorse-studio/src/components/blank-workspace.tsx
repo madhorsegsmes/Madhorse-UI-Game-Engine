@@ -111,6 +111,7 @@ function SettingsPanel({
   const [activeFunctionTab, setActiveFunctionTab] = useState<
     'game-system' | 'player-functions' | 'game-controls' | 'player-controls' | 'npc-functions' | 'npc-controls'
   >('game-system');
+  const [activePluginTab, setActivePluginTab] = useState<'game' | 'player-npc' | 'system'>('game');
   const [gameTypeLibraryPdfUrl, setGameTypeLibraryPdfUrl] = useState<string | null>(null);
   const gameTypeLibraryPdfUrlRef = useRef<string | null>(null);
 
@@ -320,7 +321,40 @@ function SettingsPanel({
               <h2>Plugins</h2>
               <ChevronDown size={14} aria-hidden="true" />
             </summary>
-            <div className="fresh-settings-category-content" />
+            <div className="fresh-settings-category-content">
+              <div className="fresh-plugin-tabs" role="group" aria-label="Plugin categories">
+                <button
+                  type="button"
+                  className="fresh-plugin-tab"
+                  aria-pressed={activePluginTab === 'game'}
+                  data-active={activePluginTab === 'game'}
+                  data-testid="button-game-plugins"
+                  onClick={() => setActivePluginTab('game')}
+                >
+                  Game Plugins
+                </button>
+                <button
+                  type="button"
+                  className="fresh-plugin-tab"
+                  aria-pressed={activePluginTab === 'player-npc'}
+                  data-active={activePluginTab === 'player-npc'}
+                  data-testid="button-player-npc-plugins"
+                  onClick={() => setActivePluginTab('player-npc')}
+                >
+                  Player/NPC Plugins
+                </button>
+                <button
+                  type="button"
+                  className="fresh-plugin-tab"
+                  aria-pressed={activePluginTab === 'system'}
+                  data-active={activePluginTab === 'system'}
+                  data-testid="button-system-plugins"
+                  onClick={() => setActivePluginTab('system')}
+                >
+                  System Plugins
+                </button>
+              </div>
+            </div>
           </details>
         </div>
       )}
