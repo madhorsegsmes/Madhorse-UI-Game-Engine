@@ -15,10 +15,11 @@ import './components/auth-pages.css';
 
 const StudioProjects = lazy(() => import('./components/studio-projects'));
 const VisionBoardPage = lazy(() => import('./components/vision-board-page'));
+const HubPage = lazy(() => import('./components/hub-page'));
 const clerkPubKey = publishableKeyFromHost(window.location.hostname, import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
-const editorPath = `${basePath}/editor/`;
+const hubPath = `${basePath}/hub/`;
 
 function stripBase(path: string) {
   return basePath && path.startsWith(basePath) ? path.slice(basePath.length) || '/' : path;
@@ -104,8 +105,21 @@ function AuthFrame({ children, eyebrow, title, description }: {
 function PublicHomeRoute() {
   return (
     <>
-      <Show when="signed-in"><Redirect to="/editor/" /></Show>
+      <Show when="signed-in"><Redirect to="/hub/" /></Show>
       <Show when="signed-out"><HomePage /></Show>
+    </>
+  );
+}
+
+function ProtectedHubRoute() {
+  return (
+    <>
+      <Show when="signed-in">
+        <Suspense fallback={<div className="madhorse-route-loading">Opening your hub…</div>}>
+          <HubPage />
+        </Suspense>
+      </Show>
+      <Show when="signed-out"><Redirect to="/sign-in" /></Show>
     </>
   );
 }
@@ -148,17 +162,17 @@ function LegacyVisionBoardRoute() {
 function SignInRoute() {
   return (
     <>
-      <Show when="signed-in"><Redirect to="/editor/" /></Show>
+      <Show when="signed-in"><Redirect to="/hub/" /></Show>
       <Show when="signed-out">
         <AuthFrame eyebrow="PICK UP WHERE YOU LEFT OFF" title="Welcome back." description="Sign in to return to your projects, scenes, and saved ideas.">
           <SignIn
             routing="path"
             path={`${basePath}/sign-in`}
             signUpUrl={`${basePath}/sign-up`}
-            forceRedirectUrl={editorPath}
-            fallbackRedirectUrl={editorPath}
-            signUpForceRedirectUrl={editorPath}
-            signUpFallbackRedirectUrl={editorPath}
+            forceRedirectUrl={hubPath}
+            fallbackRedirectUrl={hubPath}
+            signUpForceRedirectUrl={hubPath}
+            signUpFallbackRedirectUrl={hubPath}
           />
         </AuthFrame>
       </Show>
@@ -169,15 +183,15 @@ function SignInRoute() {
 function SignUpRoute() {
   return (
     <>
-      <Show when="signed-in"><Redirect to="/editor/" /></Show>
+      <Show when="signed-in"><Redirect to="/hub/" /></Show>
       <Show when="signed-out">
         <AuthFrame eyebrow="YOUR NEXT WORLD STARTS HERE" title="Make room for your ideas." description="Create a Madhorse account to start building and keep your projects in reach.">
           <SignUp
             routing="path"
             path={`${basePath}/sign-up`}
             signInUrl={`${basePath}/sign-in`}
-            forceRedirectUrl={editorPath}
-            fallbackRedirectUrl={editorPath}
+            forceRedirectUrl={hubPath}
+            fallbackRedirectUrl={hubPath}
           />
         </AuthFrame>
       </Show>
@@ -205,6 +219,7 @@ function ClerkRoutes() {
         <Route path="/" component={PublicHomeRoute} />
         <Route path="/sign-in/*?" component={SignInRoute} />
         <Route path="/sign-up/*?" component={SignUpRoute} />
+        <Route path="/hub/*?" component={ProtectedHubRoute} />
         <Route path="/editor/vision-board/*?" component={ProtectedVisionBoardRoute} />
         <Route path="/editor/*?" component={ProtectedEditorRoute} />
         <Route path="/vision-board/*?" component={LegacyVisionBoardRoute} />

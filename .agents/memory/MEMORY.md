@@ -16,3 +16,4 @@
 - [Multiplayer authority](multiplayer-authority.md) — shared objects have one host writer; delayed host snapshots must not reset its running simulation.
 - [Vision Board authoring](vision-board-authoring.md) — media belongs to each node; creative effects must preserve the original files.
 - [Studio Clerk React compatibility](studio-clerk-react-compatibility.md) — keep Madhorse Studio’s React and ReactDOM aligned with Clerk’s current peer-version range.
+- [Hub-first authentication](hub-first-authentication.md) — after sign-up and sign-in, send users to the authenticated Hub before the editor.
