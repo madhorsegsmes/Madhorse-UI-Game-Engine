@@ -119,7 +119,7 @@ function SettingsPanel({
     'game-system' | 'player-functions' | 'game-controls' | 'player-controls' | 'npc-functions' | 'npc-controls'
   >('game-system');
   const [activePluginTab, setActivePluginTab] = useState<
-    'game' | 'player-npc' | 'system' | 'lighting' | 'animation' | 'asset' | 'effect' | 'triggers' | 'trigger-zones' | 'skybox' | 'character-builder' | 'behavior-builder'
+    'game' | 'player-npc' | 'system' | 'lighting' | 'animation' | 'asset' | 'effect' | 'triggers' | 'trigger-zones' | 'skybox' | 'character-builder' | 'behavior-builder' | 'script'
   >('game');
   const [gameTypeLibraryPdfUrl, setGameTypeLibraryPdfUrl] = useState<string | null>(null);
   const gameTypeLibraryPdfUrlRef = useRef<string | null>(null);
@@ -463,6 +463,16 @@ function SettingsPanel({
                   onClick={() => setActivePluginTab('behavior-builder')}
                 >
                   Behavior Builder Plugin
+                </button>
+                <button
+                  type="button"
+                  className="fresh-plugin-tab"
+                  aria-pressed={activePluginTab === 'script'}
+                  data-active={activePluginTab === 'script'}
+                  data-testid="button-script-plugin"
+                  onClick={() => setActivePluginTab('script')}
+                >
+                  Script Plugin
                 </button>
               </div>
             </div>
