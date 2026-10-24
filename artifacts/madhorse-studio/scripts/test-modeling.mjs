@@ -19,6 +19,7 @@ try {
           normalizeVertexInfluence, appendRigBone, disposeModelingDocument,
         } from './src/lib/modeling-document';
         import { exportModelingDocument, importModelingFiles } from './src/lib/modeling-io';
+        import { createExtrudedGeometry, createSubdividedGeometry } from './src/lib/modeling-mesh-edit';
         globalThis.ProgressEvent ??= class ProgressEvent extends Event {
           constructor(type, options = {}) { super(type); Object.assign(this, options); }
         };
@@ -103,6 +104,29 @@ try {
         });
         validate(modular);
         assert(documentMeshes(modular.root).length > documentMeshes(document.root).length);
+        const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+        cubeGeometry.computeBoundingBox();
+        const extruded = createExtrudedGeometry(cubeGeometry, [0], .25);
+        assert.equal(extruded.index.count, cubeGeometry.index.count + 30,
+          'A flat cube face should extrude both coplanar triangles and only four boundary walls');
+        extruded.computeBoundingBox();
+        assert(Math.max(
+          extruded.boundingBox.max.x - cubeGeometry.boundingBox.max.x,
+          extruded.boundingBox.max.y - cubeGeometry.boundingBox.max.y,
+          extruded.boundingBox.max.z - cubeGeometry.boundingBox.max.z,
+        ) > .2, 'Extruded geometry should extend beyond the original box');
+        const divided = createSubdividedGeometry(cubeGeometry, [0]);
+        assert.equal(divided.index.count, cubeGeometry.index.count + 9, 'Subdivision replaces one triangle with four');
+        for (const geometry of [extruded, divided]) {
+          const positions = geometry.getAttribute('position');
+          const normals = geometry.getAttribute('normal');
+          for (let index = 0; index < positions.count; index++) {
+            assert([positions.getX(index), positions.getY(index), positions.getZ(index)].every(Number.isFinite));
+            assert([normals.getX(index), normals.getY(index), normals.getZ(index)].every(Number.isFinite));
+          }
+          geometry.dispose();
+        }
+        cubeGeometry.dispose();
         const originalVertex = new THREE.Vector3().fromBufferAttribute(body.geometry.getAttribute('position'), 0);
         assert(Number.isFinite(originalVertex.y));
         await assert.rejects(() => importModelingFiles([new File(['not blender'], 'test.blend')]), /one .glb or .gltf/);

@@ -9,6 +9,12 @@ Provide both Madhorse-native modeling/rig tools and Blender-compatible GLB/glTF 
 
 **How to apply:** Keep the existing editor layout and saved content intact; use an expanded workspace for these tools. Explain Blender-only limitations plainly rather than suggesting constraints, modifiers, drivers, or procedural shaders transfer automatically.
 
+Do not apply generic topology operations to skinned meshes or shape-key meshes unless the operation preserves all bone weights and morph targets. Use sculpting and weight painting for rigged surfaces.
+
+**Why:** The user requested better editable rigs; ordinary mesh edits can otherwise break deformation weights or shape-key data.
+
+**How to apply:** Restrict face and vertex topology edits to compatible meshes and explain the limitation in the tool rather than silently dropping rig or morph data.
+
 Editing an imported model should make a working copy; saving a model to a project must not silently overwrite its source asset.
 
 **Why:** Rich modeling/rig edits can be destructive, and the user has repeatedly requested preservation of existing features and project data.

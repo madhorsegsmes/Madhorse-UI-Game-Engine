@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { ModelingShell } from './modeling-shell';
-import { ModelingViewport, type ModelingTool } from './modeling-viewport';
+import { ModelingViewport, type ModelingTool, type ModelingTransformMode } from './modeling-viewport';
 import {
   appendRigBone, createModularCharacter, DEFAULT_CHARACTER_OPTIONS, disposeModelingDocument,
   documentBones, documentMeshes, normalizeVertexInfluence,
@@ -11,9 +11,11 @@ import { downloadModelingFile, exportModelingDocument, importModelingFiles } fro
 import { createPrimitiveGeometry } from '@/lib/scene-view-geometry';
 import type { PrimitiveShape } from '@/lib/scene-model';
 import { beginSystemActivity } from '@/lib/system-activity';
+import { createExtrudedGeometry, createSubdividedGeometry } from '@/lib/modeling-mesh-edit';
 
 type HistoryAction = { undo: () => void; redo: () => void };
 type AttributeSnapshot = { position: Float32Array; weights?: Float32Array; indices?: Uint16Array };
+type ObjectTransform = { position: THREE.Vector3; quaternion: THREE.Quaternion; scale: THREE.Vector3 };
 type Props = {
   onClose: () => void;
   onSave: (file: File) => Promise<void>;
@@ -46,12 +48,30 @@ function restoreSnapshot(mesh: THREE.Mesh, snapshot: AttributeSnapshot) {
   geometry.computeBoundingSphere();
 }
 
+function captureTransform(object: THREE.Object3D): ObjectTransform {
+  return { position: object.position.clone(), quaternion: object.quaternion.clone(), scale: object.scale.clone() };
+}
+
+function applyTransform(object: THREE.Object3D, transform: ObjectTransform) {
+  object.position.copy(transform.position);
+  object.quaternion.copy(transform.quaternion);
+  object.scale.copy(transform.scale);
+}
+
 export default function ModelingWorkspace({ onClose, onSave, initialSource }: Props) {
   const [model, setModel] = useState<ModelingDocument | null>(null);
   const [options, setOptions] = useState<CharacterOptions>(DEFAULT_CHARACTER_OPTIONS);
   const [selected, setSelected] = useState<THREE.Object3D | null>(null);
   const [bone, setBone] = useState<THREE.Bone | null>(null);
   const [tool, setTool] = useState<ModelingTool>('select');
+  const [editMode, setEditMode] = useState(false);
+  const [editMesh, setEditMesh] = useState<THREE.Mesh | null>(null);
+  const [selectedVertices, setSelectedVertices] = useState<number[]>([]);
+  const [selectedFaces, setSelectedFaces] = useState<number[]>([]);
+  const [transformMode, setTransformMode] = useState<ModelingTransformMode>('translate');
+  const [transformSpace, setTransformSpace] = useState<'local' | 'world'>('world');
+  const [gridSnap, setGridSnap] = useState(false);
+  const [extrudeDistance, setExtrudeDistance] = useState(.2);
   const [showRig, setShowRig] = useState(true);
   const [wireframe, setWireframe] = useState(false);
   const [radius, setRadius] = useState(.12);
@@ -71,6 +91,7 @@ export default function ModelingWorkspace({ onClose, onSave, initialSource }: Pr
     material: THREE.Material | THREE.Material[];
     color: THREE.BufferAttribute | THREE.InterleavedBufferAttribute | undefined;
   }>());
+  const transformBefore = useRef<{ object: THREE.Object3D; value: ObjectTransform } | null>(null);
   const changed = useCallback(() => { setDirty(true); setRevision((value) => value + 1); }, []);
   const restoreMaterials = useCallback(() => {
     originalMaterials.current.forEach(({ material, color }, mesh) => {
@@ -86,7 +107,8 @@ export default function ModelingWorkspace({ onClose, onSave, initialSource }: Pr
     history.current = { undo: [], redo: [] };
     stroke.current.clear();
     setModel(next); setSelected(next.root); setBone(documentBones(next.root)[0] ?? null);
-    setPlaying(false); setClip(0); setTool('select'); setRevision((value) => value + 1);
+    setPlaying(false); setClip(0); setTool('select'); setEditMode(false); setEditMesh(null);
+    setSelectedVertices([]); setSelectedFaces([]); setRevision((value) => value + 1);
   }, [restoreMaterials]);
 
   useEffect(() => {
@@ -118,6 +140,24 @@ export default function ModelingWorkspace({ onClose, onSave, initialSource }: Pr
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
   useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (target instanceof HTMLElement && target.closest('input,textarea,select,button,[contenteditable="true"]')) return;
+      if (event.key.toLowerCase() === 'g') setTransformMode('translate');
+      if (event.key.toLowerCase() === 'r') setTransformMode('rotate');
+      if (event.key.toLowerCase() === 's') setTransformMode('scale');
+      if (event.key === 'Delete' && !editMode && selected instanceof THREE.Mesh && !(selected instanceof THREE.SkinnedMesh)) {
+        const object = selected; const parent = object.parent;
+        if (!parent) return;
+        object.removeFromParent(); setSelected(model?.root ?? null);
+        setSelectedVertices([]); setSelectedFaces([]);
+        push({ undo: () => parent.add(object), redo: () => object.removeFromParent() });
+      }
+    };
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, [selected, model, editMode, changed]);
+  useEffect(() => {
     restoreMaterials();
     if (!model || tool !== 'weights' || !bone) return;
     for (const mesh of documentMeshes(model.root)) {
@@ -147,6 +187,139 @@ export default function ModelingWorkspace({ onClose, onSave, initialSource }: Pr
     if (history.current.undo.length > 16) history.current.undo.shift();
     history.current.redo = [];
     changed();
+  };
+  const selectObject = (object: THREE.Object3D) => {
+    setSelected(object);
+    if (editMode) {
+      if (object instanceof THREE.SkinnedMesh) {
+        setEditMode(false); setEditMesh(null); setSelectedVertices([]); setSelectedFaces([]);
+        setStatus('This surface is rigged. Use Sculpt surface or Paint weights to edit it without breaking its rig.');
+      } else if (object instanceof THREE.Mesh) {
+        setEditMesh(object); setSelectedVertices([]); setSelectedFaces([]);
+      }
+    }
+  };
+  const selectFace = (mesh: THREE.Mesh, face: number, additive: boolean) => {
+    if (mesh instanceof THREE.SkinnedMesh) {
+      setEditMode(false); setEditMesh(null);
+      setStatus('Direct face edits are disabled on skinned meshes to protect their joint weights. Use Sculpt surface instead.');
+      return;
+    }
+    if (mesh.geometry.morphAttributes.position?.length) {
+      setStatus('Apply or remove shape keys in Blender before editing this mesh here.');
+      return;
+    }
+    const sameMesh = editMesh === mesh;
+    setSelected(mesh); setEditMesh(mesh); setSelectedVertices([]);
+    setSelectedFaces((current) => additive && sameMesh
+      ? current.includes(face) ? current.filter((item) => item !== face) : [...current, face]
+      : [face]);
+  };
+  const selectVertex = (mesh: THREE.Mesh, vertex: number, additive: boolean) => {
+    if (mesh instanceof THREE.SkinnedMesh || mesh.geometry.morphAttributes.position?.length) return;
+    setSelected(mesh); setEditMesh(mesh);
+    setSelectedVertices((current) => additive
+      ? current.includes(vertex) ? current.filter((item) => item !== vertex) : [...current, vertex]
+      : [vertex]);
+  };
+  const toggleEditMode = () => {
+    if (editMode) { setEditMode(false); setEditMesh(null); setSelectedVertices([]); setSelectedFaces([]); return; }
+    const mesh = selected instanceof THREE.Mesh ? selected : meshes.find((item) => !(item instanceof THREE.SkinnedMesh));
+    if (!mesh || mesh instanceof THREE.SkinnedMesh) {
+      setStatus('Choose an unrigged mesh in the object list. Rigged characters remain editable with Sculpt surface and Paint weights.');
+      return;
+    }
+    setSelected(mesh); setEditMesh(mesh); setEditMode(true); setSelectedVertices([]); setSelectedFaces([]); setTool('select');
+    setStatus('Edit Mode: click a face to select it; click a vertex dot to move vertices. Shift-click adds to selection.');
+  };
+  const transformStart = (object: THREE.Object3D) => {
+    transformBefore.current = { object, value: captureTransform(object) };
+  };
+  const transformEnd = (object: THREE.Object3D) => {
+    const start = transformBefore.current;
+    transformBefore.current = null;
+    if (!start || start.object !== object) return;
+    const end = captureTransform(object);
+    const same = start.value.position.equals(end.position) && start.value.quaternion.equals(end.quaternion) && start.value.scale.equals(end.scale);
+    if (same) return;
+    push({
+      undo: () => applyTransform(object, start.value),
+      redo: () => applyTransform(object, end),
+    });
+    setStatus(`${transformMode[0].toUpperCase()}${transformMode.slice(1)} applied to ${object.name || 'object'}.`);
+  };
+  const updateVertices = (axis: 'x' | 'y' | 'z', value: number) => {
+    if (!editMesh || !Number.isFinite(value) || !selectedVertices.length) return;
+    const attribute = editMesh.geometry.getAttribute('position');
+    const before = selectedVertices.map((vertex) => ({ vertex,
+      position: [attribute.getX(vertex), attribute.getY(vertex), attribute.getZ(vertex)] as [number, number, number] }));
+    const delta = value - attribute.getComponent(selectedVertices[0], axis === 'x' ? 0 : axis === 'y' ? 1 : 2);
+    const apply = (positions: typeof before) => {
+      positions.forEach(({ vertex, position }) => {
+        attribute.setXYZ(vertex, position[0] + (axis === 'x' ? delta : 0), position[1] + (axis === 'y' ? delta : 0), position[2] + (axis === 'z' ? delta : 0));
+      });
+      attribute.needsUpdate = true;
+      editMesh.geometry.computeVertexNormals(); editMesh.geometry.computeBoundingSphere();
+    };
+    apply(before);
+    const after = before.map(({ vertex }) => ({ vertex, value: attribute.getX(vertex), position: [attribute.getX(vertex), attribute.getY(vertex), attribute.getZ(vertex)] as [number, number, number] }));
+    push({ undo: () => apply(before), redo: () => {
+      after.forEach(({ vertex, position }) => attribute.setXYZ(vertex, ...position));
+      attribute.needsUpdate = true; editMesh.geometry.computeVertexNormals(); editMesh.geometry.computeBoundingSphere();
+    } });
+  };
+  const extrudeSelectedFaces = () => {
+    if (!editMesh || !selectedFaces.length) return;
+    try {
+      const previous = editMesh.geometry;
+      const next = createExtrudedGeometry(previous, selectedFaces, extrudeDistance);
+      const firstCapFace = previous.index ? previous.index.count / 3 : previous.getAttribute('position').count / 3;
+      editMesh.geometry = next; setSelectedFaces([firstCapFace]); setSelectedVertices([]);
+      push({ undo: () => { editMesh.geometry = previous; }, redo: () => { editMesh.geometry = next; } });
+      setStatus(`${selectedFaces.length} face${selectedFaces.length === 1 ? '' : 's'} extruded by ${extrudeDistance.toFixed(2)} m. Use Undo to restore the original mesh.`);
+    } catch (error) { setStatus(error instanceof Error ? error.message : 'Could not extrude the selected face.'); }
+  };
+  const subdivideSelectedFaces = () => {
+    if (!editMesh || !selectedFaces.length) return;
+    try {
+      const previous = editMesh.geometry;
+      const next = createSubdividedGeometry(previous, selectedFaces);
+      editMesh.geometry = next; setSelectedFaces([]); setSelectedVertices([]);
+      push({ undo: () => { editMesh.geometry = previous; }, redo: () => { editMesh.geometry = next; } });
+      setStatus('Selected triangle subdivided into four faces. Use Undo to restore the original mesh.');
+    } catch (error) { setStatus(error instanceof Error ? error.message : 'Could not subdivide the selected face.'); }
+  };
+  const duplicateSelectedMesh = () => {
+    if (!(selected instanceof THREE.Mesh) || selected instanceof THREE.SkinnedMesh || !model) return;
+    const original = selected; const parent = original.parent ?? model.root;
+    const duplicate = original.clone();
+    duplicate.geometry = original.geometry.clone();
+    duplicate.material = Array.isArray(original.material) ? original.material.map((material) => material.clone()) : original.material.clone();
+    duplicate.name = `${original.name || 'Mesh'}_copy`;
+    parent.add(duplicate); setSelected(duplicate);
+    push({ undo: () => duplicate.removeFromParent(), redo: () => { parent.add(duplicate); } });
+  };
+  const editMaterial = (property: 'color' | 'roughness' | 'metalness', value: string | number) => {
+    if (!(selected instanceof THREE.Mesh)) return;
+    const materials = (Array.isArray(selected.material) ? selected.material : [selected.material]) as THREE.Material[];
+    const pbr = materials.filter((material): material is THREE.MeshStandardMaterial => material instanceof THREE.MeshStandardMaterial);
+    const before = property === 'color' ? materials.filter((material) => 'color' in material).map((material) => (material as THREE.Material & { color: THREE.Color }).color.getHexString())
+      : pbr.map((material) => material[property]);
+    const apply = (values: Array<string | number>) => {
+      let index = 0;
+      for (const material of materials) {
+        if (property === 'color') {
+          if ('color' in material) (material as THREE.Material & { color: THREE.Color }).color.set(values[index++] as string);
+        } else if (material instanceof THREE.MeshStandardMaterial) material[property] = values[index++] as number;
+        material.needsUpdate = true;
+      }
+    };
+    apply(materials.map((material) => property === 'color' && 'color' in material
+      ? value as string : property !== 'color' && material instanceof THREE.MeshStandardMaterial ? value as number : ''));
+    const after = property === 'color' ? materials.filter((material) => 'color' in material).map((material) => (material as THREE.Material & { color: THREE.Color }).color.getHexString())
+      : pbr.map((material) => material[property]);
+    if (!before.length) return;
+    push({ undo: () => apply(before), redo: () => apply(after) });
   };
   const finishStroke = () => {
     if (!stroke.current.size) return;
@@ -230,7 +403,7 @@ export default function ModelingWorkspace({ onClose, onSave, initialSource }: Pr
     const mesh = new THREE.Mesh(createPrimitiveGeometry(shape), new THREE.MeshStandardMaterial({ color: '#a69abd', roughness: .6 }));
     mesh.name = `${shape}_${documentMeshes(model.root).length + 1}`;
     mesh.position.set(.7, .7, 0);
-    model.root.add(mesh); setSelected(mesh);
+    model.root.add(mesh); setSelected(mesh); setEditMode(false); setEditMesh(null);
     push({ undo: () => mesh.removeFromParent(), redo: () => { model.root.add(mesh); } });
   };
   const transformFields = (object: THREE.Object3D, property: 'position' | 'rotation' | 'scale', title: string) => (
@@ -249,6 +422,11 @@ export default function ModelingWorkspace({ onClose, onSave, initialSource }: Pr
   };
   const bones = model ? documentBones(model.root) : [];
   const meshes = model ? documentMeshes(model.root) : [];
+  const selectedMaterials = selected instanceof THREE.Mesh
+    ? Array.isArray(selected.material) ? selected.material : [selected.material]
+    : [];
+  const selectedColorMaterial = selectedMaterials.find((material) => 'color' in material) as (THREE.Material & { color: THREE.Color }) | undefined;
+  const selectedPbrMaterial = selectedMaterials.find((material) => material instanceof THREE.MeshStandardMaterial) as THREE.MeshStandardMaterial | undefined;
   return <ModelingShell onClose={close} status={status}
     toolbar={<>
       <button disabled={busy} onClick={() => input.current?.click()}>Import GLB / glTF</button>
@@ -256,6 +434,22 @@ export default function ModelingWorkspace({ onClose, onSave, initialSource }: Pr
       <button disabled={!model || busy || playing} onClick={() => exportFile(false)}>Export glTF</button>
       <button disabled={!model || busy || playing} onClick={() => exportFile(true, true)} data-testid="modeling-save-scene">Save copy to scene</button>
       <button disabled={!model} onClick={() => setFrameRequest((value) => value + 1)}>Frame model</button>
+      <span className="modeling-toolbar-divider" aria-hidden="true" />
+      <div className="modeling-tool-cluster" role="group" aria-label="Object and mesh modes">
+        <button aria-pressed={!editMode} onClick={() => { setEditMode(false); setEditMesh(null); setSelectedVertices([]); setSelectedFaces([]); }}>Object</button>
+        <button aria-pressed={editMode} disabled={busy || playing} onClick={toggleEditMode}>Edit</button>
+      </div>
+      <div className="modeling-tool-cluster" role="group" aria-label="Transform gizmo">
+        {(['translate', 'rotate', 'scale'] as const).map((mode) => <button key={mode} aria-pressed={transformMode === mode}
+          onClick={() => setTransformMode(mode)} title={`${mode} (${mode[0].toUpperCase()})`}>
+          {mode === 'translate' ? 'Move (G)' : mode === 'rotate' ? 'Rotate (R)' : 'Scale (S)'}
+        </button>)}
+        <button aria-pressed={gridSnap} onClick={() => setGridSnap((value) => !value)} title="Snap: 0.1 m, 15°, or 0.1 scale">
+          {gridSnap ? 'Snap 0.1 · 15°' : 'Snap off'}
+        </button>
+        <button aria-pressed={transformSpace === 'local'} onClick={() => setTransformSpace(transformSpace === 'local' ? 'world' : 'local')}
+          title="Switch between local and world transform axes">{transformSpace === 'world' ? 'World' : 'Local'}</button>
+      </div>
       <button disabled={!history.current.undo.length || busy || playing} onClick={() => {
         finishStroke(); const action = history.current.undo.pop(); action?.undo(); if (action) history.current.redo.push(action); changed();
         if (selected && !model?.root.getObjectByProperty('uuid', selected.uuid)) setSelected(model?.root ?? null);
@@ -266,13 +460,35 @@ export default function ModelingWorkspace({ onClose, onSave, initialSource }: Pr
       }}>Redo</button>
     </>}
     leftPanel={<div className="modeling-stack">
+      <fieldset disabled={busy || playing}><legend>Interaction mode</legend>
+        <p>{editMode ? 'Edit Mode · click a face or a visible vertex. Shift-click to add or remove selections.' : 'Object Mode · select a mesh, then move, rotate, or scale it with the viewport gizmo.'}</p>
+        <p>Shortcuts: G move · R rotate · S scale · Delete selected mesh</p>
+      </fieldset>
       <fieldset disabled={busy || playing}><legend>Workspace tools</legend><div className="modeling-row">
         {(['select', 'sculpt', 'weights'] as const).map((mode) => <button key={mode} aria-pressed={tool === mode}
           onClick={() => { finishStroke(); setTool(mode); }}>{mode === 'select' ? 'Orbit / select' : mode === 'sculpt' ? 'Sculpt surface' : 'Paint weights'}</button>)}
       </div><p>Orbit: drag to rotate, right-drag to pan, wheel/pinch to zoom. Brush tools: drag on the surface; return to Orbit to navigate.</p></fieldset>
       <fieldset disabled={busy || playing}><legend>Modeling</legend><div className="modeling-row">
-        {(['rounded-cube', 'sphere', 'capsule'] as const).map((shape) => <button key={shape} onClick={() => addPrimitive(shape)}>Add {shape}</button>)}
+        {(['cube', 'rounded-cube', 'sphere', 'capsule'] as const).map((shape) => <button key={shape} onClick={() => addPrimitive(shape)}>
+          Add {shape === 'rounded-cube' ? 'rounded cube' : shape}
+        </button>)}
       </div><label><input type="checkbox" checked={wireframe} onChange={(event) => setWireframe(event.target.checked)} />Wireframe</label></fieldset>
+      {editMode && <fieldset disabled={busy || playing}><legend>Mesh edit</legend>
+        <p>{editMesh?.name || 'Select a mesh'} · {selectedVertices.length} vertices · {selectedFaces.length} faces selected</p>
+        {selectedVertices.length > 0 && editMesh && <div className="modeling-row">
+          {axisNames.map((axis, component) => <label key={axis}>Vertex {axis.toUpperCase()}<input type="number" step=".01"
+            value={Number(editMesh.geometry.getAttribute('position').getComponent(selectedVertices[0], component).toFixed(3))}
+            onChange={(event) => updateVertices(axis, Number(event.target.value))} /></label>)}
+        </div>}
+        <label>Extrude distance (m)<input type="number" min=".001" max="10" step=".05" value={extrudeDistance}
+          onChange={(event) => setExtrudeDistance(Number(event.target.value))} /></label>
+        <div className="modeling-row">
+          <button disabled={!editMesh || !selectedFaces.length} onClick={extrudeSelectedFaces}>Extrude selected face</button>
+          <button disabled={!editMesh || !selectedFaces.length} onClick={subdivideSelectedFaces}>Subdivide selected face</button>
+        </div>
+        <button disabled={!selectedVertices.length && !selectedFaces.length} onClick={() => { setSelectedVertices([]); setSelectedFaces([]); }}>Clear mesh selection</button>
+        <p>Extrude adds side faces; Subdivide splits a triangle into four. Undo restores the previous mesh. Rigged meshes use the sculpt/weight brushes to preserve skinning.</p>
+      </fieldset>}
       {tool !== 'select' && <fieldset disabled={busy || playing}><legend>{tool === 'weights' ? 'Weight brush' : 'Sculpt brush'}</legend>
         <label>Radius (m)<input type="range" min=".02" max=".4" step=".01" value={radius} onChange={(event) => setRadius(Number(event.target.value))} />{radius.toFixed(2)}</label>
         <label>Strength<input type="range" min=".01" max="1" step=".01" value={strength} onChange={(event) => setStrength(Number(event.target.value))} />{strength.toFixed(2)}</label>
@@ -303,7 +519,15 @@ export default function ModelingWorkspace({ onClose, onSave, initialSource }: Pr
     rightPanel={<div className="modeling-stack">
       {model && <label>Model name<input value={model.name} onChange={(event) => { model.name = event.target.value; changed(); }} /></label>}
       <fieldset><legend>Scene objects · {meshes.length}</legend><select aria-label="Select model object" value={selected?.uuid ?? ''}
-        onChange={(event) => setSelected(model?.root.getObjectByProperty('uuid', event.target.value) ?? null)}>
+        onChange={(event) => {
+          const object = model?.root.getObjectByProperty('uuid', event.target.value) ?? null;
+          setSelected(object);
+          if (editMode) {
+            if (object instanceof THREE.Mesh && !(object instanceof THREE.SkinnedMesh)) {
+              setEditMesh(object); setSelectedVertices([]); setSelectedFaces([]);
+            } else { setEditMode(false); setEditMesh(null); setSelectedVertices([]); setSelectedFaces([]); }
+          }
+        }}>
         {model && <option value={model.root.uuid}>Whole model</option>}
         {meshes.map((mesh) => <option key={mesh.uuid} value={mesh.uuid}>{mesh.name || 'Mesh'}</option>)}
       </select></fieldset>
@@ -313,18 +537,32 @@ export default function ModelingWorkspace({ onClose, onSave, initialSource }: Pr
         {transformFields(selected, 'rotation', 'Local rotation (degrees)')}
         {!(selected instanceof THREE.Bone) && transformFields(selected, 'scale', 'Local scale')}
         {selected instanceof THREE.Mesh && <fieldset disabled={busy || playing}><legend>Object actions</legend>
+          <button disabled={selected instanceof THREE.SkinnedMesh} onClick={duplicateSelectedMesh}>Duplicate mesh</button>
           <button onClick={() => {
             const object = selected; const parent = object.parent; if (!parent) return;
             object.removeFromParent(); setSelected(model?.root ?? null);
+            setEditMode(false); setEditMesh(null); setSelectedVertices([]); setSelectedFaces([]);
             push({ undo: () => { parent.add(object); }, redo: () => { object.removeFromParent(); } });
           }}>Remove from workspace</button>
-          <p>The source asset and your main scene are not changed.</p>
+          <p>Duplicate and delete affect only this working copy, not the source asset or your main scene.</p>
         </fieldset>}
       </>}
+      {selected instanceof THREE.Mesh && selectedColorMaterial && <fieldset disabled={busy || playing}>
+        <legend>Material</legend>
+        <label>Base color<input aria-label="Material base color" type="color" value={`#${selectedColorMaterial.color.getHexString()}`}
+          onChange={(event) => editMaterial('color', event.target.value)} /></label>
+        {selectedPbrMaterial && <>
+          <label>Roughness<input aria-label="Material roughness" type="range" min="0" max="1" step=".01"
+            value={selectedPbrMaterial.roughness} onChange={(event) => editMaterial('roughness', Number(event.target.value))} /></label>
+          <label>Metalness<input aria-label="Material metalness" type="range" min="0" max="1" step=".01"
+            value={selectedPbrMaterial.metalness} onChange={(event) => editMaterial('metalness', Number(event.target.value))} /></label>
+        </>}
+        <p>Changes apply to the selected mesh material in this workspace and can be undone.</p>
+      </fieldset>}
       <fieldset disabled={busy || playing}><legend>Humanoid rig · {bones.length} bones</legend>
         <label><input type="checkbox" checked={showRig} onChange={(event) => setShowRig(event.target.checked)} />Show skeleton</label>
         {!bones.length && <p>This imported model has no rig. Build the modular character for a ready humanoid rig, or add a rig in Blender and reimport.</p>}
-        <ul className="modeling-bone-list">{bones.map((joint) => <li key={joint.uuid}><button className={bone === joint ? 'modeling-selected' : ''} onClick={() => { setBone(joint); setSelected(joint); }}>
+        <ul className="modeling-bone-list">{bones.map((joint) => <li key={joint.uuid}><button className={bone === joint ? 'modeling-selected' : ''} onClick={() => { setBone(joint); setSelected(joint); setEditMode(false); setEditMesh(null); setSelectedVertices([]); setSelectedFaces([]); }}>
           {joint.name || 'Unnamed joint'} <small>{joint.parent instanceof THREE.Bone ? `← ${joint.parent.name}` : '· root'}</small>
         </button></li>)}</ul>
         <button disabled={!bone || !model} onClick={() => {
@@ -369,7 +607,11 @@ export default function ModelingWorkspace({ onClose, onSave, initialSource }: Pr
       const files = Array.from(event.target.files ?? []); event.target.value = ''; importFiles(files);
     }} />
     {model ? <ModelingViewport document={model} selected={selected} bone={bone} showRig={showRig} wireframe={wireframe}
-      tool={tool} clip={clip} playing={playing} revision={revision} frameRequest={frameRequest} onSelect={setSelected} onBrush={brush} onStrokeEnd={finishStroke} />
+      tool={tool} clip={clip} playing={playing} revision={revision} frameRequest={frameRequest}
+      editMode={editMode} editMesh={editMesh} selectedVertices={selectedVertices} selectedFaces={selectedFaces}
+      transformMode={transformMode} transformSpace={transformSpace} gridSnap={gridSnap}
+      onSelect={selectObject} onSelectFace={selectFace} onSelectVertex={selectVertex}
+      onTransformStart={transformStart} onTransformEnd={transformEnd} onBrush={brush} onStrokeEnd={finishStroke} />
       : <div className="modeling-viewport-fallback"><strong>Model workspace</strong><p>{status}</p><button onClick={() => input.current?.click()}>Choose GLB / glTF</button></div>}
   </ModelingShell>;
 }

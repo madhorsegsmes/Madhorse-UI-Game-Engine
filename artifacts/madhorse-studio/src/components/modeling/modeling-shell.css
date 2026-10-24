@@ -48,6 +48,8 @@
   padding: 7px 12px; border-bottom: 1px solid hsl(var(--m-line));
   background: hsl(var(--m-panel)); overflow-x: auto;
 }
+.modeling-toolbar-divider { height: 24px; width: 1px; background: hsl(var(--m-line)); flex: none; margin: 0 3px; }
+.modeling-tool-cluster { display: flex; align-items: center; gap: 4px; padding-right: 7px; border-right: 1px solid hsl(var(--m-line)); }
 
 .modeling-body {
   display: grid; grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(240px, 320px);
