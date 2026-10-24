@@ -1,8 +1,10 @@
-import { ArrowRight, ArrowUpRight, Code2, Flame, Gamepad2, Layers3, Sparkles, Zap } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Flame, Gamepad2, Layers3, Sparkles, UserRound, Zap } from 'lucide-react';
 import './home-page.css';
 
 const basePath = import.meta.env.BASE_URL;
 const editorPath = `${basePath}editor/`;
+const signInPath = `${basePath}sign-in`;
+const signUpPath = `${basePath}sign-up`;
 const heroReference = new URL('../../../../attached_assets/0_207_1792882288217.jpg', import.meta.url).href;
 
 const features = [
@@ -48,7 +50,10 @@ export default function HomePage() {
             <a href="#features">Features</a>
             <a href="#documentation">How it works</a>
           </nav>
-          <a className="home-nav-cta" href={editorPath}>Open Studio <ArrowUpRight size={15} /></a>
+          <div className="home-account-actions">
+            <a className="home-nav-login" href={signInPath}>Log in</a>
+            <a className="home-nav-cta" href={signUpPath}>Sign up <ArrowUpRight size={15} /></a>
+          </div>
         </header>
 
         <div className="home-hero-inner">
@@ -60,8 +65,8 @@ export default function HomePage() {
               Bring your ideas to life in a game-building workspace made for bold worlds, detailed scenes, and playable experiences.
             </p>
             <div className="home-hero-actions">
-              <a className="home-button home-button-primary" href={editorPath}>Get started <ArrowRight size={17} /></a>
-              <a className="home-button home-button-quiet" href="#documentation"><Code2 size={16} /> How it works</a>
+              <a className="home-button home-button-primary" href={signUpPath}>Create account <ArrowRight size={17} /></a>
+              <a className="home-button home-button-quiet" href={signInPath}><UserRound size={16} /> Log in</a>
             </div>
             <div className="home-proof">
               <span><Zap size={14} /> One connected workspace</span>
@@ -99,7 +104,7 @@ export default function HomePage() {
           <h2>Bring an idea.<br /><span>Build it step by step.</span></h2>
           <p>Open the Studio to explore your scene, tools, and built-in guidance. You can shape every project as you go.</p>
         </div>
-        <a className="home-button home-button-primary" href={editorPath}>Enter Madhorse Studio <ArrowRight size={17} /></a>
+        <a className="home-button home-button-primary" href={signUpPath}>Create your account <ArrowRight size={17} /></a>
       </section>
 
       <footer className="home-footer">

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <linearGradient id="fire" x1="22" y1="14" x2="107" y2="111" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFC16D"/>
+      <stop offset=".5" stop-color="#FF7441"/>
+      <stop offset="1" stop-color="#D73E25"/>
+    </linearGradient>
+    <linearGradient id="horse" x1="45" y1="32" x2="91" y2="103" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF1DD"/>
+      <stop offset="1" stop-color="#FF7B46"/>
+    </linearGradient>
+  </defs>
+  <circle cx="64" cy="64" r="59" fill="#111214" stroke="url(#fire)" stroke-width="3"/>
+  <path d="M35 84c-8-9-12-21-9-34 2-12 9-22 20-29l-2 17 12-8-2 17c6 5 9 12 10 20 6-9 8-20 7-30 12 9 18 22 16 36-1 6-4 11-7 15-1-16-7-25-14-30 4 17-2 32-14 41-8-5-14-12-17-22Z" stroke="url(#fire)" stroke-linejoin="round" stroke-width="4"/>
+  <path d="m51 48 12-12 17 3 12 14-7 11-3 18-13 13-12-4 2-11-11-7-7-15 10-10Z" fill="#191719" stroke="url(#horse)" stroke-linejoin="round" stroke-width="3"/>
+  <path d="m61 40-7-10-1 16m30-6 9-8-1 17m-23 8 12-2m-9 14-7 7 10 5" stroke="url(#horse)" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/>
+  <circle cx="76" cy="55" r="2.5" fill="#FFAD67"/>
+</svg>

@@ -1,8 +1,18 @@
 import { Router } from 'express';
+import { getAuth } from '@clerk/express';
 import OpenAI from 'openai';
 import { PlanMadBuilderBody, PlanMadBuilderResponse, builderPlanJsonSchema } from '@workspace/api-zod';
 
 const router = Router();
+router.use((req, res, next) => {
+  const auth = getAuth(req);
+  const userId = auth?.sessionClaims?.userId || auth?.userId;
+  if (!userId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  next();
+});
 let running = 0;
 const requests = new Map<string, { count: number; until: number }>();
 let hourly = { count: 0, until: Date.now() + 3_600_000 };
