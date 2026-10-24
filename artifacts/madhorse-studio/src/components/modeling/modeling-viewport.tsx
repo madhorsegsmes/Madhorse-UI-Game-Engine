@@ -8,6 +8,63 @@ import type { ModelingDocument } from '@/lib/modeling-document';
 export type ModelingTool = 'select' | 'sculpt' | 'weights';
 export type ModelingTransformMode = 'translate' | 'rotate' | 'scale';
 
+function createViewportGrid() {
+  const geometry = new THREE.PlaneGeometry(2000, 2000);
+  const material = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    uniforms: {
+      minorColor: { value: new THREE.Color('#302b38') },
+      majorColor: { value: new THREE.Color('#494057') },
+      axisColor: { value: new THREE.Color('#604a78') },
+    },
+    vertexShader: `
+      varying vec3 vWorldPosition;
+      void main() {
+        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+        vWorldPosition = worldPosition.xyz;
+        gl_Position = projectionMatrix * viewMatrix * worldPosition;
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vWorldPosition;
+      uniform vec3 minorColor;
+      uniform vec3 majorColor;
+      uniform vec3 axisColor;
+
+      float gridLine(vec2 world, float spacing) {
+        vec2 coordinate = world / spacing;
+        vec2 derivative = max(fwidth(coordinate), vec2(0.0001));
+        vec2 distanceToLine = min(fract(coordinate), 1.0 - fract(coordinate));
+        vec2 coverage = 1.0 - smoothstep(vec2(0.0), derivative * 1.25, distanceToLine);
+        return max(coverage.x, coverage.y);
+      }
+
+      void main() {
+        float minor = gridLine(vWorldPosition.xz, 1.0);
+        float major = gridLine(vWorldPosition.xz, 4.0);
+        float axisX = 1.0 - smoothstep(0.0, max(fwidth(vWorldPosition.x) * 1.5, 0.0001), abs(vWorldPosition.x));
+        float axisZ = 1.0 - smoothstep(0.0, max(fwidth(vWorldPosition.z) * 1.5, 0.0001), abs(vWorldPosition.z));
+        vec3 color = mix(minorColor, majorColor, major * 0.8);
+        color = mix(color, axisColor, max(axisX, axisZ));
+        float distanceFromCamera = length(vWorldPosition.xz - cameraPosition.xz);
+        float fade = 1.0 - smoothstep(10.0, 55.0, distanceFromCamera);
+        float alpha = max(minor * 0.35, major * 0.65) * fade;
+        if (alpha < 0.015) discard;
+        gl_FragColor = vec4(color, alpha);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+  const grid = new THREE.Mesh(geometry, material);
+  grid.name = 'Fading modeling grid';
+  grid.rotation.x = -Math.PI / 2;
+  grid.position.y = -.006;
+  grid.frustumCulled = false;
+  return grid;
+}
+
 function ModelScene({
   document, selected, bone, showRig, wireframe, tool, clip, playing, revision, frameRequest,
   editMode, editMesh, selectedVertices, selectedFaces, transformMode, transformSpace, gridSnap,
@@ -16,6 +73,7 @@ function ModelScene({
   const lastPaint = useRef(0);
   const dragging = useRef(false);
   const mixer = useMemo(() => new THREE.AnimationMixer(document.root), [document]);
+  const floorGrid = useMemo(createViewportGrid, []);
   const camera = useThree((state) => state.camera);
   const framing = useMemo(() => {
     document.root.updateMatrixWorld(true);
@@ -78,6 +136,7 @@ function ModelScene({
     overlay.raycast = () => {};
     return overlay;
   }, [editMode, editMesh, selectedFaces, revision]);
+  useEffect(() => () => { floorGrid.geometry.dispose(); floorGrid.material.dispose(); }, [floorGrid]);
   useEffect(() => () => { helper.geometry.dispose(); (helper.material as THREE.Material).dispose(); }, [helper]);
   useEffect(() => () => { highlight?.geometry.dispose(); (highlight?.material as THREE.Material | undefined)?.dispose(); }, [highlight]);
   useEffect(() => () => {
@@ -140,7 +199,7 @@ function ModelScene({
     <ambientLight intensity={1.2} />
     <directionalLight position={[3, 5, 4]} intensity={2.2} />
     <directionalLight position={[-4, 2, -2]} intensity={1} color="#acbfff" />
-    <gridHelper args={[12, 24, '#615574', '#343039']} />
+    <primitive object={floorGrid} />
     <primitive object={document.root}
       onPointerDown={(event: ThreeEvent<PointerEvent>) => {
         if (event.button !== 0) return;
