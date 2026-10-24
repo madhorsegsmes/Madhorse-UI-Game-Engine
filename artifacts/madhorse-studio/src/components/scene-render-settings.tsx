@@ -20,6 +20,31 @@ export function SceneRenderSettingsPanel({
           Show grid
         </label>
         <label>
+          Render quality
+          <select
+            value={settings.quality}
+            onChange={(event) => onChange({ ...settings, quality: event.currentTarget.value as SceneRenderSettings['quality'] })}
+            aria-label="Scene render quality"
+            data-testid="scene-render-quality"
+          >
+            <option value="performance">Performance · 1x</option>
+            <option value="balanced">Balanced · up to 1.5x</option>
+            <option value="high">High · up to 2x</option>
+          </select>
+        </label>
+        <p className="mh-scene3d__render-note">
+          Mobile stays capped at 1x for steadier performance.
+        </p>
+        <label>
+          <input
+            type="checkbox"
+            checked={settings.showPerformanceStats}
+            onChange={(event) => onChange({ ...settings, showPerformanceStats: event.currentTarget.checked })}
+            data-testid="scene-render-performance-stats"
+          />
+          Show performance stats
+        </label>
+        <label>
           <input
             type="checkbox"
             checked={settings.studioLighting}

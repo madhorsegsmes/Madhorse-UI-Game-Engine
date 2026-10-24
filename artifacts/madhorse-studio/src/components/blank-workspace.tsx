@@ -50,6 +50,7 @@ import type { UIControlElement } from '@/lib/ui-controls';
 import { downloadMadBuilderLogPdf, type MadBuilderBuildLog } from '@/lib/mad-builder-build-log';
 import { createGameTypeLibraryPdf, gameTypeLibraryEntryCount } from '@/lib/game-type-library';
 import CHARACTER_CONTROLLER_REFERENCE from '@/lib/character-controller-reference.md?raw';
+import ENGINE_EDITOR_PERFORMANCE_REFERENCE from '@/lib/engine-editor-performance-reference.md?raw';
 import './system-panel-tools.css';
 import './numbered-workspace.css';
 
@@ -279,6 +280,18 @@ function SettingsPanel({
                 </a>
                 <pre className="fresh-controller-reference-text" data-testid="text-character-controller-guide">
                   {CHARACTER_CONTROLLER_REFERENCE}
+                </pre>
+              </details>
+              <details className="fresh-game-type-library fresh-controller-reference" data-testid="details-engine-performance-guide">
+                <summary className="fresh-game-type-library-summary" data-testid="button-toggle-engine-performance-guide">
+                  <span>Unity &amp; Unreal Tools and Performance Guide · Read-only</span>
+                  <ChevronDown size={13} aria-hidden="true" />
+                </summary>
+                <p className="fresh-game-type-library-note">
+                  Public engine references, Madhorse architecture notes, and performance practices. This system guide is not project data.
+                </p>
+                <pre className="fresh-controller-reference-text" data-testid="text-engine-performance-guide">
+                  {ENGINE_EDITOR_PERFORMANCE_REFERENCE}
                 </pre>
               </details>
               <div className="fresh-builder-log" role="region" aria-label="Read-only Mad Builder build log" data-testid="builder-log-readonly">

@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, TransformControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
@@ -64,6 +64,39 @@ export type ScenePreview3DProps = {
 };
 
 type ErrorEntry = { id: string; message: string };
+type PerformanceOutputRef = { current: HTMLDivElement | null };
+
+function ScenePerformanceSampler({ outputRef, gameView }: {
+  outputRef: PerformanceOutputRef;
+  gameView: boolean;
+}) {
+  const { gl } = useThree();
+  const sample = useRef({ frames: 0, elapsed: 0 });
+
+  useFrame((_state, delta) => {
+    const output = outputRef.current;
+    if (!output) return;
+
+    const render = gl.info.render;
+    const memory = gl.info.memory;
+    const details = `${render.calls} draws · ${render.triangles.toLocaleString()} tris · ${memory.geometries} meshes · ${memory.textures} textures`;
+    if (!gameView) {
+      output.textContent = `EDIT · ON-DEMAND · ${details}`;
+      return;
+    }
+
+    sample.current.frames += 1;
+    sample.current.elapsed += Math.max(delta, 0);
+    if (sample.current.elapsed < 0.5) return;
+
+    const fps = sample.current.frames / sample.current.elapsed;
+    const frameInterval = sample.current.elapsed * 1000 / sample.current.frames;
+    output.textContent = `${fps.toFixed(0)} FPS · ${frameInterval.toFixed(1)} ms frame interval · ${details}`;
+    sample.current = { frames: 0, elapsed: 0 };
+  });
+
+  return null;
+}
 
 function vectorToThree(entity: SceneEntity, value: TransformComponent['position']): THREE.Vector3 {
   if (entity.parentId) return new THREE.Vector3((value.x - 50) / 10, (value.z - 50) / 10, (value.y - 50) / 10);
@@ -137,6 +170,7 @@ export function ScenePreview3D({
   const [renderSettings, setRenderSettings] = useSceneRenderSettings();
   const [mobile, setMobile] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const performanceStatsRef = useRef<HTMLDivElement>(null);
   const cameraMarkerRef = useRef<HTMLButtonElement>(null);
   const [zoom, setZoom] = useState(100);
   const [frameToken, setFrameToken] = useState(0);
@@ -145,6 +179,9 @@ export function ScenePreview3D({
   const [gameViewRotated, setGameViewRotated] = useState(false);
   const [cameraOrbitMode, setCameraOrbitMode] = useState<CanvasOrbitMode>('free');
   const editorCamera = primaryCamera ?? gameCamera;
+  const renderDpr: number | [number, number] = mobile || renderSettings.quality === 'performance'
+    ? 1
+    : renderSettings.quality === 'high' ? [1, 2] : [1, 1.5];
   const canOrbitGameCamera = Boolean(gameView && gameCamera && primaryCamera === gameCamera &&
     onPrimaryCameraChange && !readOnly);
   const frameCamera = () => { setSceneFocus(null); setZoom(100); setFrameToken((value) => value + 1); };
@@ -257,6 +294,7 @@ export function ScenePreview3D({
       data-camera-position={gameView && gameCamera ? JSON.stringify(gameCamera.position) : undefined}
       data-camera-fov={gameView ? gameCamera?.fov : undefined}
       data-render-mode={gameView ? 'automatic' : 'on-demand'}
+      data-render-quality={renderSettings.quality}
       data-lighting-mode={gameView ? 'automatic' : undefined}
       data-view-rotated={gameView ? String(gameViewRotated) : undefined}
       data-orbit-mode={gameView ? cameraOrbitMode : undefined}
@@ -360,7 +398,7 @@ export function ScenePreview3D({
         >
         <Canvas
           camera={{ position: [10, 8, 12], fov: 48, near: 0.1, far: 3000 }}
-          dpr={mobile ? 1 : [1, 1.5]}
+          dpr={renderDpr}
           frameloop={gameView ? 'always' : 'demand'}
           gl={{ antialias: !mobile, powerPreference: 'low-power', alpha: false }}
           onCreated={({ gl, scene }) => {
@@ -370,6 +408,9 @@ export function ScenePreview3D({
             markGraphicsReady();
           }}
         >
+        {renderSettings.showPerformanceStats && (
+          <ScenePerformanceSampler outputRef={performanceStatsRef} gameView={gameView} />
+        )}
         <SceneRendererSettings
           background={gameView ? '#333538' : renderSettings.background}
           exposure={gameView ? 1 : renderSettings.exposure}
@@ -406,6 +447,18 @@ export function ScenePreview3D({
           />
         </Canvas>
         </SceneWebGLBoundary>
+        {renderSettings.showPerformanceStats && graphicsAvailable && (
+          <div
+            ref={performanceStatsRef}
+            className="mh-scene3d__performance-stats"
+            role="status"
+            aria-live="off"
+            aria-label="Live scene render statistics"
+            data-testid="scene-performance-stats"
+          >
+            Collecting render statistics…
+          </div>
+        )}
         {!gameView && editorCamera && <button ref={cameraMarkerRef} type="button" className="mh-scene3d__camera-marker"
           onClick={() => { if (onSelectPrimaryCamera) onSelectPrimaryCamera(); else frameCamera(); }} data-testid="scene-camera-marker" aria-label="Select the game camera" data-selected={primarySelected}
           title="Click and drag the Game Camera in the scene to move it horizontally. Use the move gizmo for height and the rotate tool to aim it. This marker stays visible when the camera is off screen.">
