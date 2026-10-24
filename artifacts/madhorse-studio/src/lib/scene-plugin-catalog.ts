@@ -8,6 +8,7 @@ import { createGameFeature, gameFeatureDefinitions, gameFeatureNames, type GameF
 
 export type PluginCategory =
   | 'game'
+  | 'game-mechanics'
   | 'player-npc'
   | 'system'
   | 'lighting'
@@ -74,6 +75,7 @@ export const scenePluginCatalog: Record<PluginCategory, ScenePluginDefinition[]>
     { id: 'uiCanvas', componentKind: 'uiCanvas', label: 'UI Canvas', description: 'Add a blank screen panel for menus and buttons.' },
     { id: 'character-controller-player', componentKind: 'character-controller-player', label: 'Player Controller', description: 'Add walking and jumping. Use W, A, S, D or arrows; press Space to jump.' },
   ],
+  'game-mechanics': [],
   'player-npc': [
     ...(['health', 'inventory', 'interact'] as const).map(featurePlugin),
     ...playerActionPlugins,

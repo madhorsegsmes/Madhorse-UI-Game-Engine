@@ -517,6 +517,16 @@ function SettingsPanel({
                 <button
                   type="button"
                   className="fresh-plugin-tab"
+                  aria-pressed={activePluginTab === 'game-mechanics'}
+                  data-active={activePluginTab === 'game-mechanics'}
+                  data-testid="button-game-mechanics-plugins"
+                  onClick={() => setActivePluginTab('game-mechanics')}
+                >
+                  Game Mechanics
+                </button>
+                <button
+                  type="button"
+                  className="fresh-plugin-tab"
                   aria-pressed={activePluginTab === 'player-npc'}
                   data-active={activePluginTab === 'player-npc'}
                   data-testid="button-player-npc-plugins"
@@ -709,7 +719,9 @@ function SettingsPanel({
                   </div>
                 ) : (
                   <p className="fresh-plugin-empty" role="status">
-                    This plugin family is in the next build pass. The available native components are ready to add above.
+                    {activePluginTab === 'game-mechanics'
+                      ? 'Game Mechanics tools will appear here as they are added.'
+                      : 'This plugin family is in the next build pass. The available native components are ready to add above.'}
                   </p>
                 )}
                 {activePluginTab === 'asset' && assets.some(asset => asset.kind === 'data') && (
