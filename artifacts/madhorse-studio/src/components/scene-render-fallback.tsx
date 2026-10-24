@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { SVGRenderer } from 'three/examples/jsm/renderers/SVGRenderer.js';
 import { getCamera, getEffect, getLight, getPrimitive, getSpriteRenderer, getUICanvas, getWorldTransform, type SceneEntity } from '@/lib/scene-model';
 import { createPrimitiveGeometry } from '@/lib/scene-view-geometry';
+import type { SceneFocus } from '@/lib/scene-view-geometry';
+import { createCharacterBodyMesh, isCharacterBodySurfacePart, isCharacterBuilderModelRoot } from '@/lib/character-builder-geometry';
 import type { GameCamera } from '@/lib/game-camera';
 import type { SceneRenderSettings } from '@/hooks/use-scene-render-settings';
 
@@ -22,12 +24,13 @@ function makeSceneCamera(source: GameCamera, aspect: number) {
 }
 
 export function SceneRenderFallback({
-  entities, camera, settings, zoom,
+  entities, camera, settings, zoom, sceneFocus,
 }: {
   entities: SceneEntity[];
   camera?: GameCamera;
   settings: SceneRenderSettings;
   zoom: number;
+  sceneFocus: SceneFocus | null;
   selectedEntityId: string | null;
   onSelectEntity: (id: string) => void;
 }) {
@@ -78,8 +81,45 @@ export function SceneRenderFallback({
       else materials.add(axes.material);
     }
 
+    const characterRootIds = new Set(
+      entities.filter(isCharacterBuilderModelRoot).map((entity) => entity.id),
+    );
+    for (const root of entities.filter(isCharacterBuilderModelRoot)) {
+      const bodyParts = entities.filter((entity) => entity.parentId === root.id);
+      const body = createCharacterBodyMesh(bodyParts);
+      const transform = getWorldTransform(entities, root.id);
+      if (!body || !transform) continue;
+      const assembly = new THREE.Group();
+      assembly.position.set(
+        (transform.position.x - 50) / 10,
+        transform.position.z / 10,
+        (transform.position.y - 50) / 10,
+      );
+      assembly.rotation.set(
+        THREE.MathUtils.degToRad(-transform.rotation.x),
+        THREE.MathUtils.degToRad(-transform.rotation.z),
+        THREE.MathUtils.degToRad(-transform.rotation.y),
+        'XYZ',
+      );
+      assembly.scale.set(transform.scale.x, transform.scale.z, transform.scale.y);
+      const material = new THREE.MeshStandardMaterial({ color: '#d5a07d', roughness: 0.68 });
+      const bodyMesh = new THREE.Mesh(body.geometry, material);
+      bodyMesh.position.copy(body.center);
+      bodyMesh.scale.copy(body.halfExtents);
+      assembly.add(bodyMesh);
+      scene.add(assembly);
+      geometries.add(body.geometry);
+      materials.add(material);
+    }
+
     for (const entity of entities) {
       if (!entity.active || entity.isGroup) continue;
+      const isUnifiedBodyPart = Boolean(
+        entity.parentId
+        && characterRootIds.has(entity.parentId)
+        && isCharacterBodySurfacePart(entity),
+      );
+      if (isUnifiedBodyPart) continue;
       const transform = getWorldTransform(entities, entity.id);
       if (!transform) continue;
       const object = new THREE.Group();
@@ -210,8 +250,15 @@ export function SceneRenderFallback({
       viewCamera.aspect = width / height;
       viewCamera.updateProjectionMatrix();
       const distance = 5.5 * (100 / Math.max(30, zoom));
-      viewCamera.position.set(distance * 0.58, distance * 0.52, distance * 0.63);
-      viewCamera.lookAt(0, 0, 0);
+      const target = sceneFocus
+        ? new THREE.Vector3(sceneFocus.center.x, sceneFocus.center.y, sceneFocus.center.z)
+        : new THREE.Vector3(0, 0, 0);
+      viewCamera.position.set(
+        target.x + distance * 0.58,
+        target.y + distance * 0.52,
+        target.z + distance * 0.63,
+      );
+      viewCamera.lookAt(target);
       renderer.render(scene, viewCamera);
       renderer.domElement.dataset.renderedFaces = String(renderer.info.render.faces);
       if (renderer.domElement.parentElement !== host) {
@@ -228,7 +275,7 @@ export function SceneRenderFallback({
       geometries.forEach((geometry) => geometry.dispose());
       materials.forEach((material) => material.dispose());
     };
-  }, [camera, entities, settings, zoom]);
+  }, [camera, entities, sceneFocus, settings, zoom]);
 
   return (
     <div className="mh-scene3d__soft-preview" data-testid="scene3d-soft-preview">

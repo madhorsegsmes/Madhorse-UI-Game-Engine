@@ -20,6 +20,8 @@ import { GameCameraRig } from './game-camera-rig';
 import { SceneEditorEnvironment } from './scene-editor-environment';
 import { PRIMARY_CAMERA_ID, cameraDisplayEntity, cameraFromEditorTransform, cameraWithOrbitPose, cameraWithPose, primaryCameraEntity } from '@/lib/camera-editor';
 import { createGameCamera, type GameCamera } from '@/lib/game-camera';
+import { isCharacterBodySurfacePart, isCharacterBuilderModelRoot } from '@/lib/character-builder-geometry';
+import { CharacterBuilderBodyVisual } from './character-builder-body-visual';
 import { SceneElementVisual } from './scene-element-visuals';
 import { SceneNavigation } from './scene-navigation';
 import { sceneEntityFocus, type SceneFocus } from '@/lib/scene-view-geometry';
@@ -404,6 +406,7 @@ export function ScenePreview3D({
               camera={editorCamera}
               settings={renderSettings}
               zoom={zoom}
+              sceneFocus={sceneFocus}
               selectedEntityId={effectiveSelectedId}
               onSelectEntity={selectEntity}
             />
@@ -735,6 +738,7 @@ function EntityNode(props: SceneWorldProps & {
   entity: SceneEntity;
   onSelectedObject: (object: THREE.Group | null) => void;
   onCameraDragChange: (dragging: boolean) => void;
+  hideVisual?: boolean;
 }) {
   const entityGroupRef = useRef<THREE.Group | null>(null);
   const cameraDragRef = useRef<CameraDragSession | null>(null);
@@ -756,6 +760,8 @@ function EntityNode(props: SceneWorldProps & {
   const modelAsset = model?.assetId ? props.assets.find((asset) => asset.id === model.assetId) : undefined;
   const modelUrl = model?.assetId ? props.assetUrls[model.assetId] : undefined;
   const spriteUrl = sprite?.assetId ? props.assetUrls[sprite.assetId] : undefined;
+  const childEntities = props.childrenByParent.get(entity.id) ?? [];
+  const smoothCharacterRoot = isCharacterBuilderModelRoot(entity);
   const setGroupRef = useCallback((node: THREE.Group | null) => {
     entityGroupRef.current = node;
     if (selectedEntity) props.onSelectedObject(node);
@@ -846,7 +852,8 @@ function EntityNode(props: SceneWorldProps & {
       onPointerOut={() => { document.body.style.cursor = ''; }}
     >
       {selectedEntity && !getCamera(entity) && <SelectionOutline active={effective} />}
-      {entity.isGroup ? null : !model?.enabled && (getPrimitive(entity) || getLight(entity) || getCamera(entity) || getUICanvas(entity)) ? (
+      {smoothCharacterRoot && <CharacterBuilderBodyVisual parts={childEntities} />}
+      {props.hideVisual ? null : entity.isGroup ? null : !model?.enabled && (getPrimitive(entity) || getLight(entity) || getCamera(entity) || getUICanvas(entity)) ? (
         <SceneElementVisual entity={entity} gameView={Boolean(props.gameView)} active={effective}
           selected={selectedEntity} primary={isPrimary}
           assetUrls={props.assetUrls} onError={(message) => props.onModelError(entity.id, message)} />
@@ -888,8 +895,13 @@ function EntityNode(props: SceneWorldProps & {
         </mesh>
       )}
       {selectedEntity && !getCamera(entity) && <SelectionMarker />}
-      {(props.childrenByParent.get(entity.id) ?? []).map((child) => (
-        <EntityNode key={child.id} {...props} entity={child} />
+      {childEntities.map((child) => (
+        <EntityNode
+          key={child.id}
+          {...props}
+          entity={child}
+          hideVisual={smoothCharacterRoot && child.active && isCharacterBodySurfacePart(child)}
+        />
       ))}
     </group>
   );
