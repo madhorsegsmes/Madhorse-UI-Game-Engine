@@ -14,10 +14,15 @@ import {
 import { createPrimitiveGeometry } from './scene-view-geometry';
 
 export type TerrainToolAction = TerrainBrushEdit['action'];
+export type TreeSpacing = 'close' | 'normal' | 'wide';
+export type WaterCoverage = 'pond' | 'lake' | 'river' | 'full';
+export type WaterLevel = 'low' | 'normal' | 'high';
 
 export function appendTerrainBrushEdit(
   terrain: SceneEntity,
   action: TerrainToolAction,
+  radius?: number,
+  strength?: number,
 ): SceneEntity | null {
   const surface = getPrimitive(terrain);
   if (!surface || surface.shape !== 'terrain') return null;
@@ -38,8 +43,8 @@ export function appendTerrainBrushEdit(
     action,
     x: 0,
     z: 0,
-    radius: Math.min(100, Math.max(0.5, Math.min(settings.width, settings.depth) * 0.28)),
-    strength: action === 'smooth' ? 0.65 : 2,
+    radius: Math.min(100, Math.max(0.5, radius ?? Math.min(settings.width, settings.depth) * 0.28)),
+    strength: Math.min(10, Math.max(0.05, strength ?? (action === 'smooth' ? 0.65 : 2))),
   };
   const updated: SceneEntity = {
     ...terrain,
@@ -50,15 +55,28 @@ export function appendTerrainBrushEdit(
   return isSceneEntity(updated) ? updated : null;
 }
 
-export function createTerrainWater(terrain: SceneEntity): SceneEntity {
+export function createTerrainWater(
+  terrain: SceneEntity,
+  coverage: WaterCoverage = 'full',
+  level: WaterLevel = 'normal',
+): SceneEntity {
   const surface = getPrimitive(terrain);
   const settings = surface?.terrainSettings;
-  const water = createSceneEntity('Water', { ...SCENE_ORIGIN, z: 55 }, terrain.id, false);
+  const water = createSceneEntity('Water', { ...SCENE_ORIGIN, z: 50 + ({ low: 2, normal: 5, high: 8 }[level]) }, terrain.id, false);
   const transform = getTransform(water);
+  const sizeX = (settings?.width ?? 20) / 10;
+  const sizeY = (settings?.depth ?? 20) / 10;
+  const coverageScale: Record<WaterCoverage, Vector3> = {
+    pond: { x: 0.28, y: 0.28, z: 1 },
+    lake: { x: 0.62, y: 0.62, z: 1 },
+    river: { x: 0.92, y: 0.18, z: 1 },
+    full: { x: 1, y: 1, z: 1 },
+  };
+  const selectedCoverage = coverageScale[coverage];
   transform.scale = {
-    x: (settings?.width ?? 20) / 10,
-    y: (settings?.depth ?? 20) / 10,
-    z: 1,
+    x: sizeX * selectedCoverage.x,
+    y: sizeY * selectedCoverage.y,
+    z: selectedCoverage.z,
   };
   water.components = [
     transform,
@@ -78,9 +96,17 @@ export function createTerrainWater(terrain: SceneEntity): SceneEntity {
   return water;
 }
 
-export function createTerrainTreeGrove(terrain: SceneEntity): SceneEntity[] {
+export function createTerrainTreeGrove(
+  terrain: SceneEntity,
+  count = 3,
+  spacingOption: TreeSpacing = 'normal',
+): SceneEntity[] {
   const surface = getPrimitive(terrain);
-  const spacing = Math.min(surface?.terrainSettings?.width ?? 20, surface?.terrainSettings?.depth ?? 20) * 0.12;
+  const spacing = {
+    close: 3,
+    normal: Math.min(surface?.terrainSettings?.width ?? 20, surface?.terrainSettings?.depth ?? 20) * 0.12,
+    wide: 9,
+  }[spacingOption];
   const geometry = createPrimitiveGeometry('terrain', surface?.terrainSettings, surface?.terrainEdits);
   const vertices = geometry.getAttribute('position');
   const surfaceHeight = (x: number, z: number) => {
@@ -101,7 +127,16 @@ export function createTerrainTreeGrove(terrain: SceneEntity): SceneEntity[] {
   grove.components = [getTransform(grove)];
   grove.isGroup = true;
 
-  const offsets: Array<[number, number]> = [[-spacing, -spacing * 0.35], [0, spacing * 0.4], [spacing, -spacing * 0.3]];
+  const columns = Math.ceil(Math.sqrt(count));
+  const rows = Math.ceil(count / columns);
+  const offsets: Array<[number, number]> = Array.from({ length: count }, (_, index) => {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    return [
+      (column - (columns - 1) / 2) * spacing,
+      (row - (rows - 1) / 2) * spacing,
+    ];
+  });
   const entities: SceneEntity[] = [grove];
   offsets.forEach(([x, y], index) => {
     const tree = createSceneEntity(`Tree ${index + 1}`, {

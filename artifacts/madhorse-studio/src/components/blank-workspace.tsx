@@ -2,7 +2,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Dispatch, DragEvent as ReactDragEvent, KeyboardEvent, MouseEvent, SetStateAction } from 'react';
-import { Activity, ChevronDown, ChevronRight, FileDown, Folder, Trash2 } from 'lucide-react';
+import { Activity, ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, Droplets, FileDown, Folder, Mountain, Trash2, Trees, Waves } from 'lucide-react';
 import { ScenePreview3D, type SceneFrameRequest, type SceneTransformMode } from './scene-preview-3d';
 import {
   createScriptableObjectAsset,
@@ -31,7 +31,15 @@ import {
 } from '@/lib/scene-model';
 import { createGameCamera, type GameCamera } from '@/lib/game-camera';
 import { cameraWithPose, PRIMARY_CAMERA_ID, primaryCameraEntity } from '@/lib/camera-editor';
-import { appendTerrainBrushEdit, createTerrainTreeGrove, createTerrainWater } from '@/lib/terrain-authoring';
+import {
+  appendTerrainBrushEdit,
+  createTerrainTreeGrove,
+  createTerrainWater,
+  type TerrainToolAction,
+  type TreeSpacing,
+  type WaterCoverage,
+  type WaterLevel,
+} from '@/lib/terrain-authoring';
 import { SceneObjectGlyph } from './scene-object-glyph';
 import { SceneObjectInspector } from './scene-object-inspector';
 import { SystemDebugger } from './system-debugger';
@@ -889,9 +897,9 @@ type HierarchyActions = {
   onCreateTexture: () => void;
   onOpenTimeline: () => void;
   onCreateEmpty: () => void;
-  onTerrainBrush: (terrainId: string, action: 'raise' | 'lower' | 'smooth') => void;
-  onAddTrees: (terrainId: string) => void;
-  onAddWater: (terrainId: string) => void;
+  onTerrainBrush: (terrainId: string, action: TerrainToolAction, radius?: number, strength?: number) => void;
+  onAddTrees: (terrainId: string, count?: number, spacing?: TreeSpacing) => void;
+  onAddWater: (terrainId: string, coverage?: WaterCoverage, level?: WaterLevel) => void;
 };
 
 function SceneObjectRows({
@@ -1042,6 +1050,7 @@ function SceneObjectRow({
 }
 
 type Panel5Toolset = 'world' | 'model';
+type Panel5WorldTool = TerrainToolAction | 'trees' | 'water';
 
 function WorldToolsPanel({
   activeToolset,
@@ -1063,15 +1072,51 @@ function WorldToolsPanel({
   onCreateTerrain: () => void;
   onImportAsset: () => void;
   terrainAvailable: boolean;
-  onTerrainBrush: (action: 'raise' | 'lower' | 'smooth') => void;
-  onAddTrees: () => void;
-  onAddWater: () => void;
+  onTerrainBrush: (action: TerrainToolAction, radius: number, strength: number) => void;
+  onAddTrees: (count: number, spacing: TreeSpacing) => void;
+  onAddWater: (coverage: WaterCoverage, level: WaterLevel) => void;
   onCreateShape: (shape: PrimitiveShape) => void;
   onUploadTexture: () => void;
   onCreateTexture: () => void;
   onPreviewAnimation: () => void;
   onOpenModeling: () => void;
 }) {
+  const [selectedWorldTool, setSelectedWorldTool] = useState<Panel5WorldTool | null>(null);
+  const [brushRadius, setBrushRadius] = useState('8');
+  const [brushStrength, setBrushStrength] = useState('2');
+  const [treeCount, setTreeCount] = useState('3');
+  const [treeSpacing, setTreeSpacing] = useState<TreeSpacing>('normal');
+  const [waterCoverage, setWaterCoverage] = useState<WaterCoverage>('lake');
+  const [waterLevel, setWaterLevel] = useState<WaterLevel>('normal');
+  const worldTools = [
+    { id: 'create-terrain', label: 'Create Terrain', Icon: Mountain },
+    { id: 'raise', label: 'Raise Terrain', Icon: ArrowUp },
+    { id: 'lower', label: 'Lower Terrain', Icon: ArrowDown },
+    { id: 'smooth', label: 'Smooth Terrain', Icon: Waves },
+    { id: 'trees', label: 'Add Trees', Icon: Trees },
+    { id: 'water', label: 'Add Water', Icon: Droplets },
+  ] as const;
+
+  function selectWorldTool(id: typeof worldTools[number]['id']) {
+    if (id === 'create-terrain') {
+      setSelectedWorldTool(null);
+      onCreateTerrain();
+      return;
+    }
+    setSelectedWorldTool(current => current === id ? null : id);
+  }
+
+  function applyWorldTool() {
+    if (selectedWorldTool === 'raise' || selectedWorldTool === 'lower' || selectedWorldTool === 'smooth') {
+      onTerrainBrush(selectedWorldTool, Number(brushRadius), Number(brushStrength));
+    } else if (selectedWorldTool === 'trees') {
+      onAddTrees(Number(treeCount), treeSpacing);
+    } else if (selectedWorldTool === 'water') {
+      onAddWater(waterCoverage, waterLevel);
+    }
+    setSelectedWorldTool(null);
+  }
+
   return (
     <div className="fresh-world-tools-panel">
       <div className="fresh-world-tools-tabs" role="group" aria-label="Panel 5 tool categories">
@@ -1102,14 +1147,102 @@ function WorldToolsPanel({
       >
         {activeToolset === 'world' ? (
           <>
-          <div className="fresh-world-tool-grid">
-            <button type="button" className="fresh-world-tool-button" data-testid="panel5-create-terrain" onClick={onCreateTerrain}>Create Terrain</button>
-            <button type="button" className="fresh-world-tool-button" data-testid="panel5-raise-terrain" disabled={!terrainAvailable} onClick={() => onTerrainBrush('raise')}>Raise Terrain</button>
-            <button type="button" className="fresh-world-tool-button" data-testid="panel5-lower-terrain" disabled={!terrainAvailable} onClick={() => onTerrainBrush('lower')}>Lower Terrain</button>
-            <button type="button" className="fresh-world-tool-button" data-testid="panel5-smooth-terrain" disabled={!terrainAvailable} onClick={() => onTerrainBrush('smooth')}>Smooth Terrain</button>
-            <button type="button" className="fresh-world-tool-button" data-testid="panel5-add-trees" disabled={!terrainAvailable} onClick={onAddTrees}>Add Trees</button>
-            <button type="button" className="fresh-world-tool-button" data-testid="panel5-add-water" disabled={!terrainAvailable} onClick={onAddWater}>Add Water</button>
+          <div className="fresh-world-tool-grid fresh-world-tool-grid-world" role="group" aria-label="World building actions">
+            {worldTools.map(({ id, label, Icon }) => {
+              const toolId = id === 'create-terrain' ? null : id;
+              const selected = toolId !== null && selectedWorldTool === toolId;
+              const testId = id === 'create-terrain' ? 'panel5-create-terrain'
+                : id === 'raise' ? 'panel5-raise-terrain'
+                  : id === 'lower' ? 'panel5-lower-terrain'
+                    : id === 'smooth' ? 'panel5-smooth-terrain'
+                      : id === 'trees' ? 'panel5-add-trees' : 'panel5-add-water';
+              return (
+                <button
+                  type="button"
+                  key={id}
+                  className="fresh-world-tool-button"
+                  data-testid={testId}
+                  data-selected={selected}
+                  aria-pressed={toolId === null ? undefined : selected}
+                  aria-expanded={toolId === null ? undefined : selected}
+                  aria-controls={toolId === null ? undefined : 'panel5-world-tool-options'}
+                  onClick={() => selectWorldTool(id)}
+                >
+                  <Icon size={15} strokeWidth={2.2} aria-hidden="true" />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
           </div>
+          {selectedWorldTool && (
+            <section className="fresh-world-tool-options" id="panel5-world-tool-options" aria-label="Selected tool settings" data-testid="panel5-world-tool-options">
+              <h3>{worldTools.find(tool => tool.id === selectedWorldTool)?.label} settings</h3>
+              {selectedWorldTool === 'raise' || selectedWorldTool === 'lower' || selectedWorldTool === 'smooth' ? (
+                <>
+                  <label className="fresh-world-tool-setting">
+                    <span>Brush size</span>
+                    <select data-testid="panel5-brush-size" value={brushRadius} onChange={event => setBrushRadius(event.currentTarget.value)}>
+                      <option value="4">Small</option>
+                      <option value="8">Medium</option>
+                      <option value="14">Large</option>
+                    </select>
+                  </label>
+                  <label className="fresh-world-tool-setting">
+                    <span>{selectedWorldTool === 'smooth' ? 'Smoothing' : 'Brush strength'}</span>
+                    <select data-testid="panel5-brush-strength" value={brushStrength} onChange={event => setBrushStrength(event.currentTarget.value)}>
+                      <option value="0.5">Light</option>
+                      <option value="2">Medium</option>
+                      <option value="4">Strong</option>
+                    </select>
+                  </label>
+                </>
+              ) : selectedWorldTool === 'trees' ? (
+                <>
+                  <label className="fresh-world-tool-setting">
+                    <span>Tree count</span>
+                    <select data-testid="panel5-tree-count" value={treeCount} onChange={event => setTreeCount(event.currentTarget.value)}>
+                      <option value="3">3 trees</option>
+                      <option value="6">6 trees</option>
+                      <option value="9">9 trees</option>
+                    </select>
+                  </label>
+                  <label className="fresh-world-tool-setting">
+                    <span>Spacing</span>
+                    <select data-testid="panel5-tree-spacing" value={treeSpacing} onChange={event => setTreeSpacing(event.currentTarget.value as TreeSpacing)}>
+                      <option value="close">Close</option>
+                      <option value="normal">Medium</option>
+                      <option value="wide">Wide</option>
+                    </select>
+                  </label>
+                </>
+              ) : (
+                <>
+                  <label className="fresh-world-tool-setting">
+                    <span>Water area</span>
+                    <select data-testid="panel5-water-coverage" value={waterCoverage} onChange={event => setWaterCoverage(event.currentTarget.value as WaterCoverage)}>
+                      <option value="pond">Pond</option>
+                      <option value="lake">Lake</option>
+                      <option value="river">River</option>
+                      <option value="full">Full terrain</option>
+                    </select>
+                  </label>
+                  <label className="fresh-world-tool-setting">
+                    <span>Water level</span>
+                    <select data-testid="panel5-water-level" value={waterLevel} onChange={event => setWaterLevel(event.currentTarget.value as WaterLevel)}>
+                      <option value="low">Low</option>
+                      <option value="normal">Medium</option>
+                      <option value="high">High</option>
+                    </select>
+                  </label>
+                </>
+              )}
+              {!terrainAvailable && <p className="fresh-world-tool-hint">Select a Terrain in Hierarchy to apply this tool.</p>}
+              <button type="button" className="fresh-world-tool-apply" data-testid="panel5-apply-world-tool"
+                disabled={!terrainAvailable} onClick={applyWorldTool}>
+                <Check size={14} aria-hidden="true" /> Apply {worldTools.find(tool => tool.id === selectedWorldTool)?.label}
+              </button>
+            </section>
+          )}
           <p className="fresh-world-tool-hint">
             {terrainAvailable ? 'Tools edit the selected Terrain. Sculpt tools affect its center.'
               : 'Select a Terrain in Hierarchy, or create one to begin.'}
@@ -1896,13 +2029,18 @@ export default function BlankWorkspace() {
     });
   }, [createPrimitiveEntity]);
 
-  const applyTerrainBrush = useCallback((terrainId: string, action: 'raise' | 'lower' | 'smooth') => {
+  const applyTerrainBrush = useCallback((
+    terrainId: string,
+    action: TerrainToolAction,
+    radius?: number,
+    strength?: number,
+  ) => {
     const terrain = entities.find(entity => entity.id === terrainId);
     if (!terrain) {
       setStatus('Select a Terrain in Hierarchy before using a terrain brush.');
       return;
     }
-    const updated = appendTerrainBrushEdit(terrain, action);
+    const updated = appendTerrainBrushEdit(terrain, action, radius, strength);
     if (!updated) {
       setStatus('This Terrain cannot accept another edit. Each terrain supports up to 128 brush edits.');
       return;
@@ -1913,29 +2051,34 @@ export default function BlankWorkspace() {
     setStatus(`${label} a circular area at the center of ${terrain.name}. The change is saved with the project.`);
   }, [entities]);
 
-  const addTreesToTerrain = useCallback((terrainId: string) => {
+  const addTreesToTerrain = useCallback((terrainId: string, count = 3, spacing: TreeSpacing = 'normal') => {
     const terrain = entities.find(entity => entity.id === terrainId);
     if (!terrain) {
       setStatus('Select a Terrain in Hierarchy before adding trees.');
       return;
     }
-    const grove = createTerrainTreeGrove(terrain);
+    const safeCount = Number.isInteger(count) ? Math.max(1, Math.min(20, count)) : 3;
+    const grove = createTerrainTreeGrove(terrain, safeCount, spacing);
     if (!isSceneGraph([...entities, ...grove])) {
       setStatus('The tree group could not be added to this scene.');
       return;
     }
     setEntities(current => [...current, ...grove]);
     setSelection(grove[0].id);
-    setStatus('Added a grove of three editable trees under the selected Terrain.');
+    setStatus(`Added ${safeCount} editable trees under the selected Terrain.`);
   }, [entities]);
 
-  const addWaterToTerrain = useCallback((terrainId: string) => {
+  const addWaterToTerrain = useCallback((
+    terrainId: string,
+    coverage: WaterCoverage = 'full',
+    level: WaterLevel = 'normal',
+  ) => {
     const terrain = entities.find(entity => entity.id === terrainId);
     if (!terrain) {
       setStatus('Select a Terrain in Hierarchy before adding water.');
       return;
     }
-    const water = createTerrainWater(terrain);
+    const water = createTerrainWater(terrain, coverage, level);
     if (!isSceneGraph([...entities, water])) {
       setStatus('Water could not be added to this scene.');
       return;
@@ -2106,9 +2249,15 @@ export default function BlankWorkspace() {
               onCreateTerrain={() => setPanel5Dialog('terrain')}
               onImportAsset={showImportPicker}
               terrainAvailable={Boolean(selectedEntity && getPrimitive(selectedEntity)?.shape === 'terrain')}
-              onTerrainBrush={action => { if (selection) applyTerrainBrush(selection, action); }}
-              onAddTrees={() => { if (selection) addTreesToTerrain(selection); }}
-              onAddWater={() => { if (selection) addWaterToTerrain(selection); }}
+              onTerrainBrush={(action, radius, strength) => {
+                if (selection) applyTerrainBrush(selection, action, radius, strength);
+              }}
+              onAddTrees={(count, spacing) => {
+                if (selection) addTreesToTerrain(selection, count, spacing);
+              }}
+              onAddWater={(coverage, level) => {
+                if (selection) addWaterToTerrain(selection, coverage, level);
+              }}
               onCreateShape={shape => {
                 if (shape === 'plane') {
                   setPanel5Dialog('plane');

@@ -29,12 +29,14 @@ try {
         ];
         assert(isSceneEntity(terrain));
         const unchanged = JSON.stringify(terrain);
-        const raised = appendTerrainBrushEdit(terrain, 'raise');
+        const raised = appendTerrainBrushEdit(terrain, 'raise', 14, 4);
         const lowered = appendTerrainBrushEdit(terrain, 'lower');
         const smoothed = appendTerrainBrushEdit(terrain, 'smooth');
         assert(raised && lowered && smoothed);
         assert.equal(JSON.stringify(terrain), unchanged, 'brush tools do not mutate the saved input scene');
         assert.equal(getPrimitive(raised).terrainEdits[0].action, 'raise');
+        assert.equal(getPrimitive(raised).terrainEdits[0].radius, 14);
+        assert.equal(getPrimitive(raised).terrainEdits[0].strength, 4);
         assert.equal(getPrimitive(lowered).terrainEdits[0].action, 'lower');
         assert.equal(getPrimitive(smoothed).terrainEdits[0].action, 'smooth');
         const center = 48 * 97 + 48;
@@ -61,11 +63,16 @@ try {
         assert.equal(grove.filter(entity => /^Tree \\d+$/.test(entity.name)).length, 3, 'a grove contains three editable trees');
         assert.equal(grove.filter(entity => getPrimitive(entity)?.shape === 'cylinder').length, 3, 'each tree has a trunk');
         assert.equal(grove.filter(entity => getPrimitive(entity)?.shape === 'cone').length, 3, 'each tree has a canopy');
-        const water = createTerrainWater(terrain);
+        const forest = createTerrainTreeGrove(terrain, 9, 'wide');
+        assert.equal(forest.filter(entity => /^Tree \\d+$/.test(entity.name)).length, 9, 'tree count follows the selected dropdown');
+        const water = createTerrainWater(terrain, 'river', 'high');
         assert.equal(getPrimitive(water).shape, 'plane');
         assert.equal(getPrimitive(water).color, '#429ed1');
-        assert(isSceneGraph([terrain, ...grove, water]), 'trees and water are valid, parented scene entities');
-        console.log('PASS: terrain raise/lower/smooth mesh edits, bounded saved strokes, editable tree grove, water plane, and valid scene hierarchy.');
+        assert.equal(getTransform(water).scale.x, 3.68, 'water coverage controls its surface width');
+        assert.equal(getTransform(water).scale.y, 0.72, 'river coverage controls its surface length');
+        assert.equal(getTransform(water).position.z, 58, 'water level is configurable');
+        assert(isSceneGraph([terrain, ...grove, ...forest, water]), 'trees and water are valid, parented scene entities');
+        console.log('PASS: configurable sculpt brushes, saved edits, tree count/spacing, water coverage/level, and valid scene hierarchy.');
       `,
     },
     bundle: true,
