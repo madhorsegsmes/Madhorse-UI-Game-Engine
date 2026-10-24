@@ -44,7 +44,7 @@ At the very top is one compact, long bordered **Main Panel**, with a column divi
 
 **Why:** The user explicitly corrected the control placement and panel numbers, then asked for a smaller Main Panel.
 
-**How to apply:** Keep its height compact with restrained padding and button sizing. Use the names and default placement when interpreting future layout requests; keep each toolbar's controls grouped on phone layouts.
+**How to apply:** Keep its height compact with restrained padding and button sizing. Use the names and default placement when interpreting future layout requests; keep each toolbar's controls grouped at PC window sizes.
 
 The visual preview's default appearance should be a blank canvas with a centered
 square, like Unity. Keep the surrounding numbered panels unchanged.
@@ -103,8 +103,8 @@ change only the editor view, not the saved Game Camera or scene objects.
 **Why:** The user asked for the Scene View to be scalable like Unity's Scene view.
 
 **How to apply:** Keep editor zoom/pan separate from game-camera pose and object
-transforms. Preserve touch navigation and direct zoom controls alongside mouse
-navigation.
+transforms. Preserve mouse navigation and direct zoom controls. See
+[editor platform scope](editor-platform-scope.md) for the PC-only authoring target.
 
 The scene viewport should be large by default on desktop; users should not need
 to resize it before they can work comfortably.

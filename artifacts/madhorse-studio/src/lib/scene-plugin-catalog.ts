@@ -3,6 +3,7 @@ import {
   type SceneComponent,
 } from './scene-model';
 import { createUIControlElement } from './ui-controls';
+import { createPlayerAction, playerActionDefinitions, playerActionNames, type PlayerActionName } from './player-action-model';
 
 export type PluginCategory =
   | 'game'
@@ -21,6 +22,7 @@ export type PluginCategory =
   | 'third-person-character';
 
 export type PluginComponentKind =
+  | `action-${PlayerActionName}`
   | 'physics'
   | 'camera'
   | 'uiCanvas'
@@ -50,14 +52,22 @@ export type ScenePluginDefinition = {
   action?: 'character-builder' | 'animation-timeline';
 };
 
+const playerActionPlugins: ScenePluginDefinition[] = playerActionNames.map(action => ({
+  id: `action-${action}`, componentKind: `action-${action}`,
+  label: `${playerActionDefinitions[action].label} + Sound`,
+  description: playerActionDefinitions[action].help,
+}));
+
 export const scenePluginCatalog: Record<PluginCategory, ScenePluginDefinition[]> = {
   game: [
+    ...playerActionPlugins.filter(entry => ['action-race', 'action-craft', 'action-build'].includes(entry.id)),
     { id: 'game-audio', componentKind: 'game-audio', label: 'Game Audio', description: 'Add a sound source. Pick a clip, set its loudness, and test it in Settings.' },
     { id: 'physics', componentKind: 'physics', label: 'Physics Body', description: 'Set how this object bumps, falls, and bounces. Change its settings on the object.' },
     { id: 'uiCanvas', componentKind: 'uiCanvas', label: 'UI Canvas', description: 'Add a blank screen panel for menus and buttons.' },
     { id: 'character-controller-player', componentKind: 'character-controller-player', label: 'Player Controller', description: 'Add walking and jumping. Use W, A, S, D or arrows; press Space to jump.' },
   ],
   'player-npc': [
+    ...playerActionPlugins,
     { id: 'player-walk-audio', componentKind: 'player-walk-audio', label: 'Player Walk Audio', description: 'Play a footstep when the player walks in Play Test. Pick a clip or use the built-in thump.' },
     { id: 'character-controller-player', componentKind: 'character-controller-player', label: 'Player Controller', description: 'Add walking and jumping to the player.' },
     { id: 'character-controller-npc', componentKind: 'character-controller-npc', label: 'NPC Agent', description: 'Make this helper walk toward the player. Change its speed in Settings.' },
@@ -112,6 +122,9 @@ export function createPluginComponent(
   kind: PluginComponentKind,
   uiControlCount: number,
 ): { component: SceneComponent; uiControl?: ReturnType<typeof createUIControlElement> } {
+  if (kind.startsWith('action-')) {
+    return { component: createPlayerAction(kind.slice(7) as PlayerActionName) };
+  }
   const id = crypto.randomUUID();
   if (kind === 'physics') {
     const component = createPhysicsComponent();
@@ -223,6 +236,13 @@ export function createPluginComponent(
 
 export function getPluginComponentIdentity(kind: PluginComponentKind): SceneComponent['type'] {
   const identity: Record<PluginComponentKind, SceneComponent['type']> = {
+    'action-run': 'playerAction',
+    'action-crouch': 'playerAction',
+    'action-fight': 'playerAction',
+    'action-shoot': 'playerAction',
+    'action-race': 'playerAction',
+    'action-craft': 'playerAction',
+    'action-build': 'playerAction',
     physics: 'physics',
     camera: 'camera',
     uiCanvas: 'uiCanvas',
@@ -245,4 +265,9 @@ export function getPluginComponentIdentity(kind: PluginComponentKind): SceneComp
     skybox: 'skybox',
   };
   return identity[kind];
+}
+
+export function matchesPluginComponent(component: SceneComponent, kind: PluginComponentKind): boolean {
+  if (kind.startsWith('action-')) return component.type === 'playerAction' && component.action === kind.slice(7);
+  return component.type === getPluginComponentIdentity(kind);
 }

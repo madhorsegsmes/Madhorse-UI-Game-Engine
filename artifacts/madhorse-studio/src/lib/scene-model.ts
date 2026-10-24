@@ -1,3 +1,4 @@
+import { isPlayerActionComponent, type PlayerActionComponent } from './player-action-model';
 export type Vector3 = { x: number; y: number; z: number };
 export const SCENE_ORIGIN: Vector3 = { x: 50, y: 50, z: 0 };
 
@@ -151,7 +152,7 @@ export type TriggerZoneComponent = {
 };
 export type SceneComponent = TransformComponent | SpriteRendererComponent | ModelRendererComponent |
   PrimitiveComponent | LightComponent | CameraComponent | UICanvasComponent | PhysicsComponent | ScriptComponent |
-  GameAudioComponent | PlayerWalkAudioComponent | EffectComponent | SkyboxComponent | CharacterControllerComponent | TriggerZoneComponent;
+  GameAudioComponent | PlayerWalkAudioComponent | PlayerActionComponent | EffectComponent | SkyboxComponent | CharacterControllerComponent | TriggerZoneComponent;
 
 export type SceneEntity = {
   id: string;
@@ -332,6 +333,7 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
   if (!value || typeof value !== 'object') return false;
   const item = value as SceneComponent;
   if (typeof item.id !== 'string') return false;
+  if (item.type === 'playerAction') return isPlayerActionComponent(item);
   if (item.type === 'transform') {
     return item.enabled === true &&
       isVector(item.position) && isVector(item.rotation) && isVector(item.scale) &&
@@ -452,7 +454,11 @@ export function isSceneEntity(value: unknown): value is SceneEntity {
       (entity.parentId !== null && typeof entity.parentId !== 'string') ||
       typeof entity.active !== 'boolean' || !Array.isArray(entity.components) ||
       !entity.components.every(isSceneComponent)) return false;
-  return entity.components.filter((component) => component.type === 'transform').length === 1 &&
+  const actions = entity.components.filter(component => component.type === 'playerAction');
+  const enabledActions = actions.filter(component => component.enabled);
+  return new Set(actions.map(component => component.action)).size === actions.length &&
+    new Set(enabledActions.map(component => component.key)).size === enabledActions.length &&
+    entity.components.filter((component) => component.type === 'transform').length === 1 &&
     ['primitive', 'light', 'camera', 'uiCanvas', 'script', 'effect', 'skybox', 'characterController', 'triggerZone'].every((type) => entity.components.filter((component) => component.type === type).length <= 1) &&
     entity.components.filter((component) => component.type === 'spriteRenderer').length <= 1 &&
     entity.components.filter((component) => component.type === 'modelRenderer').length <= 1 &&

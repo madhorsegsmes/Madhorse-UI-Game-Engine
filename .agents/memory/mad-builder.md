@@ -74,7 +74,7 @@ Keep the visibly labeled request composer first when Mad Builder opens.
 **Why:** The user asked for a text prompt after the bot already had one; placing
 help and history above it made it difficult to find on a phone.
 
-**How to apply:** The phone's initial panel viewport should show the prompt and
+**How to apply:** The PC editor's initial panel viewport should show the prompt and
 planning button without scrolling. Put help and history below the composer.
 
 Keep builder history and unapplied plans browser-local with the project. The

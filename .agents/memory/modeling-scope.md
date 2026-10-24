@@ -25,7 +25,7 @@ Check the full content bounds when verifying responsive modeling panels, not jus
 
 **Why:** A panel can occupy the correct grid cell while its compressed contents visibly overflow into the next panel.
 
-**How to apply:** At stacked tablet/phone widths, verify the complete controls fit their sections and remain reachable by scrolling.
+**How to apply:** At small PC window sizes, verify the complete controls fit their sections and remain reachable by scrolling. The editor targets PC, not phone authoring.
 
 Trace suspicious viewport lines before assuming they are rig helpers.
 

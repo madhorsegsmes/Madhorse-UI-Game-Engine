@@ -1,4 +1,17 @@
-export type AudioPlayStyle = 'tone' | 'footstep';
+import type { PlayerActionName } from './player-action-model';
+export type AudioPlayStyle = 'tone' | 'footstep' | PlayerActionName;
+
+const soundPresets: Record<AudioPlayStyle, { wave: OscillatorType; start: number; end: number; duration: number }> = {
+  tone: { wave: 'sine', start: 440, end: 440, duration: 0.24 },
+  footstep: { wave: 'triangle', start: 125, end: 55, duration: 0.12 },
+  run: { wave: 'triangle', start: 145, end: 55, duration: 0.09 },
+  crouch: { wave: 'triangle', start: 80, end: 35, duration: 0.16 },
+  fight: { wave: 'sawtooth', start: 380, end: 60, duration: 0.15 },
+  shoot: { wave: 'sawtooth', start: 1100, end: 70, duration: 0.12 },
+  race: { wave: 'sawtooth', start: 75, end: 100, duration: 0.24 },
+  craft: { wave: 'sine', start: 650, end: 1100, duration: 0.2 },
+  build: { wave: 'triangle', start: 230, end: 60, duration: 0.18 },
+};
 
 let sharedContext: AudioContext | null = null;
 type AudioScope = 'preview' | 'runtime';
@@ -42,14 +55,15 @@ function playBuiltInSound(style: AudioPlayStyle, volume: number, pitch: number, 
 
   try {
     const now = context.currentTime;
-    const duration = style === 'footstep' ? 0.12 : 0.24;
+    const preset = soundPresets[style];
+    const duration = preset.duration;
     const oscillator = context.createOscillator();
     const gain = context.createGain();
     const normalizedVolume = clamp(volume, 0, 1);
     const normalizedPitch = clamp(pitch, 0.25, 2);
-    oscillator.type = style === 'footstep' ? 'triangle' : 'sine';
-    oscillator.frequency.setValueAtTime(style === 'footstep' ? 125 * normalizedPitch : 440 * normalizedPitch, now);
-    if (style === 'footstep') oscillator.frequency.exponentialRampToValueAtTime(55 * normalizedPitch, now + duration);
+    oscillator.type = preset.wave;
+    oscillator.frequency.setValueAtTime(preset.start * normalizedPitch, now);
+    oscillator.frequency.exponentialRampToValueAtTime(preset.end * normalizedPitch, now + duration);
 
     gain.gain.setValueAtTime(0.0001, now);
     gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, normalizedVolume), now + 0.012);
@@ -80,6 +94,7 @@ export async function playAudioPreview(
   style: AudioPlayStyle,
   scope: AudioScope = 'preview',
 ): Promise<boolean> {
+  if (activeSounds[scope].size >= (scope === 'runtime' ? 16 : 4)) return false;
   if (!clipUrl) return playBuiltInSound(style, volume, pitch, scope);
 
   let cleanup: (() => void) | undefined;

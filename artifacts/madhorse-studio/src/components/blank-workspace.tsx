@@ -56,11 +56,14 @@ import type { UIControlElement } from '@/lib/ui-controls';
 import { advanceSceneRuntime, createSceneRuntimeState } from '@/lib/scene-play-runtime';
 import { publishStatus } from '@/lib/system-diagnostics';
 import { playAudioPreview, stopAudioPlayback, unlockSceneAudio } from '@/lib/game-audio';
+import { playerActionDefinitions } from '@/lib/player-action-model';
+import type { ActionHud } from '@/lib/player-action-runtime';
+import { PlayerActionHud } from './player-action-hud';
 import { downloadMadBuilderLogPdf, type MadBuilderBuildLog } from '@/lib/mad-builder-build-log';
 import { createGameTypeLibraryPdf, gameTypeLibraryEntryCount } from '@/lib/game-type-library';
 import {
   createPluginComponent,
-  getPluginComponentIdentity,
+  matchesPluginComponent,
   scenePluginCatalog,
   type PluginCategory,
   type PluginComponentKind,
@@ -85,6 +88,7 @@ function SceneViewport({
   onSelect,
   onTransformCommit,
   onCameraChange,
+  actionHud,
 }: {
   entities: SceneEntity[];
   camera: GameCamera;
@@ -99,6 +103,7 @@ function SceneViewport({
     changes: Partial<Pick<TransformComponent, 'position' | 'rotation' | 'scale'>>,
   ) => void;
   onCameraChange: (camera: GameCamera) => void;
+  actionHud: ActionHud | null;
 }) {
   const [transformMode, setTransformMode] = useState<SceneTransformMode>('translate');
   return (
@@ -114,13 +119,14 @@ function SceneViewport({
         frameRequest={frameRequest}
         playerPreviewPosition={{ x: 0, y: 0 }}
         transformMode={transformMode}
-        readOnly={false}
+        readOnly={isPlaying}
         onSelectEntity={onSelect}
         onTransformCommit={onTransformCommit}
         onTransformModeChange={setTransformMode}
         onPrimaryCameraChange={onCameraChange}
         onSelectPrimaryCamera={() => onSelect(PRIMARY_CAMERA_ID)}
       />
+      {isPlaying && actionHud && <PlayerActionHud hud={actionHud} />}
     </div>
   );
 }
@@ -331,8 +337,7 @@ function SettingsPanel({
                 </p>
                 <div className="fresh-function-tool-list">
                   {functionTools.map(tool => {
-                    const componentType = getPluginComponentIdentity(tool.componentKind);
-                    const alreadyAdded = Boolean(selectedEntity?.components.some(item => item.type === componentType));
+                    const alreadyAdded = Boolean(selectedEntity?.components.some(item => matchesPluginComponent(item, tool.componentKind)));
                     const canAdd = Boolean(selectedEntity && selectedEntity.id !== PRIMARY_CAMERA_ID && !alreadyAdded);
                     return (
                       <article className="fresh-function-tool-card" key={tool.id} data-testid={`function-tool-${tool.id}`}>
@@ -634,8 +639,7 @@ function SettingsPanel({
                 {pluginEntries.length ? (
                   <div className="fresh-plugin-cards" aria-live="polite">
                     {pluginEntries.map(entry => {
-                      const identity = entry.componentKind ? getPluginComponentIdentity(entry.componentKind) : null;
-                      const alreadyAdded = identity !== null && Boolean(selectedEntity?.components.some(component => component.type === identity));
+                      const alreadyAdded = Boolean(entry.componentKind && selectedEntity?.components.some(component => matchesPluginComponent(component, entry.componentKind!)));
                       const isComponent = Boolean(entry.componentKind);
                       const canAddToSelected = Boolean(selectedEntity && selectedEntity.id !== PRIMARY_CAMERA_ID && isComponent && !alreadyAdded);
                       const handleDragStart = (event: ReactDragEvent<HTMLElement>) => {
@@ -1131,6 +1135,17 @@ export default function BlankWorkspace() {
   const [playTestOn, setPlayTestOn] = useState(false);
   const [runtimeEntities, setRuntimeEntities] = useState<SceneEntity[] | null>(null);
   const [runtimeCamera, setRuntimeCamera] = useState<GameCamera | null>(null);
+  const [runtimeActionHud, setRuntimeActionHud] = useState<ActionHud | null>(null);
+  const runtimeInputRef = useRef({ held: new Set<string>(), tapped: new Set<string>() });
+  const playPlayerRef = useRef<string | null>(null);
+  const onRuntimeKey = useCallback((key: string, down: boolean) => {
+    const input = runtimeInputRef.current;
+    if (down) {
+      unlockSceneAudio();
+      if (!input.held.has(key)) input.tapped.add(key);
+      input.held.add(key);
+    } else input.held.delete(key);
+  }, []);
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [panel5Toolset, setPanel5Toolset] = useState<Panel5Toolset>('world');
   const [panel5Dialog, setPanel5Dialog] = useState<'plane' | 'terrain' | null>(null);
@@ -1278,6 +1293,7 @@ export default function BlankWorkspace() {
     if (!playTestOn) {
       setRuntimeEntities(null);
       setRuntimeCamera(null);
+      setRuntimeActionHud(null);
       return;
     }
 
@@ -1285,12 +1301,16 @@ export default function BlankWorkspace() {
     let previousTime = performance.now();
     let elapsed = 0;
     let lastPublish = 0;
-    let jumpPressed = false;
     let frameRequest = 0;
-    const pressed = new Set<string>();
+    const runtimeInput = { held: new Set<string>(), tapped: new Set<string>() };
+    runtimeInputRef.current = runtimeInput;
+    const pressed = runtimeInput.held;
+    const actionKeys = new Set(entities.flatMap(entity => entity.components.flatMap(component =>
+      component.type === 'playerAction' && component.enabled ? [component.key] : [],
+    )));
     const lastFootstepTime = new Map<string, number>();
     const lastFootstepPosition = new Map<string, { x: number; y: number; z: number }>();
-    const runtimeState = createSceneRuntimeState(entities);
+    const runtimeState = createSceneRuntimeState(entities, playPlayerRef.current);
     setEditingEntityId(null);
     setRuntimeEntities(entities);
     setRuntimeCamera(camera);
@@ -1309,26 +1329,29 @@ export default function BlankWorkspace() {
     });
 
     const isTextEntry = (target: EventTarget | null) =>
-      target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement ||
       (target instanceof HTMLElement && target.isContentEditable);
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (isTextEntry(event.target)) return;
       const key = event.key.toLowerCase();
+      if (event.metaKey || event.altKey || event.ctrlKey && key !== 'control') return;
       if (key === 'escape') {
         setPlayTestOn(false);
         return;
       }
-      if (key === ' ' && !event.repeat) jumpPressed = true;
-      if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(key)) {
+      if (actionKeys.has(key) || ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(key)) {
         event.preventDefault();
-        pressed.add(key);
+        if (!event.repeat) onRuntimeKey(key, true);
       }
     };
     const onKeyUp = (event: globalThis.KeyboardEvent) => {
       pressed.delete(event.key.toLowerCase());
     };
+    const releaseKeys = () => { pressed.clear(); runtimeInput.tapped.clear(); };
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', releaseKeys);
+    document.addEventListener('visibilitychange', releaseKeys);
 
     const frame = (now: number) => {
       const delta = Math.min(0.05, Math.max(0, (now - previousTime) / 1000));
@@ -1337,18 +1360,25 @@ export default function BlankWorkspace() {
       const input = {
         moveX: Number(pressed.has('d') || pressed.has('arrowright')) - Number(pressed.has('a') || pressed.has('arrowleft')),
         moveY: Number(pressed.has('w') || pressed.has('arrowup')) - Number(pressed.has('s') || pressed.has('arrowdown')),
-        jumpPressed,
+        jumpPressed: runtimeInput.tapped.has(' '),
+        heldKeys: [...pressed],
+        pressedKeys: [...runtimeInput.tapped],
       };
-      jumpPressed = false;
+      runtimeInput.tapped.clear();
       const result = advanceSceneRuntime(liveEntities, delta, elapsed, input, runtimeState);
       liveEntities = result.entities;
       result.events.forEach(event => setStatus(event.message));
+      result.audioEvents.forEach(event => {
+        if (event.clipAssetId && !assetUrls[event.clipAssetId]) return;
+        void playAudioPreview(event.clipAssetId ? assetUrls[event.clipAssetId] : null, event.volume, event.pitch, event.action, 'runtime');
+      });
       for (const entity of liveEntities) {
         const footsteps = entity.components.find(component => component.type === 'playerWalkAudio');
         const player = entity.components.find(component =>
           component.type === 'characterController' && component.role === 'player',
         );
         if (!entity.active || !footsteps?.enabled || !player?.enabled) continue;
+        if (result.hud?.playerId === entity.id && ['Running', 'Crouching', 'Driving'].includes(result.hud.mode)) continue;
         if (footsteps.clipAssetId && !assetUrls[footsteps.clipAssetId]) continue;
         const position = getWorldTransform(liveEntities, entity.id)?.position ?? getTransform(entity).position;
         const previousPosition = lastFootstepPosition.get(entity.id);
@@ -1374,13 +1404,17 @@ export default function BlankWorkspace() {
 
       if (now - lastPublish >= 33) {
         setRuntimeEntities(liveEntities);
+        setRuntimeActionHud(result.hud);
+        const actionPlayer = result.hud ? liveEntities.find(entity => entity.id === result.hud!.playerId) : undefined;
         const thirdPerson = liveEntities.find(entity =>
           entity.active && entity.components.some(component =>
             component.type === 'characterController' && component.enabled &&
-            component.role === 'player' && component.perspective === 'third-person',
+            component.role === 'player' && component.perspective === 'third-person' &&
+            entity.id === runtimeState.controlledPlayerId,
           ),
         );
-        const targetTransform = thirdPerson ? getWorldTransform(liveEntities, thirdPerson.id) : null;
+        const followed = actionPlayer ?? thirdPerson;
+        const targetTransform = followed ? getWorldTransform(liveEntities, followed.id) : null;
         if (targetTransform) {
           const target = {
             x: (targetTransform.position.x - 50) / 10,
@@ -1390,7 +1424,13 @@ export default function BlankWorkspace() {
           setRuntimeCamera({
             ...camera,
             target,
-            position: { x: target.x + 2.4, y: target.y + 1.8, z: target.z - 5 },
+            position: thirdPerson
+              ? { x: target.x + 2.4, y: target.y + 1.8, z: target.z - 5 }
+              : {
+                x: target.x + camera.position.x - camera.target.x,
+                y: target.y + camera.position.y - camera.target.y,
+                z: target.z + camera.position.z - camera.target.z,
+              },
           });
         } else {
           setRuntimeCamera(camera);
@@ -1405,8 +1445,11 @@ export default function BlankWorkspace() {
       window.cancelAnimationFrame(frameRequest);
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', releaseKeys);
+      document.removeEventListener('visibilitychange', releaseKeys);
+      releaseKeys();
     };
-  }, [assetUrls, camera, entities, playTestOn]);
+  }, [assetUrls, camera, entities, onRuntimeKey, playTestOn]);
 
   useEffect(() => {
     let disposed = false;
@@ -1517,21 +1560,20 @@ export default function BlankWorkspace() {
       return;
     }
     const existingController = target.components.find(component => component.type === 'characterController');
-    if (kind === 'player-walk-audio' && existingController?.role === 'npc') {
-      setStatus('Player Walk Audio needs a player object. Select a player, or add a Player Controller to another object.');
+    if ((kind === 'player-walk-audio' || kind.startsWith('action-')) && existingController?.role === 'npc') {
+      setStatus('This plugin needs a player object. Select a player, or change this object’s controller role to Player.');
       return;
     }
-    const identity = getPluginComponentIdentity(kind);
-    if (target.components.some(component => component.type === identity)) {
+    if (target.components.some(component => matchesPluginComponent(component, kind))) {
       setSelection(target.id);
       setStatus(`${target.name} already has this component. Double-click it in Hierarchy to edit its settings.`);
       return;
     }
     const created = createPluginComponent(kind, uiControls.length);
     const components: SceneComponent[] = [created.component];
-    const addPlayerController = kind === 'player-walk-audio' && !existingController;
+    const addPlayerController = (kind === 'player-walk-audio' || kind.startsWith('action-')) && !existingController;
     if (addPlayerController) {
-      components.push(createPluginComponent('character-controller-player', 0).component);
+      components.push(createPluginComponent(kind === 'action-race' ? 'character-controller-third-person' : 'character-controller-player', 0).component);
     }
     if ((created.component.type === 'characterController' || addPlayerController) &&
         !target.components.some(component => component.type === 'physics')) {
@@ -1560,7 +1602,8 @@ export default function BlankWorkspace() {
                       : kind.startsWith('character-controller') ? 'Character Controller'
                           : kind === 'skybox' ? 'Skybox Background'
                             : 'Trigger Zone';
-    setStatus(`${componentLabel}${addPlayerController ? ' and a Player Controller' : ''} added to ${target.name}. Double-click the object in Hierarchy to edit it.`);
+    const label = created.component.type === 'playerAction' ? `${playerActionDefinitions[created.component.action].label} + Sound` : componentLabel;
+    setStatus(`${label}${addPlayerController ? ' and a Player Controller' : ''} added to ${target.name}. Double-click the object in Hierarchy to edit it.`);
   }, [entities, uiControls.length]);
 
   const openCharacterBuilder = useCallback(() => {
@@ -1846,7 +1889,10 @@ export default function BlankWorkspace() {
           aria-pressed={playTestOn}
           data-testid="button-play-test"
           onClick={() => {
-            if (!playTestOn) unlockSceneAudio();
+            if (!playTestOn) {
+              unlockSceneAudio();
+              playPlayerRef.current = selection;
+            }
             setPlayTestOn(value => !value);
           }}
         >
@@ -1893,6 +1939,7 @@ export default function BlankWorkspace() {
               onSelect={setSelection}
               onTransformCommit={updateTransform}
               onCameraChange={playTestOn ? setRuntimeCamera : setCamera}
+              actionHud={runtimeActionHud}
             />
           ) : number === 2 ? (
             <HierarchyPanel
