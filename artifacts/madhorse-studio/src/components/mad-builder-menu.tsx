@@ -19,7 +19,7 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; on
   const canApply = !readOnly && phase === 'ready' && !!plan && partCount > 0;
 
   const close = (e: MouseEvent<HTMLButtonElement>) => { e.currentTarget.closest('details')?.removeAttribute('open'); };
-  const submit = () => { if (canPlan) void onPlan(prompt.trim()).catch(() => undefined); };
+  const submit = () => { if (canPlan) void onPlan(prompt.trim(), asPrefab).catch(() => undefined); };
 
   const panel = (
     <section className="workspace-browser-panel browser-builder-panel" aria-label="Mad Builder" data-testid="panel-mad-builder">
@@ -45,19 +45,25 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; on
               onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); } }}
               data-testid="input-builder-prompt"
             />
-            <div className="mb-meta"><span>{len > 0 && len < 3 ? 'Min 3 characters' : 'Ctrl+Enter to plan'}</span><span data-testid="text-builder-char-count">{prompt.length}/2000</span></div>
+            <div className="mb-meta"><span>{len > 0 && len < 3 ? 'Min 3 characters' : 'Tap Build in scene or press Ctrl+Enter'}</span><span data-testid="text-builder-char-count">{prompt.length}/2000</span></div>
+            <label className="mb-check">
+              <input type="checkbox" checked={asPrefab} disabled={readOnly || busy} onChange={(e) => setAsPrefab(e.target.checked)} data-testid="checkbox-builder-prefab" />
+              Also save group as prefab
+            </label>
             <div className="mb-row">
               <button type="button" className="mb-quiet" disabled={readOnly || busy} onClick={() => setPrompt(EXAMPLE)} data-testid="button-builder-example">Example: house</button>
-              {phase === 'planning' ? (
-                <button type="button" className="mb-danger mb-grow" onClick={onCancel} data-testid="button-builder-cancel">Cancel planning</button>
+              {busy ? (
+                <button type="button" className="mb-danger mb-grow" onClick={onCancel} data-testid="button-builder-cancel">
+                  {phase === 'planning' ? 'Cancel planning' : 'Cancel build'}
+                </button>
               ) : (
-                <button type="button" className="mb-grow" disabled={!canPlan} onClick={submit} data-testid="button-builder-plan">{error ? 'Retry plan' : 'Plan build'}</button>
+                <button type="button" className="mb-grow" disabled={!canPlan} onClick={submit} data-testid="button-builder-plan">{error ? 'Retry build' : 'Build in scene'}</button>
               )}
             </div>
-            {phase === 'planning' && <div className="mb-status" role="status" data-testid="status-builder-planning"><span className="mb-pulse" />Planning with AI...</div>}
-            {phase === 'applying' && <div className="mb-status" role="status" data-testid="status-builder-applying"><span className="mb-pulse" />Adding objects to scene...</div>}
+            {phase === 'planning' && <div className="mb-status" role="status" data-testid="status-builder-planning"><span className="mb-pulse" />Preparing your build...</div>}
+            {phase === 'applying' && <div className="mb-status" role="status" data-testid="status-builder-applying"><span className="mb-pulse" />Building objects in Scene 1...</div>}
             {readOnly && <p className="mb-hint" data-testid="text-builder-readonly">This project is read-only. Planning and building are disabled.</p>}
-            {error && <div className="mb-error" role="alert" data-testid="text-builder-error">{error} Adjust the request if needed and press Retry plan.</div>}
+            {error && <div className="mb-error" role="alert" data-testid="text-builder-error">{error} Adjust the request if needed and press Build in scene.</div>}
           </div>
 
           {plan && (
@@ -82,12 +88,8 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; on
                     </ul>
                   </details>
                 )}
-                <label className="mb-check">
-                  <input type="checkbox" checked={asPrefab} disabled={!canApply} onChange={(e) => setAsPrefab(e.target.checked)} data-testid="checkbox-builder-prefab" />
-                  Also save group as prefab
-                </label>
                 <div className="mb-row">
-                  <button type="button" className="mb-grow" disabled={!canApply} onClick={() => onApply(asPrefab)} data-testid="button-builder-apply">Build in scene</button>
+                  <button type="button" className="mb-grow" disabled={!canApply} onClick={() => onApply(asPrefab)} data-testid="button-builder-apply">Build saved plan in scene</button>
                   <button type="button" className="mb-danger" disabled={busy} onClick={onDiscard} data-testid="button-builder-discard">Discard</button>
                 </div>
               </div>
@@ -117,7 +119,7 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; on
               <li>UI panels, text, buttons and health bars</li>
               <li>Grouped objects, optionally saved as a prefab</li>
             </ul>
-            <p className="mb-hint">Builds are additive real scene objects you can edit afterwards. Existing objects are never overwritten. No code is run and no files or scripts are touched.</p>
+            <p className="mb-hint">Submitting a request automatically builds editable objects in Scene 1. Existing objects are kept; delete the generated group in the hierarchy to remove it. No code is run and no files or scripts are touched.</p>
           </details>
           <div className="mb-section">
             <p className="mb-fine" data-testid="text-builder-credits">Uses OpenAI via Replit AI Integrations. No API key needed; usage is billed to your Replit credits.</p>

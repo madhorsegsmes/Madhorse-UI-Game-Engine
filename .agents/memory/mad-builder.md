@@ -23,6 +23,17 @@ features named in the request rather than generic box-only blockouts.
 **How to apply:** Use the engine's supported geometry types, deliberate colors,
 and purposeful subparts; keep dimensions and requested counts faithful.
 
+When a new prompt returns a valid plan, immediately create its editable objects
+in the scene rather than stopping at a plan or requiring a second click. Keep
+saved drafts available for retry and let users remove completed builds through
+the generated hierarchy group.
+
+**Why:** The user said Mad Builder must build with the world-building tools, not
+just plan.
+
+**How to apply:** Compile validated plan data into scene entities and preserve
+the existing scene; never treat this as permission to execute generated code.
+
 Keep the visibly labeled request composer first when Mad Builder opens.
 
 **Why:** The user asked for a text prompt after the bot already had one; placing
@@ -60,3 +71,13 @@ Zod type entrypoints. Direct contract generation avoids this version coupling
 without weakening either validator.
 
 **How to apply:** Keep schema export in the standard API generation pipeline.
+
+Keep Mad Builder's AI requests within conservative reasoning and output limits.
+Higher reasoning and large output budgets previously hit the Replit AI request
+timeout before returning a plan.
+
+**Why:** The user-facing build flow cannot create scene objects until the AI
+returns validated construction data.
+
+**How to apply:** If changing model settings, confirm a complete request returns
+before increasing generation budgets; report failures without applying partial data.

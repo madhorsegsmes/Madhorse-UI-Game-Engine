@@ -6,7 +6,7 @@ export type MadBuilderProps = {
   phase: 'idle' | 'planning' | 'ready' | 'applying';
   error: string;
   readOnly: boolean;
-  onPlan: (prompt: string) => Promise<void>;
+  onPlan: (prompt: string, saveAsPrefab: boolean) => Promise<void>;
   onCancel: () => void;
   onDiscard: () => void;
   onApply: (saveAsPrefab: boolean) => void;

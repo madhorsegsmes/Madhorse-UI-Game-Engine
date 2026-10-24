@@ -468,7 +468,8 @@ export default function BlankWorkspace() {
     onBuilt: rootId => {
       setSelection(rootId);
       setEditingEntityId(null);
-      setStatus('Mad Builder added the new scene objects. They are ready to edit in the hierarchy.');
+      setMadBuilderOpen(false);
+      setStatus('Mad Builder built the objects into Scene 1. Select them in the hierarchy to edit.');
     },
   });
 

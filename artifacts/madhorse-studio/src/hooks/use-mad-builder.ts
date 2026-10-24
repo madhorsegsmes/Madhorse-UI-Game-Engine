@@ -35,9 +35,32 @@ export function useMadBuilder<T extends BuilderDocument>({ project, activeProjec
       ...entry, builderHistory: [...(entry.builderHistory ?? []), item].slice(-40),
     }));
   }
+  function applyBuilderPlan(planToBuild: MadBuilderPlan, saveAsPrefab: boolean) {
+    if (readOnly || activeProjectRef.current.id !== project.id || planProjectId.current !== project.id) return;
+    const finish = beginSystemActivity('Mad Builder is building');
+    setPhase('applying'); setError('');
+    try {
+      const latest = activeProjectRef.current;
+      const build = compileBuilderPlan(planToBuild, latest.entities, latest.assets);
+      const prefab = saveAsPrefab ? capturePrefab(build.entities, build.rootId, build.plan.title, build.uiControls) : null;
+      const response: BuilderMessage = { id: crypto.randomUUID(), role: 'assistant',
+        text: `Built ${build.plan.title}: ${build.entities.length - 1} editable parts${prefab ? ', with a reusable prefab' : ''}. Existing objects were kept.` };
+      setProjects((projects) => projects.map((entry) => entry.id !== project.id ? entry : {
+        ...entry, builderDraft: null, entities: [...entry.entities, ...build.entities],
+        uiControls: [...(entry.uiControls ?? []), ...build.uiControls],
+        prefabs: prefab ? [...(entry.prefabs ?? []), prefab] : entry.prefabs,
+        builderHistory: [...(entry.builderHistory ?? []), response].slice(-40),
+      }));
+      setPlan(null); setPhase('idle');
+      onBuilt(build.rootId);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'The build was rejected. No changes were made.');
+      setPhase('ready');
+    } finally { finish(); }
+  }
   return {
     history: project.builderHistory ?? [], phase, plan, error, readOnly,
-    onPlan: async (raw) => {
+    onPlan: async (raw, saveAsPrefab) => {
       const prompt = raw.trim();
       if (readOnly || phase === 'planning' || phase === 'applying' || prompt.length < 3 || prompt.length > 2000) return;
       cancel();
@@ -55,17 +78,21 @@ export function useMadBuilder<T extends BuilderDocument>({ project, activeProjec
           assets: project.assets.slice(0, 40).map(({ id, name, kind }) => ({ id, name: name.slice(0, 160), kind })),
         }, { signal: controller.signal }));
         if (token !== session.current || activeProjectRef.current.id !== project.id) return;
-        // Validate on the client too, before showing any Apply action.
+        // Validate on the client before any generated object is added to the scene.
         if (result.parts?.length) compileBuilderPlan(result, activeProjectRef.current.entities, activeProjectRef.current.assets);
         planProjectId.current = project.id;
         setPlan(result); setPhase('ready');
         setProjects((projects) => projects.map((entry) => entry.id !== project.id ? entry : { ...entry, builderDraft: result }));
         message(result.summary, 'assistant');
+        setPhase('applying');
+        await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+        if (token !== session.current || controller.signal.aborted) return;
+        applyBuilderPlan(result, saveAsPrefab);
       } catch (failure) {
         if (token !== session.current || controller.signal.aborted) return;
         const data = failure && typeof failure === 'object' && 'data' in failure ? failure.data : null;
         const detail = data && typeof data === 'object' && 'error' in data && typeof data.error === 'string' ? data.error : null;
-        setError(detail ?? (failure instanceof Error ? failure.message.slice(0, 500) : 'Mad Builder could not create a valid plan.'));
+        setError(detail ?? (failure instanceof Error ? failure.message.slice(0, 500) : 'Mad Builder could not build a valid scene.'));
         const draft = activeProjectRef.current.builderDraft ?? null;
         setPlan(draft); setPhase(draft ? 'ready' : 'idle');
       } finally {
@@ -75,9 +102,11 @@ export function useMadBuilder<T extends BuilderDocument>({ project, activeProjec
     },
     onCancel: () => {
       cancel();
-      const draft = activeProjectRef.current.builderDraft ?? null;
+      const draft = activeProjectRef.current.builderDraft ?? plan ?? null;
       setPhase(draft ? 'ready' : 'idle'); setPlan(draft); setError('');
-      message('Canceled. No scene changes were made.', 'assistant');
+      message(phase === 'applying'
+        ? 'Build canceled before it was added. The saved plan is ready to build again.'
+        : 'Canceled. No scene changes were made.', 'assistant');
     },
     onDiscard: () => {
       setPlan(null); setPhase('idle'); setError('');
@@ -86,26 +115,7 @@ export function useMadBuilder<T extends BuilderDocument>({ project, activeProjec
     onApply: (saveAsPrefab) => {
       if (readOnly || !plan || phase !== 'ready' || activeProjectRef.current.id !== project.id ||
           planProjectId.current !== project.id) return;
-      const finish = beginSystemActivity('Mad Builder is building');
-      setPhase('applying'); setError('');
-      try {
-        const latest = activeProjectRef.current;
-        const build = compileBuilderPlan(plan, latest.entities, latest.assets);
-        const prefab = saveAsPrefab ? capturePrefab(build.entities, build.rootId, build.plan.title, build.uiControls) : null;
-        const response: BuilderMessage = { id: crypto.randomUUID(), role: 'assistant',
-          text: `Built ${build.plan.title}: ${build.entities.length - 1} editable parts${prefab ? ', with a reusable prefab' : ''}. Existing objects were kept.` };
-        setProjects((projects) => projects.map((entry) => entry.id !== project.id ? entry : {
-          ...entry, builderDraft: null, entities: [...entry.entities, ...build.entities],
-          uiControls: [...(entry.uiControls ?? []), ...build.uiControls],
-          prefabs: prefab ? [...(entry.prefabs ?? []), prefab] : entry.prefabs,
-          builderHistory: [...(entry.builderHistory ?? []), response].slice(-40),
-        }));
-        setPlan(null); setPhase('idle');
-        onBuilt(build.rootId);
-      } catch (failure) {
-        setError(failure instanceof Error ? failure.message : 'The build was rejected. No changes were made.');
-        setPhase('ready');
-      } finally { finish(); }
+      applyBuilderPlan(plan, saveAsPrefab);
     },
   };
 }

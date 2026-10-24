@@ -64,7 +64,7 @@ router.post('/mad-builder/plan', async (req, res) => {
       maxRetries: 0, timeout: 60_000,
     });
     const completion = await client.chat.completions.create({
-      model: 'gpt-5.4-mini', max_completion_tokens: 14000, reasoning_effort: 'medium',
+      model: 'gpt-5.4-mini', max_completion_tokens: 8000, reasoning_effort: 'low',
       messages: [{
         role: 'system',
         content: `${instructions}\nReturn ONLY a JSON object matching this exact output schema. Include title, summary, warnings and parts, even for unsupported requests. Do not invent a different command format. Omit optional fields that do not apply; only parentKey and assetId may be null.\n${JSON.stringify(builderPlanJsonSchema)}`,
@@ -110,7 +110,10 @@ router.post('/mad-builder/plan', async (req, res) => {
       param: failure instanceof OpenAI.APIError ? failure.param : undefined,
     });
     if (!controller.signal.aborted && !res.headersSent) {
-      res.status(502).json({ error: 'Mad Builder could not produce a complete, valid build. Try a simpler request. No scene changes were made.' });
+      const error = stage === 'AI request'
+        ? 'Mad Builder’s AI request did not finish. No scene changes were made. Try again with a shorter request.'
+        : 'Mad Builder could not create a valid build from the response. No scene changes were made. Adjust the request and retry.';
+      res.status(502).json({ error });
     }
   } finally {
     running--;
