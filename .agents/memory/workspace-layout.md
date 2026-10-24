@@ -4,9 +4,9 @@ description: User-defined panel numbering, control grouping, and placement in Ma
 ---
 
 Panel 5 is labeled “World Building Tools,” with “3D Modeling Tools” directly
-underneath.
+underneath and a “Preview Animation Scene” button below that.
 
-**Why:** The user specified these two labels for Panel 5.
+**Why:** The user specified these labels and the animation preview button for Panel 5.
 
 **How to apply:** Preserve the panel dimensions and leave its remaining space
 blank until the user requests tools.

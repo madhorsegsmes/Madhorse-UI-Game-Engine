@@ -894,6 +894,10 @@ export default function BlankWorkspace() {
             <div className="fresh-world-tools-headings">
               <h2>World Building Tools</h2>
               <h3>3D Modeling Tools</h3>
+              <button type="button" className="fresh-animation-preview-button"
+                onClick={openTimeline} data-testid="button-preview-animation-scene">
+                Preview Animation Scene
+              </button>
             </div>
           )}
         </section>

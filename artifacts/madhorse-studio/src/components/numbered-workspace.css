@@ -1003,6 +1003,27 @@ body::-webkit-scrollbar-thumb,
   font: 600 11px/1.4 Inter, system-ui, sans-serif;
 }
 
+.fresh-animation-preview-button {
+  max-width: 100%;
+  min-height: 34px;
+  margin-top: 12px;
+  padding: 7px 12px;
+  border: 1px solid #7042a1;
+  background: linear-gradient(135deg, #302040, #171020);
+  color: #eee4ff;
+  font: 600 11px/1.4 Inter, system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.fresh-animation-preview-button:hover {
+  background: #422957;
+}
+
+.fresh-animation-preview-button:focus-visible {
+  outline: 2px solid #d264ff;
+  outline-offset: 2px;
+}
+
 @media (max-width: 680px) {
   .fresh-layout {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
