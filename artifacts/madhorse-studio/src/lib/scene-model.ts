@@ -115,8 +115,34 @@ export type ScriptComponent = {
 export type EffectComponent = {
   id: string; type: 'effect'; enabled: boolean; color: string; intensity: number;
 };
+export type SkyboxComponent = {
+  id: string; type: 'skybox'; enabled: boolean; color: string;
+};
+export type CharacterControllerComponent = {
+  id: string;
+  type: 'characterController';
+  enabled: boolean;
+  role: 'player' | 'npc';
+  perspective: 'top-down' | 'third-person';
+  behavior: 'direct-control' | 'follow-player' | 'patrol';
+  moveSpeed: number;
+  jumpHeight: number;
+  followDistance: number;
+  patrolRadius: number;
+};
+export type TriggerZoneComponent = {
+  id: string;
+  type: 'triggerZone';
+  enabled: boolean;
+  shape: 'box' | 'sphere';
+  size: Vector3;
+  action: 'notify' | 'enable-target' | 'toggle-target';
+  targetEntityId: string | null;
+  message: string;
+};
 export type SceneComponent = TransformComponent | SpriteRendererComponent | ModelRendererComponent |
-  PrimitiveComponent | LightComponent | CameraComponent | UICanvasComponent | PhysicsComponent | ScriptComponent | EffectComponent;
+  PrimitiveComponent | LightComponent | CameraComponent | UICanvasComponent | PhysicsComponent | ScriptComponent |
+  EffectComponent | SkyboxComponent | CharacterControllerComponent | TriggerZoneComponent;
 
 export type SceneEntity = {
   id: string;
@@ -284,6 +310,14 @@ export function getEffect(entity: SceneEntity) {
   return entity.components.find((entry): entry is EffectComponent => entry.type === 'effect');
 }
 
+export function getTriggerZone(entity: SceneEntity) {
+  return entity.components.find((entry): entry is TriggerZoneComponent => entry.type === 'triggerZone');
+}
+
+export function getSkybox(entity: SceneEntity) {
+  return entity.components.find((entry): entry is SkyboxComponent => entry.type === 'skybox');
+}
+
 export function isSceneComponent(value: unknown): value is SceneComponent {
   if (!value || typeof value !== 'object') return false;
   const item = value as SceneComponent;
@@ -332,6 +366,22 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
   if (item.type === 'effect') return typeof item.enabled === 'boolean' &&
     /^#[0-9a-f]{6}$/i.test(item.color) && Number.isFinite(item.intensity) &&
     item.intensity >= 0 && item.intensity <= 10;
+  if (item.type === 'characterController') return typeof item.enabled === 'boolean' &&
+    (item.role === 'player' || item.role === 'npc') &&
+    (item.perspective === 'top-down' || item.perspective === 'third-person') &&
+    (item.behavior === 'direct-control' || item.behavior === 'follow-player' || item.behavior === 'patrol') &&
+    Number.isFinite(item.moveSpeed) && item.moveSpeed >= 0 && item.moveSpeed <= 40 &&
+    Number.isFinite(item.jumpHeight) && item.jumpHeight >= 0 && item.jumpHeight <= 20 &&
+    Number.isFinite(item.followDistance) && item.followDistance >= 0 && item.followDistance <= 100 &&
+    Number.isFinite(item.patrolRadius) && item.patrolRadius >= 0 && item.patrolRadius <= 100;
+  if (item.type === 'skybox') return typeof item.enabled === 'boolean' && /^#[0-9a-f]{6}$/i.test(item.color);
+  if (item.type === 'triggerZone') return typeof item.enabled === 'boolean' &&
+    (item.shape === 'box' || item.shape === 'sphere') &&
+    isVector(item.size) && item.size.x > 0 && item.size.x <= 100 &&
+    item.size.y > 0 && item.size.y <= 100 && item.size.z > 0 && item.size.z <= 100 &&
+    (item.action === 'notify' || item.action === 'enable-target' || item.action === 'toggle-target') &&
+    (item.targetEntityId === null || typeof item.targetEntityId === 'string') &&
+    typeof item.message === 'string' && item.message.length <= 160;
   if (item.type === 'physics') return isPhysicsComponent(item);
   return false;
 }
@@ -383,7 +433,7 @@ export function isSceneEntity(value: unknown): value is SceneEntity {
       typeof entity.active !== 'boolean' || !Array.isArray(entity.components) ||
       !entity.components.every(isSceneComponent)) return false;
   return entity.components.filter((component) => component.type === 'transform').length === 1 &&
-    ['primitive', 'light', 'camera', 'uiCanvas', 'script', 'effect'].every((type) => entity.components.filter((component) => component.type === type).length <= 1) &&
+    ['primitive', 'light', 'camera', 'uiCanvas', 'script', 'effect', 'skybox', 'characterController', 'triggerZone'].every((type) => entity.components.filter((component) => component.type === type).length <= 1) &&
     entity.components.filter((component) => component.type === 'spriteRenderer').length <= 1 &&
     entity.components.filter((component) => component.type === 'modelRenderer').length <= 1 &&
     entity.components.filter((component) => component.type === 'physics').length <= 1;

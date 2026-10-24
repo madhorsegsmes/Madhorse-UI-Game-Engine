@@ -1,8 +1,8 @@
 /** Fresh workspace with local scene authoring and an intentionally blank panel layout. */
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { Dispatch, KeyboardEvent, MouseEvent, SetStateAction } from 'react';
-import { ChevronDown, ChevronRight, FileDown, Folder, Trash2 } from 'lucide-react';
+import type { Dispatch, DragEvent as ReactDragEvent, KeyboardEvent, MouseEvent, SetStateAction } from 'react';
+import { Activity, ChevronDown, ChevronRight, FileDown, Folder, Trash2 } from 'lucide-react';
 import { ScenePreview3D, type SceneFrameRequest, type SceneTransformMode } from './scene-preview-3d';
 import {
   createPhysicsComponent,
@@ -11,6 +11,8 @@ import {
   getCamera,
   getModelRenderer,
   getTransform,
+  getWorldTransform,
+  isSceneEntity,
   primitiveShapes,
   projectAssetKind,
   uiElementKinds,
@@ -25,6 +27,7 @@ import { createGameCamera, type GameCamera } from '@/lib/game-camera';
 import { cameraWithPose, PRIMARY_CAMERA_ID, primaryCameraEntity } from '@/lib/camera-editor';
 import { SceneObjectGlyph } from './scene-object-glyph';
 import { SceneObjectInspector } from './scene-object-inspector';
+import { SystemDebugger } from './system-debugger';
 import {
   HierarchyContextMenu,
   PlaneSettingsDialog,
@@ -48,8 +51,17 @@ import { capturePrefab, instantiatePrefab, type ScenePrefab } from '@/lib/scene-
 import { compileBuilderPlan } from '@/lib/mad-builder';
 import { createMadBuilderModulePlan, getMadBuilderModule, type MadBuilderModuleId } from '@/lib/mad-builder-modules';
 import type { UIControlElement } from '@/lib/ui-controls';
+import { advanceSceneRuntime, createSceneRuntimeState } from '@/lib/scene-play-runtime';
+import { publishStatus } from '@/lib/system-diagnostics';
 import { downloadMadBuilderLogPdf, type MadBuilderBuildLog } from '@/lib/mad-builder-build-log';
 import { createGameTypeLibraryPdf, gameTypeLibraryEntryCount } from '@/lib/game-type-library';
+import {
+  createPluginComponent,
+  getPluginComponentIdentity,
+  scenePluginCatalog,
+  type PluginCategory,
+  type PluginComponentKind,
+} from '@/lib/scene-plugin-catalog';
 import CHARACTER_CONTROLLER_REFERENCE from '@/lib/character-controller-reference.md?raw';
 import ENGINE_EDITOR_PERFORMANCE_REFERENCE from '@/lib/engine-editor-performance-reference.md?raw';
 const ModelingWorkspace = lazy(() => import('./modeling/modeling-workspace'));
@@ -62,6 +74,7 @@ const IMPORT_ACCEPT = '.png,.jpg,.jpeg,.webp,.gif,.svg,.glb,.gltf,.obj,.fbx,.dae
 function SceneViewport({
   entities,
   camera,
+  isPlaying,
   assets,
   assetUrls,
   selection,
@@ -69,9 +82,11 @@ function SceneViewport({
   onSelect,
   onTransformCommit,
   onCameraChange,
+  onTogglePlayTest,
 }: {
   entities: SceneEntity[];
   camera: GameCamera;
+  isPlaying: boolean;
   assets: ProjectAsset[];
   assetUrls: Record<string, string>;
   selection: string | null;
@@ -82,13 +97,24 @@ function SceneViewport({
     changes: Partial<Pick<TransformComponent, 'position' | 'rotation' | 'scale'>>,
   ) => void;
   onCameraChange: (camera: GameCamera) => void;
+  onTogglePlayTest: () => void;
 }) {
   const [transformMode, setTransformMode] = useState<SceneTransformMode>('translate');
   return (
     <div className="fresh-viewport">
+      <button
+        type="button"
+        className={`fresh-play-test${isPlaying ? ' is-playing' : ''}`}
+        aria-pressed={isPlaying}
+        data-testid="button-play-test"
+        onClick={onTogglePlayTest}
+      >
+        {isPlaying ? 'Stop Test' : 'Play Test'}
+      </button>
       <ScenePreview3D
         primaryCamera={camera}
         gameCamera={camera}
+        gameView={isPlaying}
         entities={entities}
         assets={assets}
         assetUrls={assetUrls}
@@ -109,27 +135,43 @@ function SceneViewport({
 
 function SettingsPanel({
   entity,
+  selectedEntity,
+  entities,
   assets,
   builderBuildLogs,
   onReturnToSettings,
   onOpenCharacterBuilder,
+  onOpenTimeline,
+  onAttachPlugin,
   onSaveEntity,
 }: {
   entity: SceneEntity | null;
+  selectedEntity: SceneEntity | null;
+  entities: SceneEntity[];
   assets: ProjectAsset[];
   builderBuildLogs: MadBuilderBuildLog[];
   onReturnToSettings: () => void;
   onOpenCharacterBuilder: () => void;
+  onOpenTimeline: () => void;
+  onAttachPlugin: (entityId: string, kind: PluginComponentKind) => void;
   onSaveEntity: (entity: SceneEntity) => void;
 }) {
   const [activeFunctionTab, setActiveFunctionTab] = useState<
     'game-system' | 'player-functions' | 'game-controls' | 'player-controls' | 'npc-functions' | 'ai-navigation' | 'npc-controls'
   >('game-system');
-  const [activePluginTab, setActivePluginTab] = useState<
-    'game' | 'player-npc' | 'system' | 'lighting' | 'animation' | 'asset' | 'effect' | 'triggers' | 'trigger-zones' | 'skybox' | 'character-builder' | 'behavior-builder' | 'script' | 'third-person-character'
-  >('game');
+  const [activePluginTab, setActivePluginTab] = useState<PluginCategory>('game');
   const [gameTypeLibraryPdfUrl, setGameTypeLibraryPdfUrl] = useState<string | null>(null);
   const gameTypeLibraryPdfUrlRef = useRef<string | null>(null);
+  const pluginEntries = scenePluginCatalog[activePluginTab];
+  const functionTabGuidance = {
+    'game-system': 'Add a physics body for collisions, a camera to define a view, or a safe script slot for isolated logic. Attach them from Plugins.',
+    'player-functions': 'Player-specific movement and abilities are installed as editable components. The controller build pass will add these player modules.',
+    'game-controls': 'Input bindings are configured per controller. The player and NPC controller build pass will add editable key and action mappings.',
+    'player-controls': 'Player movement, jump, and camera options will live on the selected player object, not in protected system data.',
+    'npc-functions': 'NPC behavior presets will be editable on each NPC. The behavior build pass will add navigation and patrol modules.',
+    'ai-navigation': 'Navigation will use project-owned walkable areas and editable agent settings. Navigation behavior is added in the player/NPC pass.',
+    'npc-controls': 'NPC input and behavior settings stay separate from player controls and can be changed per NPC.',
+  }[activeFunctionTab];
 
   useEffect(() => () => {
     if (gameTypeLibraryPdfUrlRef.current) URL.revokeObjectURL(gameTypeLibraryPdfUrlRef.current);
@@ -150,6 +192,7 @@ function SettingsPanel({
           key={entity.id}
           embedded
           entity={entity}
+          entities={entities}
           assets={assets}
           canRename={entity.id !== PRIMARY_CAMERA_ID}
           canEditActive={entity.id !== PRIMARY_CAMERA_ID}
@@ -236,6 +279,9 @@ function SettingsPanel({
                   NPC Controls
                 </button>
               </div>
+              <p className="fresh-function-guidance" data-testid="function-tab-guidance">
+                {functionTabGuidance}
+              </p>
             </div>
           </details>
           <details className="fresh-settings-category fresh-settings-dropdown" data-testid="details-system-presets-data">
@@ -505,6 +551,65 @@ function SettingsPanel({
                   Third-Person Character Plugin
                 </button>
               </div>
+              <div className="fresh-plugin-workbench">
+                <p className="fresh-plugin-instruction">
+                  {selectedEntity
+                    ? <>Selected object: <strong>{selectedEntity.name}</strong>. Add a tool or drag it onto any object in Hierarchy.</>
+                    : 'Select an object in Hierarchy, or drag a tool directly onto an object.'}
+                </p>
+                {pluginEntries.length ? (
+                  <div className="fresh-plugin-cards" aria-live="polite">
+                    {pluginEntries.map(entry => {
+                      const identity = entry.componentKind ? getPluginComponentIdentity(entry.componentKind) : null;
+                      const alreadyAdded = identity !== null && Boolean(selectedEntity?.components.some(component => component.type === identity));
+                      const isComponent = Boolean(entry.componentKind);
+                      const canAddToSelected = Boolean(selectedEntity && selectedEntity.id !== PRIMARY_CAMERA_ID && isComponent && !alreadyAdded);
+                      const handleDragStart = (event: ReactDragEvent<HTMLElement>) => {
+                        if (!entry.componentKind) {
+                          event.preventDefault();
+                          return;
+                        }
+                        event.dataTransfer.effectAllowed = 'copy';
+                        event.dataTransfer.setData('application/x-madhorse-plugin', entry.componentKind);
+                        event.dataTransfer.setData('text/plain', entry.label);
+                      };
+                      return (
+                        <article
+                          className={`fresh-plugin-card${isComponent ? ' is-draggable' : ''}`}
+                          key={entry.id}
+                          draggable={isComponent}
+                          onDragStart={handleDragStart}
+                          data-testid={`plugin-card-${entry.id}`}
+                        >
+                          <div className="fresh-plugin-card-copy">
+                            <strong>{entry.label}</strong>
+                            <p>{entry.description}</p>
+                          </div>
+                          {entry.action === 'character-builder' ? (
+                            <button type="button" className="fresh-plugin-add" onClick={onOpenCharacterBuilder}>Open</button>
+                          ) : entry.action === 'animation-timeline' ? (
+                            <button type="button" className="fresh-plugin-add" onClick={onOpenTimeline}>Open</button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="fresh-plugin-add"
+                              disabled={!canAddToSelected}
+                              onClick={() => selectedEntity && entry.componentKind && onAttachPlugin(selectedEntity.id, entry.componentKind)}
+                            >
+                              {alreadyAdded ? 'Added' : selectedEntity?.id === PRIMARY_CAMERA_ID ? 'System camera' : selectedEntity ? 'Add' : 'Select object'}
+                            </button>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="fresh-plugin-empty" role="status">
+                    This plugin family is in the next build pass. The available native components are ready to add above.
+                  </p>
+                )}
+                <p className="fresh-plugin-drop-hint">To edit an attached component, double-click its object in Hierarchy.</p>
+              </div>
             </div>
           </details>
         </div>
@@ -535,6 +640,7 @@ function HierarchyPanel({
   selection,
   onSelect,
   onEditEntity,
+  onAttachPlugin,
   actions,
 }: {
   entities: SceneEntity[];
@@ -543,6 +649,7 @@ function HierarchyPanel({
   selection: string | null;
   onSelect: (id: string) => void;
   onEditEntity: (entity: SceneEntity) => void;
+  onAttachPlugin: (entityId: string, kind: PluginComponentKind) => void;
   actions: HierarchyActions;
 }) {
   const [sceneExpanded, setSceneExpanded] = useState(true);
@@ -613,6 +720,7 @@ function HierarchyPanel({
           onSelect={onSelect}
           onEdit={onEditEntity}
           onDelete={requestDeleteEntity}
+          onAttachPlugin={onAttachPlugin}
         />
       )}
       <p className="fresh-hierarchy-help">Right-click to add or delete objects. Use the trash icon to delete an object. Double-tap an object to rename it and edit its settings.</p>
@@ -673,6 +781,7 @@ function SceneObjectRows({
   onSelect,
   onEdit,
   onDelete,
+  onAttachPlugin,
 }: {
   entities: SceneEntity[];
   parentId: string | null;
@@ -681,6 +790,7 @@ function SceneObjectRows({
   onSelect: (id: string) => void;
   onEdit: (entity: SceneEntity) => void;
   onDelete: (id: string) => void;
+  onAttachPlugin: (entityId: string, kind: PluginComponentKind) => void;
 }) {
   const rows = entities.filter(entity => entity.parentId === parentId);
   if (rows.length === 0) return null;
@@ -696,6 +806,7 @@ function SceneObjectRows({
           onSelect={onSelect}
           onEdit={onEdit}
           onDelete={onDelete}
+          onAttachPlugin={onAttachPlugin}
         />
       ))}
     </ul>
@@ -710,6 +821,7 @@ function SceneObjectRow({
   onSelect,
   onEdit,
   onDelete,
+  onAttachPlugin,
 }: {
   entity: SceneEntity;
   entities: SceneEntity[];
@@ -718,12 +830,35 @@ function SceneObjectRow({
   onSelect: (id: string) => void;
   onEdit: (entity: SceneEntity) => void;
   onDelete: (id: string) => void;
+  onAttachPlugin: (entityId: string, kind: PluginComponentKind) => void;
 }) {
   const children = entities.some(candidate => candidate.parentId === entity.id);
   const [expanded, setExpanded] = useState(true);
+  const [pluginDropTarget, setPluginDropTarget] = useState(false);
   const lastTouchTap = useRef(0);
   return (
-    <li className="fresh-hierarchy-row" data-hierarchy-entity-id={entity.id}>
+    <li
+      className={`fresh-hierarchy-row${pluginDropTarget ? ' is-plugin-drop-target' : ''}`}
+      data-hierarchy-entity-id={entity.id}
+      data-testid={`hierarchy-row-${entity.id}`}
+      onDragOver={event => {
+        if (!event.dataTransfer.types.includes('application/x-madhorse-plugin')) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'copy';
+        setPluginDropTarget(true);
+      }}
+      onDragLeave={event => {
+        if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+        setPluginDropTarget(false);
+      }}
+      onDrop={event => {
+        event.preventDefault();
+        event.stopPropagation();
+        setPluginDropTarget(false);
+        const kind = event.dataTransfer.getData('application/x-madhorse-plugin') as PluginComponentKind;
+        if (kind) onAttachPlugin(entity.id, kind);
+      }}
+    >
       <div className="fresh-hierarchy-row-content" style={{ paddingLeft: 4 + depth * 14 }}>
         {children ? (
           <button
@@ -778,6 +913,7 @@ function SceneObjectRow({
           onSelect={onSelect}
           onEdit={onEdit}
           onDelete={onDelete}
+          onAttachPlugin={onAttachPlugin}
         />
       )}
     </li>
@@ -918,15 +1054,25 @@ export default function BlankWorkspace() {
   const [modelingOpen, setModelingOpen] = useState(false);
   const [modelingSource, setModelingSource] = useState<{ url: string; name: string } | undefined>();
   const [previewEntities, setPreviewEntities] = useState<SceneEntity[] | null>(null);
+  const [playTestOn, setPlayTestOn] = useState(false);
+  const [runtimeEntities, setRuntimeEntities] = useState<SceneEntity[] | null>(null);
+  const [runtimeCamera, setRuntimeCamera] = useState<GameCamera | null>(null);
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [panel5Toolset, setPanel5Toolset] = useState<Panel5Toolset>('world');
   const [panel5Dialog, setPanel5Dialog] = useState<'plane' | 'terrain' | null>(null);
   const [status, setStatus] = useState('');
+  const [debuggerOpen, setDebuggerOpen] = useState(false);
+  useEffect(() => {
+    if (status) publishStatus('editor', status);
+  }, [status]);
   const importInputRef = useRef<HTMLInputElement>(null);
   const textureInputRef = useRef<HTMLInputElement>(null);
   const editingEntity = editingEntityId === PRIMARY_CAMERA_ID
     ? primaryCameraEntity(camera)
     : entities.find(entity => entity.id === editingEntityId) ?? null;
+  const selectedEntity = selection === PRIMARY_CAMERA_ID
+    ? primaryCameraEntity(camera)
+    : entities.find(entity => entity.id === selection) ?? null;
   const builderProject: BuilderDocument = {
     id: FRESH_WORKSPACE_ID,
     entities,
@@ -1055,6 +1201,96 @@ export default function BlankWorkspace() {
   }, [entities, camera, assets, animations, builderHistory, builderDraft, builderDraftRequest, builderBuildLogs, prefabs, uiControls]);
 
   useEffect(() => {
+    if (!playTestOn) {
+      setRuntimeEntities(null);
+      setRuntimeCamera(null);
+      return;
+    }
+
+    let liveEntities = entities;
+    let previousTime = performance.now();
+    let elapsed = 0;
+    let lastPublish = 0;
+    let jumpPressed = false;
+    let frameRequest = 0;
+    const pressed = new Set<string>();
+    const runtimeState = createSceneRuntimeState(entities);
+    setEditingEntityId(null);
+    setRuntimeEntities(entities);
+    setRuntimeCamera(camera);
+
+    const isTextEntry = (target: EventTarget | null) =>
+      target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement ||
+      (target instanceof HTMLElement && target.isContentEditable);
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (isTextEntry(event.target)) return;
+      const key = event.key.toLowerCase();
+      if (key === 'escape') {
+        setPlayTestOn(false);
+        return;
+      }
+      if (key === ' ' && !event.repeat) jumpPressed = true;
+      if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(key)) {
+        event.preventDefault();
+        pressed.add(key);
+      }
+    };
+    const onKeyUp = (event: globalThis.KeyboardEvent) => {
+      pressed.delete(event.key.toLowerCase());
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+
+    const frame = (now: number) => {
+      const delta = Math.min(0.05, Math.max(0, (now - previousTime) / 1000));
+      previousTime = now;
+      elapsed += delta;
+      const input = {
+        moveX: Number(pressed.has('d') || pressed.has('arrowright')) - Number(pressed.has('a') || pressed.has('arrowleft')),
+        moveY: Number(pressed.has('w') || pressed.has('arrowup')) - Number(pressed.has('s') || pressed.has('arrowdown')),
+        jumpPressed,
+      };
+      jumpPressed = false;
+      const result = advanceSceneRuntime(liveEntities, delta, elapsed, input, runtimeState);
+      liveEntities = result.entities;
+      result.events.forEach(event => setStatus(event.message));
+
+      if (now - lastPublish >= 33) {
+        setRuntimeEntities(liveEntities);
+        const thirdPerson = liveEntities.find(entity =>
+          entity.active && entity.components.some(component =>
+            component.type === 'characterController' && component.enabled &&
+            component.role === 'player' && component.perspective === 'third-person',
+          ),
+        );
+        const targetTransform = thirdPerson ? getWorldTransform(liveEntities, thirdPerson.id) : null;
+        if (targetTransform) {
+          const target = {
+            x: (targetTransform.position.x - 50) / 10,
+            y: targetTransform.position.z / 10 + 1.1,
+            z: (targetTransform.position.y - 50) / 10,
+          };
+          setRuntimeCamera({
+            ...camera,
+            target,
+            position: { x: target.x + 2.4, y: target.y + 1.8, z: target.z - 5 },
+          });
+        } else {
+          setRuntimeCamera(camera);
+        }
+        lastPublish = now;
+      }
+      frameRequest = window.requestAnimationFrame(frame);
+    };
+    frameRequest = window.requestAnimationFrame(frame);
+    return () => {
+      window.cancelAnimationFrame(frameRequest);
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+    };
+  }, [camera, entities, playTestOn]);
+
+  useEffect(() => {
     let disposed = false;
     const urls: string[] = [];
     async function loadAssets() {
@@ -1151,6 +1387,52 @@ export default function BlankWorkspace() {
     setSelection(entity.id);
     setStatus(`${entity.name} added to Scene 1.`);
   }, []);
+
+  const attachPluginComponent = useCallback((entityId: string, kind: PluginComponentKind) => {
+    const target = entities.find(entity => entity.id === entityId);
+    if (!target) {
+      setStatus('Choose an object in Hierarchy before adding a component.');
+      return;
+    }
+    if (target.id === PRIMARY_CAMERA_ID) {
+      setStatus('The Main Camera is system-managed. Add this component to a scene object instead.');
+      return;
+    }
+    const identity = getPluginComponentIdentity(kind);
+    if (target.components.some(component => component.type === identity)) {
+      setSelection(target.id);
+      setStatus(`${target.name} already has this component. Double-click it in Hierarchy to edit its settings.`);
+      return;
+    }
+    const created = createPluginComponent(kind, uiControls.length);
+    const components = [created.component];
+    if (created.component.type === 'characterController' &&
+        !target.components.some(component => component.type === 'physics')) {
+      components.push(createPluginComponent('physics', 0).component);
+    }
+    const updated: SceneEntity = { ...target, components: [...target.components, ...components] };
+    if (!isSceneEntity(updated)) {
+      setStatus('This component could not be added to the selected object.');
+      return;
+    }
+    setEntities(current => current.map(entity => entity.id === target.id ? updated : entity));
+    if (created.uiControl) setUIControls(current => [...current, created.uiControl!]);
+    setSelection(target.id);
+    const componentLabel = kind === 'physics' ? 'Physics Body'
+      : kind === 'camera' ? 'Camera'
+        : kind === 'uiCanvas' ? 'UI Canvas'
+          : kind === 'script' ? 'Safe Script Slot'
+            : kind === 'spriteRenderer' ? '2D Sprite Renderer'
+              : kind === 'modelRenderer' ? '3D Model Renderer'
+                : kind === 'effect' ? 'Particle Effect'
+                  : kind === 'light-point' ? 'Point Light'
+                    : kind === 'light-directional' ? 'Directional Light'
+                    : kind === 'light-ambient' ? 'Ambient Light'
+                      : kind.startsWith('character-controller') ? 'Character Controller'
+                          : kind === 'skybox' ? 'Skybox Background'
+                            : 'Trigger Zone';
+    setStatus(`${componentLabel} added to ${target.name}. Double-click the object in Hierarchy to edit it.`);
+  }, [entities, uiControls.length]);
 
   const openCharacterBuilder = useCallback(() => {
     setModelingSource(undefined);
@@ -1448,15 +1730,17 @@ export default function BlankWorkspace() {
         >
           {number === 1 ? (
             <SceneViewport
-              entities={entities}
+              entities={playTestOn ? runtimeEntities ?? entities : entities}
               assets={assets}
               assetUrls={assetUrls}
-              camera={camera}
+              camera={playTestOn ? runtimeCamera ?? camera : camera}
+              isPlaying={playTestOn}
               selection={selection}
               frameRequest={characterFrameRequest}
               onSelect={setSelection}
               onTransformCommit={updateTransform}
-              onCameraChange={setCamera}
+              onCameraChange={playTestOn ? setRuntimeCamera : setCamera}
+              onTogglePlayTest={() => setPlayTestOn(value => !value)}
             />
           ) : number === 2 ? (
             <HierarchyPanel
@@ -1469,15 +1753,20 @@ export default function BlankWorkspace() {
                 setSelection(entity.id);
                 setEditingEntityId(entity.id);
               }}
+              onAttachPlugin={attachPluginComponent}
               actions={hierarchyActions}
             />
           ) : number === 3 ? (
             <SettingsPanel
               entity={editingEntity}
+              selectedEntity={selectedEntity}
+              entities={entities}
               assets={assets}
               builderBuildLogs={builderBuildLogs}
               onReturnToSettings={() => setEditingEntityId(null)}
               onOpenCharacterBuilder={openCharacterBuilder}
+              onOpenTimeline={openTimeline}
+              onAttachPlugin={attachPluginComponent}
               onSaveEntity={updateEntitySettings}
             />
           ) : number === 4 ? (
@@ -1517,6 +1806,31 @@ export default function BlankWorkspace() {
           )}
         </section>
       ))}
+      <div className="fresh-debugger-dock">
+        {debuggerOpen && (
+          <section className="fresh-debugger-drawer" id="fresh-debugger-drawer" role="region" aria-label="System debugger" data-testid="system-debugger-drawer">
+            <header>
+              <strong>System Debugger</strong>
+              <button type="button" onClick={() => setDebuggerOpen(false)} aria-label="Close debugger">×</button>
+            </header>
+            <SystemDebugger runtimeError="" />
+          </section>
+        )}
+        <div className="fresh-debugger-toolbar" role="toolbar" aria-label="Workspace diagnostics">
+          <span>System diagnostics</span>
+          <button
+            type="button"
+            className="fresh-debugger-toggle"
+            aria-expanded={debuggerOpen}
+            aria-controls={debuggerOpen ? 'fresh-debugger-drawer' : undefined}
+            data-testid="button-toggle-debugger"
+            onClick={() => setDebuggerOpen(open => !open)}
+          >
+            <Activity size={13} aria-hidden="true" />
+            {debuggerOpen ? 'Hide Debugger' : 'Debugger'}
+          </button>
+        </div>
+      </div>
       {panel5Dialog === 'plane' && (
         <PlaneSettingsDialog
           onCancel={() => setPanel5Dialog(null)}

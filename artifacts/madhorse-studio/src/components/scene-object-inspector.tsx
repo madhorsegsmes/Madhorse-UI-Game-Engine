@@ -12,6 +12,7 @@ import {
 
 type Props = {
   entity: SceneEntity;
+  entities?: SceneEntity[];
   assets: ProjectAsset[];
   canRename?: boolean;
   canEditActive?: boolean;
@@ -60,6 +61,25 @@ function toDraft(entity: SceneEntity) {
       values['physics.friction'] = String(component.friction);
       values['physics.restitution'] = String(component.restitution);
       for (const axis of ['x', 'y', 'z'] as const) values[`physics.size.${axis}`] = String(component.size[axis]);
+    } else if (component.type === 'characterController') {
+      values['controller.enabled'] = String(component.enabled);
+      values['controller.role'] = component.role;
+      values['controller.perspective'] = component.perspective;
+      values['controller.behavior'] = component.behavior;
+      values['controller.moveSpeed'] = String(component.moveSpeed);
+      values['controller.jumpHeight'] = String(component.jumpHeight);
+      values['controller.followDistance'] = String(component.followDistance);
+      values['controller.patrolRadius'] = String(component.patrolRadius);
+    } else if (component.type === 'triggerZone') {
+      values['trigger.enabled'] = String(component.enabled);
+      values['trigger.shape'] = component.shape;
+      values['trigger.action'] = component.action;
+      values['trigger.targetEntityId'] = component.targetEntityId ?? '';
+      values['trigger.message'] = component.message;
+      for (const axis of ['x', 'y', 'z'] as const) values[`trigger.size.${axis}`] = String(component.size[axis]);
+    } else if (component.type === 'skybox') {
+      values['skybox.enabled'] = String(component.enabled);
+      values['skybox.color'] = component.color;
     } else if (component.type === 'spriteRenderer') {
       values['sprite.enabled'] = String(component.enabled);
       values['sprite.tint'] = component.tint;
@@ -76,6 +96,7 @@ function toDraft(entity: SceneEntity) {
 
 export function SceneObjectInspector({
   entity,
+  entities = [],
   assets,
   canRename = true,
   canEditActive = true,
@@ -191,6 +212,32 @@ export function SceneObjectInspector({
         restitution: number('physics.restitution'),
         size: { x: number('physics.size.x'), y: number('physics.size.y'), z: number('physics.size.z') },
       };
+      if (item.type === 'characterController') return {
+        ...item,
+        enabled: values['controller.enabled'] === 'true',
+        role: values['controller.role'] as typeof item.role,
+        perspective: values['controller.perspective'] as typeof item.perspective,
+        behavior: values['controller.role'] === 'player' ? 'direct-control' :
+          values['controller.behavior'] === 'direct-control' ? 'follow-player' : values['controller.behavior'] as typeof item.behavior,
+        moveSpeed: number('controller.moveSpeed'),
+        jumpHeight: number('controller.jumpHeight'),
+        followDistance: number('controller.followDistance'),
+        patrolRadius: number('controller.patrolRadius'),
+      };
+      if (item.type === 'triggerZone') return {
+        ...item,
+        enabled: values['trigger.enabled'] === 'true',
+        shape: values['trigger.shape'] as typeof item.shape,
+        action: values['trigger.action'] as typeof item.action,
+        targetEntityId: values['trigger.targetEntityId'] || null,
+        message: values['trigger.message'],
+        size: { x: number('trigger.size.x'), y: number('trigger.size.y'), z: number('trigger.size.z') },
+      };
+      if (item.type === 'skybox') return {
+        ...item,
+        enabled: values['skybox.enabled'] === 'true',
+        color: values['skybox.color'],
+      };
       if (item.type === 'spriteRenderer') return {
         ...item,
         enabled: values['sprite.enabled'] === 'true',
@@ -231,6 +278,9 @@ export function SceneObjectInspector({
   const effect = component('effect');
   const sprite = component('spriteRenderer');
   const model = component('modelRenderer');
+  const controller = component('characterController');
+  const triggerZone = component('triggerZone');
+  const skybox = component('skybox');
   const imageAssets = assets.filter(asset => asset.kind === 'image');
   const modelAssets = assets.filter(asset => asset.kind === 'model');
   const assetOptions = (items: ProjectAsset[]) => [
@@ -279,7 +329,7 @@ export function SceneObjectInspector({
             { value: 'dynamic', label: 'Dynamic' },
             { value: 'kinematic', label: 'Kinematic' },
           ])}
-          {numberField('Mass', 'physics.mass', 0.01, 1000, 0.1)}
+          {numberField('Mass', 'physics.mass', 0.01, 1000, 0.01)}
           {numberField('Gravity scale', 'physics.gravityScale', -10, 10, 0.1)}
           {numberField('Friction', 'physics.friction', 0, 1, 0.05)}
           {numberField('Bounciness', 'physics.restitution', 0, 1, 0.05)}
@@ -313,8 +363,8 @@ export function SceneObjectInspector({
         {sprite && section('Sprite Renderer', <>
           {checkboxField('Enabled', 'sprite.enabled')}
           {colorField('Tint', 'sprite.tint')}
-          {numberField('Width', 'sprite.width', 0.1, 512, 1)}
-          {numberField('Height', 'sprite.height', 0.1, 512, 1)}
+          {numberField('Width', 'sprite.width', 0.1, 512, 0.1)}
+          {numberField('Height', 'sprite.height', 0.1, 512, 0.1)}
           {selectField('Image asset', 'sprite.assetId', assetOptions(imageAssets))}
         </>)}
         {model && section('Model Renderer', <>
@@ -324,6 +374,56 @@ export function SceneObjectInspector({
         {script && section('Script', <>
           {checkboxField('Enabled', 'script.enabled')}
           <p className="fresh-inspector-note">Script source editing is available from the Script tool.</p>
+        </>)}
+        {controller && section('Character Controller', <>
+          {checkboxField('Enabled', 'controller.enabled')}
+          {selectField('Role', 'controller.role', [
+            { value: 'player', label: 'Player' },
+            { value: 'npc', label: 'NPC' },
+          ])}
+          {selectField('Camera style', 'controller.perspective', [
+            { value: 'top-down', label: 'Top-down' },
+            { value: 'third-person', label: 'Third person' },
+          ])}
+          {selectField('NPC behavior', 'controller.behavior', [
+            { value: 'direct-control', label: 'Direct control' },
+            { value: 'follow-player', label: 'Follow player' },
+            { value: 'patrol', label: 'Patrol' },
+          ])}
+          {numberField('Move speed (m/s)', 'controller.moveSpeed', 0, 40, 0.1)}
+          {numberField('Jump height (m)', 'controller.jumpHeight', 0, 20, 0.1)}
+          {numberField('Follow distance (m)', 'controller.followDistance', 0, 100, 0.1)}
+          {numberField('Patrol radius (m)', 'controller.patrolRadius', 0, 100, 0.1)}
+          <p className="fresh-inspector-note">Play Test uses WASD or arrow keys; Space jumps. Runtime movement is temporary and does not change saved transforms.</p>
+        </>)}
+        {triggerZone && section('Trigger Zone', <>
+          {checkboxField('Enabled', 'trigger.enabled')}
+          {selectField('Shape', 'trigger.shape', [
+            { value: 'box', label: 'Box' },
+            { value: 'sphere', label: 'Sphere' },
+          ])}
+          {vectorFields('Zone size (m)', 'trigger.size', 0.1, 100, 0.1)}
+          {selectField('On player enter', 'trigger.action', [
+            { value: 'notify', label: 'Show event message' },
+            { value: 'enable-target', label: 'Enable target object' },
+            { value: 'toggle-target', label: 'Toggle target object' },
+          ])}
+          {selectField('Target object', 'trigger.targetEntityId', [
+            { value: '', label: 'None' },
+            ...entities.filter(candidate => candidate.id !== entity.id).map(candidate => ({ value: candidate.id, label: candidate.name })),
+          ])}
+          <label className="fresh-setting">
+            <span>Event message</span>
+            <input type="text" maxLength={160} value={values['trigger.message'] ?? ''} onChange={event => setValue('trigger.message', event.currentTarget.value)} />
+          </label>
+        </>)}
+        {skybox && section('Skybox Background', <>
+          {checkboxField('Enabled', 'skybox.enabled')}
+          <label className="fresh-setting">
+            <span>Scene background</span>
+            <input type="color" value={values['skybox.color'] ?? '#252a35'} onChange={event => setValue('skybox.color', event.currentTarget.value)} />
+          </label>
+          <p className="fresh-inspector-note">This color applies to the whole scene in edit view. Disable this component to return to render settings.</p>
         </>)}
         {error && <p className="fresh-inspector-error" role="alert">{error}</p>}
         <div className="fresh-dialog-actions">

@@ -29,9 +29,12 @@ import {
   getModelRenderer,
   getPrimitive, getCamera, getLight, getUICanvas,
   getSpriteRenderer,
+  getTriggerZone,
+  getSkybox,
   getTransform,
   type ProjectAsset,
   type SceneEntity,
+  type TriggerZoneComponent,
   type TransformComponent,
 } from '@/lib/scene-model';
 import './scene-preview-3d.css';
@@ -149,6 +152,17 @@ function isEffectivelyActive(entity: SceneEntity, byId: Map<string, SceneEntity>
   return true;
 }
 
+function TriggerZoneOutline({ zone }: { zone: TriggerZoneComponent }) {
+  return (
+    <mesh>
+      {zone.shape === 'sphere'
+        ? <sphereGeometry args={[Math.max(zone.size.x, zone.size.y, zone.size.z) / 2, 24, 16]} />
+        : <boxGeometry args={[zone.size.x, zone.size.y, zone.size.z]} />}
+      <meshBasicMaterial color="#55d8ff" wireframe transparent opacity={0.68} depthTest={false} />
+    </mesh>
+  );
+}
+
 export function ScenePreview3D({
   primaryCamera,
   gameView = false,
@@ -174,6 +188,8 @@ export function ScenePreview3D({
   const [errors, setErrors] = useState<ErrorEntry[]>([]);
   const [modelStatuses, setModelStatuses] = useState<Record<string, string>>({});
   const [renderSettings, setRenderSettings] = useSceneRenderSettings();
+  const skybox = entities.map(getSkybox).find(component => component?.enabled);
+  const sceneBackground = skybox?.color ?? (gameView ? '#333538' : renderSettings.background);
   const [mobile, setMobile] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const performanceStatsRef = useRef<HTMLDivElement>(null);
@@ -419,9 +435,8 @@ export function ScenePreview3D({
           frameloop={gameView ? 'always' : 'demand'}
           gl={{ antialias: !mobile, powerPreference: 'low-power', alpha: false }}
           onCreated={({ gl, scene }) => {
-            const background = gameView ? '#333538' : renderSettings.background;
-            gl.setClearColor(background);
-            scene.background = new THREE.Color(background);
+            gl.setClearColor(sceneBackground);
+            scene.background = new THREE.Color(sceneBackground);
             markGraphicsReady();
           }}
         >
@@ -429,7 +444,7 @@ export function ScenePreview3D({
           <ScenePerformanceSampler outputRef={performanceStatsRef} gameView={gameView} />
         )}
         <SceneRendererSettings
-          background={gameView ? '#333538' : renderSettings.background}
+          background={sceneBackground}
           exposure={gameView ? 1 : renderSettings.exposure}
         />
         <SceneWorld
@@ -851,6 +866,9 @@ function EntityNode(props: SceneWorldProps & {
       }}
       onPointerOut={() => { document.body.style.cursor = ''; }}
     >
+      {!props.gameView && getTriggerZone(entity)?.enabled && (
+        <TriggerZoneOutline zone={getTriggerZone(entity)!} />
+      )}
       {selectedEntity && !getCamera(entity) && <SelectionOutline active={effective} />}
       {smoothCharacterRoot && <CharacterBuilderBodyVisual parts={childEntities} />}
       {props.hideVisual ? null : entity.isGroup ? null : !model?.enabled && (getPrimitive(entity) || getLight(entity) || getCamera(entity) || getUICanvas(entity)) ? (
