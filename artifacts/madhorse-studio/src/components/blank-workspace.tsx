@@ -40,6 +40,7 @@ import type { MadBuilderPlan } from '@workspace/api-client-react';
 import type { ScenePrefab } from '@/lib/scene-authoring';
 import type { UIControlElement } from '@/lib/ui-controls';
 import { downloadMadBuilderLogPdf, type MadBuilderBuildLog } from '@/lib/mad-builder-build-log';
+import { createGameTypeLibraryPdf, gameTypeLibraryEntryCount } from '@/lib/game-type-library';
 import './system-panel-tools.css';
 import './numbered-workspace.css';
 
@@ -107,6 +108,12 @@ function SettingsPanel({
   const [activeFunctionTab, setActiveFunctionTab] = useState<
     'game-system' | 'player-functions' | 'game-controls' | 'player-controls' | 'npc-functions' | 'npc-controls'
   >('game-system');
+  const [gameTypeLibraryPdfUrl, setGameTypeLibraryPdfUrl] = useState<string | null>(null);
+  const gameTypeLibraryPdfUrlRef = useRef<string | null>(null);
+
+  useEffect(() => () => {
+    if (gameTypeLibraryPdfUrlRef.current) URL.revokeObjectURL(gameTypeLibraryPdfUrlRef.current);
+  }, []);
 
   return (
     <div className="fresh-settings-panel">
@@ -207,6 +214,33 @@ function SettingsPanel({
               <ChevronDown size={14} aria-hidden="true" />
             </summary>
             <div className="fresh-settings-category-content">
+              <details
+                className="fresh-game-type-library"
+                data-testid="details-game-type-library"
+                onToggle={(event) => {
+                  if (event.currentTarget.open && !gameTypeLibraryPdfUrlRef.current) {
+                    const url = URL.createObjectURL(createGameTypeLibraryPdf());
+                    gameTypeLibraryPdfUrlRef.current = url;
+                    setGameTypeLibraryPdfUrl(url);
+                  }
+                }}
+              >
+                <summary className="fresh-game-type-library-summary">
+                  <span>Game Type Library · Read-only PDF</span>
+                  <ChevronDown size={13} aria-hidden="true" />
+                </summary>
+                <p className="fresh-game-type-library-note">
+                  {gameTypeLibraryEntryCount} genre families with core loops, required systems, Madhorse build paths, and test notes.
+                </p>
+                {gameTypeLibraryPdfUrl && (
+                  <iframe
+                    className="fresh-game-type-library-frame"
+                    title="Read-only Madhorse game type library PDF"
+                    src={`${gameTypeLibraryPdfUrl}#toolbar=0&navpanes=0&view=FitH`}
+                    loading="lazy"
+                  />
+                )}
+              </details>
               <div className="fresh-builder-log" role="region" aria-label="Read-only Mad Builder build log" data-testid="builder-log-readonly">
                 <div className="fresh-builder-log-heading">
                   <div>

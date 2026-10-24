@@ -19,6 +19,12 @@ Animation clips are saved with their project. Playback should apply temporary sc
 
 **How to apply:** Keep reference catalogs, per-game rules, and saved project content distinct in storage and UI. Users should edit game rules through projects, not directly edit system reference data. Keep saved projects browser-local. Treat animation playback as a view over saved scene data, not a scene edit or script command.
 
+The game-type development library is protected system reference material, available as a read-only PDF only inside System Presets & Data.
+
+**Why:** The user requested a broad game-type build guide in PDF form that users can only read in System Presets & Data.
+
+**How to apply:** Keep the guide embedded in that settings section, not as an editable project asset or general download. Update its source only as system-maintained reference data.
+
 Prefab definitions are reusable snapshots; placed instances are independent.
 Removing or changing a library definition must not silently change existing
 scene instances.
