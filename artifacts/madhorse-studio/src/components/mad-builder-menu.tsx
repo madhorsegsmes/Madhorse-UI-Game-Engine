@@ -6,7 +6,6 @@ import './workspace-browser-menus.css';
 import './mad-builder-menu.css';
 
 const EXAMPLE = 'Build a small 3D house with four walls, a pitched roof, a front door, glass windows on each side, a ground plane around it and a warm point light inside.';
-const MUSCLE_CAR_REFERENCE_URL = `${import.meta.env.BASE_URL}mad-builder-classic-muscle-reference.jpg`;
 const STYLE_STORAGE_KEY = 'madhorse-studio-mad-builder-style';
 const BUILD_STYLES: { value: BuilderStyle; label: string }[] = [
   { value: 'polished-game-ready', label: 'Polished game-ready' },
@@ -55,19 +54,6 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; on
       setReferenceError(failure instanceof Error ? failure.message : 'This image could not be read.');
     } finally { setPreparingImage(false); }
   };
-  const useMuscleCarReference = async () => {
-    setPreparingImage(true); setReferenceError('');
-    setReferenceImage(''); setReferenceName('');
-    try {
-      const response = await fetch(MUSCLE_CAR_REFERENCE_URL);
-      if (!response.ok) throw new Error('The built-in car reference could not be loaded. Try uploading an image instead.');
-      const file = new File([await response.blob()], 'classic-muscle-car-reference.jpg', { type: 'image/jpeg' });
-      setReferenceImage(await prepareBuilderReference(file));
-      setReferenceName('Built-in classic muscle car');
-    } catch (failure) {
-      setReferenceError(failure instanceof Error ? failure.message : 'The built-in car reference could not be read.');
-    } finally { setPreparingImage(false); }
-  };
   const updateBuildStyle = (value: string) => {
     const next = BUILD_STYLES.find((style) => style.value === value)?.value ?? 'polished-game-ready';
     setBuildStyle(next);
@@ -92,17 +78,6 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; on
             <input id="mad-builder-reference" type="file" accept="image/jpeg,image/png,image/webp"
               disabled={readOnly || busy} data-testid="input-builder-reference"
               onChange={(event) => { void uploadReference(event.target.files?.[0]); event.target.value = ''; }} />
-            <div className="mb-builtin-reference" data-testid="builtin-muscle-car-reference">
-              <img src={MUSCLE_CAR_REFERENCE_URL} alt="Classic muscle car reference shown from front three-quarter, side, and front views" />
-              <div>
-                <strong>Classic muscle car</strong>
-                <span>Three-view model reference</span>
-                <button type="button" disabled={readOnly || busy} onClick={() => { void useMuscleCarReference(); }}
-                  data-testid="button-use-muscle-car-reference">
-                  {referenceName === 'Built-in classic muscle car' ? 'Use again' : 'Use this reference'}
-                </button>
-              </div>
-            </div>
             {preparingImage && <p className="mb-hint" role="status">Preparing reference image…</p>}
             {referenceImage && <div className="mb-reference-preview">
               <img src={referenceImage} alt={`Build reference: ${referenceName}`} data-testid="image-builder-reference" />
