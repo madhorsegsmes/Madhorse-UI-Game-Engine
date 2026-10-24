@@ -890,7 +890,12 @@ export default function BlankWorkspace() {
                 </button>
               </div>
             </>
-          ) : <span className="fresh-panel-number" aria-hidden="true">{number}</span>}
+          ) : (
+            <div className="fresh-world-tools-headings">
+              <h2>World Building Tools</h2>
+              <h3>3D Modeling Tools</h3>
+            </div>
+          )}
         </section>
       ))}
       {madBuilderOpen && createPortal(

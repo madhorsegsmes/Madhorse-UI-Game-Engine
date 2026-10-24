@@ -985,6 +985,24 @@ body::-webkit-scrollbar-thumb,
   grid-row: 4;
 }
 
+.fresh-world-tools-headings {
+  padding: 12px;
+  text-align: center;
+}
+
+.fresh-world-tools-headings h2 {
+  margin: 0;
+  color: #eee4ff;
+  font: 700 12px/1.4 Inter, system-ui, sans-serif;
+  text-transform: uppercase;
+}
+
+.fresh-world-tools-headings h3 {
+  margin: 10px 0 0;
+  color: #c9b5e5;
+  font: 600 11px/1.4 Inter, system-ui, sans-serif;
+}
+
 @media (max-width: 680px) {
   .fresh-layout {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
