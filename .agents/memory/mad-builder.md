@@ -127,6 +127,17 @@ paid generation.
 **How to apply:** Use the local Mad Builder style profile and original scene
 geometry unless the user approves a different runtime model provider.
 
+The orange coupe reference is the shared Mad Builder default style image and is
+enabled for every request for all users; optional user uploads stay separate as
+the target image.
+
+**Why:** The user explicitly chose the orange coupe reference only and requested
+that it be attached to every Mad Builder request by default.
+
+**How to apply:** Keep the global image on by default in Studio settings, but use
+it for finish/detail quality only. A user target image takes precedence for the
+requested object's appearance; never copy the coupe subject onto unrelated builds.
+
 Keep Mad Builder's AI requests within conservative reasoning and output limits.
 Higher reasoning and large output budgets previously hit the Replit AI request
 timeout before returning a plan.

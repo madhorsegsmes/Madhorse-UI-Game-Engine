@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { BuilderAsset } from './builderAsset';
+import type { BuilderReferenceImage } from './builderReferenceImage';
 import type { MadBuilderInputStyle } from './madBuilderInputStyle';
 
 export interface MadBuilderInput {
@@ -17,11 +18,16 @@ export interface MadBuilderInput {
   /** @maxLength 80 */
   selectedName: string;
   /**
-     * Optional inline reference image, transiently forwarded to the vision planner; never a remote URL.
+     * Legacy single-image input. New clients should use referenceImages.
      * @maxLength 1500000
      * @pattern ^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$
      */
   referenceImage?: string;
+  /**
+     * Optional global style reference and user-specific target, forwarded transiently to the vision planner.
+     * @maxItems 2
+     */
+  referenceImages?: BuilderReferenceImage[];
   /** Visual quality guidance for newly generated scene objects. */
   style?: MadBuilderInputStyle;
   /** @maxItems 40 */

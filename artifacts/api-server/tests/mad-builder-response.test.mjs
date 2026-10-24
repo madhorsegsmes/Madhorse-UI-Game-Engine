@@ -51,7 +51,10 @@ test('image plans complete with a dedicated output budget; truncated plans never
     assert.ok(ready, 'Isolated API server started');
     const body = {
       prompt: 'Match the red cube', selectedName: '', assets: [],
-      referenceImage: 'data:image/jpeg;base64,/9j/2Q==',
+      referenceImages: [
+        { role: 'global-style', dataUrl: 'data:image/jpeg;base64,/9j/2Q==' },
+        { role: 'user-target', dataUrl: 'data:image/jpeg;base64,/9j/2Q==' },
+      ],
     };
     const send = () => fetch(`${base}/api/mad-builder/plan`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -64,7 +67,11 @@ test('image plans complete with a dedicated output budget; truncated plans never
     assert.match(captured[0].messages[0].content, /wheelbase, wheel diameter and placement/);
     assert.match(captured[0].messages[0].content, /exactly four tires/);
     assert.match(captured[0].messages[0].content, /kind "vehicle", vehicleStyle "muscle-coupe"/);
-    assert.equal(captured[0].messages[1].content[1].image_url.url, body.referenceImage);
+    assert.equal(captured[0].messages[1].content[1].text.startsWith('GLOBAL STYLE REFERENCE'), true);
+    assert.equal(captured[0].messages[1].content[2].image_url.url, body.referenceImages[0].dataUrl);
+    assert.equal(captured[0].messages[1].content[3].text.startsWith('USER TARGET REFERENCE'), true);
+    assert.equal(captured[0].messages[1].content[4].image_url.url, body.referenceImages[1].dataUrl);
+    assert.match(captured[0].messages[0].content, /Never infer the requested car, body color or stripes from the GLOBAL STYLE REFERENCE alone/);
     responsePlan = {
       ...plan,
       parts: [{ ...plan.parts[0], size: { x: 0.01, y: 1, z: 1 } }],

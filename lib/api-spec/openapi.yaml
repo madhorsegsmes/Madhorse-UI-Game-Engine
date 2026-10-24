@@ -64,7 +64,12 @@ components:
           type: string
           maxLength: 1500000
           pattern: '^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$'
-          description: Optional inline reference image, transiently forwarded to the vision planner; never a remote URL.
+          description: Legacy single-image input. New clients should use referenceImages.
+        referenceImages:
+          type: array
+          maxItems: 2
+          description: Optional global style reference and user-specific target, forwarded transiently to the vision planner.
+          items: { $ref: "#/components/schemas/BuilderReferenceImage" }
         style:
           type: string
           enum: [polished-game-ready, realistic-game-ready, stylized-high-detail]
@@ -80,6 +85,15 @@ components:
         id: { type: string, maxLength: 80 }
         name: { type: string, maxLength: 160 }
         kind: { type: string, enum: [image, model] }
+    BuilderReferenceImage:
+      type: object
+      required: [role, dataUrl]
+      properties:
+        role: { type: string, enum: [global-style, user-target] }
+        dataUrl:
+          type: string
+          maxLength: 1500000
+          pattern: '^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$'
     BuilderVector:
       type: object
       required: [x, y, z]

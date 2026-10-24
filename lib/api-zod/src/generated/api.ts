@@ -20,6 +20,12 @@ export const planMadBuilderBodyReferenceImageMax = 1500000;
 
 
 export const planMadBuilderBodyReferenceImageRegExp = new RegExp('^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$');
+export const planMadBuilderBodyReferenceImagesItemDataUrlMax = 1500000;
+
+
+export const planMadBuilderBodyReferenceImagesItemDataUrlRegExp = new RegExp('^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$');
+export const planMadBuilderBodyReferenceImagesMax = 2;
+
 export const planMadBuilderBodyAssetsItemIdMax = 80;
 
 export const planMadBuilderBodyAssetsItemNameMax = 160;
@@ -31,7 +37,11 @@ export const planMadBuilderBodyAssetsMax = 40;
 export const PlanMadBuilderBody = zod.object({
   "prompt": zod.string().min(planMadBuilderBodyPromptMin).max(planMadBuilderBodyPromptMax),
   "selectedName": zod.string().max(planMadBuilderBodySelectedNameMax),
-  "referenceImage": zod.string().max(planMadBuilderBodyReferenceImageMax).regex(planMadBuilderBodyReferenceImageRegExp).optional().describe('Optional inline reference image, transiently forwarded to the vision planner; never a remote URL.'),
+  "referenceImage": zod.string().max(planMadBuilderBodyReferenceImageMax).regex(planMadBuilderBodyReferenceImageRegExp).optional().describe('Legacy single-image input. New clients should use referenceImages.'),
+  "referenceImages": zod.array(zod.object({
+  "role": zod.enum(['global-style', 'user-target']),
+  "dataUrl": zod.string().max(planMadBuilderBodyReferenceImagesItemDataUrlMax).regex(planMadBuilderBodyReferenceImagesItemDataUrlRegExp)
+})).max(planMadBuilderBodyReferenceImagesMax).optional().describe('Optional global style reference and user-specific target, forwarded transiently to the vision planner.'),
   "style": zod.enum(['polished-game-ready', 'realistic-game-ready', 'stylized-high-detail']).optional().describe('Visual quality guidance for newly generated scene objects.'),
   "assets": zod.array(zod.object({
   "id": zod.string().max(planMadBuilderBodyAssetsItemIdMax),

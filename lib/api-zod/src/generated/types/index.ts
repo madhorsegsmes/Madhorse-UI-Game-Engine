@@ -14,6 +14,8 @@ export * from './builderPartKind';
 export * from './builderPartLightKind';
 export * from './builderPartShape';
 export * from './builderPartVehicleStyle';
+export * from './builderReferenceImage';
+export * from './builderReferenceImageRole';
 export * from './builderRotation';
 export * from './builderSize';
 export * from './builderVector';

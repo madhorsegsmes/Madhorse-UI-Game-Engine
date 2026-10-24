@@ -17,6 +17,23 @@ export const MadBuilderInputStyle = {
   'stylized-high-detail': 'stylized-high-detail',
 } as const;
 
+export type BuilderReferenceImageRole = typeof BuilderReferenceImageRole[keyof typeof BuilderReferenceImageRole];
+
+
+export const BuilderReferenceImageRole = {
+  'global-style': 'global-style',
+  'user-target': 'user-target',
+} as const;
+
+export interface BuilderReferenceImage {
+  role: BuilderReferenceImageRole;
+  /**
+     * @maxLength 1500000
+     * @pattern ^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$
+     */
+  dataUrl: string;
+}
+
 export type BuilderAssetKind = typeof BuilderAssetKind[keyof typeof BuilderAssetKind];
 
 
@@ -42,11 +59,16 @@ export interface MadBuilderInput {
   /** @maxLength 80 */
   selectedName: string;
   /**
-     * Optional inline reference image, transiently forwarded to the vision planner; never a remote URL.
+     * Legacy single-image input. New clients should use referenceImages.
      * @maxLength 1500000
      * @pattern ^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$
      */
   referenceImage?: string;
+  /**
+     * Optional global style reference and user-specific target, forwarded transiently to the vision planner.
+     * @maxItems 2
+     */
+  referenceImages?: BuilderReferenceImage[];
   /** Visual quality guidance for newly generated scene objects. */
   style?: MadBuilderInputStyle;
   /** @maxItems 40 */
