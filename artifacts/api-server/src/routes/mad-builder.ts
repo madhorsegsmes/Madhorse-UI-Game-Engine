@@ -30,6 +30,11 @@ Use at most 80 parts, 8 lights, 4 cameras, 2 terrains and 20 UI controls. Parent
 Physics uses current engine defaults; do not claim unsupported sculpting, new animations, scripts, multiplayer or deployment were implemented.
 If the request cannot be built with these tools, return an empty parts array and explain what is unsupported in warnings.
 Summary must describe what this plan actually builds, not claim that it has already been applied.`;
+const styleDirections = {
+  'polished-game-ready': 'Target a polished, detailed real-time game-asset finish: distinct silhouette, refined proportions, clean bevel-like transitions, layered materials, purposeful surface details, balanced color variation and supplied textures where applicable. Avoid default low-poly styling and broad, unadorned primitives. Make an original design; do not copy Meshy assets.',
+  'realistic-game-ready': 'Target a realistic game-asset finish: plausible proportions, restrained colors, material-specific surface variation, fine structural details, readable openings and clean layering. Use supplied textures only where they match. Keep the object optimized and original; do not copy existing assets.',
+  'stylized-high-detail': 'Target a stylized but highly detailed game-asset finish: expressive silhouette, intentional shape language, coordinated colors, refined edge accents and layered details. Use low-poly facets only when the requested style specifically calls for them. Make an original design.',
+} as const;
 
 router.post('/mad-builder/plan', async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
@@ -69,7 +74,7 @@ router.post('/mad-builder/plan', async (req, res) => {
       model: 'gpt-5.4-mini', max_completion_tokens: 8000, reasoning_effort: 'low',
       messages: [{
         role: 'system',
-        content: `${instructions}\nReturn ONLY a JSON object matching this exact output schema. Include title, summary, warnings and parts, even for unsupported requests. Do not invent a different command format. Omit optional fields that do not apply; only parentKey and assetId may be null.\n${JSON.stringify(builderPlanJsonSchema)}`,
+        content: `${instructions}\nVisual quality profile: ${styleDirections[body.data.style ?? 'polished-game-ready']}\nReturn ONLY a JSON object matching this exact output schema. Include title, summary, warnings and parts, even for unsupported requests. Do not invent a different command format. Omit optional fields that do not apply; only parentKey and assetId may be null.\n${JSON.stringify(builderPlanJsonSchema)}`,
       }, { role: 'user', content: JSON.stringify(body.data) }],
       response_format: { type: 'json_schema', json_schema: {
         name: 'mad_builder_plan', strict: false, schema: builderPlanJsonSchema,

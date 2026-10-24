@@ -1,4 +1,5 @@
 import type { MadBuilderPlan } from '@workspace/api-client-react';
+export type BuilderStyle = 'polished-game-ready' | 'realistic-game-ready' | 'stylized-high-detail';
 export type BuilderMessage = { id: string; role: 'user' | 'assistant'; text: string };
 export type MadBuilderProps = {
   history: BuilderMessage[];
@@ -6,7 +7,7 @@ export type MadBuilderProps = {
   phase: 'idle' | 'planning' | 'ready' | 'applying';
   error: string;
   readOnly: boolean;
-  onPlan: (prompt: string, saveAsPrefab: boolean) => Promise<void>;
+  onPlan: (prompt: string, saveAsPrefab: boolean, style: BuilderStyle) => Promise<void>;
   onCancel: () => void;
   onDiscard: () => void;
   onApply: (saveAsPrefab: boolean) => void;

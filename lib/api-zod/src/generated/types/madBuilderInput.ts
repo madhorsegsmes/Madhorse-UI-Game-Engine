@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { BuilderAsset } from './builderAsset';
+import type { MadBuilderInputStyle } from './madBuilderInputStyle';
 
 export interface MadBuilderInput {
   /**
@@ -15,6 +16,8 @@ export interface MadBuilderInput {
   prompt: string;
   /** @maxLength 80 */
   selectedName: string;
+  /** Visual quality guidance for newly generated scene objects. */
+  style?: MadBuilderInputStyle;
   /** @maxItems 40 */
   assets: BuilderAsset[];
 }

@@ -1,16 +1,32 @@
 import { useState } from 'react';
 import type { MouseEvent } from 'react';
-import type { MadBuilderProps } from './mad-builder-contract';
+import type { BuilderStyle, MadBuilderProps } from './mad-builder-contract';
 import './workspace-browser-menus.css';
 import './mad-builder-menu.css';
 
 const EXAMPLE = 'Build a small 3D house with four walls, a pitched roof, a front door, glass windows on each side, a ground plane around it and a warm point light inside.';
+const STYLE_STORAGE_KEY = 'madhorse-studio-mad-builder-style';
+const BUILD_STYLES: { value: BuilderStyle; label: string }[] = [
+  { value: 'polished-game-ready', label: 'Polished game-ready' },
+  { value: 'realistic-game-ready', label: 'Realistic game asset' },
+  { value: 'stylized-high-detail', label: 'Stylized high-detail' },
+];
+
+function readSavedStyle(): BuilderStyle {
+  try {
+    const saved = window.localStorage.getItem(STYLE_STORAGE_KEY);
+    return BUILD_STYLES.find((style) => style.value === saved)?.value ?? 'polished-game-ready';
+  } catch {
+    return 'polished-game-ready';
+  }
+}
 
 export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; onClose?: () => void }) {
   const { embedded = false } = props;
   const { history, plan, phase, error, readOnly, onPlan, onCancel, onDiscard, onApply } = props;
   const [prompt, setPrompt] = useState('');
   const [asPrefab, setAsPrefab] = useState(false);
+  const [buildStyle, setBuildStyle] = useState<BuilderStyle>(readSavedStyle);
   const len = prompt.trim().length;
   const valid = len >= 3 && prompt.length <= 2000;
   const busy = phase === 'planning' || phase === 'applying';
@@ -19,7 +35,12 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; on
   const canApply = !readOnly && phase === 'ready' && !!plan && partCount > 0;
 
   const close = (e: MouseEvent<HTMLButtonElement>) => { e.currentTarget.closest('details')?.removeAttribute('open'); };
-  const submit = () => { if (canPlan) void onPlan(prompt.trim(), asPrefab).catch(() => undefined); };
+  const submit = () => { if (canPlan) void onPlan(prompt.trim(), asPrefab, buildStyle).catch(() => undefined); };
+  const updateBuildStyle = (value: string) => {
+    const next = BUILD_STYLES.find((style) => style.value === value)?.value ?? 'polished-game-ready';
+    setBuildStyle(next);
+    try { window.localStorage.setItem(STYLE_STORAGE_KEY, next); } catch { /* Keep this choice for the current session. */ }
+  };
 
   const panel = (
     <section className="workspace-browser-panel browser-builder-panel" aria-label="Mad Builder" data-testid="panel-mad-builder">
@@ -46,6 +67,15 @@ export function MadBuilderMenu(props: MadBuilderProps & { embedded?: boolean; on
               data-testid="input-builder-prompt"
             />
             <div className="mb-meta"><span>{len > 0 && len < 3 ? 'Min 3 characters' : 'Tap Build in scene or press Ctrl+Enter'}</span><span data-testid="text-builder-char-count">{prompt.length}/2000</span></div>
+            <label className="mb-style-row" htmlFor="mad-builder-style">
+              <span>Build style</span>
+              <select id="mad-builder-style" className="mb-style-select" value={buildStyle}
+                disabled={readOnly || busy} onChange={(e) => updateBuildStyle(e.target.value)}
+                data-testid="select-builder-style">
+                {BUILD_STYLES.map((style) => <option key={style.value} value={style.value}>{style.label}</option>)}
+              </select>
+            </label>
+            <p className="mb-hint mb-style-hint">Polished uses broad quality cues from your Meshy reference, not copied models or assets.</p>
             <label className="mb-check">
               <input type="checkbox" checked={asPrefab} disabled={readOnly || busy} onChange={(e) => setAsPrefab(e.target.checked)} data-testid="checkbox-builder-prefab" />
               Also save group as prefab

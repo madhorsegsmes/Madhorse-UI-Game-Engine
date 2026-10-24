@@ -27,6 +27,7 @@ export const planMadBuilderBodyAssetsMax = 40;
 export const PlanMadBuilderBody = zod.object({
   "prompt": zod.string().min(planMadBuilderBodyPromptMin).max(planMadBuilderBodyPromptMax),
   "selectedName": zod.string().max(planMadBuilderBodySelectedNameMax),
+  "style": zod.enum(['polished-game-ready', 'realistic-game-ready', 'stylized-high-detail']).optional().describe('Visual quality guidance for newly generated scene objects.'),
   "assets": zod.array(zod.object({
   "id": zod.string().max(planMadBuilderBodyAssetsItemIdMax),
   "name": zod.string().max(planMadBuilderBodyAssetsItemNameMax),

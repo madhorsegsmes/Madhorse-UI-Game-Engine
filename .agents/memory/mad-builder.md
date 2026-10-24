@@ -84,6 +84,16 @@ scene compiler safely accepts parts up to its 100-unit limit.
 validators, state the same bound in the planner prompt, and retain the compiler's
 world-scale check.
 
+Treat the user's Meshy reference as broad visual-quality guidance, not a request
+to reuse Meshy assets. Do not connect Tripo3D; the user rejected its generation
+charges.
+
+**Why:** The user wants a polished game-asset look but does not want Tripo3D's
+paid generation.
+
+**How to apply:** Use the local Mad Builder style profile and original scene
+geometry unless the user approves a different runtime model provider.
+
 Keep Mad Builder's AI requests within conservative reasoning and output limits.
 Higher reasoning and large output budgets previously hit the Replit AI request
 timeout before returning a plan.

@@ -5,6 +5,18 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+/**
+ * Visual quality guidance for newly generated scene objects.
+ */
+export type MadBuilderInputStyle = typeof MadBuilderInputStyle[keyof typeof MadBuilderInputStyle];
+
+
+export const MadBuilderInputStyle = {
+  'polished-game-ready': 'polished-game-ready',
+  'realistic-game-ready': 'realistic-game-ready',
+  'stylized-high-detail': 'stylized-high-detail',
+} as const;
+
 export type BuilderAssetKind = typeof BuilderAssetKind[keyof typeof BuilderAssetKind];
 
 
@@ -29,6 +41,8 @@ export interface MadBuilderInput {
   prompt: string;
   /** @maxLength 80 */
   selectedName: string;
+  /** Visual quality guidance for newly generated scene objects. */
+  style?: MadBuilderInputStyle;
   /** @maxItems 40 */
   assets: BuilderAsset[];
 }
