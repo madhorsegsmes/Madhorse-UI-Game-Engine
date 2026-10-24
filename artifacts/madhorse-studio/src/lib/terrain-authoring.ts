@@ -11,6 +11,7 @@ import {
   type TerrainSettings,
   type Vector3,
 } from './scene-model';
+import { createPrimitiveGeometry } from './scene-view-geometry';
 
 export type TerrainToolAction = TerrainBrushEdit['action'];
 
@@ -80,6 +81,21 @@ export function createTerrainWater(terrain: SceneEntity): SceneEntity {
 export function createTerrainTreeGrove(terrain: SceneEntity): SceneEntity[] {
   const surface = getPrimitive(terrain);
   const spacing = Math.min(surface?.terrainSettings?.width ?? 20, surface?.terrainSettings?.depth ?? 20) * 0.12;
+  const geometry = createPrimitiveGeometry('terrain', surface?.terrainSettings, surface?.terrainEdits);
+  const vertices = geometry.getAttribute('position');
+  const surfaceHeight = (x: number, z: number) => {
+    let closest = Infinity;
+    let height = 0;
+    for (let index = 0; index < vertices.count; index++) {
+      const distance = Math.hypot(vertices.getX(index) - x, vertices.getZ(index) - z);
+      if (distance < closest) {
+        closest = distance;
+        height = vertices.getY(index);
+      }
+    }
+    return height;
+  };
+  // Parented transforms use 50 as their local origin on all three axes.
   const treeOrigin = { ...SCENE_ORIGIN, z: 50 };
   const grove = createSceneEntity('Tree Grove', treeOrigin, terrain.id, false);
   grove.components = [getTransform(grove)];
@@ -89,9 +105,9 @@ export function createTerrainTreeGrove(terrain: SceneEntity): SceneEntity[] {
   const entities: SceneEntity[] = [grove];
   offsets.forEach(([x, y], index) => {
     const tree = createSceneEntity(`Tree ${index + 1}`, {
-      x: SCENE_ORIGIN.x + x,
-      y: SCENE_ORIGIN.y + y,
-      z: 50,
+      x: SCENE_ORIGIN.x + x * 10,
+      y: SCENE_ORIGIN.y + y * 10,
+      z: 50 + surfaceHeight(x, y) * 10,
     }, grove.id, false);
     tree.components = [getTransform(tree)];
     tree.isGroup = true;
@@ -105,6 +121,7 @@ export function createTerrainTreeGrove(terrain: SceneEntity): SceneEntity[] {
       x: 1.2, y: 1.2, z: 1.7,
     }, '#3c8a47'));
   });
+  geometry.dispose();
   return entities;
 }
 

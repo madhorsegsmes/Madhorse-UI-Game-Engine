@@ -207,6 +207,8 @@ export function SceneObjectInspector({
       if (item.type === 'primitive') return {
         ...item,
         shape: values['primitive.shape'] as PrimitiveShape,
+        terrainSettings: values['primitive.shape'] === 'terrain' ? item.terrainSettings : undefined,
+        terrainEdits: values['primitive.shape'] === 'terrain' ? item.terrainEdits : undefined,
         color: values['primitive.color'],
         opacity: number('primitive.opacity'),
         textureAssetId: values['primitive.textureAssetId'] || null,

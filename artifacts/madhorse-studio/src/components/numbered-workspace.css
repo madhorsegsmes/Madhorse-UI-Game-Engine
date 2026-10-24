@@ -581,7 +581,8 @@ body::-webkit-scrollbar-thumb,
   text-align: left;
 }
 
-.fresh-world-tool-picker button:disabled {
+.fresh-world-tool-picker button:disabled,
+.fresh-world-tool-button:disabled {
   cursor: not-allowed;
   opacity: .42;
 }

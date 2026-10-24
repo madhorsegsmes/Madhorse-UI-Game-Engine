@@ -1046,13 +1046,12 @@ type Panel5Toolset = 'world' | 'model';
 function WorldToolsPanel({
   activeToolset,
   onSelectToolset,
-  onCreateObject,
-  onCreatePlane,
   onCreateTerrain,
-  onCreateLight,
-  onCreateCamera,
   onImportAsset,
-  onCreateEmpty,
+  terrainAvailable,
+  onTerrainBrush,
+  onAddTrees,
+  onAddWater,
   onCreateShape,
   onUploadTexture,
   onCreateTexture,
@@ -1061,13 +1060,12 @@ function WorldToolsPanel({
 }: {
   activeToolset: Panel5Toolset;
   onSelectToolset: (toolset: Panel5Toolset) => void;
-  onCreateObject: () => void;
-  onCreatePlane: () => void;
   onCreateTerrain: () => void;
-  onCreateLight: () => void;
-  onCreateCamera: () => void;
   onImportAsset: () => void;
-  onCreateEmpty: () => void;
+  terrainAvailable: boolean;
+  onTerrainBrush: (action: 'raise' | 'lower' | 'smooth') => void;
+  onAddTrees: () => void;
+  onAddWater: () => void;
   onCreateShape: (shape: PrimitiveShape) => void;
   onUploadTexture: () => void;
   onCreateTexture: () => void;
@@ -1103,15 +1101,21 @@ function WorldToolsPanel({
         data-testid="panel5-tool-content"
       >
         {activeToolset === 'world' ? (
+          <>
           <div className="fresh-world-tool-grid">
-            <button type="button" className="fresh-world-tool-button" data-testid="panel5-create-object" onClick={onCreateObject}>Create Object</button>
-            <button type="button" className="fresh-world-tool-button" data-testid="panel5-create-plane" onClick={onCreatePlane}>Create Plane</button>
             <button type="button" className="fresh-world-tool-button" data-testid="panel5-create-terrain" onClick={onCreateTerrain}>Create Terrain</button>
-            <button type="button" className="fresh-world-tool-button" data-testid="panel5-create-light" onClick={onCreateLight}>Add Light</button>
-            <button type="button" className="fresh-world-tool-button" data-testid="panel5-create-camera" onClick={onCreateCamera}>Add Camera</button>
-            <button type="button" className="fresh-world-tool-button" data-testid="panel5-import-world-asset" onClick={onImportAsset}>Import Asset</button>
-            <button type="button" className="fresh-world-tool-button" data-testid="panel5-create-empty" onClick={onCreateEmpty}>Empty Object</button>
+            <button type="button" className="fresh-world-tool-button" data-testid="panel5-raise-terrain" disabled={!terrainAvailable} onClick={() => onTerrainBrush('raise')}>Raise Terrain</button>
+            <button type="button" className="fresh-world-tool-button" data-testid="panel5-lower-terrain" disabled={!terrainAvailable} onClick={() => onTerrainBrush('lower')}>Lower Terrain</button>
+            <button type="button" className="fresh-world-tool-button" data-testid="panel5-smooth-terrain" disabled={!terrainAvailable} onClick={() => onTerrainBrush('smooth')}>Smooth Terrain</button>
+            <button type="button" className="fresh-world-tool-button" data-testid="panel5-add-trees" disabled={!terrainAvailable} onClick={onAddTrees}>Add Trees</button>
+            <button type="button" className="fresh-world-tool-button" data-testid="panel5-add-water" disabled={!terrainAvailable} onClick={onAddWater}>Add Water</button>
           </div>
+          <p className="fresh-world-tool-hint">
+            {terrainAvailable ? 'Tools edit the selected Terrain. Sculpt tools affect its center.'
+              : 'Select a Terrain in Hierarchy, or create one to begin.'}
+            {' '}Objects, empty objects, cameras, and lights are in the Hierarchy right-click menu.
+          </p>
+          </>
         ) : (
           <>
             <button type="button" className="fresh-world-tool-button" data-testid="open-modeling-workspace"
@@ -2099,13 +2103,12 @@ export default function BlankWorkspace() {
             <WorldToolsPanel
               activeToolset={panel5Toolset}
               onSelectToolset={setPanel5Toolset}
-              onCreateObject={() => createPrimitiveEntity('cube', 'Cube')}
-              onCreatePlane={() => setPanel5Dialog('plane')}
               onCreateTerrain={() => setPanel5Dialog('terrain')}
-              onCreateLight={createLightEntity}
-              onCreateCamera={createCameraEntity}
               onImportAsset={showImportPicker}
-              onCreateEmpty={createEmptyObject}
+              terrainAvailable={Boolean(selectedEntity && getPrimitive(selectedEntity)?.shape === 'terrain')}
+              onTerrainBrush={action => { if (selection) applyTerrainBrush(selection, action); }}
+              onAddTrees={() => { if (selection) addTreesToTerrain(selection); }}
+              onAddWater={() => { if (selection) addWaterToTerrain(selection); }}
               onCreateShape={shape => {
                 if (shape === 'plane') {
                   setPanel5Dialog('plane');
