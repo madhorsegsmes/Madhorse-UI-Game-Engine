@@ -9,3 +9,4 @@
 - [Madhorse data ownership](madhorse-data-ownership.md) — keep system reference data separate from editable project data and game rules.
 - [Mad Builder](mad-builder.md) — engine-integrated AI authoring, browser-local drafts, and validated data-only construction plans.
 - [Camera authoring](camera-authoring.md) — Panel 3 applies complete aim-based poses atomically rather than saving partial numeric edits.
+- [Modeling and Blender scope](modeling-scope.md) — native modeling and rig tools plus GLB/glTF exchange, not embedded desktop Blender or native .blend editing.

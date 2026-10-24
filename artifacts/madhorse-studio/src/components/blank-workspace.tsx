@@ -1,5 +1,5 @@
 /** Fresh workspace with local scene authoring and an intentionally blank panel layout. */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Dispatch, KeyboardEvent, MouseEvent, SetStateAction } from 'react';
 import { ChevronDown, ChevronRight, FileDown, Folder, Trash2 } from 'lucide-react';
@@ -9,6 +9,7 @@ import {
   createSceneEntity,
   createStarterCube,
   getCamera,
+  getModelRenderer,
   getTransform,
   primitiveShapes,
   projectAssetKind,
@@ -21,7 +22,6 @@ import {
   type UIElementKind,
 } from '@/lib/scene-model';
 import { createGameCamera, type GameCamera } from '@/lib/game-camera';
-import { createCharacterBuilderStarterScene } from '@/lib/character-builder-starter';
 import { cameraWithPose, PRIMARY_CAMERA_ID, primaryCameraEntity } from '@/lib/camera-editor';
 import { SceneObjectGlyph } from './scene-object-glyph';
 import { SceneObjectInspector } from './scene-object-inspector';
@@ -52,6 +52,7 @@ import { downloadMadBuilderLogPdf, type MadBuilderBuildLog } from '@/lib/mad-bui
 import { createGameTypeLibraryPdf, gameTypeLibraryEntryCount } from '@/lib/game-type-library';
 import CHARACTER_CONTROLLER_REFERENCE from '@/lib/character-controller-reference.md?raw';
 import ENGINE_EDITOR_PERFORMANCE_REFERENCE from '@/lib/engine-editor-performance-reference.md?raw';
+const ModelingWorkspace = lazy(() => import('./modeling/modeling-workspace'));
 import './system-panel-tools.css';
 import './numbered-workspace.css';
 
@@ -799,6 +800,7 @@ function WorldToolsPanel({
   onUploadTexture,
   onCreateTexture,
   onPreviewAnimation,
+  onOpenModeling,
 }: {
   activeToolset: Panel5Toolset;
   onSelectToolset: (toolset: Panel5Toolset) => void;
@@ -813,6 +815,7 @@ function WorldToolsPanel({
   onUploadTexture: () => void;
   onCreateTexture: () => void;
   onPreviewAnimation: () => void;
+  onOpenModeling: () => void;
 }) {
   return (
     <div className="fresh-world-tools-panel">
@@ -854,6 +857,8 @@ function WorldToolsPanel({
           </div>
         ) : (
           <>
+            <button type="button" className="fresh-world-tool-button" data-testid="open-modeling-workspace"
+              onClick={onOpenModeling}>Expand Modeling &amp; Rigging</button>
             <div className="fresh-world-tool-grid fresh-world-tool-grid-compact" aria-label="Model and texture actions">
               <button type="button" className="fresh-world-tool-button" data-testid="panel5-import-model" onClick={onImportAsset}>Import Asset</button>
               <button type="button" className="fresh-world-tool-button" data-testid="panel5-upload-texture" onClick={onUploadTexture}>Upload Texture</button>
@@ -910,6 +915,8 @@ export default function BlankWorkspace() {
   const characterFrameToken = useRef(0);
   const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
   const [madBuilderOpen, setMadBuilderOpen] = useState(false);
+  const [modelingOpen, setModelingOpen] = useState(false);
+  const [modelingSource, setModelingSource] = useState<{ url: string; name: string } | undefined>();
   const [previewEntities, setPreviewEntities] = useState<SceneEntity[] | null>(null);
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [panel5Toolset, setPanel5Toolset] = useState<Panel5Toolset>('world');
@@ -1146,23 +1153,18 @@ export default function BlankWorkspace() {
   }, []);
 
   const openCharacterBuilder = useCallback(() => {
-    let character = entities.find((entity) =>
-      entity.generatedBy === 'character-builder' && entity.name === 'Default Human · T-Pose · 1.80 m',
-    );
-    if (!character) {
-      const starter = createCharacterBuilderStarterScene();
-      character = starter.entities.find((entity) => entity.id === starter.characterId);
-      setEntities((current) => [...current, ...starter.entities]);
-      setStatus('Character Builder setup added: 1.80 m T-pose mannequin, ground plane, and turntable.');
-    } else {
-      setStatus('Character Builder focused on the existing default human. Your game camera is unchanged.');
-    }
-    if (!character) return;
-    setEditingEntityId(null);
-    setSelection(character.id);
-    characterFrameToken.current += 1;
-    setCharacterFrameRequest({ targetId: character.id, token: characterFrameToken.current });
-  }, [entities]);
+    setModelingSource(undefined);
+    setModelingOpen(true);
+  }, []);
+
+  const openModelingWorkspace = useCallback(() => {
+    const selected = entities.find((entity) => entity.id === selection);
+    const renderer = selected ? getModelRenderer(selected) : undefined;
+    const asset = assets.find((item) => item.id === renderer?.assetId);
+    setModelingSource(asset && /\.(glb|gltf)$/i.test(asset.name) && assetUrls[asset.id]
+      ? { url: assetUrls[asset.id], name: asset.name } : undefined);
+    setModelingOpen(true);
+  }, [assetUrls, assets, entities, selection]);
 
   const nextPosition = useCallback(() => ({
     x: 50 + (entities.length % 8) * 12,
@@ -1214,6 +1216,25 @@ export default function BlankWorkspace() {
       ];
     }
     addEntity(entity);
+  }, [addEntity, nextPosition]);
+
+  const saveModelingAsset = useCallback(async (file: File) => {
+    if (file.size > WORKSPACE_ASSET_LIMIT) throw new Error('The exported model exceeds the 100 MB browser asset limit.');
+    const asset: ProjectAsset = {
+      id: crypto.randomUUID(), name: file.name, kind: 'model', mimeType: file.type,
+      size: file.size, addedAt: new Date().toISOString(),
+    };
+    await saveLocalAsset(FRESH_WORKSPACE_ID, asset.id, file);
+    const entity = createSceneEntity(file.name.replace(/\.glb$/i, ''), nextPosition(), null, false);
+    entity.components = [
+      getTransform(entity),
+      { id: crypto.randomUUID(), type: 'modelRenderer', enabled: true, assetId: asset.id },
+    ];
+    setAssets((current) => [...current, asset]);
+    addEntity(entity);
+    characterFrameToken.current += 1;
+    setCharacterFrameRequest({ targetId: entity.id, token: characterFrameToken.current });
+    setStatus(`${file.name} saved on this device with embedded rig and animation clips. A new copy was added to the hierarchy.`);
   }, [addEntity, nextPosition]);
 
   const importFile = useCallback(async (file: File | undefined, imagesOnly = false) => {
@@ -1491,6 +1512,7 @@ export default function BlankWorkspace() {
               onUploadTexture={showTexturePicker}
               onCreateTexture={() => { void makeTexture(); }}
               onPreviewAnimation={openTimeline}
+              onOpenModeling={openModelingWorkspace}
             />
           )}
         </section>
@@ -1534,6 +1556,9 @@ export default function BlankWorkspace() {
         document.body,
       )}
       {status && <div className="fresh-status" role="status">{status}<button type="button" onClick={() => setStatus('')} aria-label="Dismiss status">×</button></div>}
+      {modelingOpen && <Suspense fallback={<div className="fresh-status" role="status">Loading modeling workspace…</div>}>
+        <ModelingWorkspace onClose={() => setModelingOpen(false)} onSave={saveModelingAsset} initialSource={modelingSource} />
+      </Suspense>}
       {timelineOpen && (
         <div className="fresh-timeline-backdrop" role="presentation" onMouseDown={event => {
           if (event.target === event.currentTarget) {

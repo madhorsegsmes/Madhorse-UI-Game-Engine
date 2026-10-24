@@ -1,0 +1,16 @@
+---
+name: Modeling and Blender scope
+description: User-selected scope for roomy modeling, rigged modular characters, and Blender exchange.
+---
+
+Provide both Madhorse-native modeling/rig tools and Blender-compatible GLB/glTF import/export. This is not a request to embed the entire desktop Blender application or claim native `.blend` editing.
+
+**Why:** The user asked for Blender, more room for modeling, better rigs, and modular characters, then selected “Both: Madhorse modeling tools and Blender import/export” after the distinction was explained.
+
+**How to apply:** Keep the existing editor layout and saved content intact; use an expanded workspace for these tools. Explain Blender-only limitations plainly rather than suggesting constraints, modifiers, drivers, or procedural shaders transfer automatically.
+
+Editing an imported model should make a working copy; saving a model to a project must not silently overwrite its source asset.
+
+**Why:** Rich modeling/rig edits can be destructive, and the user has repeatedly requested preservation of existing features and project data.
+
+**How to apply:** Save a separate model asset unless the user explicitly chooses replacement. Treat animation preview as temporary, not a persistent pose edit.
