@@ -2,7 +2,7 @@ import { expect } from '@playwright/test';
 import { movementLanguages, movementStarter, scriptStorageError, sourceSize, maxScriptSize, maxProjectScriptsSize } from '../../src/lib/project-scripts';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { hasRenderableModelGeometry } from '../../src/lib/scene-model-validation';
-import { test, openScripts, run, finished, frames, importSource } from './fixtures';
+import { test, createProject, openScripts, run, finished, frames, importSource } from './fixtures';
 import { gpuPixels, magentaModel, requireWebGL2, setGPUScene } from './gpu-fixtures';
 import { createDefaultPlayer, createModelRendererComponent, getTransform } from '../../src/lib/scene-model';
 import { PerspectiveCamera, Vector3 } from 'three';
@@ -285,8 +285,7 @@ test('create every language, edit source and reload without loading any runtime'
   const originalProject = await page.getByLabel('Choose project').inputValue();
   await page.getByLabel('Script tools').click();
   await page.getByLabel('Project actions').click();
-  page.once('dialog', (dialog) => dialog.accept('Editor isolation test'));
-  await page.getByRole('button', { name: 'New project', exact: true }).click();
+  await createProject(page, 'Editor isolation test');
   await page.getByLabel('Project actions').click();
   await page.getByLabel('Script tools').click();
   await expect(page.locator('#script-source')).toHaveCount(0);

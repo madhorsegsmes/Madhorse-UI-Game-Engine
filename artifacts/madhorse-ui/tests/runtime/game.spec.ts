@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import { applyGameCommand, gameExample } from '../../src/lib/game-api';
-import { test, languages, openScripts, importSource, run, finished, status, output, frames, stopButton } from './fixtures';
+import { test, languages, createProject, openScripts, importSource, run, finished, status, output, frames, stopButton } from './fixtures';
 
 const command = (updates: Record<string, unknown> = {}) => ({
   version: 1, object: 'player', action: 'setPosition', x: 75, y: 35, ...updates,
@@ -137,8 +137,7 @@ test('switching projects revokes the old runner and resets the preview without s
   await expect(player(page)).toHaveAttribute('data-x', '75');
   await page.getByLabel('Script tools').click();
   await page.getByLabel('Project actions').click();
-  page.once('dialog', dialog => dialog.accept('Other scene'));
-  await page.getByRole('button', { name: 'New project', exact: true }).click();
+  await createProject(page, 'Other scene');
   await expect(frames(page)).toHaveCount(0);
   await expect(player(page)).toHaveAttribute('data-x', '50');
   await page.getByLabel('Choose project').selectOption({ index: 0 });

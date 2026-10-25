@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import { isGamePosition } from '../../src/lib/game-api';
-import { test, openScripts, importSource, run, finished, frames } from './fixtures';
+import { test, createProject, openScripts, importSource, run, finished, frames } from './fixtures';
 
 const storageKey = 'madhorse-ui-projects';
 const player = (page: import('@playwright/test').Page) => page.getByTestId('scene-player');
@@ -49,8 +49,7 @@ test('saved start survives scripts, reset, project switches and reloads', async 
   await finished(page);
   await page.getByLabel('Project actions').click();
   const original = await page.getByLabel('Choose project').inputValue();
-  page.once('dialog', dialog => dialog.accept('Separate scene'));
-  await page.getByRole('button', { name: 'New project', exact: true }).click();
+  await createProject(page, 'Separate scene');
   await expect(player(page)).toHaveAttribute('data-x', '50');
   await showStartControls(page);
   await page.getByLabel('Starting X', { exact: true }).fill('0');
@@ -66,6 +65,46 @@ test('saved start survives scripts, reset, project switches and reloads', async 
   await page.getByLabel('Choose project').selectOption({ index: 1 });
   await expect(player(page)).toHaveAttribute('data-x', '0');
   await expect(player(page)).toHaveAttribute('data-y', '100');
+});
+
+test('new projects open in the chosen 2D or 3D view and retain it after switching and reload', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Project actions').click();
+  await page.getByRole('button', { name: 'New project', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Create a project' });
+  await expect(dialog.getByText('2D Canvas')).toBeVisible();
+  await expect(dialog.getByText('3D Scene Preview')).toBeVisible();
+  await dialog.getByLabel('Project name').fill('Three Dimensional');
+  await dialog.locator('input[name="new-project-preview-mode"][value="3d"]').check();
+  await dialog.getByRole('button', { name: 'Create project', exact: true }).click();
+  await expect(page.getByTestId('tab-scene-3d')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('scene-preview-3d')).toHaveAttribute('data-scene-entity-count', '2');
+  await expect.poll(() => page.evaluate((key) => JSON.parse(localStorage.getItem(key)!)
+    .find((project: { name: string }) => project.name === 'Three Dimensional')?.previewMode, storageKey))
+    .toBe('3d');
+  const saved3d = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!)
+    .find((project: { name: string }) => project.name === 'Three Dimensional'), storageKey);
+  expect(saved3d.entities).toEqual(expect.arrayContaining([
+    expect.objectContaining({ id: 'starter-cube', name: 'Cube' }),
+  ]));
+
+  await createProject(page, 'Two Dimensional', '2d');
+  await expect(page.getByTestId('tab-scene-2d')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('scene-player')).toBeVisible();
+  await expect(page.getByTestId('scene-preview')).toHaveClass(/scene-preview-2d/);
+
+  await page.getByLabel('Choose project').selectOption({ label: 'Three Dimensional' });
+  await expect(page.getByTestId('tab-scene-3d')).toHaveAttribute('aria-selected', 'true');
+  await page.reload();
+  await expect(page.getByTestId('tab-scene-3d')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('scene-preview-3d')).toHaveAttribute('data-scene-entity-count', '2');
+
+  await page.getByLabel('Project actions').click();
+  await page.getByLabel('Choose project').selectOption({ label: 'Two Dimensional' });
+  await expect(page.getByTestId('tab-scene-2d')).toHaveAttribute('aria-selected', 'true');
+  await page.reload();
+  await expect(page.getByTestId('tab-scene-2d')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('scene-player')).toBeVisible();
 });
 
 test('invalid drafts cannot save, and old or malformed saved positions use the default', async ({ page }) => {
@@ -97,8 +136,7 @@ test('running scripts cannot edit saved coordinates and switching projects revok
   await expect(page.getByLabel('Starting X', { exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Save starting position', exact: true })).toBeDisabled();
   await page.getByLabel('Project actions').click();
-  page.once('dialog', dialog => dialog.accept('New scene'));
-  await page.getByRole('button', { name: 'New project', exact: true }).click();
+  await createProject(page, 'New scene');
   await expect(frames(page)).toHaveCount(0);
   await expect(player(page)).toHaveAttribute('data-x', '50');
   await page.getByLabel('Choose project').selectOption({ index: 0 });

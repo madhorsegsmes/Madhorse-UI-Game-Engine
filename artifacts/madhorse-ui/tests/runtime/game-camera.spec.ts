@@ -3,7 +3,7 @@ import { MathUtils, Vector3 } from 'three';
 import { cameraWithOrbitPose } from '../../src/lib/camera-editor';
 import { createGameCamera, isGameCamera, makeGameViewCamera } from '../../src/lib/game-camera';
 import { createDefaultPlayer, getSpriteRenderer, getTransform } from '../../src/lib/scene-model';
-import { test } from './fixtures';
+import { test, createProject } from './fixtures';
 import { gpuPixels, requireWebGL2, setGPUScene, twoColorSprite } from './gpu-fixtures';
 
 for (const viewport of [{ width: 1280, height: 900 }, { width: 402, height: 874 }]) {
@@ -114,8 +114,7 @@ test('Panel 3 validates and saves custom camera pose and zoom on phones without 
   await expect(view).toHaveAttribute('data-camera-position', '{"x":3.5,"y":7,"z":-12}');
   await page.getByLabel('Project actions').click();
   const original = await page.getByLabel('Choose project').inputValue();
-  page.once('dialog', (dialog) => dialog.accept('Custom camera isolation'));
-  await page.getByRole('button', { name: 'New project', exact: true }).click();
+  await createProject(page, 'Custom camera isolation');
   await expect(view).toHaveAttribute('data-camera-fov', '50');
   await page.getByLabel('Choose project').selectOption(original);
   await expect(view).toHaveAttribute('data-camera-fov', '35');
@@ -208,8 +207,7 @@ test('Panel 3 camera aims at the square, saves per project and shows the shared 
   await expect(page.getByTestId('scene-game-view')).toHaveAttribute('data-camera-target', '{"x":2,"y":2,"z":-2}');
   await page.getByLabel('Project actions').click();
   const original = await page.getByLabel('Choose project').inputValue();
-  page.once('dialog', (dialog) => dialog.accept('Separate camera'));
-  await page.getByRole('button', { name: 'New project', exact: true }).click();
+  await createProject(page, 'Separate camera');
   await expect(page.getByTestId('scene-game-view')).toHaveAttribute('data-camera-target', '{"x":0,"y":0,"z":0}');
   await page.getByLabel('Choose project').selectOption(original);
   await expect(page.getByTestId('scene-game-view')).toHaveAttribute('data-camera-target', '{"x":2,"y":2,"z":-2}');

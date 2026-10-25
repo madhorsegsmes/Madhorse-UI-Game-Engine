@@ -44,6 +44,13 @@ export const frames = (page: Page) => page.locator('iframe[sandbox="allow-script
 // The workspace also has a game Stop button. Target the Script panel explicitly.
 export const stopButton = (page: Page) => page.locator('.script-run-actions').getByRole('button', { name: 'Stop', exact: true });
 
+export async function createProject(page: Page, name: string, previewMode: '2d' | '3d' = '2d') {
+  await page.getByRole('button', { name: 'New project', exact: true }).click();
+  await page.getByLabel('Project name').fill(name);
+  await page.locator(`input[name="new-project-preview-mode"][value="${previewMode}"]`).check();
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+}
+
 export async function openScripts(page: Page) {
   await page.goto('/');
   await page.getByLabel('Script tools').click();

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -76,6 +76,7 @@ type Project = {
   name: string;
   gameType: string;
   savedAt: string;
+  previewMode?: '2d' | '3d';
   scripts?: ScriptFile[];
   entities: SceneEntity[];
   assets: ProjectAsset[];
@@ -152,6 +153,7 @@ function isSavedProject(project: unknown): project is Project {
     (value.activeCameraId === undefined || value.activeCameraId === null || typeof value.activeCameraId === 'string') &&
     (value.builderHistory === undefined || isBuilderHistory(value.builderHistory)) &&
     (value.builderDraft === undefined || isBuilderDraft(value.builderDraft)) &&
+    (value.previewMode === undefined || value.previewMode === '2d' || value.previewMode === '3d') &&
     (value.starterSceneInitialized === undefined || typeof value.starterSceneInitialized === 'boolean');
 }
 
@@ -299,6 +301,9 @@ function Home() {
   const [scriptMessage, setScriptMessage] = useState('');
   const [isDraggingScript, setIsDraggingScript] = useState(false);
   const [scriptSelection, setScriptSelection] = useState({ projectId: '', scriptId: '' });
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectPreviewMode, setNewProjectPreviewMode] = useState<'2d' | '3d'>('2d');
   const [scene, setScene] = useState<{ projectId: string; position: GamePosition }>(() => ({
     projectId: projects[0].id, position: getPlayerStartPosition(projects[0]),
   }));
@@ -307,14 +312,10 @@ function Home() {
     positions: Record<string, GamePosition>;
   }>({ projectId: projects[0].id, positions: {} });
   const activeProject = projects.find((project) => project.id === activeProjectId) ?? projects[0];
-  const [previewSelection, setPreviewSelection] = useState<{ projectId: string; mode: '3d' | '2d' }>({
-    projectId: '', mode: '2d',
-  });
-  const viewMode = previewSelection.projectId === activeProject.id ? previewSelection.mode : '2d';
+  const viewMode = activeProject.previewMode ?? '2d';
   const primaryGameCamera = activeProject.gameCamera?.placement === 'custom'
     ? activeProject.gameCamera : createGameCamera(activeProject.entities);
   const gameCamera = cameraForEntity(activeProject.entities, activeProject.activeCameraId) ?? primaryGameCamera;
-  const selectPreview = (mode: '3d' | '2d') => setPreviewSelection({ projectId: activeProject.id, mode });
   const activeProjectRef = useRef(activeProject);
   activeProjectRef.current = activeProject;
   const selectedScriptId = scriptSelection.projectId === activeProject.id ? scriptSelection.scriptId : '';
@@ -424,16 +425,28 @@ function Home() {
     );
   }
 
-  function createProject() {
-    const name = window.prompt('Name your project');
-    if (!name?.trim()) return;
+  function selectPreview(mode: '3d' | '2d') {
+    updateActiveProject({ previewMode: mode });
+  }
+
+  function openNewProject() {
+    setNewProjectName('');
+    setNewProjectPreviewMode('2d');
+    setNewProjectOpen(true);
+  }
+
+  function createProject(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = newProjectName.trim();
+    if (!name) return;
     runnerRef.current?.stop();
     setPhysicsPlaying(false);
     const project = {
       id: crypto.randomUUID(),
-      name: name.trim(),
+      name,
       gameType: '',
       savedAt: '',
+      previewMode: newProjectPreviewMode,
       scripts: [],
       entities: [createDefaultPlayer(), createStarterCube()],
       assets: [],
@@ -445,6 +458,7 @@ function Home() {
     };
     setProjects((current) => [...current, project]);
     setActiveProjectId(project.id);
+    setNewProjectOpen(false);
     setSaveMessage('New project created');
   }
 
@@ -819,7 +833,7 @@ function Home() {
                 ))}
               </select>
                 <div className="project-actions">
-                  <button type="button" onClick={createProject}>New project</button>
+                  <button type="button" onClick={openNewProject}>New project</button>
                   <button type="button" onClick={renameProject}>Rename</button>
                   <button type="button" onClick={saveProject}>Save project</button>
                 </div>
@@ -1045,6 +1059,56 @@ function Home() {
           <span className="footer-line" />
         </div>
       </div>
+      {newProjectOpen && (
+        <div className="new-project-backdrop">
+          <section className="new-project-dialog" role="dialog" aria-modal="true" aria-labelledby="new-project-title">
+            <h2 id="new-project-title">Create a project</h2>
+            <p>Choose which scene view opens first. You can switch between views at any time.</p>
+            <form onSubmit={createProject}>
+              <label className="new-project-name-label" htmlFor="new-project-name">Project name</label>
+              <input
+                id="new-project-name"
+                className="new-project-name"
+                autoFocus
+                required
+                maxLength={100}
+                value={newProjectName}
+                onChange={(event) => setNewProjectName(event.target.value)}
+                placeholder="Untitled Project"
+              />
+              <fieldset className="new-project-modes">
+                <legend>Starting view</legend>
+                <label className={newProjectPreviewMode === '2d' ? 'is-selected' : ''}>
+                  <input
+                    type="radio"
+                    name="new-project-preview-mode"
+                    value="2d"
+                    checked={newProjectPreviewMode === '2d'}
+                    onChange={() => setNewProjectPreviewMode('2d')}
+                  />
+                  <span className="new-project-mode-title">2D Canvas</span>
+                  <span className="new-project-mode-description">Open the sprite-based game view.</span>
+                </label>
+                <label className={newProjectPreviewMode === '3d' ? 'is-selected' : ''}>
+                  <input
+                    type="radio"
+                    name="new-project-preview-mode"
+                    value="3d"
+                    checked={newProjectPreviewMode === '3d'}
+                    onChange={() => setNewProjectPreviewMode('3d')}
+                  />
+                  <span className="new-project-mode-title">3D Scene Preview</span>
+                  <span className="new-project-mode-description">Open the editable starter Cube in the scene.</span>
+                </label>
+              </fieldset>
+              <div className="new-project-actions">
+                <button type="button" onClick={() => setNewProjectOpen(false)}>Cancel</button>
+                <button type="submit">Create project</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
