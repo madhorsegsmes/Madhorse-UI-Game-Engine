@@ -95,12 +95,14 @@ function toDraft(entity: SceneEntity) {
       values['gameAudio.volume'] = String(component.volume);
       values['gameAudio.pitch'] = String(component.pitch);
       values['gameAudio.playOnStart'] = String(component.playOnStart);
+      values['gameAudio.spatialized'] = String(component.spatialized ?? false);
     } else if (component.type === 'playerWalkAudio') {
       values['playerWalkAudio.enabled'] = String(component.enabled);
       values['playerWalkAudio.clipAssetId'] = component.clipAssetId ?? '';
       values['playerWalkAudio.volume'] = String(component.volume);
       values['playerWalkAudio.pitch'] = String(component.pitch);
       values['playerWalkAudio.stepInterval'] = String(component.stepInterval);
+      values['playerWalkAudio.spatialized'] = String(component.spatialized ?? false);
     } else if (component.type === 'effect') {
       values['effect.color'] = component.color;
       values['effect.intensity'] = String(component.intensity);
@@ -330,6 +332,7 @@ export function SceneObjectInspector({
         volume: number('gameAudio.volume'),
         pitch: number('gameAudio.pitch'),
         playOnStart: values['gameAudio.playOnStart'] === 'true',
+        spatialized: values['gameAudio.spatialized'] === 'true',
       };
       if (item.type === 'playerWalkAudio') return {
         ...item,
@@ -338,6 +341,7 @@ export function SceneObjectInspector({
         volume: number('playerWalkAudio.volume'),
         pitch: number('playerWalkAudio.pitch'),
         stepInterval: number('playerWalkAudio.stepInterval'),
+        spatialized: values['playerWalkAudio.spatialized'] === 'true',
       };
       if (item.type === 'physics') return {
         ...item,
@@ -700,6 +704,7 @@ export function SceneObjectInspector({
           {numberField('Volume', 'gameAudio.volume', 0, 1, 0.05)}
           {numberField('Pitch', 'gameAudio.pitch', 0.25, 2, 0.05)}
           {checkboxField('Play when test starts', 'gameAudio.playOnStart')}
+          {checkboxField('Use 3D position and distance falloff', 'gameAudio.spatialized')}
           <button
             type="button"
             className="is-quiet"
@@ -719,7 +724,7 @@ export function SceneObjectInspector({
           >
             Test sound
           </button>
-          <p className="fresh-inspector-note">Choose an audio file, or test the built-in tone.</p>
+          <p className="fresh-inspector-note">Choose an audio file, or test the built-in tone. The inspector test is 2D; Play/Test uses 3D position and distance falloff when enabled.</p>
         </>)}
         {playerWalkAudio && section('Player Walk Audio', <>
           {checkboxField('Enabled', 'playerWalkAudio.enabled')}
@@ -727,6 +732,7 @@ export function SceneObjectInspector({
           {numberField('Volume', 'playerWalkAudio.volume', 0, 1, 0.01)}
           {numberField('Pitch', 'playerWalkAudio.pitch', 0.25, 2, 0.05)}
           {numberField('Time between steps (seconds)', 'playerWalkAudio.stepInterval', 0.15, 2, 0.01)}
+          {checkboxField('Use 3D position and distance falloff', 'playerWalkAudio.spatialized')}
           <button
             type="button"
             className="is-quiet"
@@ -746,7 +752,7 @@ export function SceneObjectInspector({
           >
             Test footsteps
           </button>
-          <p className="fresh-inspector-note">Footsteps play while a Player Controller moves in Play Test. Add one from Plugins if needed.</p>
+          <p className="fresh-inspector-note">Footsteps play while a Player Controller moves in Play Test. New footstep plugins use 3D sound by default; the inspector test is 2D.</p>
         </>)}
         {(gameAudio || playerWalkAudio || entity.components.some(component =>
           component.type === 'playerAction' || component.type === 'gameFeature' && Boolean(gameFeatureDefinitions[component.kind].audio),

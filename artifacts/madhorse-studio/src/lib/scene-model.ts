@@ -141,11 +141,11 @@ export type ScriptComponent = {
 };
 export type GameAudioComponent = {
   id: string; type: 'gameAudio'; enabled: boolean; clipAssetId: string | null;
-  volume: number; pitch: number; playOnStart: boolean;
+  volume: number; pitch: number; playOnStart: boolean; spatialized?: boolean;
 };
 export type PlayerWalkAudioComponent = {
   id: string; type: 'playerWalkAudio'; enabled: boolean; clipAssetId: string | null;
-  volume: number; pitch: number; stepInterval: number;
+  volume: number; pitch: number; stepInterval: number; spatialized?: boolean;
 };
 export type EffectComponent = {
   id: string; type: 'effect'; enabled: boolean; color: string; intensity: number;
@@ -462,12 +462,14 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
     (item.clipAssetId === null || typeof item.clipAssetId === 'string') &&
     Number.isFinite(item.volume) && item.volume >= 0 && item.volume <= 1 &&
     Number.isFinite(item.pitch) && item.pitch >= 0.25 && item.pitch <= 2 &&
-    typeof item.playOnStart === 'boolean';
+    typeof item.playOnStart === 'boolean' &&
+    (item.spatialized === undefined || typeof item.spatialized === 'boolean');
   if (item.type === 'playerWalkAudio') return typeof item.enabled === 'boolean' &&
     (item.clipAssetId === null || typeof item.clipAssetId === 'string') &&
     Number.isFinite(item.volume) && item.volume >= 0 && item.volume <= 1 &&
     Number.isFinite(item.pitch) && item.pitch >= 0.25 && item.pitch <= 2 &&
-    Number.isFinite(item.stepInterval) && item.stepInterval >= 0.15 && item.stepInterval <= 2;
+    Number.isFinite(item.stepInterval) && item.stepInterval >= 0.15 && item.stepInterval <= 2 &&
+    (item.spatialized === undefined || typeof item.spatialized === 'boolean');
   if (item.type === 'effect') return typeof item.enabled === 'boolean' &&
     /^#[0-9a-f]{6}$/i.test(item.color) && Number.isFinite(item.intensity) &&
     item.intensity >= 0 && item.intensity <= 10 &&

@@ -33,6 +33,56 @@ const activeSounds: Record<AudioScope, Set<() => void>> = {
   runtime: new Set(),
 };
 
+export type AudioWorldPosition = { x: number; y: number; z: number };
+export type SpatialAudioOptions = {
+  source: AudioWorldPosition;
+  listener: AudioWorldPosition;
+  maxDistance?: number;
+};
+
+/** Convert the editor's x/y ground plane and z height into the Three/Web Audio Y-up world. */
+export function scenePositionToAudioPosition(position: AudioWorldPosition): AudioWorldPosition {
+  return {
+    x: (position.x - 50) / 10,
+    y: position.z / 10,
+    z: (position.y - 50) / 10,
+  };
+}
+
+function setPositionParam(param: AudioParam, value: number, now: number) {
+  param.cancelScheduledValues(now);
+  param.setValueAtTime(value, now);
+}
+
+function createSpatialPanner(context: AudioContext, spatial: SpatialAudioOptions): PannerNode {
+  const panner = context.createPanner();
+  const maxDistance = clamp(spatial.maxDistance ?? 50, 5, 200);
+  panner.panningModel = 'HRTF';
+  panner.distanceModel = 'inverse';
+  panner.refDistance = 1;
+  panner.maxDistance = maxDistance;
+  panner.rolloffFactor = 1;
+  const now = context.currentTime;
+  setPositionParam(panner.positionX, spatial.source.x, now);
+  setPositionParam(panner.positionY, spatial.source.y, now);
+  setPositionParam(panner.positionZ, spatial.source.z, now);
+  setListenerPosition(context, spatial.listener);
+  return panner;
+}
+
+function setListenerPosition(context: AudioContext, position: AudioWorldPosition) {
+  const now = context.currentTime;
+  setPositionParam(context.listener.positionX, position.x, now);
+  setPositionParam(context.listener.positionY, position.y, now);
+  setPositionParam(context.listener.positionZ, position.z, now);
+}
+
+/** Move the shared Web Audio listener during Play/Test without creating audio before user interaction. */
+export function updateSpatialAudioListener(position: AudioWorldPosition) {
+  if (!sharedContext || sharedContext.state === 'closed') return;
+  setListenerPosition(sharedContext, position);
+}
+
 export function stopAudioPlayback(scope: AudioScope = 'preview') {
   for (const stop of activeSounds[scope]) stop();
   activeSounds[scope].clear();
@@ -61,7 +111,13 @@ export function unlockSceneAudio(): boolean {
   return true;
 }
 
-function playBuiltInSound(style: AudioPlayStyle, volume: number, pitch: number, scope: AudioScope): boolean {
+function playBuiltInSound(
+  style: AudioPlayStyle,
+  volume: number,
+  pitch: number,
+  scope: AudioScope,
+  spatial?: SpatialAudioOptions,
+): boolean {
   const context = getAudioContext();
   if (!context) return false;
   if (context.state === 'suspended') void context.resume().catch(() => undefined);
@@ -82,7 +138,11 @@ function playBuiltInSound(style: AudioPlayStyle, volume: number, pitch: number, 
     gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, normalizedVolume), now + 0.012);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
     oscillator.connect(gain);
-    gain.connect(context.destination);
+    const panner = spatial ? createSpatialPanner(context, spatial) : null;
+    if (panner) {
+      gain.connect(panner);
+      panner.connect(context.destination);
+    } else gain.connect(context.destination);
     const stop = () => {
       try { oscillator.stop(); } catch { /* Already finished. */ }
     };
@@ -91,6 +151,7 @@ function playBuiltInSound(style: AudioPlayStyle, volume: number, pitch: number, 
       activeSounds[scope].delete(stop);
       oscillator.disconnect();
       gain.disconnect();
+      panner?.disconnect();
     };
     oscillator.start(now);
     oscillator.stop(now + duration + 0.01);
@@ -106,22 +167,47 @@ export async function playAudioPreview(
   pitch: number,
   style: AudioPlayStyle,
   scope: AudioScope = 'preview',
+  spatial?: SpatialAudioOptions,
 ): Promise<boolean> {
   if (activeSounds[scope].size >= (scope === 'runtime' ? 16 : 4)) return false;
-  if (!clipUrl) return playBuiltInSound(style, volume, pitch, scope);
+  if (!clipUrl) return playBuiltInSound(style, volume, pitch, scope, spatial);
 
   let cleanup: (() => void) | undefined;
   try {
     const player = new Audio(clipUrl);
     player.volume = clamp(volume, 0, 1);
     player.playbackRate = clamp(pitch, 0.25, 2);
-    const stop = () => {
+    const context = spatial ? getAudioContext() : null;
+    if (context?.state === 'suspended') void context.resume().catch(() => undefined);
+    let panner: PannerNode | null = null;
+    let source: MediaElementAudioSourceNode | null = null;
+    if (context && spatial) {
+      try {
+        panner = createSpatialPanner(context, spatial);
+        source = context.createMediaElementSource(player);
+      } catch {
+        panner?.disconnect();
+        panner = null;
+        source = null;
+      }
+    }
+    if (source && panner && context) {
+      source.connect(panner);
+      panner.connect(context.destination);
+    }
+    let stop: () => void = () => {};
+    const releaseNodes = () => {
+      try { source?.disconnect(); panner?.disconnect(); } catch { /* Nodes may already be disconnected. */ }
+      activeSounds[scope].delete(stop);
+    };
+    stop = () => {
       player.pause();
       player.removeAttribute('src');
       player.load();
+      releaseNodes();
     };
     activeSounds[scope].add(stop);
-    cleanup = () => activeSounds[scope].delete(stop);
+    cleanup = releaseNodes;
     player.onended = cleanup;
     player.onerror = cleanup;
     await player.play();

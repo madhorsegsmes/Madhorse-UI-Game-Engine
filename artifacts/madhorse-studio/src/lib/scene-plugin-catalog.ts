@@ -214,6 +214,7 @@ export function createPluginComponent(
         volume: 0.5,
         pitch: 1,
         playOnStart: false,
+        spatialized: false,
       },
     };
   }
@@ -227,6 +228,7 @@ export function createPluginComponent(
         volume: 0.28,
         pitch: 1,
         stepInterval: 0.38,
+        spatialized: true,
       },
     };
   }

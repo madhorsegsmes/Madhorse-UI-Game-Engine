@@ -9,7 +9,8 @@ import { isWebGameData, type WebGameData } from '../lib/web-game-format';
 import { normalizeSceneRenderSettings } from '../hooks/use-scene-render-settings';
 import { SimulationClock } from '../lib/simulation-clock';
 import { playAudioPreview, stopAudioPlayback, unlockSceneAudio } from '../lib/game-audio';
-import { getTransform } from '../lib/scene-model';
+import { getTransform, getWorldTransform } from '../lib/scene-model';
+import { scenePositionToAudioPosition, updateSpatialAudioListener } from '../lib/game-audio';
 import type { ActionHud } from '../lib/player-action-runtime';
 import { StandaloneSimulation } from './simulation';
 import './player.css';
@@ -54,8 +55,13 @@ function GameSession({ game, onRestart }: { game: WebGameData; onRestart: () => 
       startedAudio.current = true;
       for (const entity of simulation.entities) for (const source of entity.components) {
         if (entity.active && source.type === 'gameAudio' && source.enabled && source.playOnStart) {
+          const worldPosition = getWorldTransform(simulation.entities, entity.id)?.position ?? getTransform(entity).position;
+          const spatial = source.spatialized ? {
+            source: scenePositionToAudioPosition(worldPosition),
+            listener: simulation.camera.position,
+          } : undefined;
           void playAudioPreview(source.clipAssetId ? assetUrls[source.clipAssetId] ?? null : null,
-            source.volume, source.pitch, 'tone', 'runtime');
+            source.volume, source.pitch, 'tone', 'runtime', spatial);
         }
       }
     }
@@ -116,6 +122,13 @@ function GameSession({ game, onRestart }: { game: WebGameData; onRestart: () => 
             moveY: Number(held.has('w') || !firstPerson && held.has('arrowup')) - Number(held.has('s') || !firstPerson && held.has('arrowdown')),
             jumpPressed: tapped.has(' '), heldKeys: [...held], pressedKeys: [...tapped],
           });
+          const listener = simulation.entities.find(entity => entity.id === simulation.state.controlledPlayerId);
+          const listenerPosition = listener && getWorldTransform(simulation.entities, listener.id)?.position;
+          if (listenerPosition) {
+            const position = scenePositionToAudioPosition(listenerPosition);
+            position.y += 1.2;
+            updateSpatialAudioListener(position);
+          }
           tapped.clear();
           for (const event of result.audioEvents) {
             void playAudioPreview(event.clipAssetId ? assetUrls[event.clipAssetId] ?? null : null,
@@ -128,8 +141,16 @@ function GameSession({ game, onRestart }: { game: WebGameData; onRestart: () => 
             const p = getTransform(entity).position;
             const last = footsteps.get(entity.id);
             if (last && Math.hypot(p.x - last.x, p.y - last.y) > .02 && now - last.at >= sound.stepInterval * 1000) {
+              const worldPosition = getWorldTransform(simulation.entities, entity.id)?.position ?? p;
+              const controlled = simulation.entities.find(candidate => candidate.id === simulation.state.controlledPlayerId);
+              const controlledPosition = controlled && getWorldTransform(simulation.entities, controlled.id)?.position;
+              const listener = controlledPosition
+                ? scenePositionToAudioPosition(controlledPosition)
+                : simulation.camera.position;
+              if (controlledPosition) listener.y += 1.2;
               void playAudioPreview(sound.clipAssetId ? assetUrls[sound.clipAssetId] ?? null : null,
-                sound.volume, sound.pitch, 'footstep', 'runtime');
+                sound.volume, sound.pitch, 'footstep', 'runtime',
+                sound.spatialized ? { source: scenePositionToAudioPosition(worldPosition), listener } : undefined);
               footsteps.set(entity.id, { x: p.x, y: p.y, at: now });
             } else footsteps.set(entity.id, { x: p.x, y: p.y, at: last?.at ?? now });
           }

@@ -103,7 +103,10 @@ import { createEgoUiKit as createEgoGameUiKit, egoPlayerActions, type EgoGameTyp
 import { advanceSceneRuntime, createSceneRuntimeState } from '@/lib/scene-play-runtime';
 import { SimulationClock } from '@/lib/simulation-clock';
 import { publishStatus } from '@/lib/system-diagnostics';
-import { playAudioPreview, stopAudioPlayback, unlockSceneAudio } from '@/lib/game-audio';
+import {
+  playAudioPreview, scenePositionToAudioPosition, stopAudioPlayback, unlockSceneAudio,
+  updateSpatialAudioListener,
+} from '@/lib/game-audio';
 import { playerActionDefinitions } from '@/lib/player-action-model';
 import { createStoryboardComponent } from '@/lib/scene-model';
 import { scriptStorageError, type ScriptFile } from '@/lib/project-scripts';
@@ -2587,12 +2590,22 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
       const source = entity.components.find(component => component.type === 'gameAudio');
       if (entity.active && source?.enabled && source.playOnStart &&
           (!source.clipAssetId || assetUrls[source.clipAssetId])) {
+        const sourcePosition = getWorldTransform(entities, entity.id)?.position ?? getTransform(entity).position;
+        const listenerPosition = runtimeState.controlledPlayerId
+          ? getWorldTransform(entities, runtimeState.controlledPlayerId)?.position
+          : null;
+        const spatial = source.spatialized ? {
+          source: scenePositionToAudioPosition(sourcePosition),
+          listener: listenerPosition ? scenePositionToAudioPosition(listenerPosition) : camera.position,
+        } : undefined;
+        if (spatial) spatial.listener.y += 1.2;
         void playAudioPreview(
           source.clipAssetId ? assetUrls[source.clipAssetId] ?? null : null,
           source.volume,
           source.pitch,
           'tone',
           'runtime',
+          spatial,
         );
       }
     });
@@ -2715,6 +2728,14 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
         multiplayerSnapshotRef.current?.players.find(player => player.id === multiplayerMemberRef.current?.playerId)?.isHost
           ?? multiplayerMemberRef.current?.isHost ?? false,
       );
+      const listenerPosition = runtimeState.controlledPlayerId
+        ? getWorldTransform(liveEntities, runtimeState.controlledPlayerId)?.position
+        : null;
+      if (listenerPosition) {
+        const position = scenePositionToAudioPosition(listenerPosition);
+        position.y += 1.2;
+        updateSpatialAudioListener(position);
+      }
       result.events.forEach(event => setStatus(event.message));
       result.audioEvents.forEach(event => {
         if (event.clipAssetId && !assetUrls[event.clipAssetId]) return;
@@ -2737,12 +2758,22 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
           );
           const lastTime = lastFootstepTime.get(entity.id) ?? Number.NEGATIVE_INFINITY;
           if (distance > 0.02 && now - lastTime >= footsteps.stepInterval * 1000) {
+            const listenerPosition = runtimeState.controlledPlayerId
+              ? getWorldTransform(liveEntities, runtimeState.controlledPlayerId)?.position
+              : null;
+            const listener = listenerPosition
+              ? scenePositionToAudioPosition(listenerPosition)
+              : camera.position;
+            if (listenerPosition) listener.y += 1.2;
             void playAudioPreview(
               footsteps.clipAssetId ? assetUrls[footsteps.clipAssetId] ?? null : null,
               footsteps.volume,
               footsteps.pitch,
               'footstep',
               'runtime',
+              footsteps.spatialized
+                ? { source: scenePositionToAudioPosition(position), listener }
+                : undefined,
             );
             lastFootstepTime.set(entity.id, now);
           }
@@ -3252,6 +3283,7 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
           volume: 0.5,
           pitch: 1,
           playOnStart: false,
+          spatialized: false,
         },
       ];
     }
