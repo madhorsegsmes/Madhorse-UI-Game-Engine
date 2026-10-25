@@ -92,3 +92,12 @@ still passed TypeScript checks. Selecting it would not deliver a new feature.
 
 **How to apply:** Check current renderer behavior rather than old examples when
 upgrading graphics. Do not describe a deprecated fallback as a visual improvement.
+
+Standalone esbuild UI fixtures need an explicit automatic JSX transform and a
+single resolved React instance; they do not automatically inherit Vite's React plugin.
+
+**Why:** A fixture compiled JSX to an unbound `React` global even though the real
+Vite application built successfully, producing a misleading blank screenshot.
+
+**How to apply:** Set esbuild `jsx: 'automatic'`, resolve React consistently with
+the app, and surface fixture-root render errors before diagnosing application bugs.

@@ -1,15 +1,30 @@
 import { useSceneRenderSettings, type SceneRenderSettings } from '@/hooks/use-scene-render-settings';
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
+import type { SceneEditState } from '@/lib/scene-edit-history';
+import { SceneReadinessDialog } from './scene-readiness-dialog';
 
-export function WorkspaceRenderSettings() {
+export function WorkspaceRenderSettings({ source, projectId, projectName, disabled, onInspect }: {
+  source: SceneEditState; projectId: string; projectName: string; disabled: boolean;
+  onInspect: (entityId: string) => void;
+}) {
   const [settings, setSettings] = useSceneRenderSettings();
-  return <SceneRenderSettingsPanel settings={settings} onChange={setSettings} />;
+  const [checking, setChecking] = useState(false);
+  return <>
+    <SceneRenderSettingsPanel settings={settings} onChange={setSettings}
+      onCheckScene={() => setChecking(true)} checksDisabled={disabled} />
+    {checking && createPortal(<SceneReadinessDialog source={source} projectId={projectId} projectName={projectName}
+      onClose={() => setChecking(false)} onInspect={onInspect} />, document.body)}
+  </>;
 }
 
 export function SceneRenderSettingsPanel({
-  settings, onChange,
+  settings, onChange, onCheckScene, checksDisabled,
 }: {
   settings: SceneRenderSettings;
   onChange: (settings: SceneRenderSettings) => void;
+  onCheckScene?: () => void;
+  checksDisabled?: boolean;
 }) {
   return (
     <details className="mh-scene3d__render-settings" data-testid="scene-render-settings">
@@ -102,6 +117,9 @@ export function SceneRenderSettingsPanel({
             data-testid="scene-render-background"
           />
         </label>
+        {onCheckScene && <button type="button" onClick={onCheckScene} disabled={checksDisabled}
+          title={checksDisabled ? 'Stop Play/Test and wait for current work to finish.' : 'Check scene links and local asset files without changing the project.'}
+          data-testid="button-scene-checks">Check scene</button>}
       </div>
     </details>
   );

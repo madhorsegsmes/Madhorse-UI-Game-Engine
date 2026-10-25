@@ -66,6 +66,15 @@ export function createWebGameData(
   }
   validateAssetReferences(entities);
   validateAssetReferences(snapshot.assets);
+  const assetsById = new Map(snapshot.assets.map(asset => [asset.id, asset]));
+  for (const asset of snapshot.assets) {
+    if (asset.kind !== 'pbr-material' || !asset.pbrMaterial) continue;
+    for (const [slot, id] of Object.entries(asset.pbrMaterial.maps)) {
+      if (id && assetsById.get(id)?.kind !== 'image') {
+        throw new Error(`Material “${asset.name}” needs a valid image asset for its ${slot} map. Restore or replace that texture before exporting.`);
+      }
+    }
+  }
   for (const entity of entities) {
     for (const component of entity.components) {
       if (component.type === 'script' || component.type === 'multiplayerPlugin') {

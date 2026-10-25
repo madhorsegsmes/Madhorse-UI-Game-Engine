@@ -3556,7 +3556,8 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
           disabled={!editHistory.canRedo || historyBlocked}
           title={editHistory.canRedo ? `Redo: ${editHistory.redoLabel} (Ctrl+Y / Ctrl/Cmd+Shift+Z)` : 'Nothing to redo'}
           onClick={editHistory.redo}>Redo</button>
-        <WorkspaceRenderSettings />
+        <WorkspaceRenderSettings source={authoredState} projectId={projectId} projectName={projectName}
+          disabled={historyBlocked} onInspect={id => { setSelection(id); setEditingEntityId(id); }} />
         <button
           type="button"
           className={`fresh-play-test${playTestOn ? ' is-playing' : ''}`}

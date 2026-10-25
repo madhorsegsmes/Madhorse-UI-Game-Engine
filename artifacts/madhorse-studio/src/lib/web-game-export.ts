@@ -5,8 +5,7 @@ import type { FreshWorkspaceSnapshot } from './fresh-workspace-storage';
 import type { SceneRenderSettings } from '@/hooks/use-scene-render-settings';
 
 type ArchiveEntry = { path: string; blob: Blob };
-const MAX_ASSET_BYTES = 100 * 1024 * 1024;
-const MAX_EXPORT_BYTES = 256 * 1024 * 1024;
+import { MAX_WEB_GAME_ASSET_BYTES as MAX_ASSET_BYTES, MAX_WEB_GAME_TOTAL_BYTES as MAX_EXPORT_BYTES } from './web-game-limits';
 
 export function safeRuntimePath(path: unknown): path is string {
   return typeof path === 'string' &&

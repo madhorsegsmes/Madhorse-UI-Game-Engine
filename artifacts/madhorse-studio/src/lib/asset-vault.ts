@@ -104,6 +104,12 @@ export function loadLocalAsset(projectId: string, assetId: string): Promise<Blob
   });
 }
 
+/** Inspect this Studio vault without migrating, copying, decoding or editing an asset. */
+export async function inspectLocalAssetFile(projectId: string, assetId: string): Promise<{ size: number } | null> {
+  const blob = await readAsset(projectId, assetId);
+  return blob ? { size: blob.size } : null;
+}
+
 export function deleteLocalAsset(projectId: string, assetId: string): Promise<void> {
   return withSystemActivity('Updating assets', () => removeAsset(projectId, assetId));
 }

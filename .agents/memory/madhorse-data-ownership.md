@@ -57,6 +57,15 @@ project growth.
 explicit report downloads, sanitize credential-like strings, and never include
 request bodies, headers, or browser-storage dumps in automatic capture.
 
+Read-only project checks must not migrate or copy imported assets as a side effect.
+An unreadable file is unverified, not proven missing; an incomplete scan is not a pass.
+
+**Why:** Compatibility-loading paths may write migrated copies, and browser storage
+failures must not produce misleading claims about the creator’s data.
+
+**How to apply:** Use explicitly read-only inspection for audits, keep reports
+session-local unless downloaded, and clearly distinguish missing, failed and partial checks.
+
 Authoring Undo/Redo is session-local and separate from simulated game state,
 assistant audit logs, and protected system knowledge. Imported file bytes must
 remain available while an undo or redo step can reference them.
