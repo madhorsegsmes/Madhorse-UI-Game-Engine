@@ -29,6 +29,7 @@ export const DEFAULT_WORKSPACE_PANEL_ORDER = [
 export type WorkspacePanelId = typeof DEFAULT_WORKSPACE_PANEL_ORDER[number];
 
 const STORAGE_KEY = 'madhorse-workspace-panel-order';
+const LEGACY_STORAGE_KEY = STORAGE_KEY;
 const panelLabels: Record<WorkspacePanelId, string> = {
   main: 'Main Panel',
   scene: 'Scene Preview',
@@ -39,6 +40,30 @@ const panelLabels: Record<WorkspacePanelId, string> = {
   play: 'Panel 4 / Play and Test Game',
   errors: 'Panel 5 / System Debugger',
 };
+
+export type WorkspaceScreenGroup = 'mobile' | 'tablet' | 'desktop';
+
+function storageKeyForGroup(group: WorkspaceScreenGroup) {
+  return `${STORAGE_KEY}:${group}`;
+}
+
+function getWorkspaceScreenGroup(width?: number): WorkspaceScreenGroup {
+  const viewportWidth = width ?? (typeof window === 'undefined' ? 1200 : window.innerWidth);
+  if (viewportWidth <= 600) return 'mobile';
+  if (viewportWidth < 1000) return 'tablet';
+  return 'desktop';
+}
+
+function defaultOrderForGroup(group: WorkspaceScreenGroup): WorkspacePanelId[] {
+  switch (group) {
+    case 'mobile':
+      return [...DEFAULT_WORKSPACE_PANEL_ORDER];
+    case 'tablet':
+      return [...DEFAULT_WORKSPACE_PANEL_ORDER];
+    case 'desktop':
+      return [...DEFAULT_WORKSPACE_PANEL_ORDER];
+  }
+}
 
 type DragSession = {
   panelId: WorkspacePanelId;
@@ -68,22 +93,30 @@ function isWorkspacePanelId(value: unknown): value is WorkspacePanelId {
     (DEFAULT_WORKSPACE_PANEL_ORDER as readonly string[]).includes(value);
 }
 
-function readOrder(): WorkspacePanelId[] {
+function readOrder(group: WorkspaceScreenGroup): WorkspacePanelId[] {
   try {
-    const saved: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
-    if (!Array.isArray(saved)) return [...DEFAULT_WORKSPACE_PANEL_ORDER];
+    const groupSaved = localStorage.getItem(storageKeyForGroup(group));
+    // The previous version stored one order for every viewport. Keep that
+    // arrangement as the desktop preference without imposing it on mobile.
+    const savedValue = groupSaved ?? (group === 'desktop' ? localStorage.getItem(LEGACY_STORAGE_KEY) : null);
+    const saved: unknown = JSON.parse(savedValue ?? 'null');
+    if (!Array.isArray(saved)) return defaultOrderForGroup(group);
     const valid = saved.filter(isWorkspacePanelId);
     return [
       ...new Set(valid),
       ...DEFAULT_WORKSPACE_PANEL_ORDER.filter((id) => !valid.includes(id)),
     ];
   } catch {
-    return [...DEFAULT_WORKSPACE_PANEL_ORDER];
+    return defaultOrderForGroup(group);
   }
 }
 
 export function WorkspacePanelLayout({ children }: { children: ReactNode }) {
-  const [order, setOrder] = useState<WorkspacePanelId[]>(readOrder);
+  const [layout, setLayout] = useState(() => {
+    const screenGroup = getWorkspaceScreenGroup();
+    return { screenGroup, order: readOrder(screenGroup) };
+  });
+  const { screenGroup, order } = layout;
   const [draggingId, setDraggingId] = useState<WorkspacePanelId | null>(null);
   const [dropTargetId, setDropTargetId] = useState<WorkspacePanelId | null>(null);
   const [announcement, setAnnouncement] = useState('');
@@ -92,11 +125,22 @@ export function WorkspacePanelLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(order));
+      localStorage.setItem(storageKeyForGroup(screenGroup), JSON.stringify(order));
     } catch {
       setAnnouncement('The panel order changed, but this browser could not save the layout.');
     }
-  }, [order]);
+  }, [order, screenGroup]);
+
+  useEffect(() => {
+    const updateScreenGroup = () => {
+      const nextGroup = getWorkspaceScreenGroup(window.innerWidth);
+      setLayout((current) => current.screenGroup === nextGroup
+        ? current
+        : { screenGroup: nextGroup, order: readOrder(nextGroup) });
+    };
+    window.addEventListener('resize', updateScreenGroup);
+    return () => window.removeEventListener('resize', updateScreenGroup);
+  }, []);
 
   const announceMove = useCallback((panelId: WorkspacePanelId, next: WorkspacePanelId[]) => {
     setAnnouncement(`${panelLabels[panelId]} moved to position ${next.indexOf(panelId) + 1} of ${next.length}.`);
@@ -107,7 +151,7 @@ export function WorkspacePanelLayout({ children }: { children: ReactNode }) {
     const insertion = Math.max(0, Math.min(rest.length, index));
     rest.splice(insertion, 0, panelId);
     if (rest.every((id, position) => id === order[position])) return;
-    setOrder(rest);
+    setLayout((current) => ({ ...current, order: rest }));
     announceMove(panelId, rest);
   }, [announceMove, order]);
 
@@ -118,7 +162,7 @@ export function WorkspacePanelLayout({ children }: { children: ReactNode }) {
     if (targetIndex < 0) return;
     rest.splice(targetIndex + (before ? 0 : 1), 0, panelId);
     if (rest.every((id, position) => id === order[position])) return;
-    setOrder(rest);
+    setLayout((current) => ({ ...current, order: rest }));
     announceMove(panelId, rest);
   }, [announceMove, order]);
 
@@ -201,10 +245,10 @@ export function WorkspacePanelLayout({ children }: { children: ReactNode }) {
   }, [order, reorderAt]);
 
   const resetLayout = useCallback(() => {
-    const next = [...DEFAULT_WORKSPACE_PANEL_ORDER];
-    setOrder(next);
+    const next = defaultOrderForGroup(screenGroup);
+    setLayout((current) => ({ ...current, order: next }));
     setAnnouncement('Default panel arrangement restored.');
-  }, []);
+  }, [screenGroup]);
 
   const context: LayoutContextValue = {
     order,
@@ -229,6 +273,7 @@ export function WorkspacePanelLayout({ children }: { children: ReactNode }) {
       <div
         ref={boardRef}
         className="workspace-board"
+        data-screen-group={screenGroup}
         role="group"
         aria-label="Customizable workspace panels"
         onPointerMove={handlePointerMove}

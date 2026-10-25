@@ -44,8 +44,60 @@ test('workspace panels snap into order, persist after reload, and reset to the d
   await page.getByTestId('reset-workspace-layout').click();
   await expect.poll(() => currentOrder(page)).toEqual(defaultOrder);
   await expect.poll(() => page.evaluate(() => JSON.parse(
-    localStorage.getItem('madhorse-workspace-panel-order') ?? '[]',
+    localStorage.getItem('madhorse-workspace-panel-order:desktop') ?? '[]',
   ))).toEqual(defaultOrder);
+});
+
+test('desktop, tablet, and mobile layouts stay independent across resize, reload, and reset', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 1400 });
+  await page.goto('/');
+  const desktopOrder = [...defaultOrder];
+  desktopOrder.splice(4, 1);
+  desktopOrder.splice(3, 0, 'tools-right');
+  await page.getByTestId('move-panel-tools-right').focus();
+  await page.getByTestId('move-panel-tools-right').press('ArrowUp');
+  await expect.poll(() => currentOrder(page)).toEqual(desktopOrder);
+  await expect(page.locator('.workspace-board')).toHaveAttribute('data-screen-group', 'desktop');
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator('.workspace-board')).toHaveAttribute('data-screen-group', 'mobile');
+  await expect.poll(() => currentOrder(page)).toEqual(defaultOrder);
+  const mobileOrder = [...defaultOrder];
+  mobileOrder.splice(5, 1);
+  mobileOrder.splice(4, 0, 'system');
+  await page.getByTestId('move-panel-system').focus();
+  await page.getByTestId('move-panel-system').press('ArrowUp');
+  await expect.poll(() => currentOrder(page)).toEqual(mobileOrder);
+
+  await page.setViewportSize({ width: 800, height: 1100 });
+  await expect(page.locator('.workspace-board')).toHaveAttribute('data-screen-group', 'tablet');
+  await expect.poll(() => currentOrder(page)).toEqual(defaultOrder);
+  const tabletOrder = [...defaultOrder];
+  tabletOrder.splice(7, 1);
+  tabletOrder.splice(6, 0, 'errors');
+  await page.getByTestId('move-panel-errors').focus();
+  await page.getByTestId('move-panel-errors').press('ArrowUp');
+  await expect.poll(() => currentOrder(page)).toEqual(tabletOrder);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => currentOrder(page)).toEqual(mobileOrder);
+  await page.reload();
+  await expect.poll(() => currentOrder(page)).toEqual(mobileOrder);
+  await page.getByTestId('reset-workspace-layout').click();
+  await expect.poll(() => currentOrder(page)).toEqual(defaultOrder);
+  await expect.poll(() => page.evaluate(() => JSON.parse(
+    localStorage.getItem('madhorse-workspace-panel-order:mobile') ?? '[]',
+  ))).toEqual(defaultOrder);
+
+  await page.setViewportSize({ width: 800, height: 1100 });
+  await expect.poll(() => currentOrder(page)).toEqual(tabletOrder);
+  await page.getByTestId('reset-workspace-layout').click();
+  await expect.poll(() => currentOrder(page)).toEqual(defaultOrder);
+  await page.setViewportSize({ width: 1366, height: 1400 });
+  await expect.poll(() => currentOrder(page)).toEqual(desktopOrder);
+  await expect.poll(() => page.evaluate(() => JSON.parse(
+    localStorage.getItem('madhorse-workspace-panel-order:desktop') ?? '[]',
+  ))).toEqual(desktopOrder);
 });
 
 test('panel handles support keyboard reordering', async ({ page }) => {

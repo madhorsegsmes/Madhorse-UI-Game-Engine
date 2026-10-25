@@ -23,6 +23,14 @@
 .workspace-board > [data-workspace-panel="system"],
 .workspace-board > [data-workspace-panel="play"],
 .workspace-board > [data-workspace-panel="errors"] { grid-column: span 4; }
+.workspace-board[data-screen-group="tablet"] > [data-workspace-panel="system"],
+.workspace-board[data-screen-group="tablet"] > [data-workspace-panel="play"],
+.workspace-board[data-screen-group="tablet"] > [data-workspace-panel="errors"] { grid-column: span 6; }
+.workspace-board[data-screen-group="mobile"] > [data-workspace-panel="tools-left"],
+.workspace-board[data-screen-group="mobile"] > [data-workspace-panel="tools-right"],
+.workspace-board[data-screen-group="mobile"] > [data-workspace-panel="system"],
+.workspace-board[data-screen-group="mobile"] > [data-workspace-panel="play"],
+.workspace-board[data-screen-group="mobile"] > [data-workspace-panel="errors"] { grid-column: span 12; }
 .workspace-board:has(> [data-workspace-panel="main"] + [data-workspace-panel="scene"])
   > [data-workspace-panel="main"] { margin-bottom: 32px; }
 .workspace-board > [data-workspace-panel="scene"]:not([data-user-sized]) { min-height: clamp(920px, calc(88dvh + 120px), 1600px); }
@@ -92,9 +100,6 @@
 .panel-text.is-error { color: #e26a5f; }
 @media (min-width: 601px) and (max-width: 999px) {
   .workspace-board > [data-workspace-panel="scene"]:not([data-user-sized]) { min-height: clamp(800px, calc(82dvh + 120px), 1400px); }
-  .workspace-board > [data-workspace-panel="system"],
-  .workspace-board > [data-workspace-panel="play"],
-  .workspace-board > [data-workspace-panel="errors"] { grid-column: span 6; }
 }
 @media (min-width: 1000px) {
   .workspace .shell {
@@ -128,11 +133,6 @@
 }
 @media (max-width: 600px) {
   .workspace-board { gap: 8px; }
-  .workspace-board > [data-workspace-panel="tools-left"],
-  .workspace-board > [data-workspace-panel="tools-right"],
-  .workspace-board > [data-workspace-panel="system"],
-  .workspace-board > [data-workspace-panel="play"],
-  .workspace-board > [data-workspace-panel="errors"] { grid-column: span 12; }
   .workspace-board > [data-workspace-panel="scene"]:not([data-user-sized]) { min-height: clamp(620px, calc(70dvh + 120px), 920px); }
   .main-panel { grid-template-columns: 1fr 1px auto; gap: 6px; padding: 4px 6px; }
   .main-panel-identity { flex-direction: column; align-items: flex-start; gap: 3px; }
