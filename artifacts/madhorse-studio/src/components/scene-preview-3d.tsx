@@ -50,6 +50,8 @@ export type ScenePreview3DProps = {
   activeTool?: SceneCursorTool | null;
   primaryCamera?: GameCamera;
   gameView?: boolean;
+  /** Render a still preview on demand instead of keeping the game-view loop active. */
+  staticPreview?: boolean;
   gameCamera?: GameCamera;
   graphicsFallback?: ReactNode;
   onGraphicsUnavailable?: () => void;
@@ -171,6 +173,7 @@ export function ScenePreview3D({
   activeTool,
   primaryCamera,
   gameView = false,
+  staticPreview = false,
   gameCamera,
   graphicsFallback,
   onGraphicsUnavailable,
@@ -442,7 +445,7 @@ export function ScenePreview3D({
           camera={{ position: [0, 12, -16], fov: 48, near: 0.1, far: 3000 }}
           dpr={renderDpr}
           shadows={!mobile && renderSettings.quality === 'high'}
-          frameloop={gameView || hasAnimatedEffects ? 'always' : 'demand'}
+          frameloop={!staticPreview && (gameView || hasAnimatedEffects) ? 'always' : 'demand'}
           gl={{
             antialias: !mobile,
             powerPreference: !mobile && renderSettings.quality === 'high' ? 'high-performance' : 'low-power',

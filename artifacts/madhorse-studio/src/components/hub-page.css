@@ -168,6 +168,22 @@
 .hub-fight-toolbar > span:first-child i { width: 5px; height: 5px; border-radius: 50%; background: #df584c; box-shadow: 0 0 7px #df584c; }
 .hub-fight-toolbar b { color: #be564c; font-weight: 400; }
 .hub-fight-svg { display: block; width: 100%; height: calc(100% - 22px); }
+.hub-fight-model-stage { position: absolute; inset: 22px 0 0; overflow: hidden; background: #15171b; }
+.hub-fight-model-stage > .mh-scene3d { width: 100%; height: 100%; min-height: 0; border: 0; }
+.hub-fight-model-stage .mh-scene3d__viewport { flex: 1 1 auto; min-height: 0; background: #15171b; }
+.hub-fight-model-stage .mh-scene3d__viewport canvas { display: block; }
+.hub-fight-hud {
+  position: absolute; z-index: 3; top: 8px; left: 12px; right: 12px;
+  display: grid; grid-template-columns: auto minmax(45px, 1fr) 22px minmax(45px, 1fr) auto;
+  align-items: center; gap: 6px; color: #f0e8df; pointer-events: none;
+  font: 700 6px/1 "DM Mono", monospace; letter-spacing: .1em;
+  text-shadow: 0 1px 4px #000;
+}
+.hub-fight-health { height: 5px; overflow: hidden; border: 1px solid #e6d1be; background: #151313cf; transform: skewX(-14deg); }
+.hub-fight-health i { display: block; width: 100%; height: 100%; background: linear-gradient(90deg, #f1a76d, #be3939); }
+.hub-fight-health-rival { transform: skewX(14deg); }
+.hub-fight-health-rival i { background: linear-gradient(90deg, #4a77be, #8dc2e4); }
+.hub-fight-hud b { color: #f5dbac; text-align: center; font-size: 8px; }
 .hub-fight-corner { position: absolute; right: 8px; bottom: 7px; padding: 3px 5px; border: 1px solid #71605e; background: #111318d9; color: #d5c7c0; font: 6px "DM Mono", monospace; letter-spacing: .1em; }
 .hub-graphic-rts { height: 158px; background: #22333b; }
 .hub-rts-screen { position: absolute; inset: 0; overflow: hidden; background: #253c47; }

@@ -1,4 +1,5 @@
 import { useUser } from '@clerk/react';
+import { useEffect, useState } from 'react';
 import {
   ArrowDownRight,
   ArrowRight,
@@ -13,6 +14,9 @@ import {
   Swords,
 } from 'lucide-react';
 import './hub-page.css';
+import { createGameStarterKit } from '@/lib/scene-starter-kits';
+import type { GameCamera } from '@/lib/game-camera';
+import { ScenePreview3D } from './scene-preview-3d';
 
 const basePath = import.meta.env.BASE_URL;
 const studioPath = `${basePath}editor/`;
@@ -56,7 +60,7 @@ function EngineArtwork() {
   );
 }
 
-function FightingGamePreview() {
+function FightingGameFallback() {
   return (
     <div className="hub-fight-screen">
       <div className="hub-fight-toolbar">
@@ -145,6 +149,65 @@ function FightingGamePreview() {
         <text x="328" y="305" fill="#e5c889" fontSize="8" letterSpacing="1.3">J HEAVY · K SPECIAL</text>
       </svg>
       <span className="hub-fight-corner">2D SIDE VIEW</span>
+    </div>
+  );
+}
+
+const fightingTemplateCamera: GameCamera = {
+  position: { x: 0, y: 2.35, z: -6.3 },
+  target: { x: 0, y: 1.0, z: 0 },
+  fov: 34,
+  placement: 'custom',
+};
+
+function FightingGamePreview() {
+  // The card renders the same editable fighter geometry used by the Studio starter.
+  const [starter] = useState(() => createGameStarterKit('fighting', { x: -15, y: 50, z: 0 }));
+  const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
+  const generatedAssets = starter.generatedAssets ?? [];
+
+  useEffect(() => {
+    const urls = Object.fromEntries(generatedAssets.map(({ asset, file }) =>
+      [asset.id, URL.createObjectURL(file)]));
+    setAssetUrls(urls);
+    return () => Object.values(urls).forEach(URL.revokeObjectURL);
+  }, [starter]);
+
+  return (
+    <div className="hub-fight-screen">
+      <div className="hub-fight-toolbar">
+        <span><i /> PLAY TEST</span>
+        <span>3D FIGHTERS <b>/</b> SIDE VIEW</span>
+        <span>TEMPLATE SCENE</span>
+      </div>
+      <div className="hub-fight-model-stage" data-testid="hub-fighting-model-preview">
+        <ScenePreview3D
+          projectName="2D Fighting Starter"
+          gameView
+          staticPreview
+          gameCamera={fightingTemplateCamera}
+          primaryCamera={fightingTemplateCamera}
+          entities={starter.entities}
+          assets={generatedAssets.map(({ asset }) => asset)}
+          assetUrls={assetUrls}
+          selectedEntityId={null}
+          playerPreviewPosition={{ x: 0, y: 0 }}
+          transformMode="translate"
+          readOnly
+          onSelectEntity={() => undefined}
+          onTransformCommit={() => undefined}
+          onTransformModeChange={() => undefined}
+          graphicsFallback={<FightingGameFallback />}
+        />
+        <div className="hub-fight-hud" aria-hidden="true">
+          <span className="hub-fight-player-label">PLAYER</span>
+          <span className="hub-fight-health hub-fight-health-player"><i /></span>
+          <b>99</b>
+          <span className="hub-fight-health hub-fight-health-rival"><i /></span>
+          <span className="hub-fight-rival-label">RIVAL</span>
+        </div>
+        <span className="hub-fight-corner">LIVE 3D TEMPLATE</span>
+      </div>
     </div>
   );
 }
