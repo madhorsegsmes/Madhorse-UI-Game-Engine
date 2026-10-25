@@ -9,6 +9,7 @@ import {
   type GameAnimationTrack,
 } from '@/lib/game-api';
 import { getTransform, type SceneEntity } from '@/lib/scene-model';
+import { trackEvent } from '@/lib/analytics';
 
 type AnimationEditorProps = {
   animations: GameAnimation[];
@@ -133,6 +134,11 @@ export function AnimationEditor({
     setPlayhead(0);
     setIsPlaying(false);
     onPreviewFrame(null, 0);
+    trackEvent('animation_clip_created', {
+      track_count: getAnimationTracks(animation).length,
+      duration_seconds: animation.duration,
+      loop: animation.loop,
+    });
   }
 
   function updateFrame(frameId: string, changes: Partial<GameAnimationKeyframe>) {
@@ -207,6 +213,12 @@ export function AnimationEditor({
     const start = playhead >= activeAnimation.duration ? 0 : playhead;
     setPreviewTime(start);
     setIsPlaying(true);
+    trackEvent('animation_preview_started', {
+      track_count: tracks.length,
+      keyframe_count: tracks.reduce((count, track) => count + track.keyframes.length, 0),
+      duration_seconds: activeAnimation.duration,
+      loop: activeAnimation.loop,
+    });
   }
 
   function stopPreview() {
