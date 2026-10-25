@@ -810,7 +810,9 @@ function SpriteVisual({ url, width, height, tint, active, missing, opacity = 1 }
   }, [url]);
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+      {/* Face the north Game Camera without turning imported images upside down.
+          Keep this in the shared visual so editor and game use the same UV pose. */}
+      <mesh rotation={[-Math.PI / 2, 0, Math.PI]}>
         <planeGeometry args={[width, height]} />
         <meshBasicMaterial color={texture ? '#ffffff' : tint} map={texture ?? undefined} transparent opacity={active ? opacity : 0.4} side={THREE.DoubleSide} />
       </mesh>

@@ -14,6 +14,58 @@ not a claim that physical iOS devices or released Safari versions were tested. I
 deploys anything, calls real private APIs, or changes existing user projects.
 Do not run multiple copies against the same port.
 
+## Game Camera graphics checks
+
+Run the focused WebGL output checks (no SVG/DOM fallback counts as a pass):
+
+```sh
+REPLIT_PLAYWRIGHT_CHROMIUM_EXECUTABLE=/repl/tools/bin/chromium \
+  pnpm --filter @workspace/madhorse-ui run test:runtime \
+  game-camera.spec.ts editor.spec.ts --grep 'GPU|WebGL 2 renderer' --project=chromium
+```
+
+Omit the executable override on a normal Playwright host. Use `--project=firefox`
+or `--project=webkit` for the other installed engines. The new cases run at
+1280px and 402px; 402px uses touch input capability and device scale factor 2.
+These are phone-sized browser contexts, **not physical Android/iOS devices**.
+
+`webgl2-capability` records the actual renderer, WebGL version and user agent.
+A missing WebGL 2 context fails explicitly as `ENVIRONMENT`; it is never skipped.
+A capable browser that fails to produce the app's WebGL canvas or expected
+pixels fails as an application/test assertion. Browser executable/loader errors
+occur before the capability check and remain environment failures.
+
+The PNG attachments are compositor captures of the actual WebGL canvas.
+Two-color image imports prove top/bottom texture orientation. Active green
+sprites are positive controls before testing inactive objects and descendants.
+An unlit, scalene glTF triangle proves actual imported geometry rather than
+a loader placeholder, with independently projected translated/rotated/scaled
+vertex bounds checked against both game and editor output. Returning from the
+editor must preserve bounds/centroid within 1.5 CSS pixels and colored area
+within 3% (mobile antialiasing changes edge coverage). Inactive models must
+disappear. Background pixels outside the central fixture detect editor
+grid/axes/gizmos leaking into Game Camera output; editor output provides the
+positive control. Only DOM orbit buttons and model notices are temporarily
+hidden for the canvas captures; no rendered scene graphics are masked.
+The editor triangle's color analysis uses its projected region to exclude
+unrelated camera transform handles; the full unmasked screenshot is retained.
+
+Workspace evidence on 2026-10-23 used Chromium 152 with WebGL 2 through
+**ANGLE/Vulkan SwiftShader**, not a hardware GPU. It exposed an upside-down
+imported texture in the shared sprite renderer, corrected in both views.
+The accepted verification scope is Chromium software-rendered WebGL at desktop
+and touch/high-DPI phone-sized viewports. This is not cross-engine or physical
+device release approval.
+Desktop and touch/high-DPI phone-sized checks exercise the real Three/WebGL
+path, but do **not** establish hardware-GPU or physical-phone compatibility.
+Firefox 1555 and WebKit 2370 could not launch because their Playwright
+executables are missing. Matching browsers/host libraries and real
+WebGL-2-capable desktop/phone hardware remain necessary for that sign-off.
+On those devices verify the same red-over-blue sprite, scalene model with
+matching editor transforms, centered aimed square, hidden inactive objects,
+and absence of grid/axes/gizmos in game output; record device, OS, browser,
+renderer and screenshots. Do not label emulation or SwiftShader as that sign-off.
+
 ## CI release gate
 
 `.github/workflows/script-runtime.yml` runs on every pull request, push (including

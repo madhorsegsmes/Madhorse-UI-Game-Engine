@@ -28,16 +28,31 @@ blockers, preserve their failure reports, and run on a host with the matching
 Playwright dependencies. Do not weaken sandbox isolation or mark tests skipped
 to work around browser launch problems.
 
-The supplied capture/test Chromium may also fail WebGL 2 context creation with
-`BindToCurrentSequence failed`, including when software-rendering flags are used.
+The supplied capture/test Chromium's WebGL 2 availability varies by environment.
+It has failed context creation with `BindToCurrentSequence failed`, including
+with software-rendering flags; it has also successfully rendered through
+ANGLE/Vulkan SwiftShader without launch flags.
 
 **Why:** A browser that can run editor and script tests is not necessarily able
-to initialize a GPU or software WebGL renderer in this environment.
+to initialize WebGL. Conversely, a past context-creation failure is not proof
+that a future environment remains blocked.
 
-**How to apply:** Check actual WebGL 2 availability before attributing a blank
-3D viewport to scene code. Keep graphics failures local to the viewport so
-project tools remain usable. Report graphics verification as blocked when no
-context can be created; DOM-only editor checks do not prove 3D rendering works.
+**How to apply:** Probe actual WebGL 2 availability and the unmasked renderer
+before attributing a blank 3D viewport to scene code. Keep graphics failures
+local to the viewport so project tools remain usable. Report verification as
+blocked when no context can be created. Real canvas pixels through SwiftShader
+prove the WebGL render path, not hardware-GPU or physical-phone compatibility;
+DOM-only checks prove neither.
+
+Browser-test storage fixtures must be installed after an old document's
+pagehide/autosave flush, not just before reloading.
+
+**Why:** Directly writing a project snapshot then reloading let the editor's
+pending save overwrite the fixture. Tests unknowingly inspected the old scene.
+
+**How to apply:** Consume a one-shot pending snapshot during new-document
+initialization, then assert the intended scene/camera loaded. Avoid persistent
+init overrides that would erase later real UI edits.
 
 Graphics startup compatibility must not overwrite the creator's quality choices.
 Try the requested context first, then bounded WebGL 2 compatibility configurations;

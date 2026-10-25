@@ -3,6 +3,110 @@ import { movementLanguages, movementStarter, scriptStorageError, sourceSize, max
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { hasRenderableModelGeometry } from '../../src/lib/scene-model-validation';
 import { test, openScripts, run, finished, frames, importSource } from './fixtures';
+import { gpuPixels, magentaModel, requireWebGL2, setGPUScene } from './gpu-fixtures';
+import { createDefaultPlayer, createModelRendererComponent, getTransform } from '../../src/lib/scene-model';
+import { PerspectiveCamera, Vector3 } from 'three';
+import { makeGameViewCamera } from '../../src/lib/game-camera';
+import { sceneFrameDistance } from '../../src/lib/scene-view-geometry';
+
+function projectedTriangle(width: number, height: number, camera: PerspectiveCamera) {
+  // Fixture world-space TRS, independently applied to each actual model vertex.
+  const projected = [[-1, 0], [1, 0], [-.6, 2]].map(([x, y]) => {
+    const point = new Vector3(x * 1.3, y * .8, 0)
+      .applyAxisAngle(new Vector3(0, 1, 0), 25 * Math.PI / 180)
+      .add(new Vector3(1, 1, 0)).project(camera);
+    return { x: (point.x + 1) * width / 2, y: (1 - point.y) * height / 2 };
+  });
+  return {
+    minX: Math.min(...projected.map(p => p.x)), maxX: Math.max(...projected.map(p => p.x)),
+    minY: Math.min(...projected.map(p => p.y)), maxY: Math.max(...projected.map(p => p.y)),
+  };
+}
+
+function expectProjectedTriangle(pixels: Awaited<ReturnType<typeof gpuPixels>>, camera: PerspectiveCamera) {
+  const projected = projectedTriangle(pixels.width, pixels.height, camera);
+  const actual = pixels.stats.magenta;
+  for (const [bound, expected] of [
+    [actual.minX, projected.minX], [actual.maxX, projected.maxX],
+    [actual.minY, projected.minY], [actual.maxY, projected.maxY],
+  ]) expect(Math.abs(bound - expected), 'GPU silhouette must match imported geometry and shared object TRS').toBeLessThan(4);
+}
+
+for (const width of [1280, 402]) {
+  test.describe(`${width}px graphics`, () => {
+  test.use({ hasTouch: width === 402, deviceScaleFactor: width === 402 ? 2 : 1 });
+  test(`GPU imported model matches the shared editor scene at ${width}px`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/');
+    await requireWebGL2(page, info);
+    await page.locator('.workspace-browser-assets > summary').click();
+    await page.getByTestId('input-assets').setInputFiles(magentaModel());
+    const card = page.locator('[data-testid^="asset-card-"]').filter({ hasText: 'gpu-triangle.gltf' });
+    await expect(card).toBeVisible();
+    const assetId = (await card.getAttribute('data-testid'))!.replace('asset-card-', '');
+    const player = createDefaultPlayer();
+    player.components.push(createModelRendererComponent(assetId));
+    // Distinct translation, rotation and non-uniform scaling, shared by both views.
+    getTransform(player).position = { x: 60, y: 50, z: 10 };
+    getTransform(player).rotation.z = -25;
+    getTransform(player).scale = { x: 1.3, y: 1, z: .8 };
+    const cameraSettings = {
+      position: { x: 1, y: 2, z: -10 }, target: { x: 1, y: 2, z: 0 }, fov: 50, placement: 'custom',
+    } as const;
+    await setGPUScene(page, [player], cameraSettings);
+    const game = page.getByTestId('scene-game-view').locator('canvas');
+    await expect.poll(async () => (await gpuPixels(game, info, 'game-imported-model')).stats.magenta.count).toBeGreaterThan(100);
+    const gamePixels = await gpuPixels(game, info, 'game-triangle');
+    expectProjectedTriangle(gamePixels, makeGameViewCamera(cameraSettings, gamePixels.width / gamePixels.height));
+    const triangle = gamePixels.stats.magenta;
+    expect(triangle.maxY - triangle.minY).toBeGreaterThan(15);
+    expect(triangle.maxX - triangle.minX).toBeGreaterThan(15);
+    expect(triangle.count / ((triangle.maxX - triangle.minX) * (triangle.maxY - triangle.minY))).toBeGreaterThan(.3);
+    expect(triangle.count / ((triangle.maxX - triangle.minX) * (triangle.maxY - triangle.minY))).toBeLessThan(.65);
+    expect(gamePixels.backgroundFraction).toBeGreaterThan(.995);
+    await page.getByTestId('tab-scene-3d').click();
+    // Move the selected-object handles away from the triangle so they cannot
+    // occlude its silhouette; the editor camera/geometry remains unchanged.
+    await page.getByTestId('scene3d-select-game-camera').click();
+    const editor = page.getByTestId('scene3d-viewport').locator('canvas');
+    await expect(page.getByTestId('scene3d-asset-status')).toContainText('Model ready · gpu-triangle.gltf');
+    await expect.poll(async () => (await gpuPixels(editor, info, 'editor-imported-model')).stats.magenta.count).toBeGreaterThan(100);
+    const editorFrame = await gpuPixels(editor, info, 'editor-with-gizmos');
+    const aspect = editorFrame.width / editorFrame.height;
+    const editorCamera = new PerspectiveCamera(48, aspect, .1, 3000);
+    const center = new Vector3(1, 2, -5);
+    editorCamera.position.copy(center).addScaledVector(new Vector3(1, .9, 1.2).normalize(),
+      sceneFrameDistance(cameraSettings, aspect, 48));
+    editorCamera.lookAt(center);
+    editorCamera.updateMatrixWorld();
+    const projected = projectedTriangle(editorFrame.width, editorFrame.height, editorCamera);
+    // Analyze the expected model region, not the camera's overlapping magenta
+    // transform-plane handle elsewhere in the frame. Wrong/missing TRS still
+    // fails the silhouette bounds. No pixels are hidden from the screenshot.
+    const editorPixels = await gpuPixels(editor, info, 'editor-triangle', {
+      minX: projected.minX - 8, maxX: projected.maxX + 8,
+      minY: projected.minY - 8, maxY: projected.maxY + 8,
+    });
+    expectProjectedTriangle(editorPixels, editorCamera);
+    expect(editorPixels.stats.magenta.maxY - editorPixels.stats.magenta.minY).toBeGreaterThan(15);
+    // Positive control for editor-only grid/axes/gizmos; game background above is clean.
+    expect(editorPixels.backgroundFraction).toBeLessThan(.99);
+    await page.getByTestId('tab-scene-2d').click();
+    await expect.poll(async () => (await gpuPixels(game, info, 'game-return')).stats.magenta.count).toBeGreaterThan(100);
+    const returned = await gpuPixels(game, info, 'same-model-after-editor');
+    expectProjectedTriangle(returned, makeGameViewCamera(cameraSettings, returned.width / returned.height));
+    // Mobile antialiasing can settle differently after remount. Geometry must
+    // still land on the same pixels; allow only a small edge-coverage difference.
+    for (const coordinate of ['minX', 'maxX', 'minY', 'maxY', 'x', 'y'] as const) {
+      expect(Math.abs(returned.stats.magenta[coordinate] - triangle[coordinate])).toBeLessThan(1.5);
+    }
+    expect(Math.abs(returned.stats.magenta.count / triangle.count - 1)).toBeLessThan(.03);
+    player.active = false;
+    await setGPUScene(page, [player], cameraSettings);
+    expect((await gpuPixels(game, info, 'inactive-model-hidden')).stats.magenta.count).toBe(0);
+  });
+  });
+}
 
 test('source quotas count UTF-8 bytes and replace only the edited file', () => {
   const content = 'é'.repeat(maxScriptSize / 2);
@@ -193,8 +297,9 @@ test('UI Controls create, arrange, edit, and save interface elements with the pr
   await expect(page.getByRole('region', { name: 'PANEL 4 / Play/Test Game' })).toBeVisible();
 });
 
-test('WebGL 2 renderer creates a real graphics canvas', async ({ page }) => {
+test('WebGL 2 renderer creates a real graphics canvas', async ({ page }, info) => {
   await page.goto('/');
+  await requireWebGL2(page, info);
   await page.getByTestId('tab-scene-3d').click();
   const canvas = page.getByTestId('scene3d-viewport').locator('canvas');
   await expect(canvas).toBeVisible();

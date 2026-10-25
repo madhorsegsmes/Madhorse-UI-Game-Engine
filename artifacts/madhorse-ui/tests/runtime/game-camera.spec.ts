@@ -2,8 +2,77 @@ import { expect } from '@playwright/test';
 import { MathUtils, Vector3 } from 'three';
 import { cameraWithOrbitPose } from '../../src/lib/camera-editor';
 import { createGameCamera, isGameCamera, makeGameViewCamera } from '../../src/lib/game-camera';
-import { createDefaultPlayer, getTransform } from '../../src/lib/scene-model';
+import { createDefaultPlayer, getSpriteRenderer, getTransform } from '../../src/lib/scene-model';
 import { test } from './fixtures';
+import { gpuPixels, requireWebGL2, setGPUScene, twoColorSprite } from './gpu-fixtures';
+
+for (const viewport of [{ width: 1280, height: 900 }, { width: 402, height: 874 }]) {
+  test.describe(`${viewport.width}px graphics`, () => {
+  test.use({ hasTouch: viewport.width === 402, deviceScaleFactor: viewport.width === 402 ? 2 : 1 });
+  test(`GPU camera centers the aimed square and excludes editor graphics at ${viewport.width}px`, async ({ page }, info) => {
+    await page.setViewportSize(viewport);
+    await page.goto('/');
+    await requireWebGL2(page, info);
+    const player = createDefaultPlayer();
+    getTransform(player).position = { x: 70, y: 30, z: 20 };
+    await setGPUScene(page, [player], { ...createGameCamera([createDefaultPlayer()]), placement: 'custom' });
+    const canvas = page.getByTestId('scene-game-view').locator('canvas');
+    const before = await gpuPixels(canvas, info, 'before-aim');
+    expect(before.stats.red.count).toBeGreaterThan(100);
+    expect(Math.hypot(before.stats.red.x / before.width - .5, before.stats.red.y / before.height - .5)).toBeGreaterThan(.08);
+    await page.getByTestId('button-game-camera').click();
+    await page.getByTestId('aim-game-camera').click();
+    await page.getByTestId('button-game-camera').click();
+    await expect.poll(async () => {
+      const pixels = await gpuPixels(canvas, info, 'aimed-square');
+      const s = pixels.stats.red;
+      expect(s.count).toBeGreaterThan(100);
+      expect(pixels.backgroundFraction).toBeGreaterThan(.995);
+      // Perspective makes the near half slightly larger. Bounding-box center remains close.
+      return Math.max(Math.abs((s.minX + s.maxX) / 2 / pixels.width - .5),
+        Math.abs((s.minY + s.maxY) / 2 / pixels.height - .5));
+    }).toBeLessThan(.025);
+    await expect(page.getByTestId('scene3d-mode-translate')).toHaveCount(0);
+    await expect(page.getByTestId('scene-grid-status')).toHaveCount(0);
+    await expect(page.getByTestId('game-camera-fallback')).toHaveCount(0);
+  });
+
+  test(`GPU textured sprite is upright and inactive objects are absent at ${viewport.width}px`, async ({ page }, info) => {
+    await page.setViewportSize(viewport);
+    await page.goto('/');
+    await requireWebGL2(page, info);
+    await page.locator('.workspace-browser-assets > summary').click();
+    await page.getByTestId('input-assets').setInputFiles(await twoColorSprite(page));
+    const card = page.locator('[data-testid^="asset-card-"]').filter({ hasText: 'upright.png' });
+    await expect(card).toBeVisible();
+    const assetId = (await card.getAttribute('data-testid'))!.replace('asset-card-', '');
+    const player = createDefaultPlayer();
+    getSpriteRenderer(player)!.assetId = assetId;
+    const hidden = createDefaultPlayer();
+    hidden.id = 'hidden'; hidden.name = 'Hidden green sprite';
+    getTransform(hidden).position.x = 20;
+    getSpriteRenderer(hidden)!.tint = '#00ff00';
+    await setGPUScene(page, [player, hidden]);
+    const canvas = page.getByTestId('scene-game-view').locator('canvas');
+    // Positive control proves the hidden-object fixture is inside the camera frustum.
+    await expect.poll(async () => (await gpuPixels(canvas, info, 'active-control')).stats.green.count).toBeGreaterThan(100);
+    hidden.active = false;
+    await setGPUScene(page, [player, hidden]);
+    await expect.poll(async () => (await gpuPixels(canvas, info, 'upright-sprite')).stats.blue.count).toBeGreaterThan(100);
+    const pixels = await gpuPixels(canvas, info, 'inactive-hidden');
+    expect(pixels.stats.red.count).toBeGreaterThan(100);
+    expect(pixels.stats.blue.y, 'Texture top (red) must be above texture bottom (blue)').toBeGreaterThan(pixels.stats.red.y);
+    expect(pixels.stats.green.count).toBe(0);
+    // An active descendant of an inactive parent must be hidden too.
+    const child = structuredClone(hidden);
+    child.id = 'hidden-child'; child.parentId = hidden.id; child.active = true;
+    getTransform(child).position = { x: 50, y: 50, z: 50 };
+    await setGPUScene(page, [player, hidden, child]);
+    await expect.poll(async () => (await gpuPixels(canvas, info, 'inactive-parent')).stats.blue.count).toBeGreaterThan(100);
+    expect((await gpuPixels(canvas, info, 'inactive-descendant-hidden')).stats.green.count).toBe(0);
+  });
+  });
+}
 
 test('Panel 3 validates and saves custom camera pose and zoom on phones without moving objects', async ({ page }) => {
   await page.setViewportSize({ width: 402, height: 874 });
