@@ -14,3 +14,143 @@ mtime_ms = 1792815414842
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:aaeee303-605b-4b36-9487-2f3474459f6d/f46dc5ed-5cf0-4324-ac24-65f0f9dfcc00/2d0bbdcb-516c-4a68-9ebc-934697800870"
 storage_version_token = "1792815435733527"
 content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+[[outputs]]
+id = "XFcifPdP69ZCHqPG-ylfL"
+uri = "file://generated-artifacts/template-tutorials/2d-fighting.mp4"
+type = "video"
+title = "2D/3D Fighting Game — Silent Tutorial"
+description = "1080p animated guide with captions: open, play, controls, edit and save. No audio."
+logical_id = "1754ed7b-767a-4f19-91cd-6d9ecf9ebe5d"
+content_hash = "sha256:bd3938d22cb59e53f662933bb8c768b7c23320730b8189422d917b87df90e425"
+size = 3253573
+mtime_ms = 1792915096477
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:aaeee303-605b-4b36-9487-2f3474459f6d/1754ed7b-767a-4f19-91cd-6d9ecf9ebe5d/7bc49391-d0e9-46c8-a90f-0ab381e2548d"
+storage_version_token = "1792916599043333"
+content_type = "video/mp4"
+
+[[outputs]]
+id = "JlbC-9gQgp5TwK_3FGdsS"
+uri = "file://generated-artifacts/template-tutorials/rts.mp4"
+type = "video"
+title = "Strategy World — Silent Tutorial"
+description = "1080p animated guide with captions: open, play, controls, edit and save. No audio."
+logical_id = "8aece171-30de-47ca-a121-32a94f66fa1f"
+content_hash = "sha256:bb257bdccaf5faff0c6ee522e8b87cc0b05972223819b69ee7e8933d1d4493ec"
+size = 3859951
+mtime_ms = 1792915153173
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:aaeee303-605b-4b36-9487-2f3474459f6d/8aece171-30de-47ca-a121-32a94f66fa1f/d7ff8ab5-651c-4a79-bcaa-2ac9bfe40dbd"
+storage_version_token = "1792916600113716"
+content_type = "video/mp4"
+
+[[outputs]]
+id = "nArRBAYrWQKeYvQxjHjQ7"
+uri = "file://generated-artifacts/template-tutorials/fps.mp4"
+type = "video"
+title = "FPS · Ironlight Facility — Silent Tutorial"
+description = "1080p animated guide with captions: open, play, controls, edit and save. No audio."
+logical_id = "20876b28-e90e-442d-af1b-891c3875cfea"
+content_hash = "sha256:b7b101ab2849e571472c8cd453dfbce80bb44d820e7c8c1c5c084243ce5d8eda"
+size = 4184369
+mtime_ms = 1792915209933
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:aaeee303-605b-4b36-9487-2f3474459f6d/20876b28-e90e-442d-af1b-891c3875cfea/eb4ff707-4f8f-4021-8604-d7c73620ec75"
+storage_version_token = "1792916600728224"
+content_type = "video/mp4"
+
+[[outputs]]
+id = "4XaMRlETY7VPr8Bm84od3"
+uri = "file://generated-artifacts/template-tutorials/third-person-shooter.mp4"
+type = "video"
+title = "Third-Person Shooter — Silent Tutorial"
+description = "1080p animated guide with captions: open, play, controls, edit and save. No audio."
+logical_id = "7e50b560-f212-4c1b-9573-699e6e9f0b11"
+content_hash = "sha256:619b47c7a51624b293339ac774bed1161c0a72e8591600c18c21aadb8bc2f1ef"
+size = 3905309
+mtime_ms = 1792915577825
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:aaeee303-605b-4b36-9487-2f3474459f6d/7e50b560-f212-4c1b-9573-699e6e9f0b11/e5c29cb0-25ff-484a-9c55-052fc3761727"
+storage_version_token = "1792916601516131"
+content_type = "video/mp4"
+
+[[outputs]]
+id = "K6ivroinIZgHXpeK0A8vV"
+uri = "file://generated-artifacts/template-tutorials/mmorpg.mp4"
+type = "video"
+title = "MMORPG · Sunstone Vale — Silent Tutorial"
+description = "1080p animated guide with captions: open, play, controls, edit and save. No audio."
+logical_id = "f7ef2a6e-74a9-4db1-b9b5-b2d6f3461ef3"
+content_hash = "sha256:5fd4845f0dd56d7ddb4b1e7956434eb2e06068cdfd3ca32a2656b3deae755d3e"
+size = 3482749
+mtime_ms = 1792915633559
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:aaeee303-605b-4b36-9487-2f3474459f6d/f7ef2a6e-74a9-4db1-b9b5-b2d6f3461ef3/f957d5db-5513-4ca1-82fd-dff634f771e8"
+storage_version_token = "1792916602178680"
+content_type = "video/mp4"
+
+[[outputs]]
+id = "4lHUp4HECMzXZOC8iQcEU"
+uri = "file://generated-artifacts/template-tutorials/2d-rpg.mp4"
+type = "video"
+title = "2D RPG — Silent Tutorial"
+description = "1080p animated guide with captions: open, play, controls, edit and save. No audio."
+logical_id = "bcf6a278-9074-4ffa-865b-da964c6b91f7"
+content_hash = "sha256:6fb89b7dc8bedaca1be8edc2170a766aa58b42b116ff4ba19cfb1d159431cc66"
+size = 3372627
+mtime_ms = 1792915685427
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:aaeee303-605b-4b36-9487-2f3474459f6d/bcf6a278-9074-4ffa-865b-da964c6b91f7/98e90777-b224-40e7-bee7-b16e54338a9f"
+storage_version_token = "1792916602712341"
+content_type = "video/mp4"
+
+[[outputs]]
+id = "BwXghrCkxiSmZ4oK_7CKj"
+uri = "file://generated-artifacts/template-tutorials/cart-racer.mp4"
+type = "video"
+title = "Cart Racer Stylized — Silent Tutorial"
+description = "1080p animated guide with captions: open, play, controls, edit and save. No audio."
+logical_id = "a8dc2800-a106-4270-a77e-6232442dc8fb"
+content_hash = "sha256:db1dda039552527bab2ed6542620f8b0fe355a2979b3415d8e54b7de648d8cb9"
+size = 4215438
+mtime_ms = 1792915746229
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:aaeee303-605b-4b36-9487-2f3474459f6d/a8dc2800-a106-4270-a77e-6232442dc8fb/202ea39a-f087-4616-8b7f-893653f3013b"
+storage_version_token = "1792916603443653"
+content_type = "video/mp4"
+
+[[outputs]]
+id = "aKgsEgkALwUtFV3rH0gRa"
+uri = "file://generated-artifacts/template-tutorials/card-duel.mp4"
+type = "video"
+title = "Card Duel — Silent Tutorial"
+description = "1080p animated guide with captions: open, play, controls, edit and save. No audio."
+logical_id = "84a1942e-113f-4140-933c-d6acb2b5d7e8"
+content_hash = "sha256:a7cb0fa1282688764196b02ad027d64deb5c39539c53e5735d92f5e94857f141"
+size = 3610880
+mtime_ms = 1792915801609
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:aaeee303-605b-4b36-9487-2f3474459f6d/84a1942e-113f-4140-933c-d6acb2b5d7e8/34789c4d-8569-473d-9915-b4a67f07bbc5"
+storage_version_token = "1792916604118627"
+content_type = "video/mp4"
+
+[[outputs]]
+id = "Gtl322uDTfcuhbDjjBTaJ"
+uri = "file://generated-artifacts/template-tutorials/basketball.mp4"
+type = "video"
+title = "Sports · 3D Basketball — Silent Tutorial"
+description = "1080p animated guide with captions: open, play, controls, edit and save. No audio."
+logical_id = "c977c457-22ec-40b3-ab57-5ab4fc5bbe4a"
+content_hash = "sha256:73b3f4375a249914542bb22d5f61fdd406d6042bb9b56f129b66680ae239b7c8"
+size = 3910364
+mtime_ms = 1792915857415
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:aaeee303-605b-4b36-9487-2f3474459f6d/c977c457-22ec-40b3-ab57-5ab4fc5bbe4a/6d5f99c3-26fb-4781-8579-bf078c60f74e"
+storage_version_token = "1792916604641780"
+content_type = "video/mp4"
+
+[[outputs]]
+id = "-YsXHXKEe9BgMisEqkb-o"
+uri = "file://generated-artifacts/template-tutorials/blank.mp4"
+type = "video"
+title = "Blank Canvas — Silent Tutorial"
+description = "1080p animated guide with captions: open, play, controls, edit and save. No audio."
+logical_id = "7658e44e-cde3-4ff7-99e4-f759694d0148"
+content_hash = "sha256:311688d494836f5bd163c47b580910fbd656446869ce6cff072b372220457d2d"
+size = 2801654
+mtime_ms = 1792915906664
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:aaeee303-605b-4b36-9487-2f3474459f6d/7658e44e-cde3-4ff7-99e4-f759694d0148/1f260465-7c6c-4bf5-a8eb-66fb75056b75"
+storage_version_token = "1792916605271567"
+content_type = "video/mp4"

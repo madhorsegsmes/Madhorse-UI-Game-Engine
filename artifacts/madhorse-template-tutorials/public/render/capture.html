@@ -1,0 +1,10 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>html,body{margin:0;background:#0e0f11}</style></head><body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script src="../tutorial-engine.js"></script>
+<script>
+const ctx=document.getElementById('c').getContext('2d');
+window.ready=(async()=>{try{await Promise.all(['800 40px "Barlow Condensed"','500 40px "Barlow Condensed"','600 20px "JetBrains Mono"'].map(f=>document.fonts.load(f)));}catch(e){}await document.fonts.ready;return document.fonts.check('800 40px "Barlow Condensed"');})();
+window.frame=(slug,t,q)=>{TutorialEngine.draw(ctx,slug,t);return document.getElementById('c').toDataURL('image/jpeg',q||0.9).slice(23);};
+</script></body></html>

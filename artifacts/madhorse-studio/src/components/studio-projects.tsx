@@ -358,7 +358,8 @@ export default function StudioProjects() {
             : mode === 'template' ? templateChoice === 'mmorpg' ? 'Create MMORPG'
               : templateChoice === 'fps' ? 'Create FPS game'
               : templateChoice === 'third-person-shooter' ? 'Create third-person shooter'
-                : templateChoice === 'rts' ? 'Create RTS project' : 'Create fighting game'
+                : templateChoice === 'rts' ? 'Create RTS project'
+                  : templateChoice === '2d-fighting' ? 'Create fighting game' : 'Create project'
               : mode === 'new' ? 'Create project' : 'Save name'}</button>
         </footer>
       </form>

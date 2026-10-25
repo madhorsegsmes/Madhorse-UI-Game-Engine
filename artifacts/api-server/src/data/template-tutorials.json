@@ -1,0 +1,525 @@
+{
+  "revision": "33910924385d851c-webm1",
+  "tutorials": [
+    {
+      "id": "2d-fighting",
+      "title": "2D/3D Fighting Game",
+      "description": "A silent animated guide to starting, playing, editing and saving this Madhorse template.",
+      "durationSeconds": 61.8,
+      "chapters": [
+        {
+          "title": "Template",
+          "seconds": 0
+        },
+        {
+          "title": "Open & name",
+          "seconds": 4.2
+        },
+        {
+          "title": "Your scene",
+          "seconds": 11.6
+        },
+        {
+          "title": "Play Test",
+          "seconds": 17.2
+        },
+        {
+          "title": "Controls",
+          "seconds": 21
+        },
+        {
+          "title": "Objective",
+          "seconds": 33.6
+        },
+        {
+          "title": "Stop",
+          "seconds": 40
+        },
+        {
+          "title": "Edit",
+          "seconds": 44.2
+        },
+        {
+          "title": "Save",
+          "seconds": 51.8
+        },
+        {
+          "title": "Recap",
+          "seconds": 57.4
+        }
+      ],
+      "videoObject": "madhorse-tutorials/bd3938d22cb59e53/2d-fighting.mp4",
+      "posterObject": "madhorse-tutorials/bd3938d22cb59e53/2d-fighting.jpg",
+      "bytes": 3253573,
+      "webmObject": "madhorse-tutorials/bd3938d22cb59e53/2d-fighting-vp9-720p-v1.webm"
+    },
+    {
+      "id": "rts",
+      "title": "Strategy World",
+      "description": "A silent animated guide to starting, playing, editing and saving this Madhorse template.",
+      "durationSeconds": 61.8,
+      "chapters": [
+        {
+          "title": "Template",
+          "seconds": 0
+        },
+        {
+          "title": "Open & name",
+          "seconds": 4.2
+        },
+        {
+          "title": "Your scene",
+          "seconds": 11.6
+        },
+        {
+          "title": "Play Test",
+          "seconds": 17.2
+        },
+        {
+          "title": "Controls",
+          "seconds": 21
+        },
+        {
+          "title": "Objective",
+          "seconds": 33.6
+        },
+        {
+          "title": "Stop",
+          "seconds": 40
+        },
+        {
+          "title": "Edit",
+          "seconds": 44.2
+        },
+        {
+          "title": "Save",
+          "seconds": 51.8
+        },
+        {
+          "title": "Recap",
+          "seconds": 57.4
+        }
+      ],
+      "videoObject": "madhorse-tutorials/bb257bdccaf5faff/rts.mp4",
+      "posterObject": "madhorse-tutorials/bb257bdccaf5faff/rts.jpg",
+      "bytes": 3859951,
+      "webmObject": "madhorse-tutorials/bb257bdccaf5faff/rts-vp9-720p-v1.webm"
+    },
+    {
+      "id": "fps",
+      "title": "FPS · Ironlight Facility",
+      "description": "A silent animated guide to starting, playing, editing and saving this Madhorse template.",
+      "durationSeconds": 61.8,
+      "chapters": [
+        {
+          "title": "Template",
+          "seconds": 0
+        },
+        {
+          "title": "Open & name",
+          "seconds": 4.2
+        },
+        {
+          "title": "Your scene",
+          "seconds": 11.6
+        },
+        {
+          "title": "Play Test",
+          "seconds": 17.2
+        },
+        {
+          "title": "Controls",
+          "seconds": 21
+        },
+        {
+          "title": "Objective",
+          "seconds": 33.6
+        },
+        {
+          "title": "Stop",
+          "seconds": 40
+        },
+        {
+          "title": "Edit",
+          "seconds": 44.2
+        },
+        {
+          "title": "Save",
+          "seconds": 51.8
+        },
+        {
+          "title": "Recap",
+          "seconds": 57.4
+        }
+      ],
+      "videoObject": "madhorse-tutorials/b7b101ab2849e571/fps.mp4",
+      "posterObject": "madhorse-tutorials/b7b101ab2849e571/fps.jpg",
+      "bytes": 4184369,
+      "webmObject": "madhorse-tutorials/b7b101ab2849e571/fps-vp9-720p-v1.webm"
+    },
+    {
+      "id": "third-person-shooter",
+      "title": "Third-Person Shooter",
+      "description": "A silent animated guide to starting, playing, editing and saving this Madhorse template.",
+      "durationSeconds": 61.8,
+      "chapters": [
+        {
+          "title": "Template",
+          "seconds": 0
+        },
+        {
+          "title": "Open & name",
+          "seconds": 4.2
+        },
+        {
+          "title": "Your scene",
+          "seconds": 11.6
+        },
+        {
+          "title": "Play Test",
+          "seconds": 17.2
+        },
+        {
+          "title": "Controls",
+          "seconds": 21
+        },
+        {
+          "title": "Objective",
+          "seconds": 33.6
+        },
+        {
+          "title": "Stop",
+          "seconds": 40
+        },
+        {
+          "title": "Edit",
+          "seconds": 44.2
+        },
+        {
+          "title": "Save",
+          "seconds": 51.8
+        },
+        {
+          "title": "Recap",
+          "seconds": 57.4
+        }
+      ],
+      "videoObject": "madhorse-tutorials/619b47c7a51624b2/third-person-shooter.mp4",
+      "posterObject": "madhorse-tutorials/619b47c7a51624b2/third-person-shooter.jpg",
+      "bytes": 3905309,
+      "webmObject": "madhorse-tutorials/619b47c7a51624b2/third-person-shooter-vp9-720p-v1.webm"
+    },
+    {
+      "id": "mmorpg",
+      "title": "MMORPG · Sunstone Vale",
+      "description": "A silent animated guide to starting, playing, editing and saving this Madhorse template.",
+      "durationSeconds": 61.8,
+      "chapters": [
+        {
+          "title": "Template",
+          "seconds": 0
+        },
+        {
+          "title": "Open & name",
+          "seconds": 4.2
+        },
+        {
+          "title": "Your scene",
+          "seconds": 11.6
+        },
+        {
+          "title": "Play Test",
+          "seconds": 17.2
+        },
+        {
+          "title": "Controls",
+          "seconds": 21
+        },
+        {
+          "title": "Objective",
+          "seconds": 33.6
+        },
+        {
+          "title": "Stop",
+          "seconds": 40
+        },
+        {
+          "title": "Edit",
+          "seconds": 44.2
+        },
+        {
+          "title": "Save",
+          "seconds": 51.8
+        },
+        {
+          "title": "Recap",
+          "seconds": 57.4
+        }
+      ],
+      "videoObject": "madhorse-tutorials/5fd4845f0dd56d7d/mmorpg.mp4",
+      "posterObject": "madhorse-tutorials/5fd4845f0dd56d7d/mmorpg.jpg",
+      "bytes": 3482749,
+      "webmObject": "madhorse-tutorials/5fd4845f0dd56d7d/mmorpg-vp9-720p-v1.webm"
+    },
+    {
+      "id": "2d-rpg",
+      "title": "2D RPG",
+      "description": "A silent animated guide to starting, playing, editing and saving this Madhorse template.",
+      "durationSeconds": 59.4,
+      "chapters": [
+        {
+          "title": "Template",
+          "seconds": 0
+        },
+        {
+          "title": "Open & name",
+          "seconds": 4.2
+        },
+        {
+          "title": "Your scene",
+          "seconds": 11.6
+        },
+        {
+          "title": "Play Test",
+          "seconds": 17.2
+        },
+        {
+          "title": "Controls",
+          "seconds": 21
+        },
+        {
+          "title": "Objective",
+          "seconds": 31.2
+        },
+        {
+          "title": "Stop",
+          "seconds": 37.6
+        },
+        {
+          "title": "Edit",
+          "seconds": 41.8
+        },
+        {
+          "title": "Save",
+          "seconds": 49.4
+        },
+        {
+          "title": "Recap",
+          "seconds": 55
+        }
+      ],
+      "videoObject": "madhorse-tutorials/6fb89b7dc8bedaca/2d-rpg.mp4",
+      "posterObject": "madhorse-tutorials/6fb89b7dc8bedaca/2d-rpg.jpg",
+      "bytes": 3372627,
+      "webmObject": "madhorse-tutorials/6fb89b7dc8bedaca/2d-rpg-vp9-720p-v1.webm"
+    },
+    {
+      "id": "cart-racer",
+      "title": "Cart Racer Stylized",
+      "description": "A silent animated guide to starting, playing, editing and saving this Madhorse template.",
+      "durationSeconds": 59.4,
+      "chapters": [
+        {
+          "title": "Template",
+          "seconds": 0
+        },
+        {
+          "title": "Open & name",
+          "seconds": 4.2
+        },
+        {
+          "title": "Your scene",
+          "seconds": 11.6
+        },
+        {
+          "title": "Play Test",
+          "seconds": 17.2
+        },
+        {
+          "title": "Controls",
+          "seconds": 21
+        },
+        {
+          "title": "Objective",
+          "seconds": 31.2
+        },
+        {
+          "title": "Stop",
+          "seconds": 37.6
+        },
+        {
+          "title": "Edit",
+          "seconds": 41.8
+        },
+        {
+          "title": "Save",
+          "seconds": 49.4
+        },
+        {
+          "title": "Recap",
+          "seconds": 55
+        }
+      ],
+      "videoObject": "madhorse-tutorials/db1dda039552527b/cart-racer.mp4",
+      "posterObject": "madhorse-tutorials/db1dda039552527b/cart-racer.jpg",
+      "bytes": 4215438,
+      "webmObject": "madhorse-tutorials/db1dda039552527b/cart-racer-vp9-720p-v1.webm"
+    },
+    {
+      "id": "card-duel",
+      "title": "Card Duel",
+      "description": "A silent animated guide to starting, playing, editing and saving this Madhorse template.",
+      "durationSeconds": 59.4,
+      "chapters": [
+        {
+          "title": "Template",
+          "seconds": 0
+        },
+        {
+          "title": "Open & name",
+          "seconds": 4.2
+        },
+        {
+          "title": "Your scene",
+          "seconds": 11.6
+        },
+        {
+          "title": "Play Test",
+          "seconds": 17.2
+        },
+        {
+          "title": "Controls",
+          "seconds": 21
+        },
+        {
+          "title": "Objective",
+          "seconds": 31.2
+        },
+        {
+          "title": "Stop",
+          "seconds": 37.6
+        },
+        {
+          "title": "Edit",
+          "seconds": 41.8
+        },
+        {
+          "title": "Save",
+          "seconds": 49.4
+        },
+        {
+          "title": "Recap",
+          "seconds": 55
+        }
+      ],
+      "videoObject": "madhorse-tutorials/a7cb0fa128268876/card-duel.mp4",
+      "posterObject": "madhorse-tutorials/a7cb0fa128268876/card-duel.jpg",
+      "bytes": 3610880,
+      "webmObject": "madhorse-tutorials/a7cb0fa128268876/card-duel-vp9-720p-v1.webm"
+    },
+    {
+      "id": "basketball",
+      "title": "Sports · 3D Basketball",
+      "description": "A silent animated guide to starting, playing, editing and saving this Madhorse template.",
+      "durationSeconds": 61.8,
+      "chapters": [
+        {
+          "title": "Template",
+          "seconds": 0
+        },
+        {
+          "title": "Open & name",
+          "seconds": 4.2
+        },
+        {
+          "title": "Your scene",
+          "seconds": 11.6
+        },
+        {
+          "title": "Play Test",
+          "seconds": 17.2
+        },
+        {
+          "title": "Controls",
+          "seconds": 21
+        },
+        {
+          "title": "Objective",
+          "seconds": 33.6
+        },
+        {
+          "title": "Stop",
+          "seconds": 40
+        },
+        {
+          "title": "Edit",
+          "seconds": 44.2
+        },
+        {
+          "title": "Save",
+          "seconds": 51.8
+        },
+        {
+          "title": "Recap",
+          "seconds": 57.4
+        }
+      ],
+      "videoObject": "madhorse-tutorials/73b3f4375a249914/basketball.mp4",
+      "posterObject": "madhorse-tutorials/73b3f4375a249914/basketball.jpg",
+      "bytes": 3910364,
+      "webmObject": "madhorse-tutorials/73b3f4375a249914/basketball-vp9-720p-v1.webm"
+    },
+    {
+      "id": "blank",
+      "title": "Blank Canvas",
+      "description": "A silent animated guide to starting, playing, editing and saving this Madhorse template.",
+      "durationSeconds": 57,
+      "chapters": [
+        {
+          "title": "Template",
+          "seconds": 0
+        },
+        {
+          "title": "Open & name",
+          "seconds": 4.2
+        },
+        {
+          "title": "Your scene",
+          "seconds": 11.6
+        },
+        {
+          "title": "Play Test",
+          "seconds": 17.2
+        },
+        {
+          "title": "Controls",
+          "seconds": 21
+        },
+        {
+          "title": "Objective",
+          "seconds": 28.8
+        },
+        {
+          "title": "Stop",
+          "seconds": 35.2
+        },
+        {
+          "title": "Edit",
+          "seconds": 39.4
+        },
+        {
+          "title": "Save",
+          "seconds": 47
+        },
+        {
+          "title": "Recap",
+          "seconds": 52.6
+        }
+      ],
+      "videoObject": "madhorse-tutorials/311688d494836f5b/blank.mp4",
+      "posterObject": "madhorse-tutorials/311688d494836f5b/blank.jpg",
+      "bytes": 2801654,
+      "webmObject": "madhorse-tutorials/311688d494836f5b/blank-vp9-720p-v1.webm"
+    }
+  ]
+}

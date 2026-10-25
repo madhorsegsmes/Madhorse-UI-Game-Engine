@@ -22,6 +22,7 @@ import { getTransform } from '@/lib/scene-model';
 import { DEFAULT_SCENE_RENDER_SETTINGS } from '@/hooks/use-scene-render-settings';
 import { ScenePreview3D } from './scene-preview-3d';
 import { SceneRenderFallback } from './scene-render-fallback';
+import { TemplateTutorialLibrary } from './template-tutorial-library';
 
 const basePath = import.meta.env.BASE_URL;
 const studioPath = `${basePath}editor/`;
@@ -261,7 +262,7 @@ export default function HubPage() {
               <div className="hub-kicker"><span className="hub-kicker-line" /> GAME STARTER TEMPLATES</div>
               <h2 id="hub-pathways-title">Choose your <span>next move.</span></h2>
             </div>
-            <p>Choose a game template, from fighting and strategy to RPG adventures and stylized kart racing, then make it yours in Studio.</p>
+            <p>Choose a game template, from fighting and strategy to RPG adventures and stylized kart racing, then make it yours in Studio.<TemplateTutorialLibrary /></p>
           </div>
           <div className="hub-pathway-grid">
             <a className="hub-pathway-card hub-pathway-studio" href={`${studioPath}?starter=2d-fighting`} data-testid="card-studio">

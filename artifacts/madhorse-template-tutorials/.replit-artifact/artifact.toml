@@ -1,0 +1,29 @@
+kind = "video"
+videoAspectRatio = "16:9"
+previewPath = "/madhorse-tutorials/"
+title = "Madhorse Template Tutorials"
+description = "Ten silent animated step-by-step tutorial videos for Madhorse Studio templates. Captioned instructional diagrams, not recorded GPU gameplay."
+version = "1.0.0"
+id = "artifacts/madhorse-template-tutorials"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/madhorse-tutorials/" ]
+localPort = 25622
+
+[services.development]
+run = "pnpm --filter @workspace/madhorse-template-tutorials run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/madhorse-template-tutorials", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/madhorse-template-tutorials/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25622"
+BASE_PATH = "/madhorse-tutorials/"

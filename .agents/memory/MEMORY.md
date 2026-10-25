@@ -21,3 +21,4 @@
 - [Character playback boundary](character-playback-boundary.md) — cache authored surfaces; animate temporary rigs and matching clothing, not saved anatomy.
 - [Gaming PC target](gaming-pc-target.md) — gaming PCs with high-quality graphics by default; preserve explicit existing settings and verify GPU claims separately.
 - [Standalone game export](standalone-game-export.md) — share the real Play/Test runtime, exclude editor/private state, and preserve script isolation in portable builds.
+- [App Storage permissions](app-storage-permissions.md) — bucket metadata can be forbidden while object upload/read/delete works; test the operation the feature needs.

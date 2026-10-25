@@ -101,3 +101,13 @@ Vite application built successfully, producing a misleading blank screenshot.
 
 **How to apply:** Set esbuild `jsx: 'automatic'`, resolve React consistently with
 the app, and surface fixture-root render errors before diagnosing application bugs.
+
+Browser tutorial playback needs an open-codec alternative to H.264 MP4.
+
+**Why:** The automated browser delivered a byte-identical valid MP4 but reported
+`DEMUXER_ERROR_NO_SUPPORTED_STREAMS`; its H.264 capability was empty while VP9
+WebM was supported. Generic `video/mp4` capability returned only `maybe`.
+
+**How to apply:** Keep the full-resolution MP4 downloads, provide silent VP9 WebM
+for browser playback, and verify actual playback time advances. Successful HTTP
+ranges and ffprobe validation alone do not prove browser decoder compatibility.
