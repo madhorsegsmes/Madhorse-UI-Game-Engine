@@ -1,12 +1,19 @@
 import { useSyncExternalStore, type Dispatch, type SetStateAction } from 'react';
 
 export type SceneRenderQuality = 'performance' | 'balanced' | 'high';
+export type SceneFogMode = 'linear' | 'exponential';
 
 export type SceneRenderSettings = {
   showGrid: boolean;
   studioLighting: boolean;
   exposure: number;
   background: string;
+  fogEnabled: boolean;
+  fogMode: SceneFogMode;
+  fogColor: string;
+  fogNear: number;
+  fogFar: number;
+  fogDensity: number;
   quality: SceneRenderQuality;
   showPerformanceStats: boolean;
   environmentReflections: boolean;
@@ -18,6 +25,12 @@ export const DEFAULT_SCENE_RENDER_SETTINGS: SceneRenderSettings = {
   studioLighting: true,
   exposure: 1,
   background: '#1d1f22',
+  fogEnabled: false,
+  fogMode: 'linear',
+  fogColor: '#8b98a7',
+  fogNear: 25,
+  fogFar: 180,
+  fogDensity: 0.018,
   quality: 'high',
   showPerformanceStats: false,
   environmentReflections: true,
@@ -28,6 +41,10 @@ const storageKey = 'madhorse-studio-scene-render-settings';
 
 export function normalizeSceneRenderSettings(input: unknown): SceneRenderSettings {
     const value = input && typeof input === 'object' ? input as Partial<SceneRenderSettings> : {};
+    const fogNear = typeof value.fogNear === 'number' && Number.isFinite(value.fogNear)
+      ? Math.min(500, Math.max(0, value.fogNear)) : DEFAULT_SCENE_RENDER_SETTINGS.fogNear;
+    const requestedFogFar = typeof value.fogFar === 'number' && Number.isFinite(value.fogFar)
+      ? Math.min(1000, Math.max(1, value.fogFar)) : DEFAULT_SCENE_RENDER_SETTINGS.fogFar;
     return {
       showGrid: typeof value.showGrid === 'boolean' ? value.showGrid : true,
       studioLighting: typeof value.studioLighting === 'boolean' ? value.studioLighting : true,
@@ -35,6 +52,14 @@ export function normalizeSceneRenderSettings(input: unknown): SceneRenderSetting
         ? Math.min(1.6, Math.max(0.5, value.exposure)) : 1,
       background: /^#[\da-f]{6}$/i.test(value.background ?? '')
         ? value.background! : DEFAULT_SCENE_RENDER_SETTINGS.background,
+      fogEnabled: typeof value.fogEnabled === 'boolean' ? value.fogEnabled : false,
+      fogMode: value.fogMode === 'exponential' ? 'exponential' : 'linear',
+      fogColor: /^#[\da-f]{6}$/i.test(value.fogColor ?? '')
+        ? value.fogColor! : DEFAULT_SCENE_RENDER_SETTINGS.fogColor,
+      fogNear,
+      fogFar: Math.max(fogNear + 1, requestedFogFar),
+      fogDensity: typeof value.fogDensity === 'number' && Number.isFinite(value.fogDensity)
+        ? Math.min(0.1, Math.max(0.001, value.fogDensity)) : DEFAULT_SCENE_RENDER_SETTINGS.fogDensity,
       quality: value.quality === 'performance' || value.quality === 'high' || value.quality === 'balanced'
         ? value.quality : DEFAULT_SCENE_RENDER_SETTINGS.quality,
       showPerformanceStats: typeof value.showPerformanceStats === 'boolean' ? value.showPerformanceStats : false,

@@ -291,7 +291,9 @@ function StandardScenePreview3D({
   editorPicking.current = { byId, editorView };
   const skybox = entities.filter(entity => entity.active && (!editorView || !getSceneEditorFlags(entity.id, byId).hidden))
     .map(getSkybox).find(component => component?.enabled);
-  const sceneBackground = skybox?.color ?? (gameView ? '#333538' : renderSettings.background);
+  const sceneBackground = renderSettings.fogEnabled
+    ? renderSettings.fogColor
+    : skybox?.color ?? (gameView ? '#333538' : renderSettings.background);
   const hasAnimatedEffects = useMemo(() => entities.some(entity => getEffect(entity)?.enabled), [entities]);
   const [mobile, setMobile] = useState(false);
   const webglProfile = getWebGLRenderProfile(renderSettings.quality, mobile);
@@ -590,6 +592,12 @@ function StandardScenePreview3D({
         <SceneRendererSettings
           background={sceneBackground}
           exposure={gameView ? 1 : renderSettings.exposure}
+          fogEnabled={renderSettings.fogEnabled}
+          fogMode={renderSettings.fogMode}
+          fogColor={renderSettings.fogColor}
+          fogNear={renderSettings.fogNear}
+          fogFar={renderSettings.fogFar}
+          fogDensity={renderSettings.fogDensity}
         />
         {!gameView && !staticPreview && physicsDebug.enabled && <PhysicsDebugOverlay
           entities={entities} selectedId={effectiveSelectedId} settings={physicsDebug}
@@ -723,16 +731,30 @@ type SceneWorldProps = {
   renderSettings: ReturnType<typeof useSceneRenderSettings>[0];
 };
 
-function SceneRendererSettings({ background, exposure }: { background: string; exposure: number }) {
+function SceneRendererSettings({ background, exposure, fogEnabled, fogMode, fogColor, fogNear, fogFar, fogDensity }: {
+  background: string;
+  exposure: number;
+  fogEnabled: boolean;
+  fogMode: 'linear' | 'exponential';
+  fogColor: string;
+  fogNear: number;
+  fogFar: number;
+  fogDensity: number;
+}) {
   const { gl, scene, invalidate } = useThree();
   useEffect(() => {
     gl.setClearColor(background);
     scene.background = new THREE.Color(background);
+    scene.fog = fogEnabled
+      ? fogMode === 'linear'
+        ? new THREE.Fog(fogColor, fogNear, fogFar)
+        : new THREE.FogExp2(fogColor, fogDensity)
+      : null;
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = exposure;
     gl.outputColorSpace = THREE.SRGBColorSpace;
     invalidate();
-  }, [background, exposure, gl, invalidate, scene]);
+  }, [background, exposure, fogColor, fogDensity, fogEnabled, fogFar, fogMode, fogNear, gl, invalidate, scene]);
   return null;
 }
 

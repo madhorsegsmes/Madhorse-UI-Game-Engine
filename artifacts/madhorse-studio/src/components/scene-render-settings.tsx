@@ -45,6 +45,52 @@ export function SceneRenderSettingsPanel({
           />
           Show grid
         </label>
+        <fieldset className="mh-scene3d__fog-settings" data-testid="scene-fog-settings">
+          <legend>Distance fog</legend>
+          <label>
+            <input type="checkbox" checked={settings.fogEnabled}
+              onChange={event => onChange({ ...settings, fogEnabled: event.currentTarget.checked })}
+              data-testid="scene-fog-enabled" />
+            Enable fog
+          </label>
+          <label>
+            Fog style
+            <select value={settings.fogMode} disabled={!settings.fogEnabled}
+              onChange={event => onChange({ ...settings, fogMode: event.currentTarget.value as SceneRenderSettings['fogMode'] })}
+              aria-label="Fog style" data-testid="scene-fog-mode">
+              <option value="linear">Linear · clear near, fade far</option>
+              <option value="exponential">Exponential · denser with distance</option>
+            </select>
+          </label>
+          <label className="mh-scene3d__render-background">
+            Fog and horizon color
+            <input type="color" value={settings.fogColor} disabled={!settings.fogEnabled}
+              onChange={event => onChange({ ...settings, fogColor: event.currentTarget.value })}
+              aria-label="Fog and horizon color" data-testid="scene-fog-color" />
+          </label>
+          {settings.fogMode === 'linear' ? <>
+            <label>
+              <span>Fog starts · {settings.fogNear.toFixed(0)} units</span>
+              <input type="range" min="0" max={Math.max(0, settings.fogFar - 1)} step="1"
+                value={settings.fogNear} disabled={!settings.fogEnabled}
+                aria-label="Fog start distance" data-testid="scene-fog-near"
+                onChange={event => onChange({ ...settings, fogNear: Number(event.currentTarget.value) })} />
+            </label>
+            <label>
+              <span>Fog ends · {settings.fogFar.toFixed(0)} units</span>
+              <input type="range" min={settings.fogNear + 1} max="1000" step="1"
+                value={settings.fogFar} disabled={!settings.fogEnabled}
+                aria-label="Fog end distance" data-testid="scene-fog-far"
+                onChange={event => onChange({ ...settings, fogFar: Number(event.currentTarget.value) })} />
+            </label>
+          </> : <label>
+            <span>Fog density · {settings.fogDensity.toFixed(3)}</span>
+            <input type="range" min="0.001" max="0.1" step="0.001" value={settings.fogDensity}
+              disabled={!settings.fogEnabled} aria-label="Fog density" data-testid="scene-fog-density"
+              onChange={event => onChange({ ...settings, fogDensity: Number(event.currentTarget.value) })} />
+          </label>}
+          <small>Distance fog adds depth in WebGL previews and exported games. It is not volumetric fog; the low-graphics fallback does not simulate it.</small>
+        </fieldset>
         <label>
           Render quality
           <select
