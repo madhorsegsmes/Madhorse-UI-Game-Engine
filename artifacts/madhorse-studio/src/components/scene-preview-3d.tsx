@@ -22,7 +22,7 @@ import { SceneEditorEnvironment } from './scene-editor-environment';
 import { PRIMARY_CAMERA_ID, cameraDisplayEntity, cameraFromEditorTransform, cameraWithOrbitPose, cameraWithPose, primaryCameraEntity } from '@/lib/camera-editor';
 import { createGameCamera, type GameCamera } from '@/lib/game-camera';
 import { isCharacterBodySurfacePart, isCharacterBuilderModelRoot } from '@/lib/character-builder-geometry';
-import { CharacterBuilderBodyVisual } from './character-builder-body-visual';
+import { CharacterBuilderBodyVisual, FighterPartMotion } from './character-builder-body-visual';
 import { isFighterEntity } from '@/lib/fighter-visual';
 import { SceneElementVisual } from './scene-element-visuals';
 import { SceneNavigation } from './scene-navigation';
@@ -809,10 +809,12 @@ function EntityNode(props: SceneWorldProps & {
   }, [selectedEntity, props.onSelectedObject]);
   if (props.gameView && !effective) return null;
   return (
+    <FighterPartMotion entity={entity} disabled={props.hideVisual}>
     <group
       ref={setGroupRef}
       position={position}
-      rotation={rotationToThree(transform.rotation)}
+      rotation={rotationToThree(isFighterEntity(entity)
+        ? { ...transform.rotation, z: -transform.rotation.z } : transform.rotation)}
       scale={[transform.scale.x, transform.scale.z, transform.scale.y]}
       name={entity.name}
       userData={{ entityId: entity.id }}
@@ -896,7 +898,6 @@ function EntityNode(props: SceneWorldProps & {
         <TriggerZoneOutline zone={getTriggerZone(entity)!} />
       )}
       {selectedEntity && !getCamera(entity) && <SelectionOutline active={effective} />}
-      {!props.hideVisual && smoothCharacterRoot && !assignedModel && !assignedFighterSprite && <CharacterBuilderBodyVisual parts={childEntities} />}
       {props.hideVisual ? null : assignedFighterSprite && sprite ? (
         <Billboard position={[0, sprite.height / 20, 0]}>
           <SpriteVisual upright url={spriteUrl} width={sprite.width / 10} height={sprite.height / 10}
@@ -967,15 +968,21 @@ function EntityNode(props: SceneWorldProps & {
         </mesh>
       )}
       {selectedEntity && !getCamera(entity) && <SelectionMarker />}
-      {childEntities.map((child) => (
+      {(() => {
+        const children = childEntities.map((child) => (
         <EntityNode
           key={child.id}
           {...props}
           entity={child}
           hideVisual={props.hideVisual || assignedModel || assignedFighterSprite || (smoothCharacterRoot && child.active && isCharacterBodySurfacePart(child))}
         />
-      ))}
+        ));
+        return !props.hideVisual && smoothCharacterRoot && !assignedModel && !assignedFighterSprite
+          ? <CharacterBuilderBodyVisual parts={childEntities} rootId={entity.id} pose={entity.runtimePose}>{children}</CharacterBuilderBodyVisual>
+          : children;
+      })()}
     </group>
+    </FighterPartMotion>
   );
 }
 

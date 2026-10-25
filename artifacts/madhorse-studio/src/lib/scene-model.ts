@@ -194,6 +194,8 @@ export type SceneEntity = {
   components: SceneComponent[];
   generatedBy?: 'mad-builder' | 'character-builder';
   isGroup?: boolean;
+  /** Temporary Play Test pose; never applied to saved scene transforms. */
+  runtimePose?: import('./fighter-playback').FighterPlayback;
 };
 
 export type ProjectAsset = {

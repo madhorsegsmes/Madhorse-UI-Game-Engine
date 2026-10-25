@@ -24,3 +24,13 @@ making correct cover occlusion look like broken shooting.
 **How to apply:** Inspect the actual first collider hit before changing aim logic.
 Verify shots from clear positions damage targets and shots into cover do not;
 do not weaken collision or occlusion to make a firing test pass.
+
+Measure live combat by simulation time, not just the duration of a test key hold.
+
+**Why:** Browser screenshots and tool calls can leave a real-time match running
+unattended. A reported short movement input can be surrounded by enough idle
+simulation for the CPU to finish rounds.
+
+**How to apply:** Batch starting the match, combat inputs, and immediate assertions
+where possible. Check an equivalent deterministic sequence before treating an
+unexpected round result as a movement-timing defect.
