@@ -1,17 +1,22 @@
 import { Box3, BoxGeometry, PlaneGeometry, Sphere, Vector3 } from 'three';
 import { getWorldTransform, getPrimitive, getSpriteRenderer, getModelRenderer, type PrimitiveComponent, type SceneEntity } from './scene-model';
 import type { GameCamera } from './game-camera';
+import { createTerrainHeightfield, isTerrainHeightfield, TERRAIN_SEGMENTS, TERRAIN_SIZE, type TerrainHeightfield } from './terrain-heightfield';
 
-export function createPrimitiveGeometry(shape: PrimitiveComponent['shape']) {
+export function createPrimitiveGeometry(shape: PrimitiveComponent['shape'], heightfield?: TerrainHeightfield) {
   if (shape === 'cube') return new BoxGeometry(1, 1, 1);
   const terrain = shape === 'terrain';
-  const plane = new PlaneGeometry(terrain ? 20 : 10, terrain ? 20 : 10, terrain ? 32 : 1, terrain ? 32 : 1);
+  if (terrain && heightfield !== undefined && !isTerrainHeightfield(heightfield)) throw new Error('Invalid terrain heightfield.');
+  const heights = terrain ? (heightfield ?? createTerrainHeightfield()).heights : [];
+  const plane = new PlaneGeometry(terrain ? TERRAIN_SIZE : 10, terrain ? TERRAIN_SIZE : 10, terrain ? TERRAIN_SEGMENTS : 1, terrain ? TERRAIN_SEGMENTS : 1);
   plane.rotateX(-Math.PI / 2);
   const positions = plane.getAttribute('position');
   for (let index = 0; index < positions.count; index++) {
-    positions.setY(index, terrain ? Math.sin(positions.getX(index) * .45) * Math.cos(positions.getZ(index) * .4) * .65 - .05 : -.05);
+    positions.setY(index, terrain ? heights[index] : -.05);
   }
   plane.computeVertexNormals();
+  plane.computeBoundingBox();
+  plane.computeBoundingSphere();
   return plane;
 }
 

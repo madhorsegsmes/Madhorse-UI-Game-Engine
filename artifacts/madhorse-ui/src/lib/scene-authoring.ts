@@ -4,6 +4,7 @@ import {
 } from './scene-model';
 import { isUIControlCollection, type UIControlElement } from './ui-controls';
 import { withSystemActivity } from './system-activity';
+import { createTerrainHeightfield } from './terrain-heightfield';
 
 export type SceneElementKind = 'object' | 'plane' | 'terrain' | 'light' | 'camera';
 export type ScenePrefab = {
@@ -32,6 +33,7 @@ export function createSceneElement(kind: SceneElementKind, entities: SceneEntity
   else entity.components.push({
     id: crypto.randomUUID(), type: 'primitive', enabled: true,
     shape: kind === 'object' ? 'cube' : kind, color: kind === 'terrain' ? '#62745b' : '#aeb0b4', textureAssetId: null,
+    ...(kind === 'terrain' ? { heightfield: createTerrainHeightfield() } : {}),
   });
   return entity;
 }

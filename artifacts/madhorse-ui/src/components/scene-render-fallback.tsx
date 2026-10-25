@@ -100,7 +100,7 @@ export function SceneRenderFallback({
 
       const primitive = getPrimitive(entity);
       if (primitive?.enabled) {
-        const geometry = createPrimitiveGeometry(primitive.shape);
+        const geometry = createPrimitiveGeometry(primitive.shape, primitive.heightfield);
         const material = new THREE.MeshStandardMaterial({
           color: primitive.color,
           roughness: 0.58,

@@ -1,3 +1,5 @@
+import { isTerrainHeightfield, type TerrainHeightfield } from './terrain-heightfield';
+
 export type Vector3 = { x: number; y: number; z: number };
 
 export type TransformComponent = {
@@ -48,6 +50,7 @@ export type PhysicsWorldSettings = {
 export type PrimitiveComponent = {
   id: string; type: 'primitive'; enabled: boolean;
   shape: 'cube' | 'plane' | 'terrain'; color: string; textureAssetId: string | null;
+  heightfield?: TerrainHeightfield;
   opacity?: number;
 };
 export type LightComponent = {
@@ -252,6 +255,7 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
   }
   if (item.type === 'primitive') {
     return typeof item.enabled === 'boolean' && ['cube', 'plane', 'terrain'].includes(item.shape) &&
+      (item.heightfield === undefined || item.shape === 'terrain' && isTerrainHeightfield(item.heightfield)) &&
       (item.opacity === undefined || Number.isFinite(item.opacity) && item.opacity >= .05 && item.opacity <= 1) &&
       /^#[0-9a-f]{6}$/i.test(item.color) && (item.textureAssetId === null || typeof item.textureAssetId === 'string');
   }

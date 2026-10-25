@@ -19,6 +19,8 @@ import { applyAnimationPreview } from '@/lib/animation-preview';
 import { PRIMARY_CAMERA_ID, updateCameraEntityTransform } from '@/lib/camera-editor';
 import { isPrefabCollection, type ScenePrefab } from '@/lib/scene-authoring';
 import { useSceneAuthoring } from '@/hooks/use-scene-authoring';
+import { useTerrainAuthoring } from '@/hooks/use-terrain-authoring';
+import { TerrainSculptControls } from '@/components/terrain-sculpt-controls';
 import { HierarchyCreationTools } from '@/components/hierarchy-creation-tools';
 import { MadBuilderMenu } from '@/components/mad-builder-menu';
 import { SceneCameraControls } from '@/components/scene-camera-controls';
@@ -365,12 +367,14 @@ function Home() {
     isPlayMode,
   );
   const baseDisplayedSceneEntities = isPlayMode ? physicsPreviewEntities : sceneEntities;
-  const displayedSceneEntities = activeAnimationPreview
+  const terrainAuthoring = useTerrainAuthoring(activeProject.id, activeProject.entities, sceneEditor.selectedEntityId,
+    isPlayMode || Boolean(activeAnimationPreview) || !loadedProjects.canOverwrite);
+  const displayedSceneEntities = terrainAuthoring.previewEntities(activeAnimationPreview
     ? baseDisplayedSceneEntities
     : applyScriptPreview(
         baseDisplayedSceneEntities,
         scriptPreview.projectId === activeProject.id ? scriptPreview.positions : {},
-      );
+      ));
   const authoring = useSceneAuthoring({
     project: activeProject, activeProjectRef, setProjects,
     selectedEntityId: sceneEditor.selectedEntityId,
@@ -755,10 +759,30 @@ function Home() {
               <WorkspaceBrowserMenus
                 {...sceneEditor}
                 scripts={activeProject.scripts ?? []}
-                creationTools={<HierarchyCreationTools {...authoring} />}
+                creationTools={<>
+                  <HierarchyCreationTools {...authoring} />
+                  {terrainAuthoring.editable && !terrainAuthoring.draft && <div className="hct"><section className="hct-section">
+                    <button type="button" className="hct-wide" data-testid="button-sculpt-terrain"
+                      onClick={(event) => {
+                        terrainAuthoring.begin();
+                        event.currentTarget.closest('details')?.removeAttribute('open');
+                      }}>Sculpt terrain</button>
+                  </section></div>}
+                </>}
               />
               <MadBuilderMenu key={activeProject.id} {...madBuilder} />
             </div>
+              {terrainAuthoring.draft && <TerrainSculptControls
+                key={`${terrainAuthoring.draft.projectId}:${terrainAuthoring.draft.entityId}`}
+                initial={terrainAuthoring.draft.initial}
+                onPreview={terrainAuthoring.preview}
+                onCancel={terrainAuthoring.cancel}
+                onApply={(heightfield) => {
+                  if (!terrainAuthoring.draft) return;
+                  authoring.onUpdatePrimitive(terrainAuthoring.draft.entityId, { heightfield });
+                  terrainAuthoring.cancel();
+                }}
+              />}
           </div>
           </WorkspacePanel>
           <WorkspacePanel id="tools-right">

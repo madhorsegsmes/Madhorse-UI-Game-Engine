@@ -39,7 +39,9 @@ export function useSceneAuthoring<T extends AuthoringDocument>(options: {
       const entity = createSceneElement(kind, project.entities);
       if (update((latest) => ({ ...latest, entities: [...latest.entities, entity] }))) {
         options.onSelectCreatedEntity(entity.id);
-        setStatus(`Created ${entity.name}. Edit its transform in Data.`);
+        setStatus(kind === 'terrain'
+          ? `Created ${entity.name}. Choose Sculpt terrain in Hierarchy to raise, lower, or smooth it.`
+          : `Created ${entity.name}. Edit its transform in Data.`);
       }
     },
     onCreateUICanvas: () => {
