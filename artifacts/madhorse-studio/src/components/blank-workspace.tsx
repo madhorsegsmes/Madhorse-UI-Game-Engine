@@ -2,6 +2,8 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useSceneEditHistory } from '@/hooks/use-scene-edit-history';
 import { duplicateSceneSelection, filterSceneHierarchy } from '@/lib/scene-object-actions';
+import { SceneEditorControls, SceneEditorResetControls } from './scene-editor-controls';
+import { inheritSceneEditorFlags, NO_EDITOR_FLAGS, resetSceneEditorFlag, setSceneEditorFlag, type SceneEditorFlag, type SceneEditorFlags } from '@/lib/scene-editor-state';
 import { getSystemActivity, subscribeSystemActivity } from '@/lib/system-activity';
 import { createPortal } from 'react-dom';
 import type { Dispatch, DragEvent as ReactDragEvent, KeyboardEvent, MouseEvent, ReactNode, SetStateAction } from 'react';
@@ -951,6 +953,8 @@ function HierarchyPanel({
   blocked,
   onFocus,
   onDuplicate,
+  onEditorChange,
+  onEditorReset,
 }: {
   entities: SceneEntity[];
   camera: GameCamera;
@@ -965,6 +969,8 @@ function HierarchyPanel({
   blocked: boolean;
   onFocus: () => void;
   onDuplicate: () => void;
+  onEditorChange: (id: string, flag: SceneEditorFlag, value: boolean) => void;
+  onEditorReset: (flag: SceneEditorFlag) => void;
 }) {
   const [sceneExpanded, setSceneExpanded] = useState(true);
   const [menuPoint, setMenuPoint] = useState<HierarchyMenuPoint | null>(null);
@@ -974,6 +980,7 @@ function HierarchyPanel({
   const filtering = Boolean(search.trim());
   const filtered = filterSceneHierarchy(sceneEntities, search);
   const canAct = !blocked && entities.some(entity => entity.id === selection);
+  const sceneViewControlsAvailable = !isPixelRpgScene(entities) && !isCardDuelScene(entities);
 
   function openMenu(x: number, y: number, entityId: string | null = null) {
     setMenuEntityId(entityId);
@@ -1031,6 +1038,7 @@ function HierarchyPanel({
       <div className="fresh-hierarchy-actions" role="group" aria-label="Selected object actions">
         <button type="button" disabled={!canAct} onClick={onFocus} title="Center the scene view on the selected object (F)" data-testid="button-focus-object">Focus <kbd>F</kbd></button>
         <button type="button" disabled={!canAct} onClick={onDuplicate} title="Copy the selected object and its children (Ctrl/Cmd+D). Assets and script files stay shared." data-testid="button-duplicate-object">Duplicate <kbd>Ctrl+D</kbd></button>
+        {sceneViewControlsAvailable && <SceneEditorResetControls entities={entities} disabled={blocked} onReset={onEditorReset} />}
       </div>
       {filtering && <p className="fresh-hierarchy-search-count" role="status">{filtered.matches} matching object{filtered.matches === 1 ? '' : 's'}</p>}
       <button
@@ -1053,6 +1061,8 @@ function HierarchyPanel({
           onEdit={onEditEntity}
           onDelete={requestDeleteEntity}
           onAttachPlugin={onAttachPlugin}
+          editorBlocked={blocked}
+          onEditorChange={sceneViewControlsAvailable ? onEditorChange : undefined}
         />
       )}
       {filtering && filtered.matches === 0 && <p className="fresh-hierarchy-help">No matching objects. Clear the search to show the scene.</p>}
@@ -1127,6 +1137,9 @@ function SceneObjectRows({
   onEdit,
   onDelete,
   onAttachPlugin,
+  editorParentFlags = NO_EDITOR_FLAGS,
+  editorBlocked,
+  onEditorChange,
 }: {
   forceOpen?: boolean;
   entities: SceneEntity[];
@@ -1137,6 +1150,9 @@ function SceneObjectRows({
   onEdit: (entity: SceneEntity) => void;
   onDelete: (id: string) => void;
   onAttachPlugin: (entityId: string, kind: PluginComponentKind) => void;
+  editorParentFlags?: SceneEditorFlags;
+  editorBlocked: boolean;
+  onEditorChange?: (id: string, flag: SceneEditorFlag, value: boolean) => void;
 }) {
   const rows = entities.filter(entity => entity.parentId === parentId);
   if (rows.length === 0) return null;
@@ -1154,6 +1170,9 @@ function SceneObjectRows({
           onEdit={onEdit}
           onDelete={onDelete}
           onAttachPlugin={onAttachPlugin}
+          editorParentFlags={editorParentFlags}
+          editorBlocked={editorBlocked}
+          onEditorChange={onEditorChange}
         />
       ))}
     </ul>
@@ -1170,6 +1189,9 @@ function SceneObjectRow({
   onEdit,
   onDelete,
   onAttachPlugin,
+  editorParentFlags,
+  editorBlocked,
+  onEditorChange,
 }: {
   forceOpen?: boolean;
   entity: SceneEntity;
@@ -1180,7 +1202,11 @@ function SceneObjectRow({
   onEdit: (entity: SceneEntity) => void;
   onDelete: (id: string) => void;
   onAttachPlugin: (entityId: string, kind: PluginComponentKind) => void;
+  editorParentFlags: SceneEditorFlags;
+  editorBlocked: boolean;
+  onEditorChange?: (id: string, flag: SceneEditorFlag, value: boolean) => void;
 }) {
+  const editorFlags = inheritSceneEditorFlags(entity.editor, editorParentFlags);
   const children = entities.some(candidate => candidate.parentId === entity.id);
   const [expanded, setExpanded] = useState(true);
   const [pluginDropTarget, setPluginDropTarget] = useState(false);
@@ -1190,6 +1216,8 @@ function SceneObjectRow({
       className={`fresh-hierarchy-row${pluginDropTarget ? ' is-plugin-drop-target' : ''}`}
       data-hierarchy-entity-id={entity.id}
       data-testid={`hierarchy-row-${entity.id}`}
+      data-editor-hidden={editorFlags.hidden}
+      data-editor-picking-locked={editorFlags.pickingLocked}
       onDragOver={event => {
         if (!event.dataTransfer.types.includes('application/x-madhorse-plugin')) return;
         event.preventDefault();
@@ -1222,6 +1250,8 @@ function SceneObjectRow({
           </button>
         ) : <span className="fresh-hierarchy-disclosure-spacer" />}
         <SceneObjectGlyph entity={entity} />
+        {entity.id !== PRIMARY_CAMERA_ID && onEditorChange && <SceneEditorControls entity={entity} inherited={editorParentFlags}
+          disabled={editorBlocked} onChange={onEditorChange} />}
         <button
           type="button"
           className="fresh-hierarchy-item"
@@ -1265,6 +1295,9 @@ function SceneObjectRow({
           onEdit={onEdit}
           onDelete={onDelete}
           onAttachPlugin={onAttachPlugin}
+          editorParentFlags={editorFlags}
+          editorBlocked={editorBlocked}
+          onEditorChange={onEditorChange}
         />
       )}
     </li>
@@ -3632,6 +3665,18 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
               blocked={historyBlocked}
               onFocus={focusSelectedObject}
               onDuplicate={duplicateSelectedObject}
+              onEditorChange={(id, flag, value) => {
+                if (historyBlocked) return;
+                setEntities(current => setSceneEditorFlag(current, id, flag, value));
+                setStatus(flag === 'hidden'
+                  ? `${value ? 'Hidden' : 'Shown'} in the scene editor only. Play and exported games are unchanged.`
+                  : `Scene picking ${value ? 'locked' : 'unlocked'}. Hierarchy and Settings remain editable.`);
+              }}
+              onEditorReset={flag => {
+                if (historyBlocked) return;
+                setEntities(current => resetSceneEditorFlag(current, flag));
+                setStatus(flag === 'hidden' ? 'All scene-editor objects are visible again.' : 'All scene picking locks removed.');
+              }}
               entities={entities}
               camera={camera}
               assets={assets}

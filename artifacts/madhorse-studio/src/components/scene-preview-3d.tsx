@@ -1,6 +1,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, events as createPointerEvents, useFrame, useThree } from '@react-three/fiber';
+import { filterSceneEditorHits, getSceneEditorFlags } from '@/lib/scene-editor-state';
 import { Billboard, OrbitControls, TransformControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
@@ -277,7 +278,14 @@ function StandardScenePreview3D({
   const [modelStatuses, setModelStatuses] = useState<Record<string, string>>({});
   const [savedRenderSettings] = useSceneRenderSettings();
   const renderSettings = renderSettingsOverride ?? savedRenderSettings;
-  const skybox = entities.filter(entity => entity.active).map(getSkybox).find(component => component?.enabled);
+  const byId = useMemo(() => new Map(entities.map((entity) => [entity.id, entity])), [entities]);
+  const editorView = !gameView && !readOnly;
+  // R3F may initialize its event manager only once. Read live policy through a
+  // ref so later hide/lock changes and entering Play never use stale flags.
+  const editorPicking = useRef({ byId, editorView });
+  editorPicking.current = { byId, editorView };
+  const skybox = entities.filter(entity => entity.active && (!editorView || !getSceneEditorFlags(entity.id, byId).hidden))
+    .map(getSkybox).find(component => component?.enabled);
   const sceneBackground = skybox?.color ?? (gameView ? '#333538' : renderSettings.background);
   const hasAnimatedEffects = useMemo(() => entities.some(entity => getEffect(entity)?.enabled), [entities]);
   const [mobile, setMobile] = useState(false);
@@ -359,7 +367,6 @@ function StandardScenePreview3D({
     });
   }, []);
 
-  const byId = useMemo(() => new Map(entities.map((entity) => [entity.id, entity])), [entities]);
   const childrenByParent = useMemo(() => {
     const result = new Map<string | null, SceneEntity[]>();
     entities.forEach((entity) => result.set(entity.parentId, [...(result.get(entity.parentId) ?? []), entity]));
@@ -528,6 +535,8 @@ function StandardScenePreview3D({
           onUnavailable={markGraphicsUnavailable}
         >
         <Canvas
+          events={state => ({ ...createPointerEvents(state),
+            filter: hits => filterSceneEditorHits(hits, editorPicking.current.byId, editorPicking.current.editorView) })}
           camera={{ position: [0, 12, -16], fov: 48, near: 0.1, far: 3000 }}
           dpr={webglProfile.dpr}
           shadows={webglProfile.shadows ? { type: THREE.PCFShadowMap } : false}
@@ -584,6 +593,7 @@ function StandardScenePreview3D({
             playerPreviewPosition={playerPreviewPosition}
             transformMode={effectiveMode}
             readOnly={readOnly || (primarySelected && !onPrimaryCameraChange)}
+            editorView={editorView}
             onSelectEntity={selectEntity}
             onTransformCommit={commitTransform}
             onModelError={reportError}
@@ -657,6 +667,7 @@ function StandardScenePreview3D({
 }
 
 type SceneWorldProps = {
+  editorView: boolean;
   primaryCamera?: GameCamera;
   sceneZoom: number;
   frameToken: number;
@@ -830,7 +841,9 @@ function SceneWorld(props: SceneWorldProps) {
             onCameraDragChange={changeCameraDrag} />
         ))}
       </Suspense>
-      {!props.gameView && !props.readOnly && selected && selectedObject && (
+      {!props.gameView && !props.readOnly && selected && selectedObject &&
+        !getSceneEditorFlags(selected.id, props.byId).hidden &&
+        !getSceneEditorFlags(selected.id, props.byId).pickingLocked && (
         <SelectedGizmo
           key={selected.id}
           entity={selected}
@@ -900,8 +913,9 @@ function EntityNode(props: SceneWorldProps & {
   const sprite = getSpriteRenderer(entity);
   const model = getModelRenderer(entity);
   const effective = isEffectivelyActive(entity, props.byId);
+  const editorFlags = props.editorView ? getSceneEditorFlags(entity.id, props.byId) : { hidden: false, pickingLocked: false };
   const selectedEntity = !props.gameView && props.selectedEntityId === entity.id;
-  const canDirectDragCamera = isPrimary && !props.gameView && !props.readOnly;
+  const canDirectDragCamera = isPrimary && !props.gameView && !props.readOnly && !editorFlags.hidden && !editorFlags.pickingLocked;
   const modelAsset = model?.assetId ? props.assets.find((asset) => asset.id === model.assetId) : undefined;
   const modelUrl = model?.assetId ? props.assetUrls[model.assetId] : undefined;
   const spriteUrl = sprite?.assetId ? props.assetUrls[sprite.assetId] : undefined;
@@ -921,12 +935,13 @@ function EntityNode(props: SceneWorldProps & {
     <FighterPartMotion entity={entity} disabled={props.hideVisual}>
     <group
       ref={setGroupRef}
+      visible={!editorFlags.hidden}
       position={position}
       rotation={rotationToThree(isFighterEntity(entity)
         ? { ...transform.rotation, z: -transform.rotation.z } : transform.rotation)}
       scale={[transform.scale.x, transform.scale.z, transform.scale.y]}
       name={entity.name}
-      userData={{ entityId: entity.id }}
+      userData={{ entityId: entity.id, madhorseEntityRoot: true }}
       onClick={(event) => {
         event.stopPropagation();
         if (!props.gameView) props.onSelectEntity(entity.id);

@@ -76,6 +76,7 @@ export function createWebGameData(
     }
   }
   for (const entity of entities) {
+    delete entity.editor;
     for (const component of entity.components) {
       if (component.type === 'script' || component.type === 'multiplayerPlugin') {
         component.enabled = false;

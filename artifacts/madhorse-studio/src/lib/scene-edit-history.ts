@@ -12,6 +12,16 @@ export function describeSceneEdit(before: SceneEditState, after: SceneEditState)
   if (removed.length) return { label: removed.length === 1 ? `Delete ${removed[0].name}` : `Delete ${removed.length} objects`, group: null };
   if (before.entities !== after.entities) {
     const changed = after.entities.filter((entity, index) => entity !== before.entities[index]);
+    if (changed.length === 1) {
+      const entity = changed[0], previous = before.entities.find(item => item.id === entity.id);
+      for (const flag of ['hidden', 'pickingLocked'] as const) {
+        if (Boolean(previous?.editor?.[flag]) !== Boolean(entity.editor?.[flag])) {
+          const action = flag === 'hidden' ? (entity.editor?.hidden ? 'Hide in editor' : 'Show in editor')
+            : (entity.editor?.pickingLocked ? 'Lock scene picking' : 'Unlock scene picking');
+          return { label: `${action}: ${entity.name}`, group: null };
+        }
+      }
+    }
     if (changed.length === 1) return { label: `Edit ${changed[0].name}`, group: `entity:${changed[0].id}` };
     return { label: 'Edit scene', group: null };
   }

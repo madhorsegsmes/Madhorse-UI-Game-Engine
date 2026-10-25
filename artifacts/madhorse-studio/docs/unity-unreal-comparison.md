@@ -82,6 +82,28 @@ draw-range and unsupported attribute meshes also stay original. This does not
 implement skeletal LOD, HLOD, streaming, cross-fades, GI or Nanite. GPU appearance
 and frame-time improvement still need real-hardware validation.
 
+## Scene-editor visibility and picking locks
+
+Hierarchy rows have compact eye and picking-lock controls. Hidden objects and
+their descendants are not drawn in the 3D scene-editor view; locked objects and
+descendants are filtered from pointer intersections and cannot use scene gizmos
+or direct camera dragging. Pointer filtering allows picking objects behind a
+locked object instead of selecting its parent through event bubbling.
+
+These are not security/data locks: Hierarchy, Settings, duplication and deletion
+remain editable. They do not disable an object in the game. Scene-view controls
+are ignored by Play/read-only game views, and editor metadata is stripped from
+web-game exports without dropping the objects. Metadata persists in normal
+project saves, with Undo/Redo and Show all / Unlock all recovery controls. Parent
+flags are inherited; independently hidden children remain hidden when a parent
+is shown again. The virtual primary-camera row has no saved-object controls.
+Hidden groups remain mounted so restoring visibility does not reload imported
+models or repeatedly recreate their GPU resources. This is not asset streaming.
+
+This first pass is for the 3D scene editor, not separate pixel/card-game editing
+surfaces. CPU raycast, storage, export and browser-control checks do not establish
+GPU visual verification of the signed-in editor.
+
 ## Official comparison sources
 
 - Unity 6 layer-based collision detection: https://docs.unity.com/en-us/engine/6000.0/manual/physics-section/physics-overview/collision-section/collision-detection/layer-based-collision

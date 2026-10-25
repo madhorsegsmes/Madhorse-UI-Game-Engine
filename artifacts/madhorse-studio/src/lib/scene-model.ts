@@ -1,6 +1,7 @@
 import { isPlayerActionComponent, type PlayerActionComponent } from './player-action-model';
 import { isCollisionFilter } from './collision-layers';
 import { DEFAULT_MODEL_LOD, isModelLodSettings, type ModelLodSettings } from './model-lod-settings';
+import { isSceneEditorState, type SceneEditorState } from './scene-editor-state';
 import { isGameFeatureComponent, type GameFeatureComponent } from './game-feature-model';
 import { isPbrMaterialDefinition } from './pbr-material';
 export type Vector3 = { x: number; y: number; z: number };
@@ -205,6 +206,8 @@ export type SceneEntity = {
   components: SceneComponent[];
   generatedBy?: 'mad-builder' | 'character-builder';
   isGroup?: boolean;
+  /** Editor visibility/picking only. Never changes game activity or exports. */
+  editor?: SceneEditorState;
   /** Temporary Play Test pose; never applied to saved scene transforms. */
   runtimePose?: import('./fighter-playback').FighterPlayback;
 };
@@ -554,6 +557,7 @@ export function isPhysicsWorldSettings(value: unknown): value is PhysicsWorldSet
 export function isSceneEntity(value: unknown): value is SceneEntity {
   if (!value || typeof value !== 'object') return false;
   const entity = value as SceneEntity;
+  if (entity.editor !== undefined && !isSceneEditorState(entity.editor)) return false;
   if (typeof entity.id !== 'string' || typeof entity.name !== 'string' ||
       (entity.parentId !== null && typeof entity.parentId !== 'string') ||
       typeof entity.active !== 'boolean' || !Array.isArray(entity.components) ||

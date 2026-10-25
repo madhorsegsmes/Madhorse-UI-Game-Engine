@@ -398,6 +398,34 @@ body::-webkit-scrollbar-thumb,
   align-items: center;
   gap: 5px;
 }
+.fresh-editor-object-controls, .fresh-editor-reset-controls {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  align-items: center;
+}
+.fresh-editor-object-controls button {
+  display: inline-flex;
+  width: 21px;
+  height: 23px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: #bda9cf;
+  cursor: pointer;
+}
+.fresh-editor-object-controls button:hover, .fresh-editor-object-controls button:focus-visible {
+  border-color: #b386e7;
+  color: #fff;
+}
+.fresh-editor-object-controls button[aria-pressed="true"] { color: #f1b7ff; background: #35213e; }
+.fresh-editor-object-controls button:disabled { cursor: default; opacity: .55; }
+.fresh-hierarchy-row[data-editor-hidden="true"] > .fresh-hierarchy-row-content > .fresh-hierarchy-item { color: #9987a8; }
+.fresh-hierarchy-actions { flex-wrap: wrap; }
+.fresh-editor-reset-controls button { font-size: 9px; }
 
 .fresh-hierarchy-item {
   display: flex;

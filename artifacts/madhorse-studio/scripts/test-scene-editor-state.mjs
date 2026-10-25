@@ -1,0 +1,80 @@
+import { build } from 'esbuild';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+const temporary = await mkdtemp(join(tmpdir(), 'madhorse-editor-state-'));
+try {
+  const bundle = await build({
+    stdin: { resolveDir: new URL('..', import.meta.url).pathname, loader: 'ts', contents: `
+      import assert from 'node:assert/strict';
+      import * as THREE from 'three';
+      import {createStarterCube,isSceneGraph,isSceneEntity} from './src/lib/scene-model';
+      import {setSceneEditorFlag,resetSceneEditorFlag,getSceneEditorFlags,filterSceneEditorHits} from './src/lib/scene-editor-state';
+      import {SceneEditHistory,describeSceneEdit} from './src/lib/scene-edit-history';
+      import {createWebGameData} from './src/lib/web-game-format';
+      import {createGameCamera} from './src/lib/game-camera';
+      import {DEFAULT_SCENE_RENDER_SETTINGS} from './src/hooks/use-scene-render-settings';
+      import {saveFreshWorkspace,loadFreshWorkspace,removeFreshWorkspace} from './src/lib/fresh-workspace-storage';
+      const parent={...createStarterCube(),id:'parent',name:'Parent'};
+      const child={...createStarterCube(),id:'child',name:'Child',parentId:'parent'};
+      const behind={...createStarterCube(),id:'behind',name:'Behind'};
+      const original=[parent,child,behind];
+      assert(isSceneGraph(original));
+      let entities=setSceneEditorFlag(original,'parent','hidden',true);
+      entities=setSceneEditorFlag(entities,'parent','pickingLocked',true);
+      const byId=new Map(entities.map(entity=>[entity.id,entity]));
+      assert.deepEqual(getSceneEditorFlags('child',byId),{hidden:true,pickingLocked:true});
+      assert.equal(parent.editor,undefined,'Edits do not mutate source objects');
+      assert.equal(entities[0].active,parent.active,'Editor hiding never changes game activity');
+      assert(isSceneGraph(entities));
+      assert(!isSceneEntity({...parent,editor:{hidden:'yes'}}));
+      assert(!isSceneEntity({...parent,editor:[]}));
+      const restored=resetSceneEditorFlag(resetSceneEditorFlag(entities,'hidden'),'pickingLocked');
+      assert.deepEqual(getSceneEditorFlags('child',new Map(restored.map(entity=>[entity.id,entity]))),{hidden:false,pickingLocked:false});
+      const ownChild=setSceneEditorFlag(entities,'child','hidden',true);
+      const parentShown=setSceneEditorFlag(ownChild,'parent','hidden',false);
+      assert.equal(getSceneEditorFlags('child',new Map(parentShown.map(entity=>[entity.id,entity]))).hidden,true,'Showing a parent preserves an independently hidden child');
+      const history=new SceneEditHistory(original);
+      history.record(entities,'Hide / lock',null,100);
+      assert.deepEqual(history.undo().value,original);
+      assert.deepEqual(history.redo().value,entities);
+      const label=describeSceneEdit({entities:original},{entities:setSceneEditorFlag(original,'parent','hidden',true)});
+      assert.equal(label.group,null);assert.match(label.label,/Hide in editor/);
+      const groupA=new THREE.Group(),groupB=new THREE.Group(),scene=new THREE.Scene();
+      groupA.userData={entityId:'parent',madhorseEntityRoot:true};
+      groupB.userData={entityId:'behind',madhorseEntityRoot:true};
+      const meshA=new THREE.Mesh(new THREE.BoxGeometry(),new THREE.MeshBasicMaterial());
+      const meshB=new THREE.Mesh(new THREE.BoxGeometry(),new THREE.MeshBasicMaterial());
+      groupA.add(meshA);groupB.add(meshB);groupB.position.z=-4;scene.add(groupA,groupB);scene.updateMatrixWorld(true);
+      const ray=new THREE.Raycaster(new THREE.Vector3(0,0,5),new THREE.Vector3(0,0,-1));
+      const hits=ray.intersectObjects(scene.children,true);
+      assert(hits.some(hit=>hit.object===meshA)&&hits.some(hit=>hit.object===meshB));
+      const lockedHits=filterSceneEditorHits(hits,byId,true);
+      assert(lockedHits.length&&lockedHits.every(hit=>hit.object===meshB),'Picking passes through locked/hidden objects');
+      assert.equal(filterSceneEditorHits(hits,byId,false),hits,'Game view bypasses editor-only restrictions');
+      const unlockedMap=new Map(original.map(entity=>[entity.id,entity]));
+      assert(filterSceneEditorHits(hits,unlockedMap,true).some(hit=>hit.object===meshA),'Updated flags restore picking');
+      const childObject={userData:{},parent:{userData:{madhorseEntityRoot:true,entityId:'child'}}};
+      assert.equal(filterSceneEditorHits([{object:childObject}],byId,true).length,0,'Inherited flags apply to nested model geometry');
+      const helper={object:{userData:{helper:true}}};
+      assert.equal(filterSceneEditorHits([helper],byId,true)[0],helper,'Unrelated editor helpers remain interactive');
+      const store=new Map();
+      globalThis.window={localStorage:{getItem:key=>store.get(key)??null,setItem:(key,value)=>store.set(key,value),removeItem:key=>store.delete(key)}};
+      const snapshot={entities,camera:createGameCamera(entities),assets:[],animations:[],animationControllers:[],
+        builderHistory:[],builderDraft:null,builderDraftRequest:'',builderBuildLogs:[],prefabs:[],uiControls:[],scripts:[]};
+      saveFreshWorkspace(snapshot,'editor-state-test');
+      assert.deepEqual(loadFreshWorkspace('editor-state-test').entities,entities,'Actual project save/reload preserves editor state');
+      removeFreshWorkspace('editor-state-test');
+      const game=createWebGameData('Editor metadata test',snapshot,DEFAULT_SCENE_RENDER_SETTINGS);
+      assert.equal(game.entities.length,entities.length,'Hidden editor objects remain in the game');
+      assert(game.entities.every(entity=>!('editor' in entity)));
+      assert(entities[0].editor.hidden,'Export stripping cannot mutate saved project metadata');
+      console.log('PASS: inherited hide/locks, independent child visibility, real CPU raycasting through locked objects, game-view bypass, undo/redo, validation, actual storage roundtrip and export privacy.');
+    ` },
+    bundle: true, platform: 'node', format: 'esm', write: false, logLevel: 'silent',
+  });
+  const path = join(temporary, 'test.mjs');
+  await writeFile(path, bundle.outputFiles[0].text);
+  await import(pathToFileURL(path).href);
+} finally { await rm(temporary, { recursive: true, force: true }); }
