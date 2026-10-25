@@ -175,7 +175,10 @@
 .hub-rts-toolbar > span { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
 .hub-rts-toolbar > span:first-child { color: #eee5d2; }
 .hub-rts-toolbar > span:first-child i { width: 5px; height: 5px; border-radius: 50%; background: #c6a65e; box-shadow: 0 0 7px #c6a65e; }
-.hub-rts-svg { display: block; width: 100%; height: calc(100% - 22px); }
+.hub-rts-art { position: relative; display: grid; width: 100%; height: calc(100% - 22px); place-items: center; overflow: hidden; background: #292b20; }
+.hub-rts-art-backdrop { position: absolute; inset: -8%; width: 116%; height: 116%; object-fit: cover; filter: blur(12px) brightness(.48) saturate(.8); }
+.hub-rts-art-image { position: relative; z-index: 1; display: block; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 5px 15px #090c0b99); }
+.hub-rts-svg { display: none; }
 .hub-graphic-workflow { display: flex; align-items: center; justify-content: center; gap: 7px; background: radial-gradient(ellipse at 50% 55%, rgba(156,58,47,.15), transparent 66%), #151618; }
 .hub-workflow-step { position: relative; z-index: 1; width: 65px; height: 57px; display: grid; place-content: center; justify-items: center; gap: 6px; border: 1px solid #59403c; background: #1d1a1b; color: #d98168; }
 .hub-workflow-step b { color: #c9c1bc; font: 7px "DM Mono", monospace; letter-spacing: .08em; }

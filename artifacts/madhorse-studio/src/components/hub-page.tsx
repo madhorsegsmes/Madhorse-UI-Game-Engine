@@ -153,9 +153,13 @@ function RtsGamePreview() {
   return (
     <div className="hub-rts-screen">
       <div className="hub-rts-toolbar">
-        <span><i /> RTS / SUNSTONE VALE</span>
-        <span>HIGH PRESET</span>
-        <span>PLAY TEST</span>
+        <span><i /> RTS / WORLD REFERENCE</span>
+        <span>ISOMETRIC</span>
+        <span>BUILD IN STUDIO</span>
+      </div>
+      <div className="hub-rts-art">
+        <img className="hub-rts-art-backdrop" src={`${basePath}references/default-rts-world.webp`} alt="" />
+        <img className="hub-rts-art-image" src={`${basePath}references/default-rts-world.webp`} alt="" />
       </div>
       <svg className="hub-rts-svg" viewBox="0 0 720 320" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
         <defs>
@@ -358,7 +362,7 @@ export default function HubPage() {
               </div>
               <div className="hub-card-copy">
                 <h3>Strategy World</h3>
-                <p>Start with sculpted terrain, two fortified bases, human squads, living biomes, glass biodomes, animated effects, resources, and editable RTS controls.</p>
+                <p>Use this isometric settlement as a guide for keeps, paths, crop plots, woods, resource sites, and squad routes. Open the editable RTS starter in Studio to customize the world and controls.</p>
               </div>
               <span className="hub-card-link">CREATE RTS PROJECT <ArrowUpRight size={15} /></span>
             </a>
