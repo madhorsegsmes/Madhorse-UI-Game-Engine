@@ -215,6 +215,15 @@ const entries: LibraryEntry[] = [
   },
 ];
 
+function styleId(name: string) {
+  return name.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+export const gameProjectStyleOptions = [
+  ...entries.map(({ name }) => ({ id: styleId(name), label: name })),
+  { id: 'custom-game', label: 'Custom / original game' },
+] as const;
+
 function pdfSafe(value: string) {
   return value
     .replace(/[—–]/g, '-')

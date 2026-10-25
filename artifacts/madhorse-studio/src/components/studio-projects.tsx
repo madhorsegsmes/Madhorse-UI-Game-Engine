@@ -18,11 +18,19 @@ import { useSceneRenderSettings } from '@/hooks/use-scene-render-settings';
 import { defaultFightingAppearancePair, type FightingAppearancePair } from '@/lib/fighter-appearance';
 import { FightingCharacterCustomization } from './fighting-character-customization';
 import { PIXEL_RPG_CONTROLS } from '@/lib/pixel-rpg-starter';
+import {
+  defaultGameProjectSetup,
+  gameStyleLabels,
+  resolveProjectStarter,
+  type GameProjectSetup,
+  type NewProjectStarter,
+} from '@/lib/game-project-setup';
+import { gameProjectStyleOptions } from '@/lib/game-type-library';
 
 const fightingStarterVision = 'A fixed side-view 3D fighting game with detailed human fighters, editable combat actions and HUD, plus imported FBX fighters and high-resolution stage assets.';
 const rtsStarterVision = 'An editable isometric medieval RTS settlement in Sunstone Vale: a fortified keep, terracotta cottages, market roads, crop farms, wooded edges, resource sites, human squads, and an eastern outpost.';
 
-type StarterChoice = '2d-fighting' | 'rts' | 'fps' | 'third-person-shooter' | 'mmorpg' | '2d-rpg' | 'cart-racer' | 'card-duel' | 'basketball' | 'blank';
+type StarterChoice = NewProjectStarter;
 
 function readStarterChoice(): StarterChoice | null {
   const requested = new URLSearchParams(window.location.search).get('starter');
@@ -32,7 +40,7 @@ function readStarterChoice(): StarterChoice | null {
     : null;
 }
 
-function createStarterSnapshot(projectName: string, choice: StarterChoice, fighterAppearances: FightingAppearancePair): {
+function createStarterSnapshot(projectName: string, choice: StarterChoice, fighterAppearances: FightingAppearancePair, setup: GameProjectSetup): {
   snapshot: FreshWorkspaceSnapshot;
   generatedAssets: Array<{ asset: ProjectAsset; file: File }>;
 } {
@@ -44,8 +52,9 @@ function createStarterSnapshot(projectName: string, choice: StarterChoice, fight
   const isCartRacer=choice==='cart-racer';
   const isCardDuel=choice==='card-duel';
   const isBasketball=choice==='basketball',isBlank=choice==='blank';
+  const isRpg=choice==='rpg',isPuzzle=choice==='puzzle';
   const starter = createGameStarterKit(
-    isBlank?'blank':isBasketball?'basketball':isCardDuel ? 'card-duel' : isCartRacer ? 'cart-racer' : isPixelRpg ? 'pixel-rpg' : isFps ? 'shooter' : isRts ? 'rts' : isThirdPerson ? 'third-person-shooter' : isMmorpg ? 'mmorpg' : 'fighting',
+    isBlank?'blank':isBasketball?'basketball':isCardDuel ? 'card-duel' : isCartRacer ? 'cart-racer' : isPixelRpg ? 'pixel-rpg' : isFps ? 'shooter' : isRpg ? 'rpg' : isPuzzle ? 'puzzle' : isRts ? 'rts' : isThirdPerson ? 'third-person-shooter' : isMmorpg ? 'mmorpg' : 'fighting',
     { x: -15, y: 50, z: 0 },
     fighterAppearances,
   );
@@ -68,27 +77,35 @@ function createStarterSnapshot(projectName: string, choice: StarterChoice, fight
   camera.fov = isFps ? 70 : isRts ? 43 : isThirdPerson || isMmorpg || isCartRacer ? 55 : 42;
   camera.placement = 'custom';
   if(isBasketball){camera.position={x:17.25,y:16.8,z:-22.96};camera.target={x:0,y:1,z:0};camera.fov=52;}
-  const uiControls = isPixelRpg || isCartRacer || isCardDuel || isBasketball || isBlank ? [] : createEgoUiKit([isFps || isThirdPerson ? 'shooter' : isRts ? 'rts' : 'fighting'], 0);
-  return {
-    snapshot: {
-      projectName,
-      egoGameVision: isBlank?'':isBasketball?'Sports · 3D Basketball: original Metro Comets versus Harbor Waves in an editable 3v3 arena. A three-minute exhibition with computer teammates and rivals, timed shot release, physical shot arcs, two/three-point scoring, dribbling, passes, interceptions, steals, rebounds and a 24-second possession clock. This is the first sports starter, not a full NBA 2K simulation. Other sports and licensed players are not included.'
+  const uiControls = isPixelRpg || isCartRacer || isCardDuel || isBasketball || isBlank || isRpg || isPuzzle ? [] : createEgoUiKit([isFps || isThirdPerson ? 'shooter' : isRts ? 'rts' : 'fighting'], 0);
+  const baseVision = isBlank?'':isBasketball?'Sports · 3D Basketball: original Metro Comets versus Harbor Waves in an editable 3v3 arena. A three-minute exhibition with computer teammates and rivals, timed shot release, physical shot arcs, two/three-point scoring, dribbling, passes, interceptions, steals, rebounds and a 24-second possession clock. This is the first sports starter, not a full NBA 2K simulation. Other sports and licensed players are not included.'
         : isCardDuel ? 'Card Duel · Astral Nexus: an original three-lane collectible-card duel against Nova, with 20-card decks, 4000 starting life points, opening creatures for beginners, one normal summon each turn, tribute summons, attack/defense positions, spells, reactive wards, a computer opponent, victory/defeat and deck-out rules. Cards, art, deck copies, life and names remain editable. This is an original beginner starter, not a Yu-Gi-Oh rules emulator or licensed card collection.'
         : isCartRacer ? 'Cart Racer Stylized: an original pastel 3D solo kart time trial with an editable turquoise kart, helmeted driver, oval track, candy curbs, checkpoint arches, arcade steering and a three-lap finish. No AI opponents or power-ups are included in this starter.'
         : isPixelRpg ? 'An original color-handheld-style 2D pixel RPG: Mosslight Trail village, grid exploration, talking neighbors, healing, wild creature encounters, turn-based combat, capture orbs, an editable companion and a first capture-and-return quest.'
         : isMmorpg ? 'A multiplayer fantasy role-playing world with a detailed third-person hero, first-person view toggle, settlement, quests, NPCs, melee combat, spells, health, inventory, gathering, crafting, and editable story progression.'
         : isFps ? 'First-person industrial training facility with editable cover, lighting, modular carbine, six targets, collision-aware shooting, ammo, reload, sprint, crouch and jump.'
         : isThirdPerson ? 'Third-person tactical shooter with a detailed human operative, an over-the-shoulder camera, editable cover, a modular carbine, targets, collision-aware shooting, ammo, reload, sprint, crouch, jump, and multiplayer movement.'
-          : isRts ? rtsStarterVision : fightingStarterVision,
+          : isRts ? rtsStarterVision : isRpg ? 'A starter role-playing scene with a player, quest guide, inventory, spells, interactable goal and editable story steps.'
+            : isPuzzle ? 'A starter puzzle scene with a player, collectible key, locked gate, trigger zone and editable visual logic.'
+              : isBlank ? '' : fightingStarterVision;
+  const selectedLabels = gameStyleLabels(setup.gameStyles);
+  const setupNote = `Project format: ${setup.dimension.toUpperCase()}. Selected game styles: ${selectedLabels.join(', ')}. Treat these as the project's intended genre blend while building and editing.`;
+  const vision = `${setupNote}${baseVision ? ` ${baseVision}` : ''}`.slice(0, 500);
+  const notes = `Game format: ${setup.dimension.toUpperCase()}. Selected styles: ${selectedLabels.join(', ')}.${isBlank ? ' Start with an empty scene; use the saved style choices as the direction for the first build.' : ''}`;
+  return {
+    snapshot: {
+      projectName,
+      projectSetup: setup,
+      egoGameVision: vision,
       egoGameFlow: 'undecided',
-      egoGameNotes: isBlank?'':isBasketball?'Click the court to focus. WASD/arrows move, Shift sprints, hold Space then release near the green band to shoot, E passes and switches to the receiver, Q switches home teammates, F tries a nearby steal. On-screen buttons offer the same actions. Stop/replay resets the exhibition. Edit Arena basketball settings for names, match time and court bounds; edit players, hoop rim centers, court meshes, materials and textures in the Hierarchy. Simple exhibition rules only: no fouls, franchise/career mode or online sports matchmaking.'
+      egoGameNotes: `${notes} ${isBlank?'':isBasketball?'Click the court to focus. WASD/arrows move, Shift sprints, hold Space then release near the green band to shoot, E passes and switches to the receiver, Q switches home teammates, F tries a nearby steal. On-screen buttons offer the same actions. Stop/replay resets the exhibition. Edit Arena basketball settings for names, match time and court bounds; edit players, hoop rim centers, court meshes, materials and textures in the Hierarchy. Simple exhibition rules only: no fouls, franchise/career mode or online sports matchmaking.'
         : isCardDuel ? 'Click cards to choose actions. Summon once in Main; tribute one monster for levels 5–6 or two for levels 7–8. Play spells, set wards, choose Battle, then select your attacker and an enemy zone (or Attack directly when their field is empty). No attacks on turn 1. End Turn lets Nova play. Life reaching zero or drawing from an empty deck ends the duel. Stop and replay to reset. In the Hierarchy, rename cards and edit Card Duel settings or replace their Sprite Renderer art. Edit Duel Table for life, names, opening hand, opening monsters and background.'
         : isCartRacer ? 'W/Up: accelerate · S/Down: brake/reverse · A/D or Left/Right: steer. Driving starts automatically. Drive North → West → South → Finish, in order, for three laps. Lap, checkpoint, elapsed and best-lap times appear in Play/Test. Stop and replay to reset. Edit the kart, road, barriers, gate order, laps, speed and steering in the Hierarchy and object settings.'
         : isPixelRpg ? PIXEL_RPG_CONTROLS : isMmorpg
         ? 'MMORPG starter controls: WASD to move, F to fight, Q to cast, H to heal, G to gather, K to craft, U to recruit a companion, Shift to run, C to crouch, E to interact, and V to switch between first- and third-person views. Use Multiplayer Tools to host or join a room (up to 32 players). This is an editable multiplayer starter, not a persistent MMO service.'
         : isFps ? FPS_CONTROLS : isThirdPerson ? THIRD_PERSON_SHOOTER_CONTROLS : isRts
         ? 'RTS starter controls: move with WASD; press T to order nearby allied NPCs to the Market Gate beacon, G to gather a nearby resource cache, K to craft planks, and B to place a temporary construction block. The starting scene is assembled from editable keep, cottage, farm, road, well, forest, resource, and squad pieces. Edit the mission, terrain, buildings, units, and HUD in Studio. This starter is a playable prototype, not a complete commercial RTS: squad selection, pathfinding, and a full economy are not included yet.'
-        : 'Use A/D to move, F/G for attacks, Control to block, Shift to run, and C to crouch. Import a fighter image or FBX/GLB model through Hierarchy → Import asset. Double-click Player Fighter or Training Rival, choose Character type and its asset under Replace fighter · 2D / 3D, then Save Changes. This changes appearance without removing combat or movement. Import FBX or GLB stage models and their image textures for high-resolution environments. Edit health bars and action buttons in the UI builder.',
+        : isRpg ? 'WASD to move, E to interact, and use the starter quest guide, inventory, and spells as a base for your RPG.' : isPuzzle ? 'WASD to move, collect the key, then enter the trigger near the gate. Edit the gate logic and puzzle steps in the scene.' : 'Use A/D to move, F/G for attacks, Control to block, Shift to run, and C to crouch. Import a fighter image or FBX/GLB model through Hierarchy → Import asset. Double-click Player Fighter or Training Rival, choose Character type and its asset under Replace fighter · 2D / 3D, then Save Changes. This changes appearance without removing combat or movement. Import FBX or GLB stage models and their image textures for high-resolution environments. Edit health bars and action buttons in the UI builder.'}`,
       entities: starter.entities,
       camera,
       assets: starter.generatedAssets?.map(({ asset }) => asset) ?? [],
@@ -112,6 +129,42 @@ function clearStarterRequestFromUrl() {
   window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
 }
 
+function suggestedProjectName(choice: StarterChoice | null) {
+  const names: Partial<Record<StarterChoice, string>> = {
+    basketball: 'My 3D Basketball Game',
+    blank: 'My New Game',
+    'card-duel': 'My Card Game',
+    'cart-racer': 'My Cart Racer',
+    '2d-rpg': 'My 2D RPG',
+    mmorpg: 'My MMORPG',
+    fps: 'My FPS Game',
+    'third-person-shooter': 'My Third-Person Shooter',
+    rts: 'My RTS Game',
+    '2d-fighting': 'My Fighting Game',
+    rpg: 'My RPG',
+    puzzle: 'My Puzzle Game',
+  };
+  return choice ? names[choice] ?? 'My New Game' : 'My New Game';
+}
+
+function starterLabel(choice: StarterChoice) {
+  const labels: Record<StarterChoice, string> = {
+    basketball: '3D Basketball',
+    blank: 'Blank Canvas',
+    'card-duel': 'Card Duel',
+    'cart-racer': 'Cart Racer Stylized',
+    '2d-rpg': '2D RPG · Mosslight Trail',
+    mmorpg: 'MMORPG · Sunstone Vale',
+    fps: 'FPS Training Arena',
+    'third-person-shooter': 'Third-Person Shooter · Ironlight Ops',
+    rts: 'RTS · Sunstone Vale',
+    '2d-fighting': 'Fighting Arena',
+    rpg: 'RPG Quest',
+    puzzle: 'Key-and-Gate Puzzle',
+  };
+  return labels[choice];
+}
+
 export default function StudioProjects() {
   const [initial] = useState(() => {
     try { return { registry: loadStudioProjects(), error: '' }; }
@@ -120,6 +173,7 @@ export default function StudioProjects() {
   const [registry, setRegistry] = useState<StudioProjectRegistry | null>(initial.registry);
   const active = registry?.projects.find(project => project.id === registry.activeId);
   const [templateChoice, setTemplateChoice] = useState<StarterChoice | null>(() => readStarterChoice());
+  const [projectSetup, setProjectSetup] = useState<GameProjectSetup>(() => defaultGameProjectSetup(templateChoice));
   const [fighterAppearances, setFighterAppearances] = useState<FightingAppearancePair>(() => ({
     player: { ...defaultFightingAppearancePair.player },
     rival: { ...defaultFightingAppearancePair.rival },
@@ -129,13 +183,7 @@ export default function StudioProjects() {
     if (readStarterChoice()) return 'template';
     return active?.name ? null : 'name';
   });
-  const [draft, setDraft] = useState(() =>
-    templateChoice === 'fps' ? 'My FPS Game'
-      : templateChoice === 'third-person-shooter' ? 'My Third-Person Shooter'
-        : templateChoice === 'mmorpg' ? 'My MMORPG'
-        : templateChoice === 'rts' ? 'My RTS Game'
-          : templateChoice === '2d-fighting' ? 'My 2D/3D Fighting Game' : '',
-  );
+  const [draft, setDraft] = useState(() => templateChoice ? suggestedProjectName(templateChoice) : '');
   const [error, setError] = useState(initial.error);
   const [savingProject, setSavingProject] = useState(false);
   const [exportStatus, setExportStatus] = useState<{ kind: 'progress' | 'success' | 'error'; message: string } | null>(null);
@@ -157,20 +205,33 @@ export default function StudioProjects() {
   }, []);
   const activity = useSyncExternalStore(subscribeSystemActivity, getSystemActivity, getSystemActivity);
   if (!registry || !active) return <main className="studio-project-error" role="alert">{error}</main>;
+  const resolvedStarter = projectSetup.gameStyles.length
+    ? resolveProjectStarter(projectSetup, mode === 'template' ? templateChoice : null)
+    : null;
   function persist(next: StudioProjectRegistry) {
     try { saveStudioProjects(next); setRegistry(next); setError(''); return true; }
     catch { setError('Could not save the project list in this browser. No project was switched or replaced. Check available storage.'); return false; }
   }
   function open(next: 'new' | 'rename') {
     if (menu.current) menu.current.open = false;
-    setDraft(next === 'rename' ? active!.name : ''); setError(''); setMode(next);
+    if (next === 'new') {
+      setTemplateChoice(null);
+      setProjectSetup(defaultGameProjectSetup(null));
+      setDraft(suggestedProjectName(null));
+    } else setDraft(active!.name);
+    setError(''); setMode(next);
   }
   async function submit(event: FormEvent) {
     event.preventDefault();
     let name: string;
     try { name = validateProjectName(draft); } catch (cause) { setError((cause as Error).message); return; }
     if (!registry || !active) return;
-    if (mode === 'template') {
+    if (mode === 'template' || mode === 'new') {
+      if (activity.pending > 0) { setError('Wait for the current operation to finish before creating another project.'); return; }
+      if (!projectSetup.gameStyles.length) {
+        setError('Choose at least one game style. Select Custom / original game if you are starting from your own idea.');
+        return;
+      }
       if (registry.projects.length >= 200) {
         setError('This browser has reached the 200-project limit. Remove or export a project before creating another.');
         return;
@@ -178,9 +239,10 @@ export default function StudioProjects() {
       const id = crypto.randomUUID();
       setSavingProject(true);
       let generatedAssetIds: string[] = [];
+      let starterChoice: StarterChoice = 'blank';
       try {
-        const starterChoice = templateChoice ?? '2d-fighting';
-        const { snapshot, generatedAssets } = createStarterSnapshot(name, starterChoice, fighterAppearances);
+        starterChoice = resolveProjectStarter(projectSetup, mode === 'template' ? templateChoice : null);
+        const { snapshot, generatedAssets } = createStarterSnapshot(name, starterChoice, fighterAppearances, projectSetup);
         generatedAssetIds = generatedAssets.map(({ asset }) => asset.id);
         await Promise.all(generatedAssets.map(({ asset, file }) => saveLocalAsset(id, asset.id, file)));
         saveFreshWorkspace(snapshot, id);
@@ -204,21 +266,17 @@ export default function StudioProjects() {
       } catch (cause) {
         try { removeFreshWorkspace(id); } catch { /* Storage may be unavailable. Existing project data stays untouched. */ }
         await Promise.allSettled(generatedAssetIds.map(assetId => deleteLocalAsset(id, assetId)));
-        const kindLabel = templateChoice === 'mmorpg' ? 'MMORPG' : templateChoice === 'fps' ? 'FPS'
-          : (templateChoice ?? '2d-fighting') === 'rts' ? 'RTS' : 'fighting-game';
+        const kindLabel = starterLabel(starterChoice);
         setError(cause instanceof Error
-          ? `The ${kindLabel} starter could not be saved. Existing projects were left untouched. ${cause.message}`
-          : `The ${kindLabel} starter could not be saved. Existing projects were left untouched.`);
+          ? `The ${kindLabel} project could not be saved. Existing projects were left untouched. ${cause.message}`
+          : `The ${kindLabel} project could not be saved. Existing projects were left untouched.`);
       } finally {
         setSavingProject(false);
       }
       return;
     }
-    if (mode === 'new' && activity.pending > 0) { setError('Wait for the current operation to finish before creating another project.'); return; }
-    const id = mode === 'new' ? crypto.randomUUID() : active.id;
-    const next = mode === 'new'
-      ? { activeId: id, projects: [...registry.projects, { id, name }] }
-      : { ...registry, projects: registry.projects.map(project => project.id === id ? { ...project, name } : project) };
+    const id = active.id;
+    const next = { ...registry, projects: registry.projects.map(project => project.id === id ? { ...project, name } : project) };
     if (persist(next)) { setMode(null); setDraft(''); setExportStatus(null); }
   }
   async function saveProjectFile(snapshot: FreshWorkspaceSnapshot) {
@@ -317,32 +375,57 @@ export default function StudioProjects() {
           }
         }}>
         <h2 id="project-name-heading">{mode === 'template'
-          ? templateChoice === 'blank'?'Name your Blank Canvas project':templateChoice==='basketball'?'Name your 3D Basketball project':templateChoice === 'card-duel' ? 'Name your Card Duel project'
-            : templateChoice === 'cart-racer' ? 'Name your Cart Racer Stylized project'
-            : templateChoice === '2d-rpg' ? 'Name your 2D RPG'
-            : templateChoice === 'mmorpg' ? 'Name your MMORPG'
-            : templateChoice === 'fps' ? 'Name your FPS game'
-            : templateChoice === 'third-person-shooter' ? 'Name your third-person shooter'
-              : templateChoice === 'rts' ? 'Name your RTS project' : 'Name your 2D/3D fighting game'
-          : mode === 'new' ? 'New project' : mode === 'rename' ? 'Rename project' : 'Name your project'}</h2>
-        <p>{mode === 'template'
-          ? templateChoice==='blank'?'Start with an empty scene and no template assets, characters or game rules. All building tools remain available. Your existing projects remain untouched.':templateChoice==='basketball'?'Create an original 3D basketball arena with six athletes, computer teammates and opponents, passing, timed shots, scoring and editable match settings. Your existing projects remain untouched.':templateChoice === 'card-duel' ? 'Create Astral Nexus, an original three-lane card duel with original artwork, editable 20-card decks, monster summons, spells, wards and a playable computer rival. Your existing projects remain untouched.'
-            : templateChoice === 'cart-racer' ? 'Create an original pastel 3D kart time trial: editable kart, colorful oval track, checkpoint arches, three laps, timing and a chase camera. Accelerate with W, brake with S and steer with A/D. Your existing projects remain untouched.'
-            : templateChoice === '2d-rpg' ? 'Create Mosslight Trail: an original color-handheld-style 2D RPG with an editable pixel town, sprites, talking neighbors, healing, creature battles, capture orbs and a first quest. Use WASD/arrows, E to talk and battle keys 1–3. Your other projects remain untouched.'
-            : templateChoice === 'mmorpg' ? 'Create an editable fantasy MMORPG starter with a detailed hero, quest guide, settlement, combat, spells, inventory, gathering, crafting, and a V key to switch between first- and third-person views. Multiplayer rooms support up to 32 players. This is a playable starter, not a persistent MMO service; your other projects remain untouched.'
-            : templateChoice === 'fps' ? 'Create an editable first-person training facility with a modular weapon, six targets, colliding walls and cover, PBR surfaces, lighting, shooting, reload, sprint, crouch, jump, and a HUD. Press Play Test to begin. Your other projects remain untouched.'
-            : templateChoice === 'third-person-shooter' ? 'Create an editable tactical shooter with a detailed human operative, shoulder camera, cover, moving target operatives, shooting, reload, sprint, crouch, jump, and multiplayer movement. Your other projects remain untouched.'
-              : templateChoice === 'rts'
-            ? 'This creates a separate RTS project with an editable strategy map, two bases, squads, resource caches, a rally objective, and a mission HUD. Studio will start with its High render preset; you can change it later. Existing projects stay untouched.'
-            : 'This creates a separate project with a fighting arena, two editable fighters, combat controls, and a Play Test HUD. Change the floor, backdrop, sky, textures, objects, controls, and HUD in Studio. Your other saved projects stay untouched.'
-          : mode === 'new'
-            ? 'Your current project stays saved in this browser.'
-            : 'This name will appear above the scene view. Your scene and files will be kept.'}</p>
+          ? 'Customize your template'
+          : mode === 'new' ? 'Set up a new game' : mode === 'rename' ? 'Rename project' : 'Name your project'}</h2>
+        <p>{mode === 'template' || mode === 'new'
+          ? 'Choose the game format and one or more styles. Madhorse will start with the closest editable template and keep your choices with this project.'
+          : mode === 'rename' ? 'This name will appear above the scene view. Your scene and files will be kept.'
+            : 'Name this browser-saved project before you continue.'}</p>
+        {(mode === 'template' || mode === 'new') && <>
+          <fieldset className="studio-project-format">
+            <legend>1. What type of game are you making?</legend>
+            {(['2d', '3d'] as const).map(dimension =>
+              <label key={dimension} className="studio-project-format-option">
+                <input type="radio" name="project-dimension" value={dimension}
+                  checked={projectSetup.dimension === dimension}
+                  onChange={() => setProjectSetup(current => ({ ...current, dimension }))} />
+                <span><strong>{dimension.toUpperCase()}</strong><small>{dimension === '2d' ? 'Sprites and flat gameplay' : 'A 3D scene and camera'}</small></span>
+              </label>)}
+          </fieldset>
+          <fieldset className="studio-project-styles">
+            <legend>2. Choose one or more game styles</legend>
+            <p className="studio-project-helper">Pick several to mix styles. Choose Custom / original game if you have your own idea.</p>
+            <div className="studio-project-style-list">
+              {gameProjectStyleOptions.map(({ id, label }) => (
+                <label key={id} className="studio-project-style-option">
+                  <input type="checkbox" value={id} checked={projectSetup.gameStyles.includes(id)}
+                    data-testid={`project-style-${id}`}
+                    onChange={() => setProjectSetup(current => ({
+                      ...current,
+                      gameStyles: current.gameStyles.includes(id)
+                        ? current.gameStyles.filter(style => style !== id)
+                        : [...current.gameStyles, id],
+                    }))} />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+            <small className="studio-project-selected-count">
+              {projectSetup.gameStyles.length
+                ? `${projectSetup.gameStyles.length} style${projectSetup.gameStyles.length === 1 ? '' : 's'} selected`
+                : 'Select at least one style'}
+            </small>
+          </fieldset>
+          {resolvedStarter && <div className="studio-project-starter-match" role="status">
+            <strong>Starting setup: {starterLabel(resolvedStarter)}</strong>
+            {resolvedStarter === 'blank' && <span>No ready-made starter matches this format and mix yet. Your project will open with an empty scene and the selected format and styles saved.</span>}
+          </div>}
+        </>}
         <label>Project name
-          <input autoFocus required maxLength={80} value={draft} onChange={event => setDraft(event.target.value)}
-            aria-describedby={error ? 'project-name-error' : undefined} />
+          <input autoFocus={mode !== 'new' && mode !== 'template'} required maxLength={80} value={draft} onChange={event => setDraft(event.target.value)}
+            aria-describedby={error ? 'project-name-error' : undefined} data-testid="input-project-name" />
         </label>
-        {mode === 'template' && templateChoice === '2d-fighting' &&
+        {mode === 'template' && resolvedStarter === '2d-fighting' &&
           <FightingCharacterCustomization value={fighterAppearances} onChange={setFighterAppearances} />}
         {error && <p id="project-name-error" role="alert">{error}</p>}
         <footer>
@@ -354,13 +437,9 @@ export default function StudioProjects() {
             setMode(null);
             setError('');
           }}>Cancel</button>}
-          <button type="submit" disabled={savingProject}>{savingProject ? 'Creating…'
-            : mode === 'template' ? templateChoice === 'mmorpg' ? 'Create MMORPG'
-              : templateChoice === 'fps' ? 'Create FPS game'
-              : templateChoice === 'third-person-shooter' ? 'Create third-person shooter'
-                : templateChoice === 'rts' ? 'Create RTS project'
-                  : templateChoice === '2d-fighting' ? 'Create fighting game' : 'Create project'
-              : mode === 'new' ? 'Create project' : 'Save name'}</button>
+          <button type="submit" disabled={savingProject || ((mode === 'template' || mode === 'new') && !projectSetup.gameStyles.length)}>
+            {savingProject ? 'Creating…' : mode === 'template' || mode === 'new' ? `Create ${draft.trim() || 'project'}` : 'Save name'}
+          </button>
         </footer>
       </form>
     </div>}

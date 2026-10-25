@@ -1798,12 +1798,13 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
   const [egoGameVision, setEgoGameVision] = useState(savedWorkspace.egoGameVision ?? '');
   const [egoGameFlow, setEgoGameFlow] = useState<EgoGameFlow>(savedWorkspace.egoGameFlow ?? 'undecided');
   const [egoGameNotes, setEgoGameNotes] = useState(savedWorkspace.egoGameNotes ?? '');
+  const [projectSetup] = useState(savedWorkspace.projectSetup);
   const [builderBuildLogs, setBuilderBuildLogs] = useState<MadBuilderBuildLog[]>(savedWorkspace.builderBuildLogs ?? []);
   const [prefabs, setPrefabs] = useState<ScenePrefab[]>(savedWorkspace.prefabs ?? []);
   const [uiControls, setUIControls] = useState<UIControlElement[]>(savedWorkspace.uiControls ?? []);
   const [egoScripts, setEgoScripts] = useState<ScriptFile[]>(savedWorkspace.scripts ?? []);
   const latestProjectSnapshot: FreshWorkspaceSnapshot = {
-    projectName, egoGameVision, egoGameFlow, egoGameNotes,
+    projectName, projectSetup, egoGameVision, egoGameFlow, egoGameNotes,
     entities, camera, assets, animations, animationControllers, builderHistory, builderDraft, builderDraftRequest,
     builderBuildLogs, prefabs, uiControls, scripts: egoScripts,
   };
@@ -1820,7 +1821,7 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
   const [modelingSource, setModelingSource] = useState<{ url: string; name: string } | undefined>();
   const [previewEntities, setPreviewEntities] = useState<SceneEntity[] | null>(null);
   const [playTestOn, setPlayTestOn] = useState(false);
-  const [canvasView, setCanvasView] = useState(false);
+  const [canvasView, setCanvasView] = useState(() => savedWorkspace.projectSetup?.dimension === '2d');
   const [activeSceneTool, setActiveSceneTool] = useState<SceneCursorTool | null>(null);
   const [runtimeEntities, setRuntimeEntities] = useState<SceneEntity[] | null>(null);
   const [runtimeCamera, setRuntimeCamera] = useState<GameCamera | null>(null);
@@ -2543,7 +2544,7 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
       setSaveFailed(true);
       setStatus('Could not save the scene data in this browser. Check available storage.');
     }
-  }, [projectId, projectName, egoGameVision, egoGameFlow, egoGameNotes, entities, camera, assets, animations, animationControllers, builderHistory, builderDraft, builderDraftRequest, builderBuildLogs, prefabs, uiControls, egoScripts]);
+  }, [projectId, projectName, projectSetup, egoGameVision, egoGameFlow, egoGameNotes, entities, camera, assets, animations, animationControllers, builderHistory, builderDraft, builderDraftRequest, builderBuildLogs, prefabs, uiControls, egoScripts]);
 
   useEffect(() => {
     if (!playTestOn) {

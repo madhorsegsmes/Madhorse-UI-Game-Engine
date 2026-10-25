@@ -11,12 +11,14 @@ import { isUIControlCollection, type UIControlElement } from './ui-controls';
 import { isScriptFileCollection, type ScriptFile } from './project-scripts';
 import { studioProjectStorageKey } from './studio-projects';
 import { isEgoGameFlow, type EgoGameFlow } from './ego-game-plan';
+import { isGameProjectSetup, type GameProjectSetup } from './game-project-setup';
 
 export const FRESH_WORKSPACE_ID = 'madhorse-studio-fresh-workspace';
 const storageKey = 'madhorse-studio:fresh-workspace:v1';
 
 export type FreshWorkspaceSnapshot = {
   projectName?: string;
+  projectSetup?: GameProjectSetup;
   egoGameVision?: string;
   egoGameFlow?: EgoGameFlow;
   egoGameNotes?: string;
@@ -42,6 +44,7 @@ export function loadFreshWorkspace(projectId = FRESH_WORKSPACE_ID): Partial<Fres
     const value = JSON.parse(stored) as Partial<FreshWorkspaceSnapshot>;
     return {
       ...(typeof value.projectName === 'string' && value.projectName.trim() ? { projectName: value.projectName.trim().slice(0, 80) } : {}),
+      ...(isGameProjectSetup(value.projectSetup) ? { projectSetup: value.projectSetup } : {}),
       ...(typeof value.egoGameVision === 'string' ? { egoGameVision: value.egoGameVision.slice(0, 500) } : {}),
       ...(isEgoGameFlow(value.egoGameFlow) ? { egoGameFlow: value.egoGameFlow } : {}),
       ...(typeof value.egoGameNotes === 'string' ? { egoGameNotes: value.egoGameNotes.slice(0, 400) } : {}),
