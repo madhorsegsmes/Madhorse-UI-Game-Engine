@@ -50,6 +50,8 @@ export type SceneFrameRequest = { targetId: string; token: number };
 const MIN_SCENE_ZOOM = 25;
 const MAX_SCENE_ZOOM = 400;
 export type ScenePreview3DProps = {
+  /** Standalone players use the exported render profile without changing editor preferences. */
+  renderSettingsOverride?: ReturnType<typeof useSceneRenderSettings>[0];
   projectName?: string;
   activeTool?: SceneCursorTool | null;
   primaryCamera?: GameCamera;
@@ -173,6 +175,7 @@ function TriggerZoneOutline({ zone }: { zone: TriggerZoneComponent }) {
 }
 
 export function ScenePreview3D({
+  renderSettingsOverride,
   projectName,
   activeTool,
   primaryCamera,
@@ -199,7 +202,8 @@ export function ScenePreview3D({
 }: ScenePreview3DProps) {
   const [errors, setErrors] = useState<ErrorEntry[]>([]);
   const [modelStatuses, setModelStatuses] = useState<Record<string, string>>({});
-  const [renderSettings] = useSceneRenderSettings();
+  const [savedRenderSettings] = useSceneRenderSettings();
+  const renderSettings = renderSettingsOverride ?? savedRenderSettings;
   const skybox = entities.filter(entity => entity.active).map(getSkybox).find(component => component?.enabled);
   const sceneBackground = skybox?.color ?? (gameView ? '#333538' : renderSettings.background);
   const hasAnimatedEffects = useMemo(() => entities.some(entity => getEffect(entity)?.enabled), [entities]);

@@ -3,6 +3,7 @@ import { Save } from 'lucide-react';
 import BlankWorkspace from './blank-workspace';
 import { loadStudioProjects, saveStudioProjects, validateProjectName, type StudioProjectRegistry } from '@/lib/studio-projects';
 import { exportStudioProject } from '@/lib/project-file';
+import { WebGameExportDialog } from './web-game-export-dialog';
 import type { FreshWorkspaceSnapshot } from '@/lib/fresh-workspace-storage';
 import './studio-projects.css';
 import { getSystemActivity, subscribeSystemActivity } from '@/lib/system-activity';
@@ -125,6 +126,7 @@ export default function StudioProjects() {
   const [error, setError] = useState(initial.error);
   const [savingProject, setSavingProject] = useState(false);
   const [exportStatus, setExportStatus] = useState<{ kind: 'progress' | 'success' | 'error'; message: string } | null>(null);
+  const [webExport, setWebExport] = useState<{ projectId: string; name: string; snapshot: FreshWorkspaceSnapshot } | null>(null);
   const menu = useRef<HTMLDetailsElement>(null);
   const activity = useSyncExternalStore(subscribeSystemActivity, getSystemActivity, getSystemActivity);
   if (!registry || !active) return <main className="studio-project-error" role="alert">{error}</main>;
@@ -240,10 +242,19 @@ export default function StudioProjects() {
           aria-label={savingProject ? 'Saving project file' : 'Save project file'} data-testid="button-save-project">
           <Save size={12} aria-hidden="true" /> {savingProject ? 'Saving…' : 'Save'}
         </button>
+        <button type="button" className="studio-save-project" disabled={disabled}
+          onClick={() => active && setWebExport({ projectId: active.id, name: active.name, snapshot })}
+          title="Package a standalone, single-scene web game" data-testid="button-export-web-game">
+          Export web game
+        </button>
         </>;
       }} />
     {exportStatus && <div className={`studio-project-notice studio-export-notice is-${exportStatus.kind}`}
       role={exportStatus.kind === 'error' ? 'alert' : 'status'}>{exportStatus.message}</div>}
+    {webExport && <WebGameExportDialog {...webExport} onClose={() => {
+      setWebExport(null);
+      requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('[data-testid="button-export-web-game"]')?.focus());
+    }} />}
     {error && !mode && <div className="studio-project-notice" role="alert">{error}</div>}
     {mode && <div className="studio-project-backdrop">
       <form className="studio-project-dialog" role="dialog" aria-modal="true" aria-labelledby="project-name-heading"

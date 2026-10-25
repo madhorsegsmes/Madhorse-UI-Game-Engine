@@ -2,6 +2,7 @@
 
 # compiled output
 /generated-artifacts/
+/artifacts/madhorse-studio/public/game-player/
 dist
 tmp
 out-tsc

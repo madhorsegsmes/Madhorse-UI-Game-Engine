@@ -1,0 +1,23 @@
+*{box-sizing:border-box}html,body,#root{margin:0;width:100%;height:100%;background:#111419;color:#e7ebef;font:13px system-ui,sans-serif}
+button{border:1px solid #65707c;border-radius:4px;background:#252c34;color:#fff;padding:6px 12px;cursor:pointer}
+button:hover{background:#3d4650}button:disabled{opacity:.5;cursor:default}button:focus-visible,summary:focus-visible{outline:2px solid #ff795c;outline-offset:3px}
+.web-game{height:100%;display:flex;flex-direction:column}.web-game-toolbar{display:flex;gap:10px;align-items:center;padding:8px 12px;flex-wrap:wrap;border-bottom:1px solid #555e68;background:#171b20}
+.web-game-toolbar strong{margin-right:auto}.web-game-toolbar>span{color:#adb6bf;font-size:11px}.web-game-stage{position:relative;flex:1;min-height:200px;overflow:hidden}
+.web-game-stage>.mh-scene3d{height:100%;width:100%;min-height:0;border:0;border-radius:0}
+.web-game-stage .mh-scene3d-toolbar,.web-game-stage .mh-scene3d-footer{display:none}
+.web-game-status{padding:6px 12px;background:#171b20;border-top:1px solid #555e68;min-height:28px}
+.web-game-paused{position:absolute;inset:0;background:#080c12a6;display:grid;place-items:center;padding:20px;z-index:15}
+.web-game-paused>div{padding:28px;max-width:560px;background:#171d25f5;border:1px solid #88939f;border-top:3px solid #d74f38;border-radius:6px}
+.web-game-paused h1{font-size:24px;margin:0 0 14px}.web-game-paused p{color:#c6cdd4;line-height:1.6}
+.web-game-paused button{background:#aa3929}.web-game-paused details{margin-top:20px;line-height:1.6;color:#b7c1cb;font-size:12px}
+.web-game-crosshair{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:26px;color:white;text-shadow:0 0 3px #000;pointer-events:none}
+.web-game-error{max-width:680px;margin:10vh auto;padding:30px;border:1px solid #c44e38;line-height:1.6}
+.web-game-ui{position:absolute;display:flex;align-items:center;justify-content:center;overflow:hidden;pointer-events:none;border-radius:4px}
+.web-game-ui progress{position:absolute;inset:0;width:100%;height:100%;accent-color:#c74435}.web-game-ui span{position:relative;z-index:1}
+.web-game-ui button{height:100%;width:100%;background:transparent}.web-game-ui.is-panel{border:1px solid #ffffff44}
+.fresh-action-hud{position:absolute;bottom:14px;left:14px;max-width:min(660px,calc(100% - 28px));max-height:38%;overflow:auto;background:#111923e8;border:1px solid #697683;border-radius:5px;color:#f1f4f7;font-size:12px;z-index:4}
+.fresh-action-hud summary{padding:8px 12px;cursor:pointer}.fresh-action-hud small{color:#aab5c0;margin-left:8px}.fresh-action-hud-body{padding:8px 12px}
+.fresh-action-hud-body>div{margin:5px 0}.fresh-action-keys{display:flex;flex-wrap:wrap;gap:5px}
+.fresh-action-key{display:inline-flex;align-items:center;gap:8px;border:1px solid #65717d;padding:4px 6px;margin:3px;border-radius:3px}
+.fresh-action-key kbd{padding:2px 5px;background:#3a4755;border-radius:3px}.fresh-fight-health-row{display:flex;gap:12px}
+.fresh-fight-health-row>div{flex:1}.fresh-action-hud progress{width:100%;accent-color:#c74435}

@@ -20,3 +20,4 @@
 - [Starter scene verification](starter-scene-verification.md) — exercise advertised controls on the assembled map; valid components alone do not prove a playable starting layout.
 - [Character playback boundary](character-playback-boundary.md) — cache authored surfaces; animate temporary rigs and matching clothing, not saved anatomy.
 - [Gaming PC target](gaming-pc-target.md) — gaming PCs with high-quality graphics by default; preserve explicit existing settings and verify GPU claims separately.
+- [Standalone game export](standalone-game-export.md) — share the real Play/Test runtime, exclude editor/private state, and preserve script isolation in portable builds.
