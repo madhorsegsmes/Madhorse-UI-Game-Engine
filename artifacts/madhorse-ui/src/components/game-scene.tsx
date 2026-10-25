@@ -247,6 +247,7 @@ export function GameScene({
                     top: `${element.y}%`,
                     width: `${element.width}px`,
                     minHeight: `${element.height}px`,
+                    // Saved project order is back-to-front, in Canvas and Play.
                     zIndex: index + 1,
                     color: element.type === 'text' ? element.color : undefined,
                     backgroundColor: element.type === 'health-bar' || element.type === 'text' ? 'transparent' : element.color,

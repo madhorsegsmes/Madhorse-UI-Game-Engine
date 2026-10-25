@@ -25,6 +25,7 @@ export function SystemPanelTools({
   onCreateUIControl,
   onSelectUIControl,
   onUpdateUIControl,
+  onReorderUIControl,
   onDeleteUIControl,
 }: {
   gameCamera: GameCamera;
@@ -43,6 +44,7 @@ export function SystemPanelTools({
   onCreateUIControl: (type: UIControlType) => void;
   onSelectUIControl: (id: string | null) => void;
   onUpdateUIControl: (id: string, changes: Partial<Omit<UIControlElement, 'id' | 'type'>>) => void;
+  onReorderUIControl: (id: string, direction: 'forward' | 'backward') => void;
   onDeleteUIControl: (id: string) => void;
 }) {
   const uiControlsDetailsRef = useRef<HTMLDetailsElement>(null);
@@ -136,9 +138,27 @@ export function SystemPanelTools({
           )}
           {uiControls.find((element) => element.id === selectedUIControlId) && (() => {
             const selected = uiControls.find((element) => element.id === selectedUIControlId)!;
+            const selectedIndex = uiControls.indexOf(selected);
             return (
               <fieldset className="ui-controls-properties" disabled={readOnly}>
                 <legend>Edit {selected.type.replace('-', ' ')}</legend>
+                <div role="group" aria-label="Display order">
+                  <p>Layer {selectedIndex + 1} of {uiControls.length} · Back to front</p>
+                  <div className="ui-controls-position">
+                    <button
+                      type="button"
+                      data-testid="ui-control-move-backward"
+                      disabled={selectedIndex === 0}
+                      onClick={() => onReorderUIControl(selected.id, 'backward')}
+                    >Move backward</button>
+                    <button
+                      type="button"
+                      data-testid="ui-control-move-forward"
+                      disabled={selectedIndex === uiControls.length - 1}
+                      onClick={() => onReorderUIControl(selected.id, 'forward')}
+                    >Move forward</button>
+                  </div>
+                </div>
                 <label>
                   Label
                   <input

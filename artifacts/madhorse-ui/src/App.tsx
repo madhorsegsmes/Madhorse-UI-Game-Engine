@@ -43,7 +43,7 @@ import {
 import { ScriptCreate } from '@/components/script-create';
 import { scriptLanguages, maxScriptSize, maxProjectScriptsSize, movementStarter, scriptStorageError, sourceSize, type ScriptFile } from '@/lib/project-scripts';
 import { loadActiveProjectId, projectStorageKey, saveProjectSnapshotNow, useProjectAutosave } from '@/hooks/use-project-autosave';
-import { createUIControlElement, dispatchUIButtonAction, isUIControlCollection, type UIControlElement, type UIControlType } from '@/lib/ui-controls';
+import { createUIControlElement, dispatchUIButtonAction, isUIControlCollection, reorderUIControl, type UIControlElement, type UIControlType } from '@/lib/ui-controls';
 import { useSceneEditor } from '@/hooks/use-scene-editor';
 import {
   createDefaultPlayer,
@@ -612,6 +612,13 @@ function Home() {
     updateUIControl(id, { x, y });
   }
 
+  function reorderInterfaceElement(id: string, direction: 'forward' | 'backward') {
+    if (isPlayMode || !loadedProjects.canOverwrite) return;
+    const elements = activeProject.uiControls ?? [];
+    const reordered = reorderUIControl(elements, id, direction);
+    if (reordered !== elements) updateActiveProject({ uiControls: reordered });
+  }
+
   function deleteUIControl(id: string) {
     if (isPlayMode) return;
     updateActiveProject({ uiControls: (activeProject.uiControls ?? []).filter((element) => element.id !== id) });
@@ -937,6 +944,7 @@ function Home() {
               uiControls={activeProject.uiControls ?? []}
               selectedUIControlId={selectedUIControlId}
               onAnimationsChange={(animations) => updateActiveProject({ animations })}
+              onReorderUIControl={reorderInterfaceElement}
               onAnimationPreviewFrame={onAnimationPreviewFrame}
               onCreateUIControl={createUIControl}
               onSelectUIControl={setSelectedUIControlId}

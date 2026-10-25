@@ -13,8 +13,27 @@ await build({
   entryPoints: [new URL('../../src/lib/ui-controls.ts', import.meta.url).pathname],
   outfile, bundle: true, platform: 'node', format: 'esm',
 });
-const { createUIControlElement, isUIControlCollection, isUIButtonAction, dispatchUIButtonAction } =
+const { createUIControlElement, isUIControlCollection, isUIButtonAction, dispatchUIButtonAction, reorderUIControl } =
   await import(pathToFileURL(outfile).href);
+
+test('display order moves one layer without mutating controls and survives serialization', () => {
+  const elements = ['text', 'button', 'panel'].map(createUIControlElement);
+  const [back, middle, front] = elements;
+  const forward = reorderUIControl(elements, middle.id, 'forward');
+  assert.deepEqual(forward, [back, front, middle]);
+  assert.deepEqual(elements, [back, middle, front]);
+  assert.equal(forward[2], middle);
+  assert.deepEqual(reorderUIControl(forward, middle.id, 'backward'), elements);
+  assert.deepEqual(reorderUIControl(elements, middle.id, 'backward'), [middle, back, front]);
+  assert.equal(reorderUIControl(elements, back.id, 'backward'), elements);
+  assert.equal(reorderUIControl(elements, front.id, 'forward'), elements);
+  assert.equal(reorderUIControl(elements, 'missing', 'forward'), elements);
+  assert.deepEqual(reorderUIControl([], 'missing', 'backward'), []);
+  assert.equal(reorderUIControl([back], back.id, 'forward')[0], back);
+  const restored = JSON.parse(JSON.stringify(forward));
+  assert.equal(isUIControlCollection(restored), true);
+  assert.deepEqual(restored, [back, front, middle]);
+});
 
 test('legacy controls and each supported button action survive project serialization', () => {
   for (const type of ['text', 'button', 'health-bar', 'panel']) {
@@ -104,6 +123,20 @@ const props = {
 function controlTag(html, id) {
   return html.match(new RegExp(`<button[^>]*data-ui-control-id="${id}"[^>]*>`))?.[0];
 }
+test('Canvas and Play render the saved display order with matching z-indices', () => {
+  const reordered = reorderUIControl(controls, 'stop', 'forward');
+  for (const mode of [
+    { viewMode: '2d', isPlaying: false },
+    { viewMode: '2d', isPlaying: true },
+    { viewMode: '3d', isPlaying: true },
+  ]) {
+    const html = render({ ...props, ...mode, uiControls: reordered });
+    assert.match(controlTag(html, 'reset'), /z-index:1(?:;|")/);
+    assert.match(controlTag(html, 'stop'), /z-index:2(?:;|")/);
+    assert.ok(html.indexOf('data-ui-control-id="reset"') < html.indexOf('data-ui-control-id="stop"'));
+  }
+});
+
 test('Play enables only assigned safe buttons in both scene views; editing stays separate', () => {
   for (const viewMode of ['2d', '3d']) {
     const html = render({ ...props, viewMode, readOnly: true, isPlaying: true });

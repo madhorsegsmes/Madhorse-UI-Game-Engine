@@ -38,6 +38,20 @@ export type UIControlElement = {
 
 const uiControlTypes: UIControlType[] = ['text', 'button', 'health-bar', 'panel'];
 
+// Project array order is the display order: back first, front last.
+export function reorderUIControl(
+  elements: UIControlElement[],
+  id: string,
+  direction: 'forward' | 'backward',
+): UIControlElement[] {
+  const index = elements.findIndex((element) => element.id === id);
+  const destination = index + (direction === 'forward' ? 1 : -1);
+  if (index < 0 || destination < 0 || destination >= elements.length) return elements;
+  const reordered = [...elements];
+  [reordered[index], reordered[destination]] = [reordered[destination], reordered[index]];
+  return reordered;
+}
+
 export function createUIControlElement(type: UIControlType, existingCount: number): UIControlElement {
   const label = type === 'health-bar'
     ? 'Health'

@@ -297,6 +297,39 @@ test('UI Controls create, arrange, edit, and save interface elements with the pr
   await expect(page.getByRole('region', { name: 'PANEL 4 / Play/Test Game' })).toBeVisible();
 });
 
+test('interface layering updates Canvas immediately and survives reload', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('UI Controls', { exact: true }).click();
+  await page.getByTestId('add-ui-control-button').click();
+  await page.getByTestId('input-ui-control-label').fill('Back button');
+  const backId = await page.locator('[data-ui-control-id]').getAttribute('data-ui-control-id');
+  await page.getByTestId('add-ui-control-panel').click();
+  const frontId = await page.locator('[data-ui-control-id]').last().getAttribute('data-ui-control-id');
+  // Put both elements in the same place so the visual order is meaningful.
+  await page.getByTestId('input-ui-control-x').fill('22');
+  await page.getByTestId('input-ui-control-y').fill('22');
+  const backward = page.getByTestId('ui-control-move-backward');
+  const forward = page.getByTestId('ui-control-move-forward');
+  await expect(forward).toBeDisabled();
+  await backward.click();
+  await expect(backward).toBeDisabled();
+  await expect(page.getByTestId(`ui-preview-element-${backId}`)).toHaveCSS('z-index', '2');
+  await expect(page.getByTestId(`ui-preview-element-${frontId}`)).toHaveCSS('z-index', '1');
+  await expect(page.getByTestId(`ui-control-item-${frontId}`)).toHaveAttribute('aria-pressed', 'true');
+  await forward.click();
+  await expect(forward).toBeDisabled();
+  await expect(page.getByTestId(`ui-preview-element-${frontId}`)).toHaveCSS('z-index', '2');
+  await backward.click();
+  await expect.poll(() => page.evaluate(() => {
+    const projects = JSON.parse(localStorage.getItem('madhorse-ui-projects') ?? '[]');
+    const active = localStorage.getItem('madhorse-ui-active-project');
+    return projects.find((project: { id: string }) => project.id === active)?.uiControls?.[0]?.id;
+  })).toBe(frontId);
+  await page.reload();
+  await expect(page.getByTestId(`ui-preview-element-${frontId}`)).toHaveCSS('z-index', '1');
+  await expect(page.getByTestId(`ui-preview-element-${backId}`)).toHaveCSS('z-index', '2');
+});
+
 test('WebGL 2 renderer creates a real graphics canvas', async ({ page }, info) => {
   await page.goto('/');
   await requireWebGL2(page, info);
