@@ -25,15 +25,21 @@ The game-type development library is protected system reference material, availa
 
 **How to apply:** Keep the guide embedded in that settings section, not as an editable project asset or general download. Update its source only as system-maintained reference data.
 
-Prefab definitions are reusable snapshots; placed instances are independent.
+Prefab definitions are reusable snapshots; existing legacy copies are independent.
 Removing or changing a library definition must not silently change existing
 scene instances.
 
 **Why:** Creators may customize placed instances; template management must not
 discard their project edits.
 
-**How to apply:** Any future source-to-instance update needs an explicit user
-action and must preserve or clearly resolve instance-specific edits.
+**How to apply:** Source-to-instance updates need an explicit user action and must
+preserve instance-specific edits. Do not infer links for legacy copies by name.
+Template removals are deliberately retained as instance-local content during
+updates, including removed components and controls.
+
+**Why:** Removing a template member can otherwise silently break local children,
+active cameras, or references that the creator added after placement. Destructive
+removal propagation needs a separate explicit choice rather than a default merge.
 
 One-time starter-scene upgrades must not reseed an object the user removed.
 Mark projects as initialized even when their custom scene is ineligible for the

@@ -36,6 +36,7 @@ import type {
 } from '@/lib/scene-model';
 
 export type ProjectSceneDocument = {
+  prefabLinks?: import('@/lib/prefab-updates').PrefabLink[];
   id: string;
   entities: SceneEntity[];
   assets: ProjectAsset[];

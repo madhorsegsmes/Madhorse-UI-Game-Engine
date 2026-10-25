@@ -18,6 +18,7 @@ import { cameraForEntity, createGameCamera, isGameCamera, type GameCamera } from
 import { applyAnimationPreview } from '@/lib/animation-preview';
 import { PRIMARY_CAMERA_ID, updateCameraEntityTransform } from '@/lib/camera-editor';
 import { isPrefabCollection, type ScenePrefab } from '@/lib/scene-authoring';
+import { isPrefabLinks, type PrefabLink } from '@/lib/prefab-updates';
 import { useSceneAuthoring } from '@/hooks/use-scene-authoring';
 import { useTerrainAuthoring } from '@/hooks/use-terrain-authoring';
 import { TerrainSculptControls } from '@/components/terrain-sculpt-controls';
@@ -84,6 +85,7 @@ type Project = {
   initialPosition?: GamePosition;
   gameCamera?: GameCamera;
   prefabs?: ScenePrefab[];
+  prefabLinks?: PrefabLink[];
   activeCameraId?: string | null;
   builderHistory?: BuilderMessage[];
   builderDraft?: MadBuilderPlan | null;
@@ -146,6 +148,7 @@ function isSavedProject(project: unknown): project is Project {
     (value.uiControls === undefined || isUIControlCollection(value.uiControls)) &&
     (value.gameCamera === undefined || isGameCamera(value.gameCamera)) &&
     (value.prefabs === undefined || isPrefabCollection(value.prefabs)) &&
+    (value.prefabLinks === undefined || isPrefabLinks(value.prefabLinks)) &&
     (value.activeCameraId === undefined || value.activeCameraId === null || typeof value.activeCameraId === 'string') &&
     (value.builderHistory === undefined || isBuilderHistory(value.builderHistory)) &&
     (value.builderDraft === undefined || isBuilderDraft(value.builderDraft)) &&

@@ -146,6 +146,20 @@ export function HierarchyCreationTools(props: HierarchyCreationProps) {
       </Section>
 
       <Section n="2.3" title="PREFABS" testId="section-prefabs">
+        <p className="hct-hint">New placements are linked by ID. Older copies stay independent. Template changes never apply automatically. Saved only in this browser.</p>
+        {props.selectedPrefabId && <>
+          <button type="button" disabled={locked || !prefabs.some(p => p.id === props.selectedPrefabId)}
+            onClick={() => { setNote(''); props.onPreviewPrefabUpdate?.(); }} data-testid="button-preview-prefab-update">Preview update from template</button>
+          {!prefabs.some(p => p.id === props.selectedPrefabId) && <p className="hct-hint">Template removed. This instance and its edits are kept.</p>}
+        </>}
+        {props.prefabUpdate && <div className="hct-confirm" role="alertdialog" aria-label="Preview prefab update">
+          <p>Only the selected instance is updated. Custom edits and placement win conflicts. Local deletions stay deleted.
+            Objects and components removed from the template are kept for safety. Active camera selection and asset IDs are not reassigned.</p>
+          <p>{props.prefabUpdate.affected.length} affected object(s): {props.prefabUpdate.affected.join(', ') || 'None'}.</p>
+          {props.prefabUpdate.kept.length > 0 && <p>Removed from template, kept in scene: {props.prefabUpdate.kept.join(', ')}.</p>}
+          <button type="button" onClick={() => { setNote(''); props.onCancelPrefabUpdate?.(); }} data-testid="button-cancel-prefab-update">Cancel</button>
+          <button type="button" disabled={locked} onClick={() => { setNote(''); props.onConfirmPrefabUpdate?.(); }} data-testid="button-confirm-prefab-update">Apply update</button>
+        </div>}
         <label className="hct-field">
           <span>Prefab name {selected ? <>from <strong>{selected.name}</strong> and children</> : '(select an object)'}</span>
           <input type="text" value={prefabName} maxLength={80} onChange={(e) => setPrefabName(e.target.value)} disabled={locked || !selected}
@@ -160,6 +174,13 @@ export function HierarchyCreationTools(props: HierarchyCreationProps) {
                 <div className="hct-list-row">
                   <span className="hct-list-name" title={p.name}>{p.name}<small>{p.entities.length} obj</small></span>
                   <button type="button" disabled={locked} onClick={() => { props.onInstantiatePrefab(p.id); report(`${p.name} instance placed.`); }} data-testid={`button-instantiate-prefab-${p.id}`}>Place</button>
+                  {props.onRevisePrefab && <button type="button"
+                    disabled={locked || !(selectedEntityId === p.rootId || props.selectedPrefabId === p.id)}
+                    onClick={() => {
+                      if (window.confirm(`Save the selected subtree to template "${p.name}"? Placed instances will not change. You can preview updates separately.`)) {
+                        setNote(''); props.onRevisePrefab?.(p.id);
+                      }
+                    }} data-testid={`button-revise-prefab-${p.id}`}>Save selected to template</button>}
                   <button type="button" className="hct-danger" disabled={locked} onClick={() => setConfirmRemove(p.id)} aria-label={`Remove prefab ${p.name}`} data-testid={`button-remove-prefab-${p.id}`}>Remove</button>
                 </div>
                 {confirmRemove === p.id && (

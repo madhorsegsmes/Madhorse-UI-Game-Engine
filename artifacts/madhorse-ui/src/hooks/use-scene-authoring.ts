@@ -1,5 +1,6 @@
 import { useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
-import { createSceneElement, capturePrefab, instantiatePrefab, generateProjectAsset, type ScenePrefab } from '@/lib/scene-authoring';
+import { createSceneElement, capturePrefab, generateProjectAsset, type ScenePrefab } from '@/lib/scene-authoring';
+import { placeLinkedPrefab, previewPrefabUpdate, revisePrefab } from '@/lib/prefab-updates';
 import { createSceneEntity, getCamera, isSceneComponent, type SceneComponent } from '@/lib/scene-model';
 import { createUIControlElement } from '@/lib/ui-controls';
 import type { ProjectSceneDocument } from './use-scene-editor';
@@ -16,7 +17,15 @@ export function useSceneAuthoring<T extends AuthoringDocument>(options: {
 }): HierarchyCreationProps {
   const { project, selectedEntityId, activeProjectRef } = options;
   const [status, setStatus] = useState('');
+  const [pending, setPending] = useState<{
+    projectId: string; rootId: string; fingerprint: string;
+    result: ReturnType<typeof previewPrefabUpdate>;
+  } | null>(null);
   const blocked = options.readOnly || !options.canOverwrite;
+  const selectedLink = project.prefabLinks?.find(link => link.rootId === selectedEntityId);
+  const fingerprint = JSON.stringify(project);
+  const validPending = pending?.projectId === project.id && pending.rootId === selectedEntityId &&
+    pending.fingerprint === fingerprint ? pending : null;
   function update(change: (latest: T) => T) {
     if (blocked || activeProjectRef.current.id !== project.id) return false;
     options.setProjects((projects) => projects.map((entry) => entry.id === project.id ? change(entry) : entry));
@@ -32,6 +41,39 @@ export function useSceneAuthoring<T extends AuthoringDocument>(options: {
   }
   return {
     entities: project.entities, selectedEntityId, prefabs: project.prefabs ?? [], readOnly: blocked,
+    selectedPrefabId: selectedLink?.templateId,
+    prefabUpdate: validPending ? { affected: validPending.result.affected, kept: validPending.result.kept } : undefined,
+    onRevisePrefab: (id) => {
+      if (blocked || !selectedEntityId) return;
+      try {
+        const source = project.prefabs?.find(p => p.id === id);
+        if (!source) return;
+        const replacement = revisePrefab(source, selectedEntityId, project.entities, project.uiControls ?? [], selectedLink);
+        update(latest => ({ ...latest, prefabs: latest.prefabs?.map(p => p.id === id ? replacement : p) }));
+        setPending(null);
+        setStatus('Saved template changes. No placed instances were changed. Select a linked root to preview an update.');
+      } catch (error) { setStatus(error instanceof Error ? error.message : 'Could not save template.'); }
+    },
+    onPreviewPrefabUpdate: () => {
+      if (blocked || !selectedLink) return;
+      try {
+        const source = project.prefabs?.find(p => p.id === selectedLink.templateId);
+        if (!source) throw new Error('The template was removed. This instance remains intact.');
+        const result = previewPrefabUpdate(project.entities, project.uiControls ?? [], selectedLink, source);
+        setPending({ projectId: project.id, rootId: selectedLink.rootId, fingerprint, result });
+      } catch (error) { setStatus(error instanceof Error ? error.message : 'Could not preview update.'); }
+    },
+    onCancelPrefabUpdate: () => { setPending(null); setStatus('Update cancelled. No objects were changed.'); },
+    onConfirmPrefabUpdate: () => {
+      if (blocked || !validPending) { setPending(null); return; }
+      const { result } = validPending;
+      update(latest => JSON.stringify(latest) !== validPending.fingerprint ? latest : ({
+        ...latest, entities: result.entities, uiControls: result.uiControls,
+        prefabLinks: latest.prefabLinks?.map(link => link.rootId === result.link.rootId ? result.link : link),
+      }));
+      setPending(null);
+      setStatus('Updated from template. Instance edits, placement, removed objects and removed components were kept.');
+    },
     status, activeCameraId: project.activeCameraId && project.entities.some((entity) => entity.id === project.activeCameraId && getCamera(entity))
       ? project.activeCameraId : null,
     onCreate: (kind) => {
@@ -68,12 +110,15 @@ export function useSceneAuthoring<T extends AuthoringDocument>(options: {
     onInstantiatePrefab: (id) => {
       const prefab = project.prefabs?.find((entry) => entry.id === id);
       if (blocked || !prefab) return;
-      const instance = instantiatePrefab(prefab);
+      try {
+      const instance = placeLinkedPrefab(prefab);
       if (update((latest) => ({ ...latest, entities: [...latest.entities, ...instance.entities],
+        prefabLinks: [...(latest.prefabLinks ?? []), instance.link],
         uiControls: [...(latest.uiControls ?? []), ...instance.uiControls] }))) {
         options.onSelectCreatedEntity(instance.rootId);
-        setStatus(`Added an independent instance of ${prefab.name}.`);
+        setStatus(`Added a linked instance of ${prefab.name}. Template updates require your confirmation.`);
       }
+      } catch (error) { setStatus(error instanceof Error ? error.message : 'Could not place prefab.'); }
     },
     onRemovePrefab: (id) => {
       if (update((latest) => ({ ...latest, prefabs: latest.prefabs?.filter((entry) => entry.id !== id) }))) {

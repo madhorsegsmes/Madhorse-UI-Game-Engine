@@ -14,6 +14,12 @@ export type HierarchyCreationProps = {
   onSavePrefab: (name: string) => void;
   onInstantiatePrefab: (id: string) => void;
   onRemovePrefab: (id: string) => void;
+  prefabUpdate?: { affected: string[]; kept: string[] };
+  selectedPrefabId?: string;
+  onRevisePrefab?: (id: string) => void;
+  onPreviewPrefabUpdate?: () => void;
+  onConfirmPrefabUpdate?: () => void;
+  onCancelPrefabUpdate?: () => void;
   onGenerateAsset: (options: GeneratedAssetOptions) => Promise<void>;
   onActivateCamera: (id: string | null) => void;
   onUpdatePrimitive: (id: string, changes: Partial<Pick<PrimitiveComponent, 'color' | 'textureAssetId' | 'heightfield'>>) => void;
