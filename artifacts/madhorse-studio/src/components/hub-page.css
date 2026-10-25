@@ -162,6 +162,7 @@
 .hub-card-graphic { height: 126px; position: relative; margin: 15px 0 14px; overflow: hidden; border: 1px solid rgba(255,255,255,.07); }
 .hub-graphic-fighting { height: 158px; background: #111318; }
 .hub-fight-screen { position: absolute; inset: 0; overflow: hidden; background: #111318; }
+.hub-preview-waiting { display: grid; place-items: center; width: 100%; height: 100%; color: #959aa6; font-size: 11px; background: linear-gradient(135deg,#1c2029,#111318); }
 .hub-fight-toolbar { height: 22px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 8px; border-bottom: 1px solid #383337; background: linear-gradient(90deg, #20191d, #17181c); color: #aaa2a0; font: 7px "DM Mono", monospace; letter-spacing: .08em; }
 .hub-fight-toolbar > span { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
 .hub-fight-toolbar > span:first-child { color: #e7dfdb; }

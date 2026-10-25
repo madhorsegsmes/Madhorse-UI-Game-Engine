@@ -71,6 +71,8 @@ export type ScenePreview3DProps = {
   gameView?: boolean;
   /** Render a still preview on demand instead of keeping the game-view loop active. */
   staticPreview?: boolean;
+  /** Hub thumbnails only: copy a completed GPU frame, then release the scene. */
+  onStaticPreviewCapture?: (image: string) => void;
   gameCamera?: GameCamera;
   graphicsFallback?: ReactNode;
   onGraphicsUnavailable?: (failure: SceneGraphicsFailure) => void;
@@ -215,6 +217,33 @@ export function ScenePreview3D(props: ScenePreview3DProps) {
   return <StandardScenePreview3D {...props} />;
 }
 
+function StaticPreviewCapture({ onCapture }: { onCapture: (image: string) => void }) {
+  const invalidate = useThree(state => state.invalidate);
+  const ready = useRef(false);
+  const captured = useRef(false);
+  const callback = useRef(onCapture);
+  callback.current = onCapture;
+  useEffect(() => {
+    const timer = setTimeout(() => { ready.current = true; invalidate(); }, 1800);
+    return () => clearTimeout(timer);
+  }, [invalidate]);
+  useFrame(({ gl, scene, camera }) => {
+    if (!ready.current || captured.current) return;
+    // Copy in the render frame; preserveDrawingBuffer is unnecessary and would
+    // otherwise increase the editor's GPU memory usage.
+    gl.render(scene, camera);
+    try {
+      const image = gl.domElement.toDataURL('image/webp', .88);
+      captured.current = true;
+      callback.current(image);
+    } catch {
+      // Keep the existing scene visible if the browser disallows capture.
+      captured.current = true;
+    }
+  });
+  return null;
+}
+
 function StandardScenePreview3D({
   renderSettingsOverride,
   projectName,
@@ -222,6 +251,7 @@ function StandardScenePreview3D({
   primaryCamera,
   gameView = false,
   staticPreview = false,
+  onStaticPreviewCapture,
   gameCamera,
   graphicsFallback,
   onGraphicsUnavailable,
@@ -519,6 +549,7 @@ function StandardScenePreview3D({
           }}
         >
         <SceneContextLifecycle onLost={markGraphicsUnavailable} onRestored={markGraphicsReady} />
+        {staticPreview && onStaticPreviewCapture && <StaticPreviewCapture onCapture={onStaticPreviewCapture} />}
         <ScenePhysicalLighting
           enabled={renderSettings.environmentReflections && renderSettings.quality !== 'performance'}
           intensity={renderSettings.reflectionIntensity} />

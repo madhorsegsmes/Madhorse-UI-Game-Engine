@@ -1,5 +1,5 @@
 import { useUser } from '@clerk/react';
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDownRight,
   ArrowRight,
@@ -20,7 +20,8 @@ import { createFightingPreviewCamera } from '@/lib/fighting-preview-camera';
 import { createGameCamera } from '@/lib/game-camera';
 import { getTransform } from '@/lib/scene-model';
 import { DEFAULT_SCENE_RENDER_SETTINGS } from '@/hooks/use-scene-render-settings';
-import { ScenePreview3D } from './scene-preview-3d';
+const ScenePreview3D = lazy(() => import('./scene-preview-3d').then(module => ({ default: module.ScenePreview3D })));
+import { HubTemplateThumbnail } from './hub-template-thumbnail';
 import { SceneRenderFallback } from './scene-render-fallback';
 import { TemplateTutorialLibrary } from './template-tutorial-library';
 
@@ -110,29 +111,24 @@ function templatePreviewCamera(kind: HubStarterKind, aspect: number, playerWorld
 }
 
 function FightingGamePreview({ kind }: { kind: HubStarterKind }) {
+  return <HubTemplateThumbnail kind={kind} lightweight={kind === 'pixel-rpg' || kind === 'card-duel' || kind === 'blank'}
+    header={<TemplatePreviewHeader kind={kind} />}>{onCapture =>
+    <Suspense fallback={<div className="hub-preview-waiting">Loading template preview…</div>}>
+      <TemplateScenePreview kind={kind} onCapture={onCapture} />
+    </Suspense>}
+  </HubTemplateThumbnail>;
+}
+
+function TemplateScenePreview({ kind, onCapture }: { kind: HubStarterKind; onCapture: (image: string) => void }) {
   // Every card renders editable objects from the same starter users receive in Studio.
   const [starter] = useState(() => createGameStarterKit(kind, { x: -15, y: 50, z: 0 }));
   const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
   const stageRef = useRef<HTMLDivElement>(null);
-  const generatedAssets = starter.generatedAssets ?? [];
+  const generatedAssets = useMemo(() => starter.generatedAssets ?? [], [starter]);
   const player = starter.entities.find(entity => entity.id === starter.playerId);
   const playerTransform = player ? getTransform(player).position : { x: 50, y: 50, z: 0 };
   const playerWorld = { x: (playerTransform.x - 50) / 10, z: (playerTransform.y - 50) / 10 };
   const [camera, setCamera] = useState(() => templatePreviewCamera(kind, 16 / 9, playerWorld));
-  const previewLabels: Record<HubStarterKind, [string, string]> = {
-    basketball:['SPORTS · BASKETBALL','EDITABLE 3D ARENA'],
-    blank:['BLANK CANVAS','START FROM SCRATCH'],
-    'card-duel':['CARD DUEL','PLAYER VS COMPUTER'],
-    'cart-racer':['CART RACER STYLIZED','EDITABLE 3D TRACK'],
-    'pixel-rpg': ['2D RPG', 'EDITABLE RPG WORLD'],
-    fighting: ['3D FIGHTERS', 'SIDE-VIEW ARENA'],
-    rts: ['SUNSTONE VALE', 'EDITABLE RTS WORLD'],
-    shooter: ['IRONLIGHT FACILITY', 'FIRST-PERSON RANGE'],
-    'third-person-shooter': ['IRONLIGHT OPS', 'THIRD-PERSON COMBAT'],
-    mmorpg: ['SUNSTONE VALE', 'MMORPG ADVENTURE'],
-  };
-  const [sceneLabel, detailLabel] = previewLabels[kind];
-
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
@@ -156,16 +152,13 @@ function FightingGamePreview({ kind }: { kind: HubStarterKind }) {
 
   return (
     <div className="hub-fight-screen">
-      <div className="hub-fight-toolbar">
-        <span><i /> PLAY TEST</span>
-        <span>{sceneLabel} <b>/</b> {detailLabel}</span>
-        <span>TEMPLATE SCENE</span>
-      </div>
+      <TemplatePreviewHeader kind={kind} />
       <div ref={stageRef} className="hub-fight-model-stage" data-testid={`hub-${kind}-model-preview`}>
         <ScenePreview3D
           projectName={starter.title}
           gameView
           staticPreview
+          onStaticPreviewCapture={onCapture}
           gameCamera={camera}
           primaryCamera={camera}
           entities={starter.entities}
@@ -181,7 +174,7 @@ function FightingGamePreview({ kind }: { kind: HubStarterKind }) {
           graphicsFallback={
             <SceneRenderFallback
               gameView
-              detail="full"
+              detail="thumbnail"
               entities={starter.entities}
               camera={camera}
               settings={fightingFallbackSettings}
@@ -195,6 +188,27 @@ function FightingGamePreview({ kind }: { kind: HubStarterKind }) {
       </div>
     </div>
   );
+}
+
+function TemplatePreviewHeader({ kind }: { kind: HubStarterKind }) {
+  const previewLabels: Record<HubStarterKind, [string, string]> = {
+    basketball:['SPORTS · BASKETBALL','EDITABLE 3D ARENA'],
+    blank:['BLANK CANVAS','START FROM SCRATCH'],
+    'card-duel':['CARD DUEL','PLAYER VS COMPUTER'],
+    'cart-racer':['CART RACER STYLIZED','EDITABLE 3D TRACK'],
+    'pixel-rpg': ['2D RPG', 'EDITABLE RPG WORLD'],
+    fighting: ['3D FIGHTERS', 'SIDE-VIEW ARENA'],
+    rts: ['SUNSTONE VALE', 'EDITABLE RTS WORLD'],
+    shooter: ['IRONLIGHT FACILITY', 'FIRST-PERSON RANGE'],
+    'third-person-shooter': ['IRONLIGHT OPS', 'THIRD-PERSON COMBAT'],
+    mmorpg: ['SUNSTONE VALE', 'MMORPG ADVENTURE'],
+  };
+  const [sceneLabel, detailLabel] = previewLabels[kind];
+  return <div className="hub-fight-toolbar">
+        <span><i /> PLAY TEST</span>
+        <span>{sceneLabel} <b>/</b> {detailLabel}</span>
+        <span>TEMPLATE SCENE</span>
+      </div>;
 }
 
 function RtsGamePreview() {

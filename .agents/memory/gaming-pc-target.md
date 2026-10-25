@@ -34,3 +34,16 @@ color style” while asking to continue the broader engine improvements.
 **How to apply:** Treat crisp, original pixel art as the intended quality target
 for this starter. Keep its Hub preview and playable project consistent. Use
 original creatures and artwork, not copied Pokémon sprites or branding.
+
+## Hub stability versus Studio quality
+
+Treat Hub cards as lightweight template thumbnails, not concurrent full game
+sessions. Do not lower the user's Studio graphics settings to make the gallery cheaper.
+
+**Why:** The user reported preview/browser crashes while the Hub mounted ten full
+3D scenes simultaneously. They still expect high-quality graphics in the editor.
+
+**How to apply:** Bound preview work, release scenes after making their thumbnails,
+and avoid offscreen or hidden-tab rendering. Keep system-template thumbnail caching
+separate from saved projects. Software-browser stability checks do not establish
+gaming-PC GPU stability or rendered quality.
