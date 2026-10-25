@@ -17,15 +17,16 @@ import { getTransform, type ProjectAsset } from '@/lib/scene-model';
 import { useSceneRenderSettings } from '@/hooks/use-scene-render-settings';
 import { defaultFightingAppearancePair, type FightingAppearancePair } from '@/lib/fighter-appearance';
 import { FightingCharacterCustomization } from './fighting-character-customization';
+import { PIXEL_RPG_CONTROLS } from '@/lib/pixel-rpg-starter';
 
 const fightingStarterVision = 'A fixed side-view 3D fighting game with detailed human fighters, editable combat actions and HUD, plus imported FBX fighters and high-resolution stage assets.';
 const rtsStarterVision = 'An editable isometric medieval RTS settlement in Sunstone Vale: a fortified keep, terracotta cottages, market roads, crop farms, wooded edges, resource sites, human squads, and an eastern outpost.';
 
-type StarterChoice = '2d-fighting' | 'rts' | 'fps' | 'third-person-shooter' | 'mmorpg';
+type StarterChoice = '2d-fighting' | 'rts' | 'fps' | 'third-person-shooter' | 'mmorpg' | '2d-rpg';
 
 function readStarterChoice(): StarterChoice | null {
   const requested = new URLSearchParams(window.location.search).get('starter');
-  return requested === 'rts' || requested === '2d-fighting' || requested === 'fps' ||
+  return requested === 'rts' || requested === '2d-fighting' || requested === '2d-rpg' || requested === 'fps' ||
     requested === 'third-person-shooter' || requested === 'mmorpg'
     ? requested
     : null;
@@ -39,8 +40,9 @@ function createStarterSnapshot(projectName: string, choice: StarterChoice, fight
   const isFps = choice === 'fps';
   const isThirdPerson = choice === 'third-person-shooter';
   const isMmorpg = choice === 'mmorpg';
+  const isPixelRpg = choice === '2d-rpg';
   const starter = createGameStarterKit(
-    isFps ? 'shooter' : isRts ? 'rts' : isThirdPerson ? 'third-person-shooter' : isMmorpg ? 'mmorpg' : 'fighting',
+    isPixelRpg ? 'pixel-rpg' : isFps ? 'shooter' : isRts ? 'rts' : isThirdPerson ? 'third-person-shooter' : isMmorpg ? 'mmorpg' : 'fighting',
     { x: -15, y: 50, z: 0 },
     fighterAppearances,
   );
@@ -62,16 +64,17 @@ function createStarterSnapshot(projectName: string, choice: StarterChoice, fight
         : { x: 0, y: 1.2, z: 0 };
   camera.fov = isFps ? 70 : isRts ? 43 : isThirdPerson || isMmorpg ? 55 : 42;
   camera.placement = 'custom';
-  const uiControls = createEgoUiKit([isFps || isThirdPerson ? 'shooter' : isRts ? 'rts' : 'fighting'], 0);
+  const uiControls = isPixelRpg ? [] : createEgoUiKit([isFps || isThirdPerson ? 'shooter' : isRts ? 'rts' : 'fighting'], 0);
   return {
     snapshot: {
       projectName,
-      egoGameVision: isMmorpg ? 'A multiplayer fantasy role-playing world with a detailed third-person hero, first-person view toggle, settlement, quests, NPCs, melee combat, spells, health, inventory, gathering, crafting, and editable story progression.'
+      egoGameVision: isPixelRpg ? 'An original color-handheld-style 2D pixel RPG: Mosslight Trail village, grid exploration, talking neighbors, healing, wild creature encounters, turn-based combat, capture orbs, an editable companion and a first capture-and-return quest.'
+        : isMmorpg ? 'A multiplayer fantasy role-playing world with a detailed third-person hero, first-person view toggle, settlement, quests, NPCs, melee combat, spells, health, inventory, gathering, crafting, and editable story progression.'
         : isFps ? 'First-person industrial training facility with editable cover, lighting, modular carbine, six targets, collision-aware shooting, ammo, reload, sprint, crouch and jump.'
         : isThirdPerson ? 'Third-person tactical shooter with a detailed human operative, an over-the-shoulder camera, editable cover, a modular carbine, targets, collision-aware shooting, ammo, reload, sprint, crouch, jump, and multiplayer movement.'
           : isRts ? rtsStarterVision : fightingStarterVision,
       egoGameFlow: 'undecided',
-      egoGameNotes: isMmorpg
+      egoGameNotes: isPixelRpg ? PIXEL_RPG_CONTROLS : isMmorpg
         ? 'MMORPG starter controls: WASD to move, F to fight, Q to cast, H to heal, G to gather, K to craft, U to recruit a companion, Shift to run, C to crouch, E to interact, and V to switch between first- and third-person views. Use Multiplayer Tools to host or join a room (up to 32 players). This is an editable multiplayer starter, not a persistent MMO service.'
         : isFps ? FPS_CONTROLS : isThirdPerson ? THIRD_PERSON_SHOOTER_CONTROLS : isRts
         ? 'RTS starter controls: move with WASD; press T to order nearby allied NPCs to the Market Gate beacon, G to gather a nearby resource cache, K to craft planks, and B to place a temporary construction block. The starting scene is assembled from editable keep, cottage, farm, road, well, forest, resource, and squad pieces. Edit the mission, terrain, buildings, units, and HUD in Studio. This starter is a playable prototype, not a complete commercial RTS: squad selection, pathfinding, and a full economy are not included yet.'
@@ -304,13 +307,15 @@ export default function StudioProjects() {
           }
         }}>
         <h2 id="project-name-heading">{mode === 'template'
-          ? templateChoice === 'mmorpg' ? 'Name your MMORPG'
+          ? templateChoice === '2d-rpg' ? 'Name your 2D RPG'
+            : templateChoice === 'mmorpg' ? 'Name your MMORPG'
             : templateChoice === 'fps' ? 'Name your FPS game'
             : templateChoice === 'third-person-shooter' ? 'Name your third-person shooter'
               : templateChoice === 'rts' ? 'Name your RTS project' : 'Name your 2D/3D fighting game'
           : mode === 'new' ? 'New project' : mode === 'rename' ? 'Rename project' : 'Name your project'}</h2>
         <p>{mode === 'template'
-          ? templateChoice === 'mmorpg' ? 'Create an editable fantasy MMORPG starter with a detailed hero, quest guide, settlement, combat, spells, inventory, gathering, crafting, and a V key to switch between first- and third-person views. Multiplayer rooms support up to 32 players. This is a playable starter, not a persistent MMO service; your other projects remain untouched.'
+          ? templateChoice === '2d-rpg' ? 'Create Mosslight Trail: an original color-handheld-style 2D RPG with an editable pixel town, sprites, talking neighbors, healing, creature battles, capture orbs and a first quest. Use WASD/arrows, E to talk and battle keys 1–3. Your other projects remain untouched.'
+            : templateChoice === 'mmorpg' ? 'Create an editable fantasy MMORPG starter with a detailed hero, quest guide, settlement, combat, spells, inventory, gathering, crafting, and a V key to switch between first- and third-person views. Multiplayer rooms support up to 32 players. This is a playable starter, not a persistent MMO service; your other projects remain untouched.'
             : templateChoice === 'fps' ? 'Create an editable first-person training facility with a modular weapon, six targets, colliding walls and cover, PBR surfaces, lighting, shooting, reload, sprint, crouch, jump, and a HUD. Press Play Test to begin. Your other projects remain untouched.'
             : templateChoice === 'third-person-shooter' ? 'Create an editable tactical shooter with a detailed human operative, shoulder camera, cover, moving target operatives, shooting, reload, sprint, crouch, jump, and multiplayer movement. Your other projects remain untouched.'
               : templateChoice === 'rts'

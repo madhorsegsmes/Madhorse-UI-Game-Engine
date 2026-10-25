@@ -53,7 +53,12 @@ type CanvasOrbitMode = 'free' | 'y' | 'x';
 export type SceneFrameRequest = { targetId: string; token: number };
 const MIN_SCENE_ZOOM = 25;
 const MAX_SCENE_ZOOM = 400;
+import { isPixelRpgScene } from '@/lib/pixel-rpg-runtime';
+import { PixelRpgViewport } from './pixel-rpg-viewport';
+
 export type ScenePreview3DProps = {
+  /** Explicit playback state for runtimes that also have a non-playing game view. */
+  gameRunning?: boolean;
   /** Standalone players use the exported render profile without changing editor preferences. */
   renderSettingsOverride?: ReturnType<typeof useSceneRenderSettings>[0];
   projectName?: string;
@@ -195,7 +200,13 @@ function TriggerZoneOutline({ zone }: { zone: TriggerZoneComponent }) {
   );
 }
 
-export function ScenePreview3D({
+export function ScenePreview3D(props: ScenePreview3DProps) {
+  if (isPixelRpgScene(props.entities)) return <PixelRpgViewport {...props}
+    playing={Boolean(props.gameRunning ?? (props.gameView && props.readOnly && !props.staticPreview))} />;
+  return <StandardScenePreview3D {...props} />;
+}
+
+function StandardScenePreview3D({
   renderSettingsOverride,
   projectName,
   activeTool,

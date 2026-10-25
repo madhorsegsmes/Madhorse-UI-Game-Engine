@@ -8,6 +8,7 @@ const icons: Record<GameStarterKitId, typeof Crosshair> = {
   shooter: Crosshair,
   'third-person-shooter': Crosshair,
   mmorpg: Globe2,
+  'pixel-rpg': Compass,
   rpg: Swords,
   puzzle: Puzzle,
   fighting: Swords,

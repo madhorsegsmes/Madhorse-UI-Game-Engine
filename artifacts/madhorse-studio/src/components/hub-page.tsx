@@ -71,7 +71,7 @@ const fightingFallbackSettings = {
   background: '#333538',
 };
 
-type HubStarterKind = Extract<GameStarterKitId, 'fighting' | 'rts' | 'shooter' | 'third-person-shooter' | 'mmorpg'>;
+type HubStarterKind = Extract<GameStarterKitId, 'fighting' | 'rts' | 'shooter' | 'third-person-shooter' | 'mmorpg' | 'pixel-rpg'>;
 
 function templatePreviewCamera(kind: HubStarterKind, aspect: number, playerWorld: { x: number; z: number }) {
   if (kind === 'fighting') return createFightingPreviewCamera(aspect);
@@ -114,6 +114,7 @@ function FightingGamePreview({ kind }: { kind: HubStarterKind }) {
   const playerWorld = { x: (playerTransform.x - 50) / 10, z: (playerTransform.y - 50) / 10 };
   const [camera, setCamera] = useState(() => templatePreviewCamera(kind, 16 / 9, playerWorld));
   const previewLabels: Record<HubStarterKind, [string, string]> = {
+    'pixel-rpg': ['MOSSLIGHT TRAIL', 'EDITABLE 2D RPG'],
     fighting: ['3D FIGHTERS', 'SIDE-VIEW ARENA'],
     rts: ['SUNSTONE VALE', 'EDITABLE RTS WORLD'],
     shooter: ['IRONLIGHT FACILITY', 'FIRST-PERSON RANGE'],
@@ -312,21 +313,14 @@ export default function HubPage() {
               <span className="hub-card-link">CREATE MMORPG <ArrowUpRight size={15} /></span>
             </a>
 
-            <a className="hub-pathway-card hub-pathway-workflow" href={studioPath} data-testid="card-workflow">
-              <div className="hub-card-top"><span>06 / THE WORKFLOW</span><span className="hub-card-index"><Layers3 size={16} /></span></div>
-              <div className="hub-card-graphic hub-graphic-workflow" aria-hidden="true">
-                <span className="hub-workflow-step step-idea"><Sparkles size={15} /><b>IDEA</b></span>
-                <span className="hub-workflow-connector connector-one" />
-                <span className="hub-workflow-step step-scene"><Layers3 size={15} /><b>SCENE</b></span>
-                <span className="hub-workflow-connector connector-two" />
-                <span className="hub-workflow-step step-world"><Compass size={15} /><b>WORLD</b></span>
-                <span className="hub-workflow-caption">A clear path from thought to play.</span>
-              </div>
+            <a className="hub-pathway-card hub-pathway-workflow" href={`${studioPath}?starter=2d-rpg`} data-testid="card-pixel-rpg">
+              <div className="hub-card-top"><span>06 / 2D RPG TEMPLATE</span><span className="hub-card-index"><Layers3 size={16} /></span></div>
+              <FightingGamePreview kind="pixel-rpg" />
               <div className="hub-card-copy">
-                <h3>Idea to playable</h3>
-                <p>Move from a first concept into authored scenes and a playable experience, step by step.</p>
+                <h3>2D RPG · Mosslight Trail</h3>
+                <p>Original Game Boy Color–era pixel style: explore a town, talk to neighbors, battle and capture creatures, then complete your first quest. Edit the map, sprites and stats.</p>
               </div>
-              <span className="hub-card-link">START YOUR WORKFLOW <ArrowUpRight size={15} /></span>
+              <span className="hub-card-link">CREATE 2D RPG <ArrowUpRight size={15} /></span>
             </a>
           </div>
         </section>

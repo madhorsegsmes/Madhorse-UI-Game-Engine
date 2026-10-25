@@ -22,3 +22,15 @@ The product goal is to be able to produce AAA-style games.
 **How to apply:** Prioritize rendering, world scale, character animation and
 production reliability, not just additional interface buttons. Keep comparisons
 honest: distinguish working features from missing systems and unverified GPU quality.
+
+## Deliberate pixel-art style
+
+The 2D creature-adventure RPG starter should retain a Game Boy Color-era pixel-art
+style, rather than becoming a realistic 3D scene during general graphics upgrades.
+
+**Why:** The user specifically requested a “2d rpg template like pokemon game boy
+color style” while asking to continue the broader engine improvements.
+
+**How to apply:** Treat crisp, original pixel art as the intended quality target
+for this starter. Keep its Hub preview and playable project consistent. Use
+original creatures and artwork, not copied Pokémon sprites or branding.

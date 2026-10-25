@@ -4,14 +4,16 @@ import { createPluginComponent } from './scene-plugin-catalog';
 import { applyEgoFighterAppearance, createEgoCharacterScene, createEgoClothingTextureAsset } from './character-builder-starter';
 import { defaultFightingAppearancePair, type FightingAppearancePair } from './fighter-appearance';
 import { createFpsStarterKit } from './fps-starter-kit';
+import { createPixelRpgStarter } from './pixel-rpg-starter';
 import {
   createPhysicsComponent, createSceneEntity, createStoryboardComponent, createTransformComponent, getPrimitive, getTransform,
   type EffectComponent, type PrimitiveShape, type ProjectAsset, type SceneEntity, type StoryboardBeat,
   type TerrainBrushEdit, type Vector3, type VisualLogicNode,
 } from './scene-model';
 
-export type GameStarterKitId = 'shooter' | 'third-person-shooter' | 'mmorpg' | 'rpg' | 'puzzle' | 'fighting' | 'rts';
+export type GameStarterKitId = 'shooter' | 'third-person-shooter' | 'mmorpg' | 'rpg' | 'puzzle' | 'fighting' | 'rts' | 'pixel-rpg';
 export const gameStarterKits: { id: GameStarterKitId; title: string; description: string }[] = [
+  { id:'pixel-rpg',title:'2D RPG · Mosslight Trail',description:'An original color-handheld-style pixel village with editable sprites, grid movement, dialogue, healing, wild creatures, turn-based battles, capture orbs and a first quest.' },
   { id: 'shooter', title: 'FPS Training Arena', description: 'A first-person camera with shooting, ammo, targets, health, and a small test arena.' },
   { id: 'third-person-shooter', title: 'Third-Person Shooter · Ironlight Ops', description: 'A detailed human operative, over-the-shoulder camera, cover, shooting, ammo, health, and multiplayer-ready movement.' },
   { id: 'mmorpg', title: 'MMORPG · Sunstone Vale', description: 'An editable fantasy world with a detailed hero, quests, villagers, combat, magic, inventory, crafting, and first- or third-person play.' },
@@ -841,6 +843,7 @@ export function createGameStarterKit(
   generatedAssets?: Array<{ asset: ProjectAsset; file: File }>;
 } {
   const center = { x: anchor.x + 65, y: anchor.y, z: anchor.z };
+  if (kind === 'pixel-rpg') return createPixelRpgStarter(center);
   if (kind === 'fighting') return createFightingStarterKit(center, fightingAppearances);
   if (kind === 'rts') return createRtsStarterKit(center);
   if (kind === 'shooter') return createFpsStarterKit(center);

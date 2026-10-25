@@ -2,7 +2,7 @@ import { actionKeyOptions } from './player-action-model';
 
 export const gameFeatureNames = [
   'health', 'inventory', 'interact', 'pickup', 'door', 'checkpoint',
-  'status-bar', 'message', 'visual-effect',
+  'status-bar', 'message', 'visual-effect', 'creature-rpg',
 ] as const;
 export type GameFeatureName = typeof gameFeatureNames[number];
 export type GameFeatureField = {
@@ -20,6 +20,24 @@ export type GameFeatureComponent = {
   clipAssetId?: string | null; volume?: number;
 };
 export const gameFeatureDefinitions: Record<GameFeatureName, GameFeatureDefinition> = {
+  'creature-rpg': {
+    label: '2D Creature RPG', help: 'A top-down, tile-based RPG role. Edit sprites in Sprite Renderer. Player, neighbors, walls, grass and creature stats drive the shared RPG Play/Test and web-game runtime.',
+    fields: [
+      { name: 'role', label: 'What does this object do?', type: 'select', default: 'decoration', options: [
+        {value:'world',label:'Map backdrop'}, {value:'decoration',label:'Decoration'},
+        {value:'solid',label:'Tree / wall / blocked ground'}, {value:'player',label:'Player'},
+        {value:'npc',label:'Talking neighbor'}, {value:'quest-guide',label:'Quest guide'}, {value:'healer',label:'Healing neighbor'},
+        {value:'grass',label:'Wild encounter grass'}, {value:'creature',label:'Wild creature'}, {value:'companion',label:'Starting companion'},
+      ] },
+      {name:'dialogue',label:'What should they say?',type:'text',default:'Welcome to Mosslight Trail!',min:0,max:240},
+      {name:'creatureName',label:'Creature name',type:'text',default:'Mosskit',min:1,max:32},
+      {name:'maxHealth',label:'Maximum health',type:'number',default:24,min:1,max:999,integer:true},
+      {name:'damage',label:'Attack strength',type:'number',default:6,min:1,max:999,integer:true},
+      {name:'captureBalls',label:'Starting capture orbs',type:'number',default:5,min:0,max:99,integer:true},
+      {name:'encounterSteps',label:'Grass steps before a battle',type:'number',default:4,min:1,max:50,integer:true},
+      {name:'repeatTexture',label:'Repeat this tile texture',type:'boolean',default:false},
+    ],
+  },
   health: {
     label: 'Health & Damage', help: 'Give this player or practice target a health amount. Set contact damage on an NPC to make it hurt a nearby player.',
     fields: [

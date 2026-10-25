@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ScenePreview3D } from '../components/scene-preview-3d';
 import { PlayerActionHud } from '../components/player-action-hud';
+import { isPixelRpgScene } from '../lib/pixel-rpg-runtime';
 import { isWebGameData, type WebGameData } from '../lib/web-game-format';
 import { normalizeSceneRenderSettings } from '../hooks/use-scene-render-settings';
 import { SimulationClock } from '../lib/simulation-clock';
@@ -167,7 +168,7 @@ function GameSession({ game, onRestart }: { game: WebGameData; onRestart: () => 
         <button onClick={switchView} disabled={!running}>View: {perspective} · V</button>}
     </header>
     <div className="web-game-stage" ref={stage} data-testid="standalone-game">
-      <ScenePreview3D projectName={game.name} entities={showEntities} assets={game.assets} assetUrls={assetUrls}
+      <ScenePreview3D projectName={game.name} entities={showEntities} assets={game.assets} assetUrls={assetUrls} gameRunning={running}
         primaryCamera={camera} gameCamera={camera} gameView readOnly selectedEntityId={null}
         renderSettingsOverride={renderSettings} playerPreviewPosition={{ x: 0, y: 0 }} transformMode="translate"
         onSelectEntity={noop} onTransformCommit={noop} onTransformModeChange={noop}
@@ -179,7 +180,7 @@ function GameSession({ game, onRestart }: { game: WebGameData; onRestart: () => 
         {control.type === 'health-bar' && <progress max={hud?.maxHealth ?? 100} value={hud?.health ?? 100} />}
         {control.type === 'button' ? <button disabled title="This UI button has no gameplay binding">{control.label}</button> : <span>{control.label}</span>}
       </div>)}
-      {hud && <PlayerActionHud hud={hud} />}
+      {hud && !isPixelRpgScene(entities) && <PlayerActionHud hud={hud} />}
       {running && perspective === 'first-person' && <span className="web-game-crosshair" aria-label="Crosshair">+</span>}
       {!running && !graphicsFailed && <div className="web-game-paused"><div>
         <h1>{game.name}</h1><p>{graphicsFailed ? 'A WebGL-capable browser is needed to play.' : 'Keyboard controls appear in the game HUD. Click the scene for mouse look in first-person mode.'}</p>

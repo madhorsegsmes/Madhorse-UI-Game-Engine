@@ -8,6 +8,7 @@ import type { Dispatch, DragEvent as ReactDragEvent, KeyboardEvent, MouseEvent, 
 import { Activity, ArrowDown, ArrowUp, Box, Check, ChevronDown, ChevronRight, Circle, Cone, Cylinder, Diamond, Donut, Droplets, FileDown, Folder, Grid2X2, ImagePlus, Mountain, Octagon, Palette, Pentagon, Shapes, Trash2, Triangle, Trees, Upload, Waves, Wrench } from 'lucide-react';
 import { ScenePreview3D, type SceneFrameRequest, type SceneTransformMode } from './scene-preview-3d';
 import { WorkspaceRenderSettings } from './scene-render-settings';
+import { isPixelRpgScene } from '@/lib/pixel-rpg-runtime';
 import type { SceneCursorTool } from './scene-tool-cursor';
 import { MultiplayerToolsPanel } from './multiplayer-tools-panel';
 import { genrePlayerFunctionTools } from '@/lib/player-function-tools';
@@ -190,6 +191,7 @@ function SceneViewport({
         primaryCamera={camera}
         gameCamera={camera}
         gameView={isPlaying || canvasView}
+        gameRunning={isPlaying}
         activeTool={activeTool}
         entities={displayedEntities}
         assets={assets}
@@ -205,7 +207,7 @@ function SceneViewport({
         onPrimaryCameraChange={onCameraChange}
         onSelectPrimaryCamera={() => onSelect(PRIMARY_CAMERA_ID)}
       />
-      {isPlaying && actionHud && <PlayerActionHud hud={actionHud} />}
+      {isPlaying && actionHud && !isPixelRpgScene(entities) && <PlayerActionHud hud={actionHud} />}
       {canTogglePerspective && <div style={{
         position: 'absolute', top: 12, right: 12, padding: '6px 9px', border: '1px solid #54687b',
         borderRadius: 4, background: '#091520df', color: '#e6f2fa', fontSize: 10, pointerEvents: 'none',
