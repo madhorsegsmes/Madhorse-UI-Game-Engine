@@ -1,5 +1,8 @@
 /** Fresh workspace with local scene authoring and an intentionally blank panel layout. */
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useSceneEditHistory } from '@/hooks/use-scene-edit-history';
+import { duplicateSceneSelection, filterSceneHierarchy } from '@/lib/scene-object-actions';
+import { getSystemActivity, subscribeSystemActivity } from '@/lib/system-activity';
 import { createPortal } from 'react-dom';
 import type { Dispatch, DragEvent as ReactDragEvent, KeyboardEvent, MouseEvent, ReactNode, SetStateAction } from 'react';
 import { Activity, ArrowDown, ArrowUp, Box, Check, ChevronDown, ChevronRight, Circle, Cone, Cylinder, Diamond, Donut, Droplets, FileDown, Folder, Grid2X2, ImagePlus, Mountain, Octagon, Palette, Pentagon, Shapes, Trash2, Triangle, Trees, Upload, Waves, Wrench } from 'lucide-react';
@@ -940,6 +943,9 @@ function HierarchyPanel({
   onAttachPluginSet,
   onOpenCharacterBuilder,
   actions,
+  blocked,
+  onFocus,
+  onDuplicate,
 }: {
   entities: SceneEntity[];
   camera: GameCamera;
@@ -951,11 +957,18 @@ function HierarchyPanel({
   onAttachPluginSet: (entityId: string, kinds: PluginComponentKind[], label: string) => void;
   onOpenCharacterBuilder: () => void;
   actions: HierarchyActions;
+  blocked: boolean;
+  onFocus: () => void;
+  onDuplicate: () => void;
 }) {
   const [sceneExpanded, setSceneExpanded] = useState(true);
   const [menuPoint, setMenuPoint] = useState<HierarchyMenuPoint | null>(null);
   const [menuEntityId, setMenuEntityId] = useState<string | null>(null);
   const sceneEntities = [primaryCameraEntity(camera), ...entities];
+  const [search, setSearch] = useState('');
+  const filtering = Boolean(search.trim());
+  const filtered = filterSceneHierarchy(sceneEntities, search);
+  const canAct = !blocked && entities.some(entity => entity.id === selection);
 
   function openMenu(x: number, y: number, entityId: string | null = null) {
     setMenuEntityId(entityId);
@@ -992,7 +1005,7 @@ function HierarchyPanel({
     const childNotice = descendantCount
       ? ` This will also delete ${descendantCount} child object${descendantCount === 1 ? '' : 's'}.`
       : '';
-    if (!window.confirm(`Delete "${entity.name}"?${childNotice} This cannot be undone.`)) return;
+    if (!window.confirm(`Delete "${entity.name}"?${childNotice} You can use Undo to restore it during this editing session.`)) return;
     actions.onDeleteEntity(entityId);
   }
 
@@ -1005,18 +1018,29 @@ function HierarchyPanel({
       aria-description="Right-click to create scene objects, delete an object, import assets, or open the animation timeline. Use the trash button to delete an object. Double-click or double-tap an object to rename it and edit its settings."
       onContextMenu={handleContextMenu} onKeyDown={handleKeyDown}>
       <h2 className="fresh-hierarchy-heading">Hierarchy</h2>
+      <div className="fresh-hierarchy-search">
+        <input type="search" aria-label="Search hierarchy" placeholder="Find object…" maxLength={120}
+          value={search} onChange={event => setSearch(event.currentTarget.value)} data-testid="hierarchy-search" />
+        {search && <button type="button" aria-label="Clear hierarchy search" onClick={() => setSearch('')}>×</button>}
+      </div>
+      <div className="fresh-hierarchy-actions" role="group" aria-label="Selected object actions">
+        <button type="button" disabled={!canAct} onClick={onFocus} title="Center the scene view on the selected object (F)" data-testid="button-focus-object">Focus <kbd>F</kbd></button>
+        <button type="button" disabled={!canAct} onClick={onDuplicate} title="Copy the selected object and its children (Ctrl/Cmd+D). Assets and script files stay shared." data-testid="button-duplicate-object">Duplicate <kbd>Ctrl+D</kbd></button>
+      </div>
+      {filtering && <p className="fresh-hierarchy-search-count" role="status">{filtered.matches} matching object{filtered.matches === 1 ? '' : 's'}</p>}
       <button
         type="button"
         className="fresh-scene-root"
-        aria-expanded={sceneExpanded}
+        aria-expanded={sceneExpanded || filtering}
         onClick={() => setSceneExpanded(value => !value)}
       >
         {sceneExpanded ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
         <span>Scene 1</span>
       </button>
-      {sceneExpanded && (
+      {(sceneExpanded || filtering) && (
         <SceneObjectRows
-          entities={sceneEntities}
+          entities={filtered.entities}
+          forceOpen={filtering}
           parentId={null}
           depth={0}
           selection={selection}
@@ -1026,7 +1050,8 @@ function HierarchyPanel({
           onAttachPlugin={onAttachPlugin}
         />
       )}
-      <p className="fresh-hierarchy-help">Right-click to add or delete objects. Use the trash icon to delete an object. Double-tap an object to rename it and edit its settings.</p>
+      {filtering && filtered.matches === 0 && <p className="fresh-hierarchy-help">No matching objects. Clear the search to show the scene.</p>}
+      <p className="fresh-hierarchy-help">Right-click to create. Double-click an object to edit.</p>
       {menuPoint && (
         <HierarchyContextMenu
           point={menuPoint}
@@ -1088,6 +1113,7 @@ type HierarchyActions = {
 };
 
 function SceneObjectRows({
+  forceOpen = false,
   entities,
   parentId,
   depth,
@@ -1097,6 +1123,7 @@ function SceneObjectRows({
   onDelete,
   onAttachPlugin,
 }: {
+  forceOpen?: boolean;
   entities: SceneEntity[];
   parentId: string | null;
   depth: number;
@@ -1112,6 +1139,7 @@ function SceneObjectRows({
     <ul className="fresh-hierarchy-list" role="group">
       {rows.map(entity => (
         <SceneObjectRow
+          forceOpen={forceOpen}
           key={entity.id}
           entity={entity}
           entities={entities}
@@ -1128,6 +1156,7 @@ function SceneObjectRows({
 }
 
 function SceneObjectRow({
+  forceOpen = false,
   entity,
   entities,
   depth,
@@ -1137,6 +1166,7 @@ function SceneObjectRow({
   onDelete,
   onAttachPlugin,
 }: {
+  forceOpen?: boolean;
   entity: SceneEntity;
   entities: SceneEntity[];
   depth: number;
@@ -1178,11 +1208,12 @@ function SceneObjectRow({
           <button
             type="button"
             className="fresh-hierarchy-disclosure"
-            aria-label={`${expanded ? 'Collapse' : 'Expand'} ${entity.name}`}
-            aria-expanded={expanded}
+            aria-label={`${expanded || forceOpen ? 'Collapse' : 'Expand'} ${entity.name}`}
+            aria-expanded={expanded || forceOpen}
+            disabled={forceOpen}
             onClick={() => setExpanded(value => !value)}
           >
-            {expanded ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}
+            {expanded || forceOpen ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}
           </button>
         ) : <span className="fresh-hierarchy-disclosure-spacer" />}
         <SceneObjectGlyph entity={entity} />
@@ -1218,8 +1249,9 @@ function SceneObjectRow({
           </button>
         )}
       </div>
-      {expanded && (
+      {(expanded || forceOpen) && (
         <SceneObjectRows
+          forceOpen={forceOpen}
           entities={entities}
           parentId={entity.id}
           depth={depth + 1}
@@ -1783,6 +1815,56 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
   const [panel5PlaneOptions, setPanel5PlaneOptions] = useState<ModelCreateOptions | null>(null);
   const [status, setStatus] = useState('');
   const [debuggerOpen, setDebuggerOpen] = useState(false);
+  const systemActivity = useSyncExternalStore(subscribeSystemActivity, getSystemActivity, getSystemActivity);
+  const historyBlocked = playTestOn || saveFailed || modelingOpen || systemActivity.pending > 0;
+  const authoredState = useMemo(() => ({
+    entities, camera, assets, animations, animationControllers, prefabs, uiControls, scripts: egoScripts,
+  }), [entities, camera, assets, animations, animationControllers, prefabs, uiControls, egoScripts]);
+  const editHistory = useSceneEditHistory(authoredState, next => {
+    setEntities(next.entities); setCamera(next.camera); setAssets(next.assets);
+    animationsRef.current = next.animations; setAnimations(next.animations);
+    animationControllersRef.current = next.animationControllers; setAnimationControllers(next.animationControllers);
+    setPrefabs(next.prefabs); setUIControls(next.uiControls); setEgoScripts(next.scripts);
+    setPreviewEntities(null);
+    setSelection(current => current === PRIMARY_CAMERA_ID || next.entities.some(entity => entity.id === current) ? current : null);
+    setEditingEntityId(null); setEditingScriptableObjectId(null); setEditingPbrMaterialId(null);
+  }, historyBlocked, setStatus);
+  const focusSelectedObject = useCallback(() => {
+    if (historyBlocked || !entities.some(entity => entity.id === selection)) return;
+    setCanvasView(false);
+    setCharacterFrameRequest(previous => ({ targetId: selection!, token: (previous?.token ?? 0) + 1 }));
+    setStatus('Scene view centered on the selected object. Your Game Camera has not moved.');
+  }, [historyBlocked, entities, selection]);
+  const duplicateSelectedObject = useCallback(() => {
+    if (historyBlocked || !selection || !entities.some(entity => entity.id === selection)) return;
+    try {
+      const copy = duplicateSceneSelection(authoredState, selection);
+      setEntities(copy.state.entities);
+      animationsRef.current = copy.state.animations; setAnimations(copy.state.animations);
+      animationControllersRef.current = copy.state.animationControllers; setAnimationControllers(copy.state.animationControllers);
+      setUIControls(copy.state.uiControls);
+      setSelection(copy.rootId);
+      setStatus(`Duplicated ${copy.count} object${copy.count === 1 ? '' : 's'} at the same position. Use Move to position the copy. Undo is available.`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not duplicate this object. No scene changes were made.');
+    }
+  }, [authoredState, historyBlocked, entities, selection]);
+  useEffect(() => {
+    const handleObjectShortcut = (event: globalThis.KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat || event.altKey || historyBlocked) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"], [role="textbox"], [role="dialog"], [role="alertdialog"]')
+        || document.querySelector('[aria-modal="true"]')) return;
+      if (!selection || !entities.some(entity => entity.id === selection)) return;
+      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'd') {
+        event.preventDefault(); duplicateSelectedObject();
+      } else if (!event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === 'f') {
+        event.preventDefault(); focusSelectedObject();
+      }
+    };
+    window.addEventListener('keydown', handleObjectShortcut);
+    return () => window.removeEventListener('keydown', handleObjectShortcut);
+  }, [historyBlocked, selection, entities, duplicateSelectedObject, focusSelectedObject]);
   useEffect(() => {
     if (status) publishStatus('editor', status);
   }, [status]);
@@ -3455,13 +3537,25 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
   return (
     <main className="fresh-layout" aria-label="Blank Madhorse workspace">
       <div className="fresh-toolbar" role="toolbar" aria-label="Workspace tools">
+        <button type="button" className="fresh-canvas-button" data-testid="button-scene-preview"
+          aria-pressed={!canvasView && !playTestOn} aria-controls="fresh-panel-1"
+          title="Switch to the editable 3D scene preview" disabled={playTestOn}
+          onClick={() => setCanvasView(false)}>Scene Preview</button>
         <button type="button" className="fresh-canvas-button" data-testid="button-canvas"
-          aria-pressed={canvasView} aria-controls="fresh-panel-1"
-          title={canvasView ? 'Return to the 3D scene view' : 'Show the live Game Camera canvas'}
-          disabled={playTestOn} onClick={() => setCanvasView(value => !value)}>
-          <Grid2X2 size={12} aria-hidden="true" /> Canvas
+          aria-pressed={canvasView || playTestOn} aria-controls="fresh-panel-1"
+          title="Show the live Game Camera canvas"
+          disabled={playTestOn} onClick={() => setCanvasView(true)}>
+          <Grid2X2 size={12} aria-hidden="true" /> Game Canvas
         </button>
         {projectControls(playTestOn || saveFailed, latestProjectSnapshot)}
+        <button type="button" className="fresh-canvas-button" data-testid="button-undo"
+          disabled={!editHistory.canUndo || historyBlocked}
+          title={editHistory.notice || (editHistory.canUndo ? `Undo: ${editHistory.undoLabel} (Ctrl/Cmd+Z)` : 'Nothing to undo in this session')}
+          onClick={editHistory.undo}>Undo</button>
+        <button type="button" className="fresh-canvas-button" data-testid="button-redo"
+          disabled={!editHistory.canRedo || historyBlocked}
+          title={editHistory.canRedo ? `Redo: ${editHistory.redoLabel} (Ctrl+Y / Ctrl/Cmd+Shift+Z)` : 'Nothing to redo'}
+          onClick={editHistory.redo}>Redo</button>
         <WorkspaceRenderSettings />
         <button
           type="button"
@@ -3529,6 +3623,9 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
             />
           ) : number === 2 ? (
             <HierarchyPanel
+              blocked={historyBlocked}
+              onFocus={focusSelectedObject}
+              onDuplicate={duplicateSelectedObject}
               entities={entities}
               camera={camera}
               assets={assets}

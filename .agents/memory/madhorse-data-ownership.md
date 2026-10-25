@@ -56,3 +56,17 @@ project growth.
 **How to apply:** Keep diagnostic collection bounded and session-local. Offer
 explicit report downloads, sanitize credential-like strings, and never include
 request bodies, headers, or browser-storage dumps in automatic capture.
+
+Authoring Undo/Redo is session-local and separate from simulated game state,
+assistant audit logs, and protected system knowledge. Imported file bytes must
+remain available while an undo or redo step can reference them.
+
+**Why:** Rewinding an edit must restore a usable object, not metadata pointing to
+deleted files. Recording Play/Test motion as authored edits would overwrite the
+creator's scene, while saving history indefinitely adds private source and size
+to project files unnecessarily.
+
+**How to apply:** Include linked project metadata in the same scene transaction,
+retain the referenced asset-vault bytes, and make future asset garbage collection
+aware of active history. Keep history bounded and reset it between project editing
+sessions; never use it to modify engine reference definitions.

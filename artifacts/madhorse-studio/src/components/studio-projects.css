@@ -7,7 +7,8 @@
 .studio-project-menu summary { padding: 4px 8px; border: 1px solid #765691; background: #191122; cursor: pointer; }
 .studio-project-menu-body { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; display: grid; gap: 4px; width: 210px; max-height: 65vh; overflow: auto; padding: 8px; background: #171020; border: 1px solid #9972b5; box-shadow: 0 8px 24px #0008; }
 .studio-project-menu-body button { overflow: hidden; padding: 7px 9px; background: #261a31; border: 1px solid #604276; color: #f2e6fa; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; font: inherit; }
-.studio-project-menu-body button[aria-current] { border-color: #ce94f4; background: #47265a; }
+.studio-project-menu-body button[aria-current="true"] { border-color: #ce94f4; background: #47265a; }
+.studio-project-menu-body button small { display: block; color: #c5b6cc; margin-top: 3px; }
 .studio-project-menu-body button:disabled { opacity: .5; cursor: default; }
 .studio-project-menu-body span { margin: 7px 0 2px; color: #bc9cce; }
 .studio-project-backdrop { position: fixed; inset: 0; z-index: 2700; display: grid; place-items: center; background: #080510d9; }

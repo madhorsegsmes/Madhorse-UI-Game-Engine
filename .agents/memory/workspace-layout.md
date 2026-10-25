@@ -188,3 +188,11 @@ collects data, and keep the screen awake while the editor is being used.
 **How to apply:** New data-loading paths must participate in the global activity
 indicator. Do not trigger extra refreshes just to animate it. Respect browser
 wake-lock restrictions and never claim the screen is awake when acquisition fails.
+
+Keep interface additions simple, using the established panel layout.
+
+**Why:** The user said, “feel free to add more to the interface that we need just
+keep the layout simple.”
+
+**How to apply:** Prefer compact controls inside existing panels. Do not resize
+or rearrange panels just to add another utility; avoid extra permanent help boxes.

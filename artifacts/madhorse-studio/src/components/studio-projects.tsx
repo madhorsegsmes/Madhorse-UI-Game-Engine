@@ -1,4 +1,4 @@
-import { useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 import { Save } from 'lucide-react';
 import BlankWorkspace from './blank-workspace';
 import { loadStudioProjects, saveStudioProjects, validateProjectName, type StudioProjectRegistry } from '@/lib/studio-projects';
@@ -128,6 +128,20 @@ export default function StudioProjects() {
   const [exportStatus, setExportStatus] = useState<{ kind: 'progress' | 'success' | 'error'; message: string } | null>(null);
   const [webExport, setWebExport] = useState<{ projectId: string; name: string; snapshot: FreshWorkspaceSnapshot } | null>(null);
   const menu = useRef<HTMLDetailsElement>(null);
+  const wasWebExportOpen = useRef(false);
+  useEffect(() => {
+    if (!webExport && wasWebExportOpen.current) {
+      menu.current?.querySelector<HTMLElement>('summary')?.focus({ preventScroll: true });
+    }
+    wasWebExportOpen.current = webExport !== null;
+  }, [webExport]);
+  useEffect(() => {
+    const outside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !menu.current?.contains(event.target) && menu.current) menu.current.open = false;
+    };
+    document.addEventListener('pointerdown', outside);
+    return () => document.removeEventListener('pointerdown', outside);
+  }, []);
   const activity = useSyncExternalStore(subscribeSystemActivity, getSystemActivity, getSystemActivity);
   if (!registry || !active) return <main className="studio-project-error" role="alert">{error}</main>;
   function persist(next: StudioProjectRegistry) {
@@ -224,11 +238,38 @@ export default function StudioProjects() {
       projectControls={(readOnly, snapshot) => {
         const disabled = readOnly || activity.pending > 0 || savingProject;
         return <>
-        <details className="studio-project-menu" ref={menu}>
-        <summary>Project</summary>
+        <details className="studio-project-menu" ref={menu} onKeyDown={event => {
+          if (event.key === 'Escape') {
+            event.stopPropagation(); event.preventDefault();
+            if (menu.current) menu.current.open = false;
+            menu.current?.querySelector('summary')?.focus();
+          }
+        }}>
+        <summary tabIndex={0} data-testid="button-project">Project</summary>
         <div className="studio-project-menu-body">
+          <button type="button" onClick={() => {
+            if (menu.current) menu.current.open = false;
+            void saveProjectFile(snapshot);
+          }} disabled={disabled} title="Download your editable project and imported files"
+            aria-label={savingProject ? 'Saving project file' : 'Save project file'} data-testid="button-save-project">
+            <Save size={12} aria-hidden="true" /> {savingProject ? 'Saving…' : 'Save'}
+          </button>
+          <button type="button" disabled={disabled} onClick={() => {
+            if (menu.current) menu.current.open = false;
+            if (active) setWebExport({ projectId: active.id, name: active.name, snapshot });
+          }} data-testid="button-export-web-game">Export Web Game</button>
+          <button type="button" disabled title="Android compilation is not configured. This option cannot generate an APK yet."
+            data-testid="button-export-apk">Export APK <small>Not configured</small></button>
           <button type="button" disabled={disabled || registry.projects.length >= 200} onClick={() => open('new')}>New project</button>
           <button type="button" disabled={disabled} onClick={() => open('rename')}>Rename project</button>
+          <button type="button" disabled={disabled} data-testid="button-exit-hub" onClick={() => {
+            try {
+              saveFreshWorkspace(snapshot, active.id);
+              window.location.assign(`${import.meta.env.BASE_URL}hub/`);
+            } catch (cause) {
+              setExportStatus({ kind: 'error', message: `Could not save before exiting: ${cause instanceof Error ? cause.message : 'storage unavailable'}. Your project is still open.` });
+            }
+          }}>Exit to Hub</button>
           <span>Open saved project</span>
           {registry.projects.map(project => <button key={project.id} type="button" title={project.name}
             disabled={disabled} aria-current={project.id === active.id ? 'true' : undefined}
@@ -237,24 +278,11 @@ export default function StudioProjects() {
             }}>{project.name || 'Name your project'}</button>)}
         </div>
         </details>
-        <button type="button" className="studio-save-project" onClick={() => void saveProjectFile(snapshot)}
-          disabled={disabled} title="Download a project file with your scene, imported files, and Vision Board"
-          aria-label={savingProject ? 'Saving project file' : 'Save project file'} data-testid="button-save-project">
-          <Save size={12} aria-hidden="true" /> {savingProject ? 'Saving…' : 'Save'}
-        </button>
-        <button type="button" className="studio-save-project" disabled={disabled}
-          onClick={() => active && setWebExport({ projectId: active.id, name: active.name, snapshot })}
-          title="Package a standalone, single-scene web game" data-testid="button-export-web-game">
-          Export web game
-        </button>
         </>;
       }} />
     {exportStatus && <div className={`studio-project-notice studio-export-notice is-${exportStatus.kind}`}
       role={exportStatus.kind === 'error' ? 'alert' : 'status'}>{exportStatus.message}</div>}
-    {webExport && <WebGameExportDialog {...webExport} onClose={() => {
-      setWebExport(null);
-      requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('[data-testid="button-export-web-game"]')?.focus());
-    }} />}
+    {webExport && <WebGameExportDialog {...webExport} onClose={() => setWebExport(null)} />}
     {error && !mode && <div className="studio-project-notice" role="alert">{error}</div>}
     {mode && <div className="studio-project-backdrop">
       <form className="studio-project-dialog" role="dialog" aria-modal="true" aria-labelledby="project-name-heading"
