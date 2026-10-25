@@ -19,6 +19,9 @@ import { requestWebGL2Context, type SceneGraphicsFailure } from '@/lib/webgl-con
 import { SceneRenderFallback } from './scene-render-fallback';
 import { usePbrTextures } from './use-pbr-textures';
 import { FloatingTransformToolbar } from './floating-transform-toolbar';
+import { SceneTransformOptions } from './scene-transform-options';
+import { useSceneTransformSettings } from '@/hooks/use-scene-transform-settings';
+import { safeGizmoScale, transformGizmoOptions, type SceneTransformSettings } from '@/lib/scene-transform-settings';
 import { SceneToolCursor, type SceneCursorTool } from './scene-tool-cursor';
 import { useSceneRenderSettings } from '@/hooks/use-scene-render-settings';
 import { getWebGLRenderProfile } from '@/lib/webgl-render-profile';
@@ -301,6 +304,7 @@ function StandardScenePreview3D({
   const [contextLost, setContextLost] = useState(false);
   const [graphicsGeneration, setGraphicsGeneration] = useState(0);
   const [gameViewRotated, setGameViewRotated] = useState(false);
+  const [transformSettings, setTransformSettings] = useSceneTransformSettings();
   const [cameraOrbitMode, setCameraOrbitMode] = useState<CanvasOrbitMode>('free');
   const editorCamera = primaryCamera ?? gameCamera;
   const canOrbitGameCamera = Boolean(gameView && gameCamera && primaryCamera === gameCamera &&
@@ -410,6 +414,7 @@ function StandardScenePreview3D({
   ];
 
   const handleViewportKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.target instanceof HTMLElement && event.target.closest('input, select, textarea, dialog, [contenteditable=true]')) return;
     if (readOnly || event.altKey || event.ctrlKey || event.metaKey) return;
     const key = event.key.toLowerCase();
     if (key === 'w' || key === 'e' || key === 'r') {
@@ -491,6 +496,7 @@ function StandardScenePreview3D({
               <span aria-hidden="true">{icon}</span><small>{label}</small>
             </button>
           ))}
+          <SceneTransformOptions settings={transformSettings} onChange={setTransformSettings} disabled={readOnly} />
         </FloatingTransformToolbar>}
         {gameView && graphicsAvailable && canOrbitGameCamera && (
           <div className="mh-scene3d__game-controls" role="group" aria-label="Canvas view controls">
@@ -592,6 +598,7 @@ function StandardScenePreview3D({
             selectedEntityId={effectiveSelectedId}
             playerPreviewPosition={playerPreviewPosition}
             transformMode={effectiveMode}
+            transformSettings={transformSettings}
             readOnly={readOnly || (primarySelected && !onPrimaryCameraChange)}
             editorView={editorView}
             onSelectEntity={selectEntity}
@@ -688,6 +695,7 @@ type SceneWorldProps = {
   selectedEntityId: string | null;
   playerPreviewPosition: { x: number; y: number };
   transformMode: SceneTransformMode;
+  transformSettings: SceneTransformSettings;
   readOnly: boolean;
   onSelectEntity: (id: string) => void;
   onTransformCommit: ScenePreview3DProps['onTransformCommit'];
@@ -849,6 +857,7 @@ function SceneWorld(props: SceneWorldProps) {
           entity={selected}
           object={selectedObject}
           mode={props.transformMode}
+          settings={props.transformSettings}
           camera={Boolean(getCamera(selected))}
           mobile={props.mobile}
           onCommit={props.onTransformCommit}
@@ -1118,27 +1127,31 @@ function EntityNode(props: SceneWorldProps & {
   );
 }
 
-function SelectedGizmo({ entity, object, mode, camera, mobile, onCommit, onDragging }: {
+function SelectedGizmo({ entity, object, mode, camera, mobile, settings, onCommit, onDragging }: {
   entity: SceneEntity;
   object: THREE.Group;
   mode: SceneTransformMode;
   camera: boolean;
   mobile: boolean;
+  settings: SceneTransformSettings;
   onCommit: ScenePreview3DProps['onTransformCommit'];
   onDragging: (dragging: boolean) => void;
 }) {
+  const startScale = useRef(object.scale.clone());
+  const effectiveMode = camera && mode === 'scale' ? 'translate' : mode;
   return (
     <TransformControls
       object={object}
-      mode={camera && mode === 'scale' ? 'translate' : mode}
-      space={camera && mode === 'translate' ? 'world' : 'local'}
+      mode={effectiveMode}
+      {...transformGizmoOptions(settings, effectiveMode, camera)}
       size={mobile ? 1.25 : camera ? 1 : 0.82}
       showX
       showY
       showZ
-      onMouseDown={() => onDragging(true)}
+      onMouseDown={() => { startScale.current.copy(object.scale); onDragging(true); }}
       onMouseUp={() => {
         onDragging(false);
+        object.scale.copy(safeGizmoScale(object.scale, startScale.current));
         onCommit(entity.id, transformToProject(entity, object.position, object.rotation, object.scale));
       }}
     />

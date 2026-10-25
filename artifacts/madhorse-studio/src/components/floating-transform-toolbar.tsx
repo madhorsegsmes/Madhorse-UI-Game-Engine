@@ -24,7 +24,7 @@ export function FloatingTransformToolbar({ anchor, children }: { anchor: RefObje
   };
   const defaultPosition = () => {
     const rect = anchor.current?.getBoundingClientRect();
-    return { x: (rect?.right ?? window.innerWidth) - 134, y: (rect?.top ?? 0) + 122 };
+    return { x: (rect?.right ?? window.innerWidth) - (toolbar.current?.offsetWidth ?? 126) - 8, y: (rect?.top ?? 0) + 122 };
   };
   const reset = () => {
     customPosition.current = false;
@@ -42,6 +42,14 @@ export function FloatingTransformToolbar({ anchor, children }: { anchor: RefObje
     if (anchor.current) observer.observe(anchor.current);
     return () => { window.removeEventListener('resize', reflow); observer.disconnect(); };
   }, [anchor]);
+  const ready = position !== null;
+  useEffect(() => {
+    if (!ready || !toolbar.current) return;
+    const reflow = () => place(customPosition.current && currentPosition.current ? currentPosition.current : defaultPosition());
+    const observer = new ResizeObserver(reflow);
+    observer.observe(toolbar.current);
+    return () => observer.disconnect();
+  }, [ready]);
   if (!position) return null;
   return createPortal(
     <div ref={toolbar} className="mh-scene3d__tools is-floating" role="group" aria-label="Transform mode"

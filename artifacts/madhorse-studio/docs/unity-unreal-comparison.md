@@ -104,6 +104,20 @@ This first pass is for the 3D scene editor, not separate pixel/card-game editing
 surfaces. CPU raycast, storage, export and browser-control checks do not establish
 GPU visual verification of the signed-in editor.
 
+### Scene gizmo alignment and snapping
+
+The draggable Move/Rotate/Scale toolbar includes Auto/World/Local axes, an
+opt-in Snap checkbox and editable move, turn and size steps. Auto preserves the
+previous behavior: camera translation uses world axes, other transforms use
+local axes. Scaling always uses local axes, as required by Three.js controls.
+Turn steps are converted from degrees to radians for the actual TransformControls.
+Zero, negative or non-finite scale at release restores the pre-drag scale.
+
+Preferences are browser editor settings, not authored game rules or exported
+project/game data. Snapping applies to gizmo dragging, not exact Inspector inputs
+or free camera-icon dragging. Vertex/surface snapping, multi-object pivots and
+arbitrary rotated-parent world-grid correctness are not claimed by this pass.
+
 ## Official comparison sources
 
 - Unity 6 layer-based collision detection: https://docs.unity.com/en-us/engine/6000.0/manual/physics-section/physics-overview/collision-section/collision-detection/layer-based-collision

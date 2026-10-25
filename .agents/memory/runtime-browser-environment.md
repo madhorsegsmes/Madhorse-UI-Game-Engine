@@ -148,3 +148,17 @@ check caught the missing React Refresh preamble and confirmed no worker started.
 the React Refresh preamble, or prebundled React components. When initialization
 stalls without a console error, inspect page exceptions and loaded resources
 rather than repeatedly taking the same screenshot or weakening worker checks.
+
+## Gizmo verification boundary
+
+Validate transform behavior against the implementation actually used by Drei,
+not a different Three.js examples implementation.
+
+**Why:** Those control implementations can differ in drag mathematics. A
+camera-aligned named rotation axis can produce zero movement while the
+screen-facing roll control still works; testing the wrong implementation or
+an unsuitable interaction can falsely suggest a snapping defect.
+
+**How to apply:** Use the installed viewport control implementation for
+renderer-free pointer/transform checks when GPU capture is unavailable, and
+keep that evidence distinct from visual verification of the real GPU viewport.
