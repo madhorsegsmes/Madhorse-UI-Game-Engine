@@ -20,6 +20,7 @@
 .mh-scene3d__navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 5px 8px; border-bottom: 1px solid #414142; color: #bdb7b0; font-size: 9px; }
 .mh-scene3d__navigation button { border: 1px solid #584541; background: #282123; color: #e3d7ce; padding: 5px 7px; cursor: pointer; font: inherit; }
 .mh-scene3d__navigation button:disabled { opacity: .4; cursor: default; }
+.mh-scene3d__navigation .mh-scene3d__fit-model:not(:disabled) { border-color: #b34a40; }
 .mh-scene3d__navigation label { display: flex; align-items: center; gap: 4px; }
 .mh-scene3d__navigation input { width: 65px; accent-color: #bd4037; }
 .mh-scene3d__navigation output { min-width: 31px; }

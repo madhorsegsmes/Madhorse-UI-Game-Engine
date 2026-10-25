@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, TransformControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
@@ -22,6 +22,7 @@ import { PRIMARY_CAMERA_ID, cameraDisplayEntity, cameraFromEditorTransform, came
 import { createGameCamera, type GameCamera } from '@/lib/game-camera';
 import { SceneElementVisual } from './scene-element-visuals';
 import { SceneNavigation } from './scene-navigation';
+import { fitModelViewport } from '@/lib/model-viewport-fit';
 import { sceneEntityFocus, type SceneFocus } from '@/lib/scene-view-geometry';
 import {
   getModelRenderer,
@@ -140,6 +141,7 @@ export function ScenePreview3D({
   const cameraMarkerRef = useRef<HTMLButtonElement>(null);
   const [zoom, setZoom] = useState(100);
   const [frameToken, setFrameToken] = useState(0);
+  const [modelFitRequest, setModelFitRequest] = useState<{ entityId: string; sequence: number } | null>(null);
   const [sceneFocus, setSceneFocus] = useState<SceneFocus | null>(null);
   const [graphicsAvailable, setGraphicsAvailable] = useState(false);
   const [gameViewRotated, setGameViewRotated] = useState(false);
@@ -297,6 +299,15 @@ export function ScenePreview3D({
         <output data-testid="scene-zoom-value">{zoom}%</output>
         <button type="button" onClick={() => setZoom((value) => Math.min(MAX_SCENE_ZOOM, value + 25))} disabled={zoom >= MAX_SCENE_ZOOM} data-testid="scene-zoom-in" aria-label="Zoom scene in">+</button>
         <button type="button" onClick={frameCamera} data-testid="scene-frame-camera">Frame square + camera</button>
+        <button type="button" className="mh-scene3d__fit-model" data-testid="scene-fit-model"
+          disabled={!graphicsAvailable || !selected || !getModelRenderer(selected)?.enabled ||
+            !modelStatuses[selected.id]?.startsWith('Model ready')}
+          title="Fit the selected model in the viewport without changing its saved position, rotation, or scale"
+          onClick={() => {
+            if (!selected) return;
+            setZoom(100);
+            setModelFitRequest((previous) => ({ entityId: selected.id, sequence: (previous?.sequence ?? 0) + 1 }));
+          }}>Fit selected model</button>
         {editorCamera && onSelectPrimaryCamera && <button type="button" data-testid="scene3d-select-game-camera" aria-pressed={primarySelected}
           onClick={onSelectPrimaryCamera}>{primarySelected ? 'Camera selected' : 'Select Game Camera'}</button>}
         {selected?.generatedBy === 'mad-builder' && <button type="button" onClick={frameBuild} data-testid="scene-frame-build">Frame build</button>}
@@ -378,6 +389,7 @@ export function ScenePreview3D({
             primaryCamera={editorCamera}
             sceneZoom={zoom}
             frameToken={frameToken}
+            modelFitRequest={modelFitRequest}
             sceneFocus={sceneFocus}
             cameraMarkerRef={cameraMarkerRef}
             gameView={gameView}
@@ -452,6 +464,7 @@ type SceneWorldProps = {
   primaryCamera?: GameCamera;
   sceneZoom: number;
   frameToken: number;
+  modelFitRequest: { entityId: string; sequence: number } | null;
   sceneFocus: SceneFocus | null;
   cameraMarkerRef: React.RefObject<HTMLButtonElement | null>;
   gameView?: boolean;
@@ -497,6 +510,23 @@ function SceneWorld(props: SceneWorldProps) {
   const gameOrbitCommitTimer = useRef<number | null>(null);
   const [selectedObject, setSelectedObject] = useState<THREE.Group | null>(null);
   const { camera, invalidate } = useThree();
+  const lastModelFit = useRef<SceneWorldProps['modelFitRequest']>(null);
+  useFrame(() => {
+    const request = props.modelFitRequest;
+    if (props.gameView || !request || request === lastModelFit.current ||
+      request.entityId !== props.selectedEntityId ||
+      selectedObject?.userData.entityId !== request.entityId || !(camera instanceof THREE.PerspectiveCamera)) return;
+    // Only the imported root: selection helpers, placeholders and child entities
+    // must not inflate tiny models' bounds or pull the target toward the origin.
+    const model = selectedObject.children.find((child) => child.userData.importedModelRoot);
+    const controls = orbitRef.current;
+    if (!model || !controls) return;
+    if (fitModelViewport(camera, model, controls.target)) {
+      controls.update();
+      invalidate();
+    }
+    lastModelFit.current = request;
+  });
   const selected = props.selectedEntityId
     ? props.entities.find((entity) => entity.id === props.selectedEntityId)
     : undefined;
@@ -597,8 +627,8 @@ function SceneWorld(props: SceneWorldProps) {
         enableDamping
         dampingFactor={props.mobile ? 0.12 : 0.08}
         enableZoom={false}
-        minDistance={1}
-        maxDistance={2000}
+        minDistance={0}
+        maxDistance={Infinity}
         maxPolarAngle={Math.PI * 0.495}
         enablePan
         screenSpacePanning
@@ -964,7 +994,7 @@ function ModelAssetView(props: LoadedModelProps) {
 
   if (failure) return <ModelFailure message={failure} />;
   if (!object) return <LoadingModel name={props.asset.name} />;
-  return <primitive object={object} />;
+  return <primitive object={object} userData={{ ...object.userData, importedModelRoot: true }} />;
 }
 
 function LoadingModel({ name }: { name: string }) {

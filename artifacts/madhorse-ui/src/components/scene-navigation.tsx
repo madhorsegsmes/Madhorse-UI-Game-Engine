@@ -31,6 +31,9 @@ export function SceneNavigation({ settings, zoom, frameToken, controls, marker, 
     const distance = (focus ? (focus.radius + .5) / Math.sin(angle) * 1.1 : sceneFrameDistance(current, aspect, camera.fov)) / (lastZoom.current / 100);
     const direction = new Vector3(1, .9, 1.2).normalize();
     camera.position.copy(center).addScaledVector(direction, distance);
+    camera.near = .1;
+    camera.far = Math.max(3000, distance * 4);
+    camera.updateProjectionMatrix();
     camera.lookAt(center);
     camera.updateMatrixWorld();
     if (controls.current) { controls.current.target.copy(center); controls.current.update(); }
