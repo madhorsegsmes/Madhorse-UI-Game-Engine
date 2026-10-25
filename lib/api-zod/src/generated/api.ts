@@ -44,6 +44,7 @@ export const PlanMadBuilderBody = zod.object({
   "dataUrl": zod.string().max(planMadBuilderBodyReferenceImagesItemDataUrlMax).regex(planMadBuilderBodyReferenceImagesItemDataUrlRegExp)
 })).max(planMadBuilderBodyReferenceImagesMax).optional().describe('Optional selected category reference and user-specific target, forwarded transiently to the vision planner.'),
   "style": zod.enum(['polished-game-ready', 'realistic-game-ready', 'stylized-high-detail']).optional().describe('Visual quality guidance for newly generated scene objects.'),
+  "useEgoCharacterTools": zod.boolean().optional().describe('The client will add recognized character anatomy and animation controllers with its local editable character tools.'),
   "assets": zod.array(zod.object({
   "id": zod.string().max(planMadBuilderBodyAssetsItemIdMax),
   "name": zod.string().max(planMadBuilderBodyAssetsItemNameMax),

@@ -90,6 +90,8 @@ export interface MadBuilderInput {
   referenceImages?: BuilderReferenceImage[];
   /** Visual quality guidance for newly generated scene objects. */
   style?: MadBuilderInputStyle;
+  /** The client will add recognized character anatomy and animation controllers with its local editable character tools. */
+  useEgoCharacterTools?: boolean;
   /** @maxItems 40 */
   assets: BuilderAsset[];
 }

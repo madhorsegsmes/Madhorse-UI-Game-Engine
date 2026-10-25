@@ -84,7 +84,7 @@ export function useMadBuilder<T extends BuilderDocument>({ project, activeProjec
   }
   return {
     history: project.builderHistory ?? [], phase, plan, error, readOnly,
-    onPlan: async (raw, saveAsPrefab, style: BuilderStyle, buildCategory: BuilderBuildCategory, referenceImages) => {
+    onPlan: async (raw, saveAsPrefab, style: BuilderStyle, buildCategory: BuilderBuildCategory, referenceImages, useEgoCharacterTools = false) => {
       const prompt = raw.trim();
       if (readOnly || phase === 'planning' || phase === 'applying' || prompt.length < 3 || prompt.length > 2000) {
         return { ok: false, message: 'Add a vision between 3 and 2,000 characters and wait for the current build to finish.' };
@@ -100,7 +100,7 @@ export function useMadBuilder<T extends BuilderDocument>({ project, activeProjec
         const contextEntity = project.entities.find((entity) => entity.id === selectedEntityId) ??
           project.entities.find((entity) => entity.id === 'player');
         const result = PlanMadBuilderResponse.parse(await planMadBuilder({
-          prompt, selectedName: contextEntity?.name ?? '', style, buildCategory, referenceImages,
+          prompt, selectedName: contextEntity?.name ?? '', style, buildCategory, referenceImages, useEgoCharacterTools,
            assets: project.assets
              .filter((asset): asset is ProjectAsset & { kind: 'image' | 'model' } =>
                asset.kind === 'image' || asset.kind === 'model')

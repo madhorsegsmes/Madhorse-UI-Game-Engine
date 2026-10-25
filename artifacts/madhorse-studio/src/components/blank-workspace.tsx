@@ -1949,6 +1949,164 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
       setStatus('Mad Builder built the objects into Scene 1. Select them in the hierarchy to edit.');
     },
   });
+  const madBuilderWithEgoTools = {
+    ...madBuilder,
+    onPlan: async (
+      prompt: Parameters<typeof madBuilder.onPlan>[0],
+      saveAsPrefab: Parameters<typeof madBuilder.onPlan>[1],
+      style: Parameters<typeof madBuilder.onPlan>[2],
+      buildCategory: Parameters<typeof madBuilder.onPlan>[3],
+      referenceImages: Parameters<typeof madBuilder.onPlan>[4],
+    ) => {
+      const isTwoDimensional = /\b(?:2d|sprite|pixel[- ]art)\b/i.test(prompt);
+      const hasUserTargetImage = referenceImages.some(reference => reference.role === 'user-target');
+      let requestedCharacters = isTwoDimensional || hasUserTargetImage
+        ? [] : detectEgoCharacterRequests(prompt, 'prompt');
+      if (!isTwoDimensional && !hasUserTargetImage && requestedCharacters.length === 0 &&
+        /\b(?:build|create|make|model|design)\b.{0,36}\b(?:3d\s+)?(?:character|avatar|hero|fighter)\b/i.test(prompt)) {
+        requestedCharacters = [{ species: 'human', displayName: 'Character', heightMeters: 1.8 }];
+      }
+      requestedCharacters = requestedCharacters.slice(0, 4);
+      const originalEntityIds = new Set(builderProjectRef.current.entities.map(entity => entity.id));
+      const result = await madBuilder.onPlan(
+        prompt,
+        saveAsPrefab,
+        style,
+        buildCategory,
+        referenceImages,
+        requestedCharacters.length > 0,
+      );
+      if (!result.ok || requestedCharacters.length === 0) return result;
+
+      try {
+        const current = builderProjectRef.current;
+        const buildRoot = current.entities.find(entity =>
+          !originalEntityIds.has(entity.id) &&
+          entity.generatedBy === 'mad-builder' &&
+          entity.isGroup &&
+          !entity.parentId,
+        );
+        if (!buildRoot) {
+          return {
+            ok: true,
+            message: `${result.message} The scene plan was kept, but the character tool could not find its new scene group.`,
+          };
+        }
+        const rootTransform = getTransform(buildRoot);
+        const gameTypeMatchers: Partial<Record<EgoGameType, RegExp>> = {
+          rpg: /\brpg\b|role[- ]?playing|quest/i,
+          racing: /\bracing\b/i,
+          'kart-racing': /\bkart\b/i,
+          'car-racing': /\bcar racing\b/i,
+          sports: /\bsports?\b/i,
+          fighting: /\bfight(?:ing)?\b|combat|arena|mugen/i,
+          rts: /\brts\b|real[- ]time strategy/i,
+          card: /\bcard game|deck[- ]building\b/i,
+          mmo: /\bmmorpg\b|\bmmo\b/i,
+          shooter: /\bshooter\b|shooting game/i,
+          'third-person-shooter': /\bthird[- ]person shooter\b|over[- ]the[- ]shoulder shooter/i,
+          'kingdom-strategy': /\bkingdom strateg(?:y|ies)\b|kingdom builder/i,
+          'creature-adventure-2d': /\b2d\b.*\bcreature\b|\bcreature\b.*\b2d\b/i,
+          'creature-adventure-3d': /\b3d\b.*\bcreature\b|\bcreature\b.*\b3d\b/i,
+          platformer: /\bplatformer\b/i,
+        };
+        const requestedTypes = (Object.keys(egoPlayerActions) as EgoGameType[])
+          .filter(type => gameTypeMatchers[type]?.test(prompt));
+        const gameTypes: EgoGameType[] = requestedTypes.length ? requestedTypes : ['platformer'];
+        const characterBuilds = requestedCharacters.map((request, index) => {
+          const build = createEgoCharacterScene(request.species, request.heightMeters, { x: 0, z: 0 }, request.displayName);
+          const setup = build.entities.find(entity => entity.id === build.setupId);
+          if (!setup) throw new Error(`The editable rig for ${request.displayName} is missing its root.`);
+          setup.parentId = buildRoot.id;
+          getTransform(setup).position = {
+            x: (index - (requestedCharacters.length - 1) / 2) * 34,
+            y: 0,
+            z: 0,
+          };
+          setup.name = `Rig · ${request.displayName}`;
+          return build;
+        });
+        const characterEntities = characterBuilds.flatMap(build => build.entities);
+        const entities = [...current.entities, ...characterEntities];
+        if (!isSceneGraph(entities)) throw new Error('The completed character hierarchy did not pass scene validation.');
+        const playable = /\b(?:playable|player[- ]controlled|controllable|player character|player avatar)\b/i.test(prompt);
+        if (playable) {
+          const primaryCharacter = characterEntities.find(entity =>
+            entity.id === characterBuilds[0]?.characterId,
+          );
+          if (primaryCharacter) {
+            const components = [...primaryCharacter.components];
+            if (!components.some(component => component.type === 'characterController' && component.role === 'player')) {
+              components.push(createPluginComponent('character-controller-player', current.uiControls?.length ?? 0).component);
+            }
+            const usedKeys = new Set(components.flatMap(component =>
+              component.type === 'playerAction' && component.enabled ? [component.key] : [],
+            ));
+            for (const action of [...new Set(gameTypes.flatMap(gameType => egoPlayerActions[gameType]))]) {
+              if (components.some(component => component.type === 'playerAction' && component.action === action)) continue;
+              const created = createPluginComponent(`action-${action}` as PluginComponentKind, current.uiControls?.length ?? 0);
+              if (created.component.type !== 'playerAction') continue;
+              if (usedKeys.has(created.component.key)) {
+                const freeKey = actionKeyOptions.find(key => !usedKeys.has(key));
+                if (!freeKey) continue;
+                created.component.key = freeKey;
+              }
+              usedKeys.add(created.component.key);
+              components.push(created.component);
+            }
+            const entityIndex = entities.findIndex(entity => entity.id === primaryCharacter.id);
+            entities[entityIndex] = { ...primaryCharacter, components };
+          }
+        }
+        const animationPacks = characterBuilds.map(build =>
+          createEgoAnimationPack(build.entities, build.characterId, gameTypes),
+        );
+        const nextAnimations = [...animationsRef.current, ...animationPacks.flatMap(pack => pack.animations)];
+        const nextControllers = [...animationControllersRef.current, ...animationPacks.map(pack => pack.controller)];
+        const animationsSaved =
+          isGameAnimationCollection(nextAnimations) &&
+          isEgoAnimationControllerCollection(nextControllers);
+        const names = characterEntities.map(entity => entity.name);
+        const logIndex = (current.builderBuildLogs ?? []).length - 1;
+        const buildLogs = [...(current.builderBuildLogs ?? [])];
+        if (logIndex >= 0) {
+          buildLogs[logIndex] = {
+            ...buildLogs[logIndex],
+            objectNames: [...buildLogs[logIndex].objectNames, ...names],
+          };
+        }
+        const toolMessage = `Mad Builder used Ego's editable anatomy tools to create ${requestedCharacters
+          .map(request => `${request.displayName} (${request.heightMeters.toFixed(2)} m)`).join(', ')}. Added ${gameTypes.join(', ')} animation states${playable ? ' and a Player Controller with matching actions' : ''}.${animationsSaved ? '' : ' Animation storage is full, so the models were added without new animation controllers.'} Select the rig or named body parts in Hierarchy to edit them.`;
+        const currentHistory = current.builderHistory ?? [];
+        const nextHistory = [...currentHistory, { id: crypto.randomUUID(), role: 'assistant' as const, text: toolMessage }].slice(-40);
+        const prefabs = [...(current.prefabs ?? [])];
+        if (saveAsPrefab && prefabs.length > 0) {
+          prefabs[prefabs.length - 1] = capturePrefab(entities, buildRoot.id, buildRoot.name, current.uiControls ?? []);
+        }
+        setBuilderProjects([{
+          ...current,
+          entities,
+          prefabs,
+          builderBuildLogs: buildLogs,
+          builderHistory: nextHistory,
+        }]);
+        if (animationsSaved) {
+          animationsRef.current = nextAnimations;
+          animationControllersRef.current = nextControllers;
+          setAnimations(nextAnimations);
+          setAnimationControllers(nextControllers);
+        }
+        setSelection(characterBuilds[0].characterId);
+        setStatus(toolMessage);
+        return { ok: true, message: `${result.message} ${toolMessage}` };
+      } catch (failure) {
+        const detail = failure instanceof Error ? failure.message : 'The editable character tools could not complete.';
+        const message = `${result.message} The scene build is intact, but Ego's character tools could not finish: ${detail}`;
+        setStatus(message);
+        return { ok: true, message };
+      }
+    },
+  };
 
   const egoInterfaceContext: EgoInterfaceContext = {
     projectName,
@@ -3168,7 +3326,7 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
               embedded
               onClose={() => setMadBuilderOpen(false)}
               onAddModule={addMadBuilderModule}
-              {...madBuilder}
+              {...madBuilderWithEgoTools}
             />
           </section>
         </div>,

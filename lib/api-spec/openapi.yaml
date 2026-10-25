@@ -244,6 +244,9 @@ components:
           type: string
           enum: [polished-game-ready, realistic-game-ready, stylized-high-detail]
           description: Visual quality guidance for newly generated scene objects.
+        useEgoCharacterTools:
+          type: boolean
+          description: The client will add recognized character anatomy and animation controllers with its local editable character tools.
         assets:
           type: array
           maxItems: 40

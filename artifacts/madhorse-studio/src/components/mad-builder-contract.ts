@@ -16,6 +16,7 @@ export type MadBuilderProps = {
     style: BuilderStyle,
     buildCategory: BuilderBuildCategory,
     referenceImages: BuilderReferenceImage[],
+    useEgoCharacterTools?: boolean,
   ) => Promise<BuilderOperationResult>;
   onCancel: () => void;
   onDiscard: () => void;

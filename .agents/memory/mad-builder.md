@@ -218,3 +218,17 @@ and a training rival, but does not import MUGEN character or stage formats.
 
 **How to apply:** Build from supported Madhorse scene components and be clear
 about compatibility limits; do not claim DEF/SFF import or full MUGEN behavior.
+
+Mad Builder may reuse Ego's local editable character anatomy, animation, and
+player-action tools after the scene planner builds the surrounding environment.
+Keep the planner from making duplicate character bodies, validate the combined
+scene graph, and include the added anatomy in build logs and saved prefabs.
+Explicit user-target images take priority over fixed local character templates.
+
+**Why:** The user wants Mad Builder to have Ego-level creation control while
+keeping generated characters detailed, editable, and consistent with the
+reference image when one is supplied.
+
+**How to apply:** Add supported local tools as a post-processing step around
+validated plans; do not execute generated scripts or treat a model-only build as
+functional movement unless a real controller runtime is attached.
