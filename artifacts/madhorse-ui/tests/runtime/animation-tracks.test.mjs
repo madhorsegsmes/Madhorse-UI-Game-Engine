@@ -83,6 +83,46 @@ test('one playhead samples independently timed tracks and holds their boundary p
   assert.equal(sample(1, 4).position.x, 30);
 });
 
+test('sampler interpolates every transform channel across uneven keyframe intervals', () => {
+  const animation = {
+    duration: 5,
+    keyframes: [
+      { id: 'start', time: 0.5, position: { x: -8, y: 12, z: 4 }, rotation: { x: -90, y: 60, z: 180 }, scale: 0.5 },
+      { id: 'middle', time: 1.5, position: { x: 8, y: -4, z: 12 }, rotation: { x: 90, y: -60, z: 0 }, scale: 2.5 },
+      { id: 'end', time: 4.5, position: { x: -16, y: 20, z: -12 }, rotation: { x: -30, y: 180, z: -120 }, scale: 1 },
+    ],
+  };
+  const before = structuredClone(animation);
+  const cases = [
+    { time: 0.75, position: { x: -4, y: 8, z: 6 }, rotation: { x: -45, y: 30, z: 135 }, scale: 1 },
+    { time: 1, position: { x: 0, y: 4, z: 8 }, rotation: { x: 0, y: 0, z: 90 }, scale: 1.5 },
+    { time: 3.75, position: { x: -10, y: 14, z: -6 }, rotation: { x: 0, y: 120, z: -90 }, scale: 1.375 },
+  ];
+  for (const { time, ...expected } of cases) {
+    const { position, rotation, scale, time: sampledTime } = sampleGameAnimation(animation, time);
+    assert.deepEqual({ position, rotation, scale }, expected, `transform at ${time}s`);
+    assert.equal(sampledTime, time);
+  }
+  assert.deepEqual(animation, before, 'sampling must not change authored keyframes');
+});
+
+test('sampler holds endpoints, clamps clip time, and hits exact keyframe poses', () => {
+  const animation = {
+    duration: 4,
+    keyframes: [frame('first', 1, -10, 0.5), frame('middle', 2, 30, 2), frame('last', 3, 10, 1)],
+  };
+  for (const [time, index, sampledTime] of [
+    [-5, 0, 0], [0, 0, 0], [0.5, 0, 0.5], [1, 0, 1],
+    [2, 1, 2], [3, 2, 3], [3.5, 2, 3.5], [4, 2, 4], [10, 2, 4],
+  ]) {
+    const { position, rotation, scale } = animation.keyframes[index];
+    const sample = sampleGameAnimation(animation, time);
+    assert.deepEqual({ position: sample.position, rotation: sample.rotation, scale: sample.scale },
+      { position, rotation, scale }, `pose at ${time}s`);
+    assert.equal(sample.time, sampledTime);
+  }
+});
+
 test('preview transforms every target together without mutating saved entities or clips', () => {
   const savedEntities = entities();
   const animation = clip();

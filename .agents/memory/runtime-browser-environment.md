@@ -117,6 +117,16 @@ Vite application built successfully, producing a misleading blank screenshot.
 **How to apply:** Set esbuild `jsx: 'automatic'`, resolve React consistently with
 the app, and surface fixture-root render errors before diagnosing application bugs.
 
+Installing Playwright's clock does not pause it. Do not immediately pause at the
+same timestamp supplied to installation; select a comfortably later instant.
+
+**Why:** A same-instant pause passed once but failed on the next run with
+`Cannot fast-forward to the past` because time advanced between protocol calls.
+
+**How to apply:** Install and pause before starting the behavior under test,
+then advance with `runFor`. Leave a generous future margin when pausing so
+test-host latency does not become a playback regression.
+
 Browser tutorial playback needs an open-codec alternative to H.264 MP4.
 
 **Why:** The automated browser delivered a byte-identical valid MP4 but reported

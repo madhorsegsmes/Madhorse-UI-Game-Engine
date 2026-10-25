@@ -14,6 +14,24 @@ not a claim that physical iOS devices or released Safari versions were tested. I
 deploys anything, calls real private APIs, or changes existing user projects.
 Do not run multiple copies against the same port.
 
+## Animation interpolation and looping checks
+
+```sh
+node --test artifacts/madhorse-ui/tests/runtime/animation-tracks.test.mjs
+pnpm --filter @workspace/madhorse-ui run test:runtime animations.spec.ts --project=chromium
+```
+
+Use the Chromium executable override below when needed in Replit. The browser
+spec also runs in the configured Firefox and WebKit projects on supported hosts.
+The sampler checks all position/rotation axes and scale at intermediate times,
+uneven keyframe intervals, exact keys, and clamped/held endpoint poses. Panel 3
+checks forward/backward scrubbing and uses Playwright's clock to advance the
+actual preview interval across two loop boundaries. It checks the elapsed-time
+remainder rather than accepting a reset to zero, then verifies Stop restores
+the authored pose, cancels subsequent frames, and permits restarting playback.
+The timeline slider rounds to 0.01 seconds; scene transforms must retain the
+unrounded playback time. No production code is replaced or mocked.
+
 ## Game Camera graphics checks
 
 Run the focused WebGL output checks (no SVG/DOM fallback counts as a pass):
