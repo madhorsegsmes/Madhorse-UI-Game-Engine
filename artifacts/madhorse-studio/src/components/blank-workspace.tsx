@@ -869,6 +869,8 @@ function HierarchyPanel({
   onSelect,
   onEditEntity,
   onAttachPlugin,
+  onAttachPluginSet,
+  onOpenCharacterBuilder,
   actions,
 }: {
   entities: SceneEntity[];
@@ -878,6 +880,8 @@ function HierarchyPanel({
   onSelect: (id: string) => void;
   onEditEntity: (entity: SceneEntity) => void;
   onAttachPlugin: (entityId: string, kind: PluginComponentKind) => void;
+  onAttachPluginSet: (entityId: string, kinds: PluginComponentKind[], label: string) => void;
+  onOpenCharacterBuilder: () => void;
   actions: HierarchyActions;
 }) {
   const [sceneExpanded, setSceneExpanded] = useState(true);
@@ -965,6 +969,7 @@ function HierarchyPanel({
             name: contextEntity.name,
             childCount: collectHierarchySubtreeIds(entities, contextEntity.id).size - 1,
           } : null}
+          targetEntityId={contextEntity?.id ?? null}
           onClose={() => { setMenuPoint(null); setMenuEntityId(null); }}
           onDeleteEntity={requestDeleteEntity}
           onCreateShape={actions.onCreateShape}
@@ -984,6 +989,9 @@ function HierarchyPanel({
           onTerrainBrush={action => terrainTargetId && actions.onTerrainBrush(terrainTargetId, action)}
           onAddTrees={() => terrainTargetId && actions.onAddTrees(terrainTargetId)}
           onAddWater={() => terrainTargetId && actions.onAddWater(terrainTargetId)}
+          onAttachPlugin={onAttachPlugin}
+          onAttachPluginSet={onAttachPluginSet}
+          onOpenCharacterBuilder={onOpenCharacterBuilder}
         />
       )}
     </aside>
@@ -2727,6 +2735,82 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
     setStatus(`${label}${addPlayerController ? ' and a Player Controller' : ''} added to ${target.name}. Double-click the object in Hierarchy to edit it.`);
   }, [entities, uiControls.length]);
 
+  const attachPluginSet = useCallback((entityId: string, kinds: PluginComponentKind[], label: string) => {
+    const target = entities.find(entity => entity.id === entityId);
+    if (!target) {
+      setStatus('Choose an object in Hierarchy before adding a setup.');
+      return;
+    }
+    if (target.id === PRIMARY_CAMERA_ID) {
+      setStatus('The Main Camera is system-managed. Add this setup to a scene object instead.');
+      return;
+    }
+    const existingController = target.components.find(component => component.type === 'characterController');
+    const playerBoundKinds = (kind: PluginComponentKind) =>
+      kind === 'player-walk-audio' || kind === 'multiplayer-player' || kind.startsWith('action-') ||
+      kind === 'feature-interact' || kind === 'feature-inventory' || kind === 'feature-status-bar';
+    if (existingController?.role === 'npc' && kinds.some(playerBoundKinds)) {
+      setStatus('This setup needs a player object. Select a player, or change this object’s controller role to Player.');
+      return;
+    }
+
+    const addedComponents: SceneComponent[] = [];
+    const addedUIControls: typeof uiControls = [];
+    const usedKeys = new Set(target.components.flatMap(component =>
+      component.type === 'playerAction' && component.enabled ? [component.key]
+        : component.type === 'gameFeature' && component.enabled && component.kind === 'interact'
+          ? [String(component.settings.key)] : [],
+    ));
+    let hasController = Boolean(existingController);
+    let hasPhysics = target.components.some(component => component.type === 'physics');
+    const currentComponents = () => [...target.components, ...addedComponents];
+
+    for (const kind of kinds) {
+      if (currentComponents().some(component => matchesPluginComponent(component, kind))) continue;
+
+      const created = createPluginComponent(kind, uiControls.length + addedUIControls.length);
+      if (created.component.type === 'playerAction') {
+        if (usedKeys.has(created.component.key)) {
+          const freeKey = actionKeyOptions.find(key => !usedKeys.has(key));
+          if (!freeKey) continue;
+          created.component.key = freeKey;
+        }
+        usedKeys.add(created.component.key);
+      }
+      addedComponents.push(created.component);
+      if (created.uiControl) addedUIControls.push(created.uiControl);
+
+      const needsPlayerController = playerBoundKinds(kind);
+      let addedController = false;
+      if (needsPlayerController && !hasController) {
+        const controllerKind = kind === 'action-race' ? 'character-controller-third-person' : 'character-controller-player';
+        addedComponents.push(createPluginComponent(controllerKind, 0).component);
+        hasController = true;
+        addedController = true;
+      }
+      if (!hasPhysics && (created.component.type === 'characterController' || addedController)) {
+        addedComponents.push(createPluginComponent('physics', 0).component);
+        hasPhysics = true;
+      }
+      if (created.component.type === 'characterController') hasController = true;
+    }
+
+    if (!addedComponents.length) {
+      setSelection(target.id);
+      setStatus(`${target.name} already has the ${label} setup.`);
+      return;
+    }
+    const updated: SceneEntity = { ...target, components: [...target.components, ...addedComponents] };
+    if (!isSceneEntity(updated)) {
+      setStatus('This setup could not be added to the selected object.');
+      return;
+    }
+    setEntities(current => current.map(entity => entity.id === target.id ? updated : entity));
+    if (addedUIControls.length) setUIControls(current => [...current, ...addedUIControls]);
+    setSelection(target.id);
+    setStatus(`${label} added to ${target.name}. Double-click it in Hierarchy to edit its controls and settings.`);
+  }, [entities, uiControls.length]);
+
   const openCharacterBuilder = useCallback(() => {
     setModelingSource(undefined);
     setModelingOpen(true);
@@ -3211,6 +3295,8 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
                 setEditingEntityId(entity.id);
               }}
               onAttachPlugin={attachPluginComponent}
+              onAttachPluginSet={attachPluginSet}
+              onOpenCharacterBuilder={openCharacterBuilder}
               actions={hierarchyActions}
             />
           ) : number === 3 ? (

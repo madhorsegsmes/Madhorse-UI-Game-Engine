@@ -14,7 +14,7 @@ export const gameStarterKits: { id: GameStarterKitId; title: string; description
   { id: 'rpg', title: 'RPG Quest', description: 'A player with inventory and spells, a character to meet, and a quest path to explore.' },
   { id: 'puzzle', title: 'Key-and-Gate Puzzle', description: 'Find a key, enter a trigger, and use safe visual logic to open the gate.' },
   { id: 'fighting', title: '2D Fighting Arena', description: 'A fixed side-view 3D arena with detailed human fighters, optional FBX replacements, editable combat moves, health bars, and an editable stage.' },
-  { id: 'rts', title: 'RTS · Sunstone Vale', description: 'A high-detail strategy world with sculpted terrain, a winding river, living biomes, glass biodomes, fortified bases, squads, resource caches, animated effects, and an editable mission HUD.' },
+  { id: 'rts', title: 'RTS · Sunstone Vale', description: 'An editable isometric medieval settlement with a central keep, cottages, farms, roads, woods, resource sites, squads, and an RTS command HUD.' },
 ];
 
 function createObject(name: string, shape: PrimitiveShape, color: string, position: Vector3, scale: Vector3): SceneEntity {
@@ -264,7 +264,7 @@ function createRtsBuilding(
     createVisualPart('Stone footing', root.id, 'rounded-cube', '#77736b', localPartPosition(0, 0, -size.z * 0.39), {
       x: size.x * 1.1, y: size.y * 1.08, z: 0.42,
     }, { x: 0, y: 0, z: 0 }, stoneTextureId),
-    createVisualPart('Copper roof · tiled', root.id, 'cone', color, localPartPosition(0, 0, size.z * 0.56), {
+    createVisualPart('Terracotta roof · tiled', root.id, 'cone', color, localPartPosition(0, 0, size.z * 0.56), {
       x: size.x * 1.08, y: size.y * 1.1, z: 1.05,
     }, { x: 0, y: 0, z: 0 }, roofTextureId ?? null),
     ...([-1, 1] as const).flatMap((sideX) => ([-1, 1] as const).map(sideY =>
@@ -402,76 +402,82 @@ function createRtsEffectEntity(
   return entity;
 }
 
-function createRtsBiodome(
+function createRtsHouse(
   center: Vector3,
   offset: { x: number; y: number },
-  label: string,
-  glassTextureId: string,
+  name: string,
+  wallColor: string,
+  roofColor: string,
+  wallTextureId: string,
+  roofTextureId: string,
 ): SceneEntity[] {
-  const root = createRtsGroup(label, {
+  const root = createRtsGroup(name, {
     x: center.x + offset.x * 10,
     y: center.y + offset.y * 10,
     z: center.z,
   });
-  const shell = createVisualPart('Panoramic glass shell', root.id, 'sphere', '#a9e7ef',
-    localPartPosition(0, 0, 4.35), { x: 9, y: 9, z: 8.7 }, { x: 0, y: 0, z: 0 }, glassTextureId);
-  const shellSurface = getPrimitive(shell);
-  if (shellSurface) {
-    shellSurface.opacity = 0.22;
-    shellSurface.roughness = 0.12;
-    shellSurface.metalness = 0.34;
-  }
-  const entities: SceneEntity[] = [
+  root.components.push(createGameFeature('health'), createGameFeature('status-bar'));
+  return [
     root,
-    shell,
-    createVisualPart('Composite foundation', root.id, 'cylinder', '#687c80',
-      localPartPosition(0, 0, 0.2), { x: 9.6, y: 9.6, z: 0.38 }),
-    createVisualPart('Airlock · outer frame', root.id, 'rounded-cube', '#d1b77a',
-      localPartPosition(0, -4.42, 1.1), { x: 1.8, y: 0.22, z: 2.3 }),
-    createVisualPart('Airlock · lit door', root.id, 'rounded-cube', '#53b7be',
-      localPartPosition(0, -4.57, 1.1), { x: 1.28, y: 0.12, z: 1.88 }),
-    createVisualPart('Climate core', root.id, 'cylinder', '#c6d78a',
-      localPartPosition(0, 0.2, 1.15), { x: 0.42, y: 0.42, z: 2.3 }),
-    createRtsEffectEntity('Bio-luminescent core · motes', localPartPosition(0, 0.2, 2.05),
-      '#8decc6', 'motes', 3, root.id),
-    createRtsEffectEntity('Biodome atmosphere · soft mist', localPartPosition(0, 0, 0.65),
-      '#a0dfd7', 'mist', 2, root.id),
+    createVisualPart('Stone foundation', root.id, 'rounded-cube', '#776c58',
+      localPartPosition(0, 0, 0.18), { x: 3.45, y: 2.95, z: 0.36 }, { x: 0, y: 0, z: 0 }, wallTextureId),
+    createVisualPart('Limewashed cottage walls', root.id, 'rounded-cube', wallColor,
+      localPartPosition(0, 0, 1.08), { x: 2.85, y: 2.45, z: 1.72 }, { x: 0, y: 0, z: 0 }, wallTextureId),
+    createVisualPart('Terracotta hipped roof', root.id, 'pyramid', roofColor,
+      localPartPosition(0, 0, 2.2), { x: 3.25, y: 2.9, z: 1.38 }, { x: 0, y: 0, z: 0 }, roofTextureId),
+    createVisualPart('Timber front door', root.id, 'rounded-cube', '#56392d',
+      localPartPosition(0, -1.24, 0.61), { x: 0.56, y: 0.12, z: 1.12 }),
+    createVisualPart('Door lintel', root.id, 'rounded-cube', '#9a7750',
+      localPartPosition(0, -1.32, 1.22), { x: 0.78, y: 0.1, z: 0.14 }),
+    ...([-0.82, 0.82] as const).flatMap((x, index) => [
+      createVisualPart(`Leadlight window · ${index + 1}`, root.id, 'rounded-cube', '#8cc2bf',
+        localPartPosition(x, -1.27, 1.16), { x: 0.48, y: 0.1, z: 0.54 }),
+      createVisualPart(`Window timber frame · ${index + 1}`, root.id, 'rounded-cube', '#815a3d',
+        localPartPosition(x, -1.34, 1.16), { x: 0.59, y: 0.08, z: 0.65 }),
+      createVisualPart(`Window shutter · ${index + 1}`, root.id, 'rounded-cube', '#527044',
+        localPartPosition(x - 0.37, -1.3, 1.16), { x: 0.18, y: 0.12, z: 0.58 }),
+    ]),
+    createVisualPart('Stone chimney', root.id, 'rounded-cube', '#71634f',
+      localPartPosition(0.92, 0.48, 2.76), { x: 0.46, y: 0.48, z: 1.12 }, { x: 0, y: 0, z: 0 }, wallTextureId),
+    createVisualPart('Entry step', root.id, 'rounded-cube', '#b3a181',
+      localPartPosition(0, -1.48, 0.15), { x: 0.92, y: 0.52, z: 0.22 }),
   ];
+}
 
-  for (let index = 0; index < 8; index++) {
-    const angle = index * Math.PI / 4;
-    const x = Math.cos(angle) * 4.22;
-    const y = Math.sin(angle) * 4.22;
-    entities.push(
-      createVisualPart(`Tension frame · ${index + 1}`, root.id, 'cylinder', '#9eb8ba',
-        localPartPosition(x, y, 2.25), { x: 0.095, y: 0.095, z: 4.35 },
-        { x: 0, y: 0, z: Math.atan2(y, x) * 180 / Math.PI }),
-      createVisualPart(`Support collar · ${index + 1}`, root.id, 'sphere', '#d8d7b3',
-        localPartPosition(x, y, 4.18), { x: 0.23, y: 0.23, z: 0.23 }),
-    );
-  }
-
-  const beds = [
-    { x: -2.5, y: -1.7, color: '#82a969' },
-    { x: -2.35, y: 1.7, color: '#6d9b68' },
-    { x: 2.5, y: -1.7, color: '#b6a566' },
-    { x: 2.35, y: 1.7, color: '#709d75' },
+function createRtsFarmPlot(
+  center: Vector3,
+  offset: { x: number; y: number },
+  name: string,
+  soilTextureId: string,
+  cropTextureId: string,
+): SceneEntity[] {
+  const root = createRtsGroup(name, {
+    x: center.x + offset.x * 10,
+    y: center.y + offset.y * 10,
+    z: center.z,
+  });
+  const rows = [-1.8, -0.6, 0.6, 1.8];
+  const plants = [-1.45, 0, 1.45];
+  return [
+    root,
+    createVisualPart('Tilled field bed', root.id, 'rounded-cube', '#806346',
+      localPartPosition(0, 0, 0.08), { x: 6.3, y: 5.2, z: 0.16 }, { x: 0, y: 0, z: 0 }, soilTextureId),
+    ...rows.flatMap((x, row) => [
+      createVisualPart(`Furrow · ${row + 1}`, root.id, 'rounded-cube', '#ad9168',
+        localPartPosition(x, 0, 0.2), { x: 0.18, y: 4.65, z: 0.12 }),
+      ...plants.map((y, index) => createVisualPart(`Crop bundle · row ${row + 1} · ${index + 1}`,
+        root.id, 'cone', row % 2 ? '#708c42' : '#839b4a',
+        localPartPosition(x, y, 0.54), { x: 0.48, y: 0.42, z: 0.76 },
+        { x: 0, y: 0, z: (index - 1) * 11 }, cropTextureId)),
+    ]),
+    ...[-1, 1].map((side, index) => createVisualPart(`Field boundary · ${index + 1}`,
+      root.id, 'rounded-cube', '#766047',
+      localPartPosition(side * 3.05, 0, 0.18), { x: 0.16, y: 5.1, z: 0.3 })),
   ];
-  for (const [index, bed] of beds.entries()) {
-    entities.push(
-      createVisualPart(`Hydroponic terrace · ${index + 1}`, root.id, 'rounded-cube', '#665244',
-        localPartPosition(bed.x, bed.y, 0.45), { x: 2.35, y: 1.02, z: 0.34 }),
-      createVisualPart(`Cultivated canopy · ${index + 1}`, root.id, 'sphere', bed.color,
-        localPartPosition(bed.x, bed.y, 1.05), { x: 0.9, y: 0.52, z: 0.72 }),
-      createVisualPart(`Grow lamp · ${index + 1}`, root.id, 'sphere', '#d7f7c1',
-        localPartPosition(bed.x, bed.y, 2.05), { x: 0.18, y: 0.18, z: 0.18 }),
-    );
-  }
-  return entities;
 }
 
 function createRtsShrub(center: Vector3, x: number, y: number, index: number): SceneEntity[] {
-  const root = createRtsGroup(`Riverside understory · ${index + 1}`, {
+  const root = createRtsGroup(`Settlement undergrowth · ${index + 1}`, {
     x: center.x + x * 10, y: center.y + y * 10, z: center.z,
   });
   const foliage = index % 2 ? '#759866' : '#66875f';
@@ -492,7 +498,7 @@ function createRtsStarterKit(center: Vector3): {
   generatedAssets: Array<{ asset: ProjectAsset; file: File }>;
 } {
   const clothing = createEgoClothingTextureAsset();
-  const meadow = createRtsTextureAsset('madhorse-rts-meadow-texture.svg', `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  const meadow = createRtsTextureAsset('madhorse-rts-grassland-texture.svg', `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
     <defs>
       <pattern id="grass" width="96" height="96" patternUnits="userSpaceOnUse">
         <rect width="96" height="96" fill="#627d4d"/>
@@ -515,23 +521,23 @@ function createRtsStarterKit(center: Vector3): {
     <rect width="1024" height="1024" fill="url(#blocks)"/>
     <path d="M0 0h1024v1024H0z" fill="none" stroke="#d7cba9" stroke-width="20" opacity=".08"/>
   </svg>`);
-  const roof = createRtsTextureAsset('madhorse-rts-copper-roof-texture.svg', `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  const roof = createRtsTextureAsset('madhorse-rts-terracotta-roof-texture.svg', `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
     <defs><pattern id="tiles" width="104" height="76" patternUnits="userSpaceOnUse">
       <rect width="104" height="76" fill="#954d3d"/>
       <path d="M2 2h99v35H2zM-50 40h100v34H-50zM54 40h100v34H54z" fill="#ad6650" stroke="#513b36" stroke-width="5"/>
       <path d="M10 7h75M59 46h84" stroke="#e0a17a" stroke-width="3" opacity=".34"/>
     </pattern></defs><rect width="1024" height="1024" fill="url(#tiles)"/>
   </svg>`);
-  const glass = createRtsTextureAsset('madhorse-rts-biodome-glass-texture.svg', `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-    <defs><linearGradient id="glass" x2="1" y2="1"><stop stop-color="#e4ffff"/><stop offset=".48" stop-color="#84ced5"/><stop offset="1" stop-color="#3d8fa0"/></linearGradient>
-      <pattern id="panes" width="256" height="256" patternUnits="userSpaceOnUse">
-        <rect width="256" height="256" fill="url(#glass)" fill-opacity=".45"/>
-        <path d="M8 18h130l-62 220H8zM165 10h82v236h-150z" fill="#e9ffff" fill-opacity=".18"/>
-        <path d="M0 127h256M128 0v256" stroke="#e9ffff" stroke-width="5" stroke-opacity=".48"/>
-      </pattern>
-    </defs><rect width="1024" height="1024" fill="url(#panes)"/>
+  const crops = createRtsTextureAsset('madhorse-rts-cultivated-field-texture.svg', `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+    <defs><pattern id="rows" width="128" height="128" patternUnits="userSpaceOnUse">
+      <rect width="128" height="128" fill="#8b704d"/>
+      <path d="M12 0v128M34 0v128M56 0v128M78 0v128M100 0v128M122 0v128"
+        stroke="#a9895b" stroke-width="8" opacity=".72"/>
+      <path d="M23 0v128M45 0v128M67 0v128M89 0v128M111 0v128"
+        stroke="#667c3d" stroke-width="5" opacity=".88"/>
+    </pattern></defs><rect width="1024" height="1024" fill="url(#rows)"/>
   </svg>`);
-  const soil = createRtsTextureAsset('madhorse-rts-packed-earth-texture.svg', `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  const soil = createRtsTextureAsset('madhorse-rts-packed-earth-road-texture.svg', `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
     <defs><pattern id="earth" width="128" height="128" patternUnits="userSpaceOnUse">
       <rect width="128" height="128" fill="#9c8060"/>
       <path d="m8 25 42-9 26 9-10 15-41 5zm58 55 38-14 20 14-22 19-41-4zM13 106l30-17 24 14-4 19-41 3z"
@@ -539,7 +545,7 @@ function createRtsStarterKit(center: Vector3): {
       <path d="m4 54 36-7m50-26 27 11M66 112l35-10" stroke="#574b3c" stroke-width="5" opacity=".38"/>
     </pattern></defs><rect width="1024" height="1024" fill="url(#earth)"/>
   </svg>`);
-  const water = createRtsTextureAsset('madhorse-rts-silver-run-water-texture.svg', `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  const water = createRtsTextureAsset('madhorse-rts-village-well-water-texture.svg', `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
     <defs><linearGradient id="water" y2="1"><stop stop-color="#83d1d4"/><stop offset=".5" stop-color="#327d91"/><stop offset="1" stop-color="#225b79"/></linearGradient>
       <pattern id="ripples" width="180" height="110" patternUnits="userSpaceOnUse">
         <rect width="180" height="110" fill="url(#water)"/>
@@ -547,20 +553,18 @@ function createRtsStarterKit(center: Vector3): {
       </pattern></defs><rect width="1024" height="1024" fill="url(#ripples)"/>
   </svg>`);
 
-  const terrain = createObject('Sunstone Vale · Sculpted Highlands', 'terrain', '#829a67',
+  const terrain = createObject('Sunstone Vale · Market Plain', 'terrain', '#829a67',
     { x: center.x, y: center.y, z: center.z }, { x: 1, y: 1, z: 0.76 });
   const terrainPrimitive = getPrimitive(terrain);
   if (terrainPrimitive) {
     terrainPrimitive.terrainSettings = {
-      width: 40, depth: 34, height: 5, mountainHeight: 18, riverDepth: 1.4, riverCount: 1,
+      width: 40, depth: 34, height: 3, mountainHeight: 2.4, riverDepth: 0, riverCount: 0,
     };
     const edits: Array<Omit<TerrainBrushEdit, 'id'> & { id?: string }> = [
-      { action: 'raise', x: -15, z: -9, radius: 7.2, strength: 1.4 },
-      { action: 'smooth', x: -15, z: -9, radius: 4.8, strength: 0.36 },
-      { action: 'raise', x: 14, z: 10, radius: 6.4, strength: 1.25 },
-      { action: 'smooth', x: 14, z: 10, radius: 4.5, strength: 0.34 },
-      { action: 'lower', x: 0, z: 4, radius: 4.1, strength: 0.48 },
-      { action: 'raise', x: 0, z: -13, radius: 4.4, strength: 0.84 },
+      { action: 'smooth', x: 0, z: 0, radius: 10, strength: 0.22 },
+      { action: 'raise', x: -16, z: 12, radius: 5.2, strength: 0.26 },
+      { action: 'smooth', x: -16, z: 12, radius: 3.4, strength: 0.3 },
+      { action: 'raise', x: 16, z: -13, radius: 4.8, strength: 0.2 },
     ];
     terrainPrimitive.terrainEdits = edits.map(edit => ({ ...edit, id: crypto.randomUUID() }));
     terrainPrimitive.textureAssetId = meadow.asset.id;
@@ -568,41 +572,63 @@ function createRtsStarterKit(center: Vector3): {
   }
   const terrainTransform = getTransform(terrain);
   terrainTransform.scale = { x: 1, y: 1, z: 0.76 };
-  const road = createObject('Old Kingroad', 'rounded-cube', '#ad9871',
-    { x: center.x, y: center.y, z: center.z + 0.025 }, { x: 27, y: 2.8, z: 0.12 });
+  const road = createObject('King’s Road · Main Market Way', 'rounded-cube', '#ad9871',
+    { x: center.x, y: center.y - 3 * 10, z: center.z + 0.025 }, { x: 28, y: 2.6, z: 0.12 });
   const roadSurface = getPrimitive(road);
   if (roadSurface) {
     roadSurface.textureAssetId = soil.asset.id;
     roadSurface.roughness = 0.92;
   }
-  const river = createObject('Silver Run · River', 'plane', '#5aaeb9',
-    { x: center.x, y: center.y + 45, z: center.z + 0.08 }, { x: 3.2, y: 20, z: 0.16 });
-  const riverSurface = getPrimitive(river);
-  if (riverSurface) {
-    riverSurface.textureAssetId = water.asset.id;
-    riverSurface.opacity = 0.86;
-    riverSurface.metalness = 0.3;
-    riverSurface.roughness = 0.14;
+  const eastLane = createObject('East Lane · Orchard Road', 'rounded-cube', '#ad9871',
+    { x: center.x + 8 * 10, y: center.y + 3.5 * 10, z: center.z + 0.025 }, { x: 2.6, y: 14, z: 0.12 });
+  const laneSurface = getPrimitive(eastLane);
+  if (laneSurface) {
+    laneSurface.textureAssetId = soil.asset.id;
+    laneSurface.roughness = 0.92;
   }
-  const bridge = createObject('Stone Crossing', 'rounded-cube', '#c1b399',
-    { x: center.x, y: center.y, z: center.z + 0.24 }, { x: 6.5, y: 3.7, z: 0.32 });
-  const bridgePrimitive = getPrimitive(bridge);
-  if (bridgePrimitive) {
-    bridgePrimitive.textureAssetId = stone.asset.id;
-    bridgePrimitive.roughness = 0.68;
+  const square = createObject('Market Square · Stone Paving', 'rounded-cube', '#97896f',
+    { x: center.x + 1.3 * 10, y: center.y - 3 * 10, z: center.z + 0.1 }, { x: 7.2, y: 5.8, z: 0.18 });
+  const squareSurface = getPrimitive(square);
+  if (squareSurface) {
+    squareSurface.textureAssetId = stone.asset.id;
+    squareSurface.roughness = 0.78;
+  }
+  const well = createRtsGroup('Village Well · Market Square', {
+    x: center.x + 1.5 * 10, y: center.y - 3 * 10, z: center.z,
+  });
+  const wellWater = createVisualPart('Still water', well.id, 'cylinder', '#4d8b91',
+    localPartPosition(0, 0, 0.42), { x: 1.08, y: 1.08, z: 0.12 }, { x: 0, y: 0, z: 0 }, water.asset.id);
+  const wellEntities = [
+    well,
+    ...([-1, 1] as const).flatMap(side => [
+      createVisualPart(`Cut-stone well rim · ${side < 0 ? 'west' : 'east'}`, well.id, 'rounded-cube', '#887c64',
+        localPartPosition(side * 0.66, 0, 0.36), { x: 0.3, y: 1.58, z: 0.46 }, { x: 0, y: 0, z: 0 }, stone.asset.id),
+      createVisualPart(`Cut-stone well rim · ${side < 0 ? 'south' : 'north'}`, well.id, 'rounded-cube', '#887c64',
+        localPartPosition(0, side * 0.66, 0.36), { x: 1.58, y: 0.3, z: 0.46 }, { x: 0, y: 0, z: 0 }, stone.asset.id),
+    ]),
+    wellWater,
+    ...([-1, 1] as const).map(side => createVisualPart(`Well timber post · ${side > 0 ? 'east' : 'west'}`,
+      well.id, 'cylinder', '#65472f', localPartPosition(side * 0.82, 0, 1.02), { x: 0.13, y: 0.13, z: 1.55 })),
+    createVisualPart('Well lifting beam', well.id, 'cylinder', '#745137',
+      localPartPosition(0, 0, 1.72), { x: 0.09, y: 0.09, z: 1.72 }, { x: 0, y: 90, z: 0 }),
+  ];
+  const waterSurface = getPrimitive(wellWater);
+  if (waterSurface) {
+    waterSurface.opacity = 0.88;
+    waterSurface.roughness = 0.24;
   }
 
-  const rallyPoint = createObject('Rally Beacon · East Bridge', 'octahedron', '#e8c667',
-    { x: center.x, y: center.y, z: center.z + 0.8 * 10 }, { x: 0.58, y: 0.58, z: 1.25 });
-  const home = createRtsBuilding('Alliance Keep · West', center, { x: -10, y: 0 }, '#b65543', stone.asset.id, undefined, roof.asset.id);
-  const barracks = createRtsBuilding('Ranger Barracks · West', center, { x: -10, y: -5 }, '#a94e3f', stone.asset.id,
+  const rallyPoint = createObject('Rally Beacon · Market Gate', 'octahedron', '#e8c667',
+    { x: center.x + 4.5 * 10, y: center.y - 3 * 10, z: center.z + 0.8 * 10 }, { x: 0.58, y: 0.58, z: 1.25 });
+  const home = createRtsBuilding('Sunstone Keep · Central Hall', center, { x: 0, y: 0 }, '#b65543', stone.asset.id, undefined, roof.asset.id);
+  const barracks = createRtsBuilding('Vale Guard Barracks · West', center, { x: -11, y: -6 }, '#a94e3f', stone.asset.id,
     { x: 3.5, y: 2.8, z: 2.2 }, roof.asset.id);
-  const enemyKeep = createRtsBuilding('Ashen Outpost · East', center, { x: 10, y: 0 }, '#566f8d', stone.asset.id, undefined, roof.asset.id);
-  const enemyBarracks = createRtsBuilding('Ironwatch Barracks · East', center, { x: 10, y: 5 }, '#49617e', stone.asset.id,
+  const enemyKeep = createRtsBuilding('East Gate Outpost', center, { x: 14, y: 1 }, '#73584b', stone.asset.id, undefined, roof.asset.id);
+  const enemyBarracks = createRtsBuilding('East Gate Guardhouse', center, { x: 12, y: 6 }, '#6b5246', stone.asset.id,
     { x: 3.5, y: 2.8, z: 2.2 }, roof.asset.id);
-  const homeTower = createRtsBuilding('West Watchtower', center, { x: -13, y: 5 }, '#b18b52', stone.asset.id,
+  const homeTower = createRtsBuilding('West Watchtower', center, { x: -15, y: 3 }, '#b18b52', stone.asset.id,
     { x: 1.6, y: 1.6, z: 3.8 }, roof.asset.id);
-  const eastTower = createRtsBuilding('East Watchtower', center, { x: 13, y: -5 }, '#71829a', stone.asset.id,
+  const eastTower = createRtsBuilding('East Watchtower', center, { x: 16, y: -9 }, '#9f805a', stone.asset.id,
     { x: 1.6, y: 1.6, z: 3.8 }, roof.asset.id);
   const fieldCommander = createRtsUnit('Field Commander', { x: -7, y: 0 }, '#a74e45',
     'character-controller-player', clothing.asset.id);
@@ -613,8 +639,8 @@ function createRtsStarterKit(center: Vector3): {
     ...createRtsUnit('Vale Scout', { x: -11, y: 4 }, '#81995a', 'character-controller-npc', clothing.asset.id),
   ];
   const enemyUnits = [
-    ...createRtsUnit('Ashen Guard · 01', { x: 8.5, y: -1.6 }, '#587395', 'character-controller-patrol', clothing.asset.id),
-    ...createRtsUnit('Ashen Guard · 02', { x: 8.5, y: 1.8 }, '#587395', 'character-controller-patrol', clothing.asset.id),
+    ...createRtsUnit('East Gate Guard · 01', { x: 11, y: -0.8 }, '#78614f', 'character-controller-patrol', clothing.asset.id),
+    ...createRtsUnit('East Gate Guard · 02', { x: 11, y: 2.2 }, '#78614f', 'character-controller-patrol', clothing.asset.id),
   ];
   const pickups = [
     createRtsPickup('Timber Cache · 36', 'wood', 36, center, { x: -7, y: 2.2 }, '#6e9a52'),
@@ -622,50 +648,59 @@ function createRtsStarterKit(center: Vector3): {
     createRtsPickup('Coin Pouch · 40', 'coins', 40, center, { x: -5.5, y: 3.7 }, '#d4b248'),
     createRtsPickup('Enemy Supply · 20', 'planks', 20, center, { x: 8.2, y: 5 }, '#8797a8'),
   ];
-  const biodomes = [
-    ...createRtsBiodome(center, { x: -15, y: 12 }, 'Verdant Biodome · West Orchard', glass.asset.id),
-    ...createRtsBiodome(center, { x: 15, y: -12 }, 'Moonwell Biodome · East Conservatory', glass.asset.id),
+  const cottages = [
+    ...createRtsHouse(center, { x: 6, y: -7 }, 'Baker’s Cottage', '#d2bd91', '#a7533d', stone.asset.id, roof.asset.id),
+    ...createRtsHouse(center, { x: 9.5, y: 0.5 }, 'Miller’s Cottage', '#c8b487', '#8e4939', stone.asset.id, roof.asset.id),
+    ...createRtsHouse(center, { x: 5.5, y: 7.5 }, 'Village Hall', '#d4c59d', '#9b5540', stone.asset.id, roof.asset.id),
+    ...createRtsHouse(center, { x: -6.5, y: -7.5 }, 'Woodcutter’s House', '#c3ac80', '#80503a', stone.asset.id, roof.asset.id),
+  ];
+  const farmPlots = [
+    ...createRtsFarmPlot(center, { x: 14, y: 9.5 }, 'Southfield · Barley Farm', soil.asset.id, crops.asset.id),
+    ...createRtsFarmPlot(center, { x: -14, y: -10 }, 'Northfield · Sun Wheat', soil.asset.id, crops.asset.id),
   ];
   const trees = [
-    [-14, -2], [-12, 4], [-12, 8], [-4, -12], [0, -13], [5, -12], [11, 3], [11, 8], [11, -6], [4, 11],
+    [-19, 5], [-18, 9], [-16, 13], [-13, 15], [-9, 15], [-18, -12], [-15, -15],
+    [18, -13], [16, -15], [19, -8], [18, -4], [14, 15], [8, 15], [3, 15],
   ].flatMap(([x, y], index) => createRtsTree(center, x, y, index));
   const understory = [
-    [-8, -8], [-6, -10], [7, 8], [9, 10], [-13, -6], [12, 5],
+    [-17, 7], [-15, 12], [-12, 14], [17, -11], [15, -13], [18, -6], [11, 14],
   ].flatMap(([x, y], index) => createRtsShrub(center, x, y, index));
   const rocks = [
-    [-2.2, -8.5], [2, 8.8], [6.1, -8.8], [13.2, 9], [-18, 4], [18, -4],
+    [-17.2, -4.5], [17.6, 5], [-9, 13.2], [9, -13], [18.1, 2], [-18.2, -1],
   ].map(([x, y], index) => createVisualPart(
-    `Outcrop · ${index + 1}`, null, 'icosahedron', index % 2 ? '#77776e' : '#918776',
+    `Stone outcrop · ${index + 1}`, null, 'icosahedron', index % 2 ? '#77776e' : '#918776',
     { x: center.x + x * 10, y: center.y + y * 10, z: center.z + 0.44 * 10 },
     { x: 1.6 + (index % 2) * 0.45, y: 1.15, z: 0.8 },
   ));
-  const riverBanks = [-1, 1].map(side => createVisualPart(
-    `Silver Run · carved bank ${side > 0 ? 'east' : 'west'}`,
-    null, 'rounded-cube', '#82785e',
-    { x: center.x + side * 2.05 * 10, y: center.y + 45, z: center.z + 0.02 },
-    { x: 0.34, y: 19.4, z: 0.14 },
-    { x: 0, y: 0, z: 0 }, stone.asset.id,
-  ));
+  const marketCart = createRtsGroup('Market Cart · Grain and Barrels', {
+    x: center.x + 4.8 * 10, y: center.y - 2.8 * 10, z: center.z,
+  });
+  const cartParts = [
+    marketCart,
+    createVisualPart('Oak cart bed', marketCart.id, 'rounded-cube', '#795238',
+      localPartPosition(0, 0, 0.62), { x: 1.8, y: 1.1, z: 0.24 }),
+    createVisualPart('Barrel · left', marketCart.id, 'cylinder', '#94633e',
+      localPartPosition(-0.35, 0, 1.02), { x: 0.42, y: 0.42, z: 0.64 }),
+    createVisualPart('Barrel · right', marketCart.id, 'cylinder', '#a57b4e',
+      localPartPosition(0.36, 0, 1.02), { x: 0.42, y: 0.42, z: 0.64 }),
+    ...([-1, 1] as const).map(side => createVisualPart(`Cart wheel · ${side < 0 ? 'west' : 'east'}`,
+      marketCart.id, 'cylinder', '#503b2e', localPartPosition(side * 0.72, 0, 0.42),
+      { x: 0.54, y: 0.54, z: 0.16 }, { x: 0, y: 90, z: 0 })),
+  ];
   const landmarkEffects = [
-    createRtsEffectEntity('Beacon · animated portal aura',
-      { x: center.x, y: center.y, z: center.z + 1.55 * 10 }, '#f7d57d', 'portal', 4),
-    createRtsEffectEntity('Highland crystals · drifting motes',
-      { x: center.x - 6 * 10, y: center.y + 12 * 10, z: center.z + 1.2 * 10 }, '#79e4ee', 'motes', 3),
-    createRtsEffectEntity('River crossing · fog bank',
-      { x: center.x + 2.6 * 10, y: center.y + 45, z: center.z + 0.42 * 10 }, '#a1dce2', 'mist', 2.6),
-    createRtsEffectEntity('Alliance Keep · rally aura',
-      { x: center.x - 10 * 10, y: center.y, z: center.z + 1.4 * 10 }, '#f38e62', 'aura', 2.2),
+    createRtsEffectEntity('Market square · warm lantern motes',
+      { x: center.x + 2 * 10, y: center.y - 3 * 10, z: center.z + 1.5 * 10 }, '#ffd17d', 'motes', 1.5),
+    createRtsEffectEntity('Sunstone Keep · warm rally aura',
+      { x: center.x, y: center.y, z: center.z + 1.35 * 10 }, '#f0b56b', 'aura', 1.2),
   ];
   const lights = [
-    createRtsLight('Sunlight · Warm Key', 'directional', '#ffe0a1', 1.45, { x: -34, y: 22, z: 18 }),
-    createRtsLight('Sky Fill · Cool Bounce', 'ambient', '#bad7ef', 0.54, { x: 0, y: 0, z: 0 }),
-    createRtsLight('Biodome · west grow light', 'point', '#9debc0', 1.4, { x: 0, y: 0, z: 0 },
-      { x: center.x - 15 * 10, y: center.y + 12 * 10, z: center.z + 2.4 * 10 }),
-    createRtsLight('Biodome · east grow light', 'point', '#b6d8ff', 1.3, { x: 0, y: 0, z: 0 },
-      { x: center.x + 15 * 10, y: center.y - 12 * 10, z: center.z + 2.4 * 10 }),
+    createRtsLight('Sunlight · Late Afternoon', 'directional', '#ffe0a1', 1.35, { x: -34, y: 22, z: 18 }),
+    createRtsLight('Sky Fill · Warm Bounce', 'ambient', '#e8d8bc', 0.58, { x: 0, y: 0, z: 0 }),
+    createRtsLight('Market Lantern · Well', 'point', '#ffd38a', 0.8, { x: 0, y: 0, z: 0 },
+      { x: center.x + 1.5 * 10, y: center.y - 3 * 10, z: center.z + 3.1 * 10 }),
   ];
-  const sky = createRtsGroup('Vale Sky', { x: 50, y: 50, z: 0 });
-  sky.components.push({ id: crypto.randomUUID(), type: 'skybox', enabled: true, color: '#708da8' });
+  const sky = createRtsGroup('Sunstone Vale · Evening Sky', { x: 50, y: 50, z: 0 });
+  sky.components.push({ id: crypto.randomUUID(), type: 'skybox', enabled: true, color: '#a28a70' });
 
   const player = fieldCommander[0];
   const inventory = createGameFeature('inventory');
@@ -697,19 +732,19 @@ function createRtsStarterKit(center: Vector3): {
 
   return {
     entities: [
-      terrain, road, river, bridge, rallyPoint, ...home, ...barracks, ...enemyKeep, ...enemyBarracks,
+      terrain, road, eastLane, square, ...wellEntities, rallyPoint, ...home, ...barracks, ...enemyKeep, ...enemyBarracks,
       ...homeTower, ...eastTower, sky, ...lights, ...fieldCommander, ...alliedUnits, ...enemyUnits,
-      ...pickups, ...trees, ...understory, ...rocks, ...riverBanks, ...biodomes, ...landmarkEffects,
+      ...cottages, ...farmPlots, ...cartParts, ...pickups, ...trees, ...understory, ...rocks, ...landmarkEffects,
       createStoryboard('Sunstone Vale · First Campaign', [
         { title: 'Gather supplies', note: 'Move near Timber Cache, Stone Supply, or Coin Pouch and use G to gather.' },
-        { title: 'Rally the squad', note: 'Press T to send nearby allied NPC units to the East Bridge beacon. Use WASD to move and hold Shift to run.' },
-        { title: 'Survey the biomes', note: 'Explore the sculpted highlands, Silver Run river corridor, forest understory, and the two climate-controlled biodomes.' },
-        { title: 'Prepare the outpost', note: 'Use K to craft planks, B to place an editable construction block, and F to hit a nearby practice target; edit terrain, structures, resources, and mission beats.' },
+        { title: 'Rally the village guard', note: 'Press T to send nearby allied NPCs to the Market Gate beacon. Use WASD to move and hold Shift to run.' },
+        { title: 'Secure the harvest', note: 'Survey the barley and wheat plots, cottages, woods, and resource sites around Sunstone Keep.' },
+        { title: 'Defend the east road', note: 'Use K to craft planks, B to place an editable construction block, and F to fight; then customize the keep, farms, roads, squads, and mission.' },
       ]),
     ],
     playerId: player.id,
     title: 'RTS · Sunstone Vale',
-    generatedAssets: [clothing, meadow, stone, roof, glass, soil, water],
+    generatedAssets: [clothing, meadow, stone, roof, crops, soil, water],
   };
 }
 

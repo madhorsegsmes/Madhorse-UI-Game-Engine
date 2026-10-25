@@ -153,8 +153,8 @@ function RtsGamePreview() {
   return (
     <div className="hub-rts-screen">
       <div className="hub-rts-toolbar">
-        <span><i /> RTS / WORLD REFERENCE</span>
-        <span>ISOMETRIC</span>
+        <span><i /> SUNSTONE VALE · RTS TEMPLATE</span>
+        <span>EDITABLE SETTLEMENT</span>
         <span>BUILD IN STUDIO</span>
       </div>
       <div className="hub-rts-art">
@@ -362,7 +362,7 @@ export default function HubPage() {
               </div>
               <div className="hub-card-copy">
                 <h3>Strategy World</h3>
-                <p>Use this isometric settlement as a guide for keeps, paths, crop plots, woods, resource sites, and squad routes. Open the editable RTS starter in Studio to customize the world and controls.</p>
+                <p>Start with an editable isometric settlement: fortified keep, terracotta cottages, market roads, crop plots, woods, resource sites, and squads. The scene is built from separate pieces you can change in Studio.</p>
               </div>
               <span className="hub-card-link">CREATE RTS PROJECT <ArrowUpRight size={15} /></span>
             </a>

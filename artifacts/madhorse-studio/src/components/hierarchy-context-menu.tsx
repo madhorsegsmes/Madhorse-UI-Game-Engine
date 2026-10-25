@@ -7,6 +7,7 @@ import {
   type TerrainSettings,
   type UIElementKind,
 } from '@/lib/scene-model';
+import type { PluginComponentKind } from '@/lib/scene-plugin-catalog';
 
 export type HierarchyMenuPoint = { x: number; y: number };
 export type PlaneSettings = { size: number; width: number; depth: number };
@@ -16,6 +17,7 @@ type Props = {
   assets: ProjectAsset[];
   terrainAvailable: boolean;
   deleteTarget: { id: string; name: string; childCount: number } | null;
+  targetEntityId: string | null;
   onClose: () => void;
   onDeleteEntity: (entityId: string) => void;
   onCreateShape: (shape: PrimitiveShape) => void;
@@ -35,7 +37,59 @@ type Props = {
   onTerrainBrush: (action: 'raise' | 'lower' | 'smooth') => void;
   onAddTrees: () => void;
   onAddWater: () => void;
+  onAttachPlugin: (entityId: string, kind: PluginComponentKind) => void;
+  onAttachPluginSet: (entityId: string, kinds: PluginComponentKind[], label: string) => void;
+  onOpenCharacterBuilder: () => void;
 };
+
+const beginnerSetups: Array<{
+  id: string;
+  label: string;
+  help: string;
+  components: PluginComponentKind[];
+}> = [
+  {
+    id: 'player-movement',
+    label: 'Player Movement',
+    help: 'Walk, jump, run, and crouch',
+    components: ['character-controller-player', 'action-run', 'action-crouch'],
+  },
+  {
+    id: 'third-person-player',
+    label: 'Third-Person Player',
+    help: 'Movement, camera style, health',
+    components: ['character-controller-third-person', 'action-run', 'action-crouch', 'feature-health', 'feature-status-bar'],
+  },
+  {
+    id: 'fighter-controls',
+    label: 'Fighting Game Controls',
+    help: 'Light, heavy, special, block',
+    components: [
+      'character-controller-player', 'action-light-attack', 'action-heavy-attack',
+      'action-special-attack', 'action-block', 'action-run', 'action-crouch',
+      'feature-health', 'feature-status-bar',
+    ],
+  },
+  {
+    id: 'npc-follower',
+    label: 'NPC Follower',
+    help: 'Make this character follow the player',
+    components: ['character-controller-npc'],
+  },
+];
+
+const advancedComponents: Array<{ kind: PluginComponentKind; label: string; help: string }> = [
+  { kind: 'physics', label: 'Physics Body', help: 'Weight, gravity, collision' },
+  { kind: 'character-controller-third-person', label: 'Third-Person Controller', help: 'Camera-follow movement' },
+  { kind: 'character-controller-patrol', label: 'NPC Patrol', help: 'Walk a simple patrol route' },
+  { kind: 'feature-health', label: 'Health', help: 'Editable health values' },
+  { kind: 'feature-inventory', label: 'Inventory', help: 'Store game items' },
+  { kind: 'feature-interact', label: 'Interaction', help: 'Let the player use this object' },
+  { kind: 'action-shoot', label: 'Shooting', help: 'Add a ranged attack' },
+  { kind: 'action-reload', label: 'Reload', help: 'Magazine and reserve ammo' },
+  { kind: 'trigger-zone-box', label: 'Box Trigger Zone', help: 'Detect entry into an area' },
+  { kind: 'trigger-zone-sphere', label: 'Round Trigger Zone', help: 'Detect entry into a round area' },
+];
 
 export function HierarchyContextMenu(props: Props) {
   const [showAssets, setShowAssets] = useState(false);
@@ -118,6 +172,29 @@ export function HierarchyContextMenu(props: Props) {
                 <button type="button" data-testid="menu-import-asset" onClick={() => run(props.onImportAsset)}>Import Asset</button>
               </div>
             </section>
+            <section className="fresh-context-section" aria-label="Beginner ready-made setups">
+              <h4>Ready-Made Setups</h4>
+              <p className="fresh-context-note">Choose a scene object first. Each setup adds editable controls you can change later.</p>
+              <div className="fresh-context-tool-grid">
+                {beginnerSetups.map(setup => (
+                  <button
+                    type="button"
+                    key={setup.id}
+                    data-testid={`hierarchy-setup-${setup.id}`}
+                    disabled={!props.targetEntityId}
+                    onClick={() => run(() => props.targetEntityId &&
+                      props.onAttachPluginSet(props.targetEntityId, setup.components, setup.label))}
+                  >
+                    <span>{setup.label}</span><small>{setup.help}</small>
+                  </button>
+                ))}
+                <button type="button" data-testid="hierarchy-open-character-builder"
+                  onClick={() => run(props.onOpenCharacterBuilder)}>
+                  <span>Build a Character</span><small>Open the detailed character tools</small>
+                </button>
+              </div>
+              {!props.targetEntityId && <p className="fresh-context-note">Select an object in the Hierarchy to add a setup.</p>}
+            </section>
             <section className="fresh-context-section" aria-label="Create UI">
               <h4>UI Builder</h4>
               <div className="fresh-ui-submenu" role="group" aria-label="Choose a UI element">
@@ -192,6 +269,20 @@ export function HierarchyContextMenu(props: Props) {
                 <button type="button" data-testid="menu-create-texture" onClick={() => run(props.onCreateTexture)}>Create Texture</button>
                 <button type="button" data-testid="menu-upload-texture" onClick={() => run(props.onUploadTexture)}>Upload 2D Texture</button>
                 <button type="button" data-testid="menu-open-timeline" onClick={() => run(props.onOpenTimeline)}>Timeline Your Animation</button>
+              </div>
+            </section>
+            <section className="fresh-context-section" aria-label="Advanced components">
+              <h4>Advanced Components</h4>
+              <p className="fresh-context-note">Add one component at a time. Select the object it should control.</p>
+              <div className="fresh-context-tool-grid">
+                {advancedComponents.map(item => (
+                  <button type="button" key={item.kind} data-testid={`hierarchy-component-${item.kind}`}
+                    disabled={!props.targetEntityId}
+                    onClick={() => run(() => props.targetEntityId &&
+                      props.onAttachPlugin(props.targetEntityId, item.kind))}>
+                    <span>{item.label}</span><small>{item.help}</small>
+                  </button>
+                ))}
               </div>
             </section>
             {props.deleteTarget && (

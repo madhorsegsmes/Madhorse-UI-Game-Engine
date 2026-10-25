@@ -72,10 +72,10 @@ test('the fighting starter has an editable round HUD, special meter and working 
   assert.equal(facedPlayer?.components.find(component => component.type === 'transform')?.rotation.z, 90);
 });
 
-test('the RTS starter creates a textured strategy map, squads, resources, mission, and editable HUD', () => {
+test('the RTS starter assembles the isometric settlement from editable pieces with working squads and HUD', () => {
   const starter = createGameStarterKit('rts', { x: -15, y: 50, z: 0 });
   const player = starter.entities.find(entity => entity.id === starter.playerId);
-  const terrain = starter.entities.find(entity => entity.name === 'Sunstone Vale · Sculpted Highlands');
+  const terrain = starter.entities.find(entity => entity.name === 'Sunstone Vale · Market Plain');
 
   assert.ok(isSceneGraph(starter.entities));
   assert.equal(starter.title, 'RTS · Sunstone Vale');
@@ -83,17 +83,22 @@ test('the RTS starter creates a textured strategy map, squads, resources, missio
   assert.ok(player.components.some(component => component.type === 'characterController' && component.role === 'player'));
   assert.ok(['command', 'gather', 'craft', 'build', 'run', 'fight'].every(action =>
     player.components.some(component => component.type === 'playerAction' && component.action === action)));
-  assert.ok(['Alliance Keep · West', 'Ashen Outpost · East', 'Stone Crossing', 'Rally Beacon · East Bridge']
+  assert.ok([
+    'Sunstone Keep · Central Hall', 'East Gate Outpost', 'King’s Road · Main Market Way',
+    'Rally Beacon · Market Gate', 'Market Square · Stone Paving', 'Village Well · Market Square',
+  ]
     .every(name => starter.entities.some(entity => entity.name === name)));
-  assert.ok(starter.entities.filter(entity => /Vale Guard|Vale Scout|Ashen Guard/.test(entity.name)).length >= 5);
-  assert.ok(starter.entities.some(entity => entity.name === 'Silver Run · River'));
-  assert.ok(starter.entities.some(entity => entity.name === 'Verdant Biodome · West Orchard'));
-  assert.ok(starter.entities.some(entity => entity.name === 'Moonwell Biodome · East Conservatory'));
-  assert.ok(starter.entities.filter(entity => entity.name === 'Panoramic glass shell').length >= 2);
+  assert.ok(starter.entities.filter(entity => /Vale Guard|Vale Scout|East Gate Guard/.test(entity.name)).length >= 5);
+  assert.ok(['Baker’s Cottage', 'Miller’s Cottage', 'Village Hall', 'Woodcutter’s House']
+    .every(name => starter.entities.some(entity => entity.name === name)));
+  assert.ok(['Southfield · Barley Farm', 'Northfield · Sun Wheat']
+    .every(name => starter.entities.some(entity => entity.name === name)));
+  assert.ok(starter.entities.some(entity => entity.name === 'Furrow · 1'));
+  assert.ok(starter.entities.filter(entity => entity.name.startsWith('Crop bundle')).length >= 24);
+  assert.ok(starter.entities.filter(entity => entity.name === 'Terracotta hipped roof').length >= 4);
+  assert.ok(!starter.entities.some(entity => /biodome|panoramic glass|silver run|river/i.test(entity.name)));
   assert.ok(starter.entities.some(entity => entity.name.includes('Crenellation')));
-  assert.ok(starter.entities.some(entity => entity.name.includes('Hydroponic terrace')));
-  assert.ok(starter.entities.some(entity => entity.name.includes('Highland crystals')));
-  assert.ok(starter.entities.some(entity => entity.name.includes('fog bank')));
+  assert.ok(starter.entities.some(entity => entity.name.includes('warm lantern motes')));
   assert.ok(starter.entities.some(entity => entity.name === 'Sunstone Vale · First Campaign Storyboard'));
   assert.ok(terrain);
   const terrainPrimitive = getPrimitive(terrain);
@@ -102,17 +107,17 @@ test('the RTS starter creates a textured strategy map, squads, resources, missio
     terrainPrimitive?.terrainSettings && [terrainPrimitive.terrainSettings.width, terrainPrimitive.terrainSettings.depth],
     [40, 34],
   );
-  assert.ok((terrainPrimitive?.terrainEdits?.length ?? 0) >= 6);
+  assert.ok((terrainPrimitive?.terrainEdits?.length ?? 0) >= 4);
   assert.ok(terrainPrimitive?.textureAssetId);
-  assert.ok(starter.generatedAssets?.some(({ asset }) => asset.name === 'madhorse-rts-meadow-texture.svg'));
+  assert.ok(starter.generatedAssets?.some(({ asset }) => asset.name === 'madhorse-rts-grassland-texture.svg'));
   assert.ok(starter.generatedAssets?.some(({ asset }) => asset.name === 'madhorse-rts-cut-stone-texture.svg'));
-  assert.ok(starter.generatedAssets?.some(({ asset }) => asset.name === 'madhorse-rts-copper-roof-texture.svg'));
-  assert.ok(starter.generatedAssets?.some(({ asset }) => asset.name === 'madhorse-rts-biodome-glass-texture.svg'));
+  assert.ok(starter.generatedAssets?.some(({ asset }) => asset.name === 'madhorse-rts-terracotta-roof-texture.svg'));
+  assert.ok(starter.generatedAssets?.some(({ asset }) => asset.name === 'madhorse-rts-cultivated-field-texture.svg'));
   assert.equal(starter.generatedAssets?.length, 7);
   const styles = starter.entities.flatMap(entity => entity.components)
     .filter(component => component.type === 'effect')
     .map(component => component.style ?? 'aura');
-  assert.ok(styles.includes('portal') && styles.includes('motes') && styles.includes('mist'));
+  assert.ok(styles.includes('motes') && styles.includes('aura'));
 
   const controls = createEgoUiKit(['rts'], 0);
   assert.ok(['Resources · Wood / Planks / Coins', 'Mini Map · Sunstone Vale', 'Selected Unit · Field Commander']

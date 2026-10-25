@@ -554,6 +554,24 @@ body::-webkit-scrollbar-thumb,
   cursor: pointer;
 }
 
+.fresh-context-tool-grid button small {
+  display: block;
+  margin-top: 2px;
+  color: #ab96bd;
+  font: 500 8px/1.25 Inter, system-ui, sans-serif;
+}
+
+.fresh-context-tool-grid button:disabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
+.fresh-context-note {
+  margin: 0;
+  color: #9b8aa8;
+  font: 500 8px/1.35 Inter, system-ui, sans-serif;
+}
+
 .fresh-context-tool-grid button:hover,
 .fresh-context-tool-grid button:focus-visible {
   border-color: #c179ff;

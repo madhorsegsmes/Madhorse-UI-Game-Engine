@@ -9,7 +9,7 @@ import './mad-builder-menu.css';
 
 const EXAMPLE = 'Build a small 3D house with four walls, a pitched roof, a front door, glass windows on each side, a ground plane around it and a warm point light inside.';
 const CAR_REFERENCE_PROMPT = 'Use the uploaded car image as the source of truth. If it is a two-door muscle or sports coupe, use the dedicated vehicle tool (muscle-coupe) for a contoured body, wheel openings, shaped glass cabin and four detailed wheels, not a stack of boxes. Match its real-world proportions, paint, dark trim and visible paired racing stripes. Build one editable car only, without scenery or duplicate details. Explain which hidden details are estimated and any differences imposed by the coupe template. Do not force other vehicle styles into this template.';
-const RTS_REFERENCE_PROMPT = 'Build an editable isometric RTS settlement inspired by the selected reference: a central fortified keep, connected winding paths, smaller homes and outposts, crop plots, forest clusters, visible resource sites, and clear routes for squads. Use warm earth and foliage colors, readable spacing, and grouped details.';
+const RTS_TEMPLATE_PROMPT = 'Build an editable isometric medieval RTS settlement matching the Sunstone Vale template: a central fortified keep, terracotta cottages, a market square and well, connected roads, crop fields, wooded edges, resource sites, and clear routes for squads. Use warm stone, earth, roof, and foliage colors. Assemble the scene from separate editable pieces.';
 const STYLE_STORAGE_KEY = 'madhorse-studio-mad-builder-style';
 const DEFAULT_REFERENCE_STORAGE_KEY = 'madhorse-studio-mad-builder-default-reference';
 const BUILD_CATEGORY_STORAGE_KEY = 'madhorse-studio-mad-builder-build-category';
@@ -22,7 +22,7 @@ const BUILD_CATEGORIES: { value: BuilderBuildCategory; label: string }[] = [
   { value: 'auto', label: 'Automatic — follow the prompt' },
   { value: 'vehicle', label: 'Vehicle — orange coupe reference' },
   { value: 'house', label: 'House — Victorian reference' },
-  { value: 'rts-world', label: 'RTS world — isometric settlement reference' },
+  { value: 'rts-world', label: 'RTS settlement template — Sunstone Vale' },
 ];
 const BUILD_STYLES: { value: BuilderStyle; label: string }[] = [
   { value: 'polished-game-ready', label: 'Polished game-ready' },
@@ -80,7 +80,7 @@ export function MadBuilderMenu(props: MadBuilderProps & {
   const defaultReferenceReady = defaultReferenceEnabled && !!defaultReferenceImage &&
     defaultReferenceLoadedFor === buildCategory;
   const defaultReferenceName = buildCategory === 'house' ? 'Victorian house'
-    : buildCategory === 'rts-world' ? 'isometric RTS settlement' : 'orange coupe';
+    : buildCategory === 'rts-world' ? 'Sunstone Vale settlement template' : 'orange coupe';
   const defaultReferenceUrl = DEFAULT_REFERENCE_URLS[buildCategory === 'auto' ? 'vehicle' : buildCategory];
   const defaultReferenceRole = buildCategory === 'auto' ? 'global-style' as const : 'category-default' as const;
   const moduleOptions = getMadBuilderModules(moduleCategory);
@@ -105,10 +105,10 @@ export function MadBuilderMenu(props: MadBuilderProps & {
     setDefaultReferenceError('');
     void fetch(defaultReferenceUrl, { signal: controller.signal })
       .then((response) => {
-        if (!response.ok) throw new Error('The selected default reference could not be loaded.');
+        if (!response.ok) throw new Error('The selected template image could not be loaded.');
         return response.blob();
       })
-      .then((blob) => prepareBuilderReference(new File([blob], `${defaultReferenceName} default reference.webp`, {
+      .then((blob) => prepareBuilderReference(new File([blob], `${defaultReferenceName} template.webp`, {
         type: blob.type || 'image/webp',
       })))
       .then((image) => {
@@ -119,7 +119,7 @@ export function MadBuilderMenu(props: MadBuilderProps & {
       })
       .catch((failure) => {
         if (!controller.signal.aborted) setDefaultReferenceError(failure instanceof Error
-          ? failure.message : 'The selected default reference could not be loaded.');
+          ? failure.message : 'The selected template image could not be loaded.');
       })
       .finally(() => { if (!controller.signal.aborted) setPreparingDefaultReference(false); });
     return () => controller.abort();
@@ -135,8 +135,8 @@ export function MadBuilderMenu(props: MadBuilderProps & {
       : buildCategory === 'vehicle'
         ? 'Build a vehicle based on the selected Vehicle reference.'
         : buildCategory === 'rts-world'
-          ? 'Build an editable isometric RTS settlement from the selected world reference: terrain, roads, a central keep, smaller bases, resource sites, crop plots, forests, and a few unit groups.'
-          : 'Build the object shown in the uploaded target reference.';
+          ? 'Build the editable Sunstone Vale settlement template from separate scene pieces: terrain, roads, keep, cottages, farms, well, forest, resource sites, and squads.'
+          : 'Build the object shown in the uploaded target image.';
     if (canPlan) void onPlan(prompt.trim() || fallbackPrompt, asPrefab, buildStyle, buildCategory, requestReferences()).catch(() => undefined);
   };
   const uploadReference = async (file: File | undefined) => {
@@ -206,15 +206,21 @@ export function MadBuilderMenu(props: MadBuilderProps & {
                 <label className="mb-check">
                   <input type="checkbox" checked={defaultReferenceEnabled} disabled={readOnly || busy}
                     onChange={(event) => updateDefaultReference(event.target.checked)} data-testid="checkbox-builder-default-reference" />
-                  Use the selected default reference on every request
+                  {buildCategory === 'rts-world'
+                    ? 'Use the Sunstone Vale template on every RTS request'
+                    : 'Use the selected default image on every request'}
                 </label>
-                <p className="mb-hint">The selected reference guides that subject or world layout. Automatic uses the coupe for finish only. Your uploaded target takes priority.</p>
-                {preparingDefaultReference && defaultReferenceEnabled && <p className="mb-hint" role="status">Loading selected reference…</p>}
+                <p className="mb-hint">{buildCategory === 'rts-world'
+                  ? 'Sunstone Vale is an editable scene template made from separate buildings, farms, roads, and landscape pieces. Your uploaded target image can still guide a custom build.'
+                  : 'The selected image guides that subject or world layout. Automatic uses the coupe for finish only. Your uploaded target takes priority.'}</p>
+                {preparingDefaultReference && defaultReferenceEnabled && <p className="mb-hint" role="status">Loading selected template image…</p>}
                 {defaultReferenceReady && <div className="mb-default-reference">
-                  <img src={defaultReferenceImage} alt={`${defaultReferenceName} default reference`} data-testid="image-builder-default-reference" />
+                  <img src={defaultReferenceImage} alt={`${defaultReferenceName} template image`} data-testid="image-builder-default-reference" />
                   <span>{buildCategory === 'auto'
                     ? 'Orange coupe finish reference · subject follows your prompt'
-                    : `${defaultReferenceName} · sent with each request`}</span>
+                    : buildCategory === 'rts-world'
+                      ? 'Sunstone Vale scene template · built from editable pieces'
+                      : `${defaultReferenceName} · sent with each request`}</span>
                 </div>}
                 {defaultReferenceError && <p className="mb-error" role="alert" data-testid="text-builder-default-reference-error">{defaultReferenceError}</p>}
                 <div className="mb-module-tools" data-testid="section-builder-modules">
@@ -249,25 +255,25 @@ export function MadBuilderMenu(props: MadBuilderProps & {
             <input id="mad-builder-reference" type="file" accept="image/jpeg,image/png,image/webp"
               disabled={readOnly || busy} data-testid="input-builder-reference"
               onChange={(event) => { void uploadReference(event.target.files?.[0]); event.target.value = ''; }} />
-            {preparingImage && <p className="mb-hint" role="status">Preparing reference image…</p>}
+            {preparingImage && <p className="mb-hint" role="status">Preparing target image…</p>}
             {referenceImage && <div className="mb-reference-preview">
-              <img src={referenceImage} alt={`Build reference: ${referenceName}`} data-testid="image-builder-reference" />
+              <img src={referenceImage} alt={`Build target image: ${referenceName}`} data-testid="image-builder-reference" />
               <span>{referenceName}</span>
               <button type="button" disabled={busy} onClick={() => { setReferenceImage(''); setReferenceName(''); }}>Remove</button>
             </div>}
             {referenceError && <p className="mb-error" role="alert">{referenceError}</p>}
-            <p className="mb-hint">An uploaded target image guides its design or world layout and takes priority over the default reference. The builder creates editable geometry, not an exact 3D copy or complete RTS logic.</p>
+            <p className="mb-hint">An uploaded target image can guide a custom build. The Sunstone Vale starter itself contains editable 3D geometry, not only a picture.</p>
             <label className="mb-prompt-label" htmlFor="mad-builder-prompt">What should Mad Bot build?</label>
             <textarea
               id="mad-builder-prompt" className="mb-textarea" value={prompt} maxLength={2000} rows={4}
               disabled={readOnly || busy} autoFocus={embedded && Boolean(props.onClose)}
-              placeholder="Describe the world or object to build; a selected reference can guide the layout."
+              placeholder="Describe the world or object to build; a selected template can guide the layout."
               aria-invalid={prompt.length > 0 && !valid}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); } }}
               data-testid="input-builder-prompt"
             />
-            <div className="mb-meta"><span>{len > 0 && len < 3 ? 'Min 3 characters, or leave blank' : !hasReference ? 'Enable the selected reference or upload a target image' : len === 0 && buildCategory === 'auto' && !referenceImage ? 'Enter a request or upload a target image' : 'Tap Build in scene or press Ctrl+Enter'}</span><span data-testid="text-builder-char-count">{prompt.length}/2000</span></div>
+            <div className="mb-meta"><span>{len > 0 && len < 3 ? 'Min 3 characters, or leave blank' : !hasReference ? 'Enable the selected template image or upload a target image' : len === 0 && buildCategory === 'auto' && !referenceImage ? 'Enter a request or upload a target image' : 'Tap Build in scene or press Ctrl+Enter'}</span><span data-testid="text-builder-char-count">{prompt.length}/2000</span></div>
             <label className="mb-style-row" htmlFor="mad-builder-style">
               <span>Build style</span>
               <select id="mad-builder-style" className="mb-style-select" value={buildStyle}
@@ -286,8 +292,8 @@ export function MadBuilderMenu(props: MadBuilderProps & {
               <button type="button" className="mb-quiet" disabled={readOnly || busy} onClick={() => setPrompt(CAR_REFERENCE_PROMPT)} data-testid="button-builder-car-reference-prompt">Example: car reference</button>
               <button type="button" className="mb-quiet" disabled={readOnly || busy} onClick={() => {
                 updateBuildCategory('rts-world');
-                setPrompt(RTS_REFERENCE_PROMPT);
-              }} data-testid="button-builder-rts-reference-prompt">Example: RTS world</button>
+              setPrompt(RTS_TEMPLATE_PROMPT);
+            }} data-testid="button-builder-rts-reference-prompt">Example: RTS template</button>
               {phase === 'planning' || phase === 'applying' ? (
                 <button type="button" className="mb-danger mb-grow" onClick={onCancel} data-testid="button-builder-cancel">
                   {phase === 'planning' ? 'Cancel planning' : 'Cancel build'}
@@ -360,7 +366,7 @@ export function MadBuilderMenu(props: MadBuilderProps & {
           </details>
           <div className="mb-section">
             <p className="mb-fine" data-testid="text-builder-credits">Uses OpenAI via Replit AI Integrations. No API key needed; usage is billed to your Replit credits.</p>
-            <p className="mb-fine" data-testid="text-builder-privacy">The selected bundled reference, any optional target image, your request, build category, selected object name and project asset names/types are sent to the existing OpenAI planner when you build. Images are transient input, not saved as project assets. The bundled references are included with Studio; uploaded images must be selected again after closing this panel. Saved projects stay in this browser.</p>
+            <p className="mb-fine" data-testid="text-builder-privacy">The selected bundled style image, any optional target image, your request, build category, selected object name and project asset names/types are sent to the existing OpenAI planner when you build. Images are transient input, not saved as project assets. The bundled style images are included with Studio; uploaded images must be selected again after closing this panel. Saved projects stay in this browser.</p>
           </div>
         </div>
       </section>

@@ -15,7 +15,7 @@ import type { ProjectAsset } from '@/lib/scene-model';
 import { useSceneRenderSettings } from '@/hooks/use-scene-render-settings';
 
 const fightingStarterVision = 'A fixed side-view 3D fighting game with detailed human fighters, editable combat actions and HUD, plus imported FBX fighters and high-resolution stage assets.';
-const rtsStarterVision = 'A real-time strategy campaign in Sunstone Vale: command human squads, gather resources, defend an alliance keep, and take the enemy outpost.';
+const rtsStarterVision = 'An editable isometric medieval RTS settlement in Sunstone Vale: a fortified keep, terracotta cottages, market roads, crop farms, wooded edges, resource sites, human squads, and an eastern outpost.';
 
 type StarterChoice = '2d-fighting' | 'rts';
 
@@ -31,9 +31,9 @@ function createStarterSnapshot(projectName: string, choice: StarterChoice): {
   const isRts = choice === 'rts';
   const starter = createGameStarterKit(isRts ? 'rts' : 'fighting', { x: -15, y: 50, z: 0 });
   const camera = createGameCamera(starter.entities);
-  camera.position = isRts ? { x: 0, y: 24, z: 29 } : { x: 0, y: 1.2, z: -17 };
+  camera.position = isRts ? { x: 8, y: 32, z: 36 } : { x: 0, y: 1.2, z: -17 };
   camera.target = isRts ? { x: 0, y: 0, z: 0 } : { x: 0, y: 1.2, z: 0 };
-  camera.fov = isRts ? 50 : 42;
+  camera.fov = isRts ? 43 : 42;
   camera.placement = 'custom';
   const uiControls = createEgoUiKit([isRts ? 'rts' : 'fighting'], 0);
   return {
@@ -42,7 +42,7 @@ function createStarterSnapshot(projectName: string, choice: StarterChoice): {
       egoGameVision: isRts ? rtsStarterVision : fightingStarterVision,
       egoGameFlow: 'undecided',
       egoGameNotes: isRts
-        ? 'RTS starter controls: move with WASD; press T to order nearby allied NPCs to the East Bridge rally beacon, G to gather a nearby resource cache, K to craft planks, and B to place a temporary construction block. Edit the mission, terrain, units, buildings, and HUD in Studio. This starter is a playable prototype, not a complete commercial RTS: squad selection, pathfinding, and a full economy are not included yet.'
+        ? 'RTS starter controls: move with WASD; press T to order nearby allied NPCs to the Market Gate beacon, G to gather a nearby resource cache, K to craft planks, and B to place a temporary construction block. The starting scene is assembled from editable keep, cottage, farm, road, well, forest, resource, and squad pieces. Edit the mission, terrain, buildings, units, and HUD in Studio. This starter is a playable prototype, not a complete commercial RTS: squad selection, pathfinding, and a full economy are not included yet.'
         : 'Use A/D to move, F/G for attacks, Control to block, Shift to run, and C to crouch. Import an FBX fighter through Assets, select the fighter root, then choose its model in Model Renderer. Import FBX or GLB stage models and their image textures for high-resolution environments. Edit health bars and action buttons in the UI builder.',
       entities: starter.entities,
       camera,
