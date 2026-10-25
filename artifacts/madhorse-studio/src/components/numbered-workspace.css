@@ -350,16 +350,20 @@ body::-webkit-scrollbar-thumb,
   padding: 0;
   list-style: none;
 }
-.fresh-hierarchy-search {
-  display: flex; gap: 4px; align-items: center; margin: 5px 8px;
-}
+.fresh-hierarchy-search { display:flex; gap:4px; align-items:center; margin:5px 8px; }
 .fresh-hierarchy-search input {
-  min-width: 0; width: 100%; height: 26px; padding: 3px 7px;
+  flex:1; min-width:0; width:100%; height:26px; padding:3px 7px;
   border: 1px solid #59406f; border-radius: 4px; background: #100d19;
   color: #f2e9fc; font: 11px/1.3 Inter, system-ui, sans-serif;
 }
 .fresh-hierarchy-search input:focus-visible { outline: 2px solid #bb83ee; outline-offset: 1px; }
 .fresh-hierarchy-search input::-webkit-search-cancel-button { display: none; }
+.fresh-hierarchy-search select {
+  flex:none; min-width:0; max-width:112px; height:26px; padding:2px 4px;
+  border:1px solid #59406f; border-radius:4px; background:#100d19;
+  color:#f2e9fc; font:10px/1.2 Inter,system-ui,sans-serif;
+}
+.fresh-hierarchy-search select:focus-visible { outline:2px solid #bb83ee; outline-offset:1px; }
 .fresh-hierarchy-actions {
   display: flex; flex-wrap: wrap; gap: 4px; margin: 0 8px 5px;
 }

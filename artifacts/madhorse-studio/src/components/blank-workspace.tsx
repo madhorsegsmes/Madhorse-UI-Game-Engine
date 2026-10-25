@@ -1,7 +1,8 @@
 /** Fresh workspace with local scene authoring and an intentionally blank panel layout. */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useSceneEditHistory } from '@/hooks/use-scene-edit-history';
-import { duplicateSceneSelection, filterSceneHierarchy } from '@/lib/scene-object-actions';
+import { duplicateSceneSelection, filterSceneHierarchy, type HierarchyFilter } from '@/lib/scene-object-actions';
+import { HierarchySearchControls } from './hierarchy-search-controls';
 import { SceneEditorControls, SceneEditorResetControls } from './scene-editor-controls';
 import { inheritSceneEditorFlags, NO_EDITOR_FLAGS, resetSceneEditorFlag, setSceneEditorFlag, type SceneEditorFlag, type SceneEditorFlags } from '@/lib/scene-editor-state';
 import { getSystemActivity, subscribeSystemActivity } from '@/lib/system-activity';
@@ -977,8 +978,9 @@ function HierarchyPanel({
   const [menuEntityId, setMenuEntityId] = useState<string | null>(null);
   const sceneEntities = [primaryCameraEntity(camera), ...entities];
   const [search, setSearch] = useState('');
-  const filtering = Boolean(search.trim());
-  const filtered = filterSceneHierarchy(sceneEntities, search);
+  const [hierarchyFilter, setHierarchyFilter] = useState<HierarchyFilter>('all');
+  const filtering = Boolean(search.trim()) || hierarchyFilter !== 'all';
+  const filtered = filterSceneHierarchy(sceneEntities, search, hierarchyFilter);
   const canAct = !blocked && entities.some(entity => entity.id === selection);
   const sceneViewControlsAvailable = !isPixelRpgScene(entities) && !isCardDuelScene(entities);
 
@@ -1030,11 +1032,7 @@ function HierarchyPanel({
       aria-description="Right-click to create scene objects, delete an object, import assets, or open the animation timeline. Use the trash button to delete an object. Double-click or double-tap an object to rename it and edit its settings."
       onContextMenu={handleContextMenu} onKeyDown={handleKeyDown}>
       <h2 className="fresh-hierarchy-heading">Hierarchy</h2>
-      <div className="fresh-hierarchy-search">
-        <input type="search" aria-label="Search hierarchy" placeholder="Find object…" maxLength={120}
-          value={search} onChange={event => setSearch(event.currentTarget.value)} data-testid="hierarchy-search" />
-        {search && <button type="button" aria-label="Clear hierarchy search" onClick={() => setSearch('')}>×</button>}
-      </div>
+      <HierarchySearchControls search={search} onSearch={setSearch} filter={hierarchyFilter} onFilter={setHierarchyFilter} />
       <div className="fresh-hierarchy-actions" role="group" aria-label="Selected object actions">
         <button type="button" disabled={!canAct} onClick={onFocus} title="Center the scene view on the selected object (F)" data-testid="button-focus-object">Focus <kbd>F</kbd></button>
         <button type="button" disabled={!canAct} onClick={onDuplicate} title="Copy the selected object and its children (Ctrl/Cmd+D). Assets and script files stay shared." data-testid="button-duplicate-object">Duplicate <kbd>Ctrl+D</kbd></button>
@@ -1065,7 +1063,7 @@ function HierarchyPanel({
           onEditorChange={sceneViewControlsAvailable ? onEditorChange : undefined}
         />
       )}
-      {filtering && filtered.matches === 0 && <p className="fresh-hierarchy-help">No matching objects. Clear the search to show the scene.</p>}
+      {filtering && filtered.matches === 0 && <p className="fresh-hierarchy-help">No objects match. Clear the name or choose All objects.</p>}
       <p className="fresh-hierarchy-help">Right-click to create. Double-click an object to edit.</p>
       {menuPoint && (
         <HierarchyContextMenu

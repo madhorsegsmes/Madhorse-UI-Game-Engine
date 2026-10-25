@@ -1,12 +1,43 @@
 import type { SceneEntity } from './scene-model';
 import type { SceneEditState } from './scene-edit-history';
 
+export const hierarchyFilterOptions = [
+  { value: 'all', label: 'All objects' },
+  { value: 'visuals', label: 'Models & shapes' },
+  { value: 'physics', label: 'Physics' },
+  { value: 'lighting', label: 'Lights' },
+  { value: 'camera', label: 'Cameras' },
+  { value: 'scripts', label: 'Scripts' },
+  { value: 'audio', label: 'Audio' },
+  { value: 'ui', label: 'UI' },
+  { value: 'gameplay', label: 'Game systems' },
+  { value: 'inactive', label: 'Inactive objects' },
+] as const;
+export type HierarchyFilter = (typeof hierarchyFilterOptions)[number]['value'];
+
+export function sceneEntityMatchesHierarchyFilter(entity: SceneEntity, filter: HierarchyFilter) {
+  if (filter === 'all') return true;
+  if (filter === 'inactive') return !entity.active;
+  const types: Partial<Record<Exclude<HierarchyFilter, 'all' | 'inactive'>, string[]>> = {
+    visuals: ['primitive', 'modelRenderer', 'spriteRenderer'],
+    physics: ['physics'],
+    lighting: ['light', 'skybox'],
+    camera: ['camera'],
+    scripts: ['script'],
+    audio: ['gameAudio', 'playerWalkAudio'],
+    ui: ['uiCanvas'],
+    gameplay: ['characterController', 'playerAction', 'gameFeature', 'triggerZone', 'multiplayerPlugin', 'storyboard', 'effect'],
+  };
+  return entity.components.some(component => types[filter]?.includes(component.type));
+}
+
 /** Keep matching objects and their ancestors; searching never edits the authored graph. */
-export function filterSceneHierarchy(entities: SceneEntity[], search: string) {
+export function filterSceneHierarchy(entities: SceneEntity[], search: string, filter: HierarchyFilter = 'all') {
   const query = search.trim().toLocaleLowerCase();
-  if (!query) return { entities, matches: entities.length };
+  if (!query && filter === 'all') return { entities, matches: entities.length };
   const byId = new Map(entities.map(entity => [entity.id, entity]));
-  const matches = entities.filter(entity => entity.name.toLocaleLowerCase().includes(query));
+  const matches = entities.filter(entity => (!query || entity.name.toLocaleLowerCase().includes(query))
+    && sceneEntityMatchesHierarchyFilter(entity, filter));
   const visible = new Set<string>();
   for (const match of matches) {
     let current: SceneEntity | undefined = match;

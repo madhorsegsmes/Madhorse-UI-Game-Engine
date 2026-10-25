@@ -4,7 +4,11 @@ Reviewed 2026-10-25. This is a capability comparison, not a claim of feature or 
 
 | Area | Working Madhorse foundation | Important remaining gap |
 | --- | --- | --- |
-| Editor | Hierarchy, transforms, object settings, scene/game cameras, history, prefabs, named projects | Mature multi-scene authoring, collaborative editing and production asset workflows |
+| Editor | Hierarchy with name/type filters, transforms and space/snap controls, visibility/picking locks, object settings, scene/game cameras, history, prefabs, named projects | Mature multi-scene authoring, collaborative editing and production asset workflows |
+
+Hierarchy search now combines object names with filters for models/shapes, physics,
+lights, cameras, scripts, audio, UI, game systems and inactive objects. Matching
+children retain their parent path; filters do not change or hide authored data.
 | Rendering | Three.js/WebGL2, PBR, lighting/shadows, environment and render settings | Nanite-style virtual geometry, Lumen-style dynamic GI, production ray tracing and virtual shadow maps are not implemented equivalents |
 | Physics | Local rigid-body/AABB simulation, broadphase, gravity, contact response; six collision groups, editable presets and opt-in swept-box CCD against stationary boxes | PhysX/Chaos-class mesh/convex solvers, joints, cloth, destruction, moving-body/rotational CCD and large-scale solver performance |
 | Characters and animation | Editable character building, imported model assets, animation controllers and coordinated scene animation | Mature retargeting, robust IK/control-rig authoring, animation debugging and production-quality deformation pipelines |
