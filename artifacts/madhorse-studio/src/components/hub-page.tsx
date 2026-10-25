@@ -16,6 +16,7 @@ import {
 import './hub-page.css';
 import { createGameStarterKit } from '@/lib/scene-starter-kits';
 import { createFightingPreviewCamera } from '@/lib/fighting-preview-camera';
+import { createGameCamera } from '@/lib/game-camera';
 import { DEFAULT_SCENE_RENDER_SETTINGS } from '@/hooks/use-scene-render-settings';
 import { ScenePreview3D } from './scene-preview-3d';
 import { SceneRenderFallback } from './scene-render-fallback';
@@ -68,11 +69,21 @@ const fightingFallbackSettings = {
   background: '#333538',
 };
 
-function FightingGamePreview() {
+function templatePreviewCamera(fps: boolean, aspect: number) {
+  if (!fps) return createFightingPreviewCamera(aspect);
+  const distance = Math.max(1, 1.6 / Math.max(.3, aspect));
+  return {
+    ...createGameCamera([]), rotation: undefined, placement: 'custom' as const, fov: 50,
+    position: { x: 21 * distance, y: 20 * distance, z: -31 * distance },
+    target: { x: 0, y: 1, z: 1 },
+  };
+}
+
+function FightingGamePreview({ fps = false }: { fps?: boolean }) {
   // The card renders the same editable fighter geometry used by the Studio starter.
-  const [starter] = useState(() => createGameStarterKit('fighting', { x: -15, y: 50, z: 0 }));
+  const [starter] = useState(() => createGameStarterKit(fps ? 'shooter' : 'fighting', { x: -15, y: 50, z: 0 }));
   const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
-  const [camera, setCamera] = useState(() => createFightingPreviewCamera(16 / 9));
+  const [camera, setCamera] = useState(() => templatePreviewCamera(fps, 16 / 9));
   const stageRef = useRef<HTMLDivElement>(null);
   const generatedAssets = starter.generatedAssets ?? [];
 
@@ -81,14 +92,14 @@ function FightingGamePreview() {
     if (!stage) return;
     const fit = () => {
       if (stage.clientWidth && stage.clientHeight) {
-        setCamera(createFightingPreviewCamera(stage.clientWidth / stage.clientHeight));
+        setCamera(templatePreviewCamera(fps, stage.clientWidth / stage.clientHeight));
       }
     };
     const observer = new ResizeObserver(fit);
     observer.observe(stage);
     fit();
     return () => observer.disconnect();
-  }, []);
+  }, [fps]);
 
   useEffect(() => {
     const urls = Object.fromEntries(generatedAssets.map(({ asset, file }) =>
@@ -101,12 +112,12 @@ function FightingGamePreview() {
     <div className="hub-fight-screen">
       <div className="hub-fight-toolbar">
         <span><i /> PLAY TEST</span>
-        <span>3D FIGHTERS <b>/</b> SIDE VIEW</span>
+        <span>{fps ? 'FPS FACILITY' : '3D FIGHTERS'} <b>/</b> {fps ? 'EDITABLE LEVEL' : 'SIDE VIEW'}</span>
         <span>TEMPLATE SCENE</span>
       </div>
-      <div ref={stageRef} className="hub-fight-model-stage" data-testid="hub-fighting-model-preview">
+      <div ref={stageRef} className="hub-fight-model-stage" data-testid={fps ? 'hub-fps-model-preview' : 'hub-fighting-model-preview'}>
         <ScenePreview3D
-          projectName="2D Fighting Starter"
+          projectName={fps ? 'Ironlight FPS Starter' : '2D/3D Fighting Starter'}
           gameView
           staticPreview
           gameCamera={camera}
@@ -135,7 +146,10 @@ function FightingGamePreview() {
             />
           }
         />
-        <div className="hub-fight-hud" aria-hidden="true">
+        {fps && <div className="hub-fight-hud" aria-hidden="true" style={{ justifyContent: 'space-between', fontSize: 8 }}>
+          <span>HEALTH 100</span><b>FPS</b><span>12 / 96 · TARGETS 0/6</span>
+        </div>}
+        <div className="hub-fight-hud" aria-hidden="true" style={fps ? { display: 'none' } : undefined}>
           <span className="hub-fight-player-label">PLAYER</span>
           <span className="hub-fight-health hub-fight-health-player"><i /></span>
           <b>99</b>
@@ -339,7 +353,7 @@ export default function HubPage() {
               <div className="hub-kicker"><span className="hub-kicker-line" /> THREE WAYS INTO YOUR WORLD</div>
               <h2 id="hub-pathways-title">Choose your <span>next move.</span></h2>
             </div>
-            <p>Start with a command-ready RTS world or a fighting-game arena, then shape the scene and systems in Studio.</p>
+            <p>Choose an RTS world, a fighting arena, or a first-person training facility, then make it your own in Studio.</p>
           </div>
           <div className="hub-pathway-grid">
             <a className="hub-pathway-card hub-pathway-studio" href={`${studioPath}?starter=2d-fighting`} data-testid="card-studio">
@@ -348,8 +362,8 @@ export default function HubPage() {
                 <FightingGamePreview />
               </div>
               <div className="hub-card-copy">
-                <h3>2D Fighting Game</h3>
-                <p>Name a new Studio project with a side-view arena, two editable fighters, combat actions, and a Play Test HUD.</p>
+                <h3>2D/3D Fighting Game</h3>
+                <p>Make it yours: replace either fighter with a 2D sprite or 3D model; change the floor, backdrop, textures, sky, combat controls, and HUD in Studio.</p>
               </div>
               <span className="hub-card-link">CREATE FIGHTING PROJECT <ArrowUpRight size={15} /></span>
             </a>
@@ -361,13 +375,23 @@ export default function HubPage() {
               </div>
               <div className="hub-card-copy">
                 <h3>Strategy World</h3>
-                <p>Start with an editable isometric settlement: fortified keep, terracotta cottages, market roads, crop plots, woods, resource sites, and squads. The scene is built from separate pieces you can change in Studio.</p>
+                <p>Customize the whole strategy world: terrain, sky, buildings, roads, trees, units, textures, resources, rules, and HUD. Every scene piece is editable in your project.</p>
               </div>
               <span className="hub-card-link">CREATE RTS PROJECT <ArrowUpRight size={15} /></span>
             </a>
 
+            <a className="hub-pathway-card hub-pathway-studio" href={`${studioPath}?starter=fps`} data-testid="card-fps">
+              <div className="hub-card-top"><span>03 / FPS STARTER</span><span className="hub-card-index"><ScanLine size={16} /></span></div>
+              <div className="hub-card-graphic hub-graphic-fighting" aria-hidden="true"><FightingGamePreview fps /></div>
+              <div className="hub-card-copy">
+                <h3>FPS · Ironlight Facility</h3>
+                <p>A playable first-person range with mouse look, strafing, a modular carbine, shooting, reload, sprint, crouch, jump, and six targets. Edit the floor, walls, cover, textures, lighting, weapon, and HUD.</p>
+              </div>
+              <span className="hub-card-link">CREATE FPS GAME <ArrowUpRight size={15} /></span>
+            </a>
+
             <a className="hub-pathway-card hub-pathway-workflow" href={studioPath} data-testid="card-workflow">
-              <div className="hub-card-top"><span>03 / THE WORKFLOW</span><span className="hub-card-index"><Layers3 size={16} /></span></div>
+              <div className="hub-card-top"><span>04 / THE WORKFLOW</span><span className="hub-card-index"><Layers3 size={16} /></span></div>
               <div className="hub-card-graphic hub-graphic-workflow" aria-hidden="true">
                 <span className="hub-workflow-step step-idea"><Sparkles size={15} /><b>IDEA</b></span>
                 <span className="hub-workflow-connector connector-one" />

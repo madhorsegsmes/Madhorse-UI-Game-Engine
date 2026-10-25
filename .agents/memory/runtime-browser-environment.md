@@ -39,15 +39,15 @@ to initialize a GPU or software WebGL renderer in this environment.
 project tools remain usable. Report graphics verification as blocked when no
 context can be created; DOM-only editor checks do not prove 3D rendering works.
 
-Software mesh thumbnails need their own rendering budget and depth-sort checks;
+Software mesh previews, including full editor fallbacks, need their own rendering budget and depth-sort checks;
 never substitute unrelated illustration art when a preview must show actual models.
 
 **Why:** SVG mesh rendering has no depth buffer. Excessive tessellation can stall
 the browser, while very large ground triangles can paint over characters' legs
 even when their camera-space bounds are correct.
 
-**How to apply:** Preserve full-detail source/editor models, use appropriately
-sampled geometry for small software previews, subdivide broad ground surfaces
+**How to apply:** Preserve full-detail source/WebGL models, use appropriately
+sampled geometry for software previews even in the full editor, subdivide broad ground surfaces
 enough for painter sorting, and inspect the resulting image rather than trusting
 face counts or element presence alone.
 
@@ -59,3 +59,13 @@ restarting and reloading restored a healthy fresh mount.
 
 **How to apply:** Keep source stable during browser verification. After changing
 hook layouts, reload before diagnosing normal navigation as broken.
+
+When cheap checks time out after browser testing, inspect process memory before
+assuming a new application regression.
+
+**Why:** Screen recorders left over from completed browser tests retained several
+gigabytes of memory and stalled unrelated Node checks. Ending only those
+completed-test recorders restored normal check performance.
+
+**How to apply:** Check process ownership and whether the test is finished before
+cleaning up a recorder. Do not terminate active tests or user application services.

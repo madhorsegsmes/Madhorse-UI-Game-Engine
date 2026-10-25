@@ -10,6 +10,7 @@ import {
   advancePlayerActions, createPlayerActionRuntimeState, getPlayerActions, resolveActionMovement,
   type ActionAudioEvent, type ActionHud, type PlayerActionRuntimeState,
 } from './player-action-runtime';
+import { firstPersonCollide, firstPersonMove } from './fps-aim';
 
 export type RuntimeInput = {
   moveX: number;
@@ -17,6 +18,8 @@ export type RuntimeInput = {
   jumpPressed: boolean;
   heldKeys?: readonly string[];
   pressedKeys?: readonly string[];
+  lookYaw?: number;
+  lookPitch?: number;
 };
 
 export type RuntimeTriggerEvent = {
@@ -93,7 +96,11 @@ export function advanceSceneRuntime(
   const fighterMode = player ? getPlayerActions(player).some(action =>
     ['light-attack', 'heavy-attack', 'special-attack'].includes(action.action),
   ) : false;
-  const playerInput = fighterMode ? { ...input, moveY: 0 } : input;
+  const firstPerson = playerController?.perspective === 'first-person';
+  const playerInput = firstPerson
+    ? { ...input, ...firstPersonMove(input.moveX, input.moveY, input.lookYaw ?? getTransform(player!).rotation.z),
+      lookYaw: input.lookYaw ?? getTransform(player!).rotation.z }
+    : fighterMode ? { ...input, moveY: 0 } : input;
   const actionMotion = player ? resolveActionMovement(player, playerInput, state.actions, dt) : null;
   const pressedKeys = new Set(input.pressedKeys ?? []);
   const pressedAction = actionMotion?.actions.find(action =>
@@ -150,7 +157,7 @@ export function advanceSceneRuntime(
           ...actionMotion.current.baseScale,
           z: actionMotion.current.baseScale.z * actionMotion.heightMultiplier,
         };
-        if (actionMotion.driving) nextRotation = { ...transform.rotation, z: actionMotion.current.heading * 180 / Math.PI };
+        if (actionMotion.driving || firstPerson) nextRotation = { ...transform.rotation, z: actionMotion.current.heading * 180 / Math.PI };
       }
 
       let velocity = state.jumpVelocity.get(entity.id) ?? 0;
@@ -165,6 +172,10 @@ export function advanceSceneRuntime(
         nextPosition.z = groundZ + nextHeight * 10;
         if (nextHeight === 0) velocity = 0;
         state.jumpVelocity.set(entity.id, velocity);
+      }
+      if (firstPerson) {
+        Object.assign(nextPosition, firstPersonCollide(entities, entity.id, transform.position, nextPosition,
+          actionMotion?.heightMultiplier ?? 1));
       }
     } else if (controller.role === 'npc' && state.actions.orders.has(entity.id)) {
       const destination = state.actions.orders.get(entity.id)!;
@@ -272,7 +283,7 @@ export function advanceSceneRuntime(
   state.contacts = contacts;
   const actionResult = advancePlayerActions(
     moved.map(entity => activeByZone.has(entity.id) ? { ...entity, active: activeByZone.get(entity.id)! } : entity),
-    player?.id, input, state.actions, elapsedSeconds, actionMotion,
+    player?.id, playerInput, state.actions, elapsedSeconds, actionMotion,
   );
   return {
     entities: actionResult.entities,

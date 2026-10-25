@@ -1,7 +1,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, TransformControls } from '@react-three/drei';
+import { Billboard, OrbitControls, TransformControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
@@ -23,6 +23,7 @@ import { PRIMARY_CAMERA_ID, cameraDisplayEntity, cameraFromEditorTransform, came
 import { createGameCamera, type GameCamera } from '@/lib/game-camera';
 import { isCharacterBodySurfacePart, isCharacterBuilderModelRoot } from '@/lib/character-builder-geometry';
 import { CharacterBuilderBodyVisual } from './character-builder-body-visual';
+import { isFighterEntity } from '@/lib/fighter-visual';
 import { SceneElementVisual } from './scene-element-visuals';
 import { SceneNavigation } from './scene-navigation';
 import { sceneEntityFocus, type SceneFocus } from '@/lib/scene-view-geometry';
@@ -196,7 +197,7 @@ export function ScenePreview3D({
   const [errors, setErrors] = useState<ErrorEntry[]>([]);
   const [modelStatuses, setModelStatuses] = useState<Record<string, string>>({});
   const [renderSettings] = useSceneRenderSettings();
-  const skybox = entities.map(getSkybox).find(component => component?.enabled);
+  const skybox = entities.filter(entity => entity.active).map(getSkybox).find(component => component?.enabled);
   const sceneBackground = skybox?.color ?? (gameView ? '#333538' : renderSettings.background);
   const hasAnimatedEffects = useMemo(() => entities.some(entity => getEffect(entity)?.enabled), [entities]);
   const [mobile, setMobile] = useState(false);
@@ -431,6 +432,8 @@ export function ScenePreview3D({
           fallbackContent={!gameView ? (
             <SceneRenderFallback
               entities={entities}
+              assetUrls={assetUrls}
+              detail="thumbnail"
               camera={editorCamera}
               settings={renderSettings}
               zoom={zoom}
@@ -796,6 +799,7 @@ function EntityNode(props: SceneWorldProps & {
   const childEntities = props.childrenByParent.get(entity.id) ?? [];
   const smoothCharacterRoot = isCharacterBuilderModelRoot(entity);
   const assignedModel = Boolean(model?.enabled && model.assetId);
+  const assignedFighterSprite = Boolean(isFighterEntity(entity) && sprite?.enabled && sprite.assetId);
   const humanModelHeight = smoothCharacterRoot
     ? Number(entity.name.match(/(\d+(?:\.\d+)?)\s*m\b/i)?.[1]) || 1.8
     : undefined;
@@ -892,8 +896,13 @@ function EntityNode(props: SceneWorldProps & {
         <TriggerZoneOutline zone={getTriggerZone(entity)!} />
       )}
       {selectedEntity && !getCamera(entity) && <SelectionOutline active={effective} />}
-      {smoothCharacterRoot && !assignedModel && <CharacterBuilderBodyVisual parts={childEntities} />}
-      {props.hideVisual ? null : assignedModel ? (
+      {!props.hideVisual && smoothCharacterRoot && !assignedModel && !assignedFighterSprite && <CharacterBuilderBodyVisual parts={childEntities} />}
+      {props.hideVisual ? null : assignedFighterSprite && sprite ? (
+        <Billboard position={[0, sprite.height / 20, 0]}>
+          <SpriteVisual upright url={spriteUrl} width={sprite.width / 10} height={sprite.height / 10}
+            tint={sprite.tint} active={effective} missing={!spriteUrl} />
+        </Billboard>
+      ) : assignedModel ? (
         modelUrl && modelAsset ? (
           <ModelAssetView
             key={`${model?.assetId ?? ''}:${modelUrl}`}
@@ -963,7 +972,7 @@ function EntityNode(props: SceneWorldProps & {
           key={child.id}
           {...props}
           entity={child}
-          hideVisual={assignedModel || (smoothCharacterRoot && child.active && isCharacterBodySurfacePart(child))}
+          hideVisual={props.hideVisual || assignedModel || assignedFighterSprite || (smoothCharacterRoot && child.active && isCharacterBodySurfacePart(child))}
         />
       ))}
     </group>
@@ -1011,7 +1020,7 @@ function SelectionMarker() {
   </mesh>;
 }
 
-function SpriteVisual({ url, width, height, tint, active, missing, opacity = 1 }: {
+function SpriteVisual({ url, width, height, tint, active, missing, opacity = 1, upright = false }: {
   url?: string;
   width: number;
   height: number;
@@ -1019,6 +1028,7 @@ function SpriteVisual({ url, width, height, tint, active, missing, opacity = 1 }
   active: boolean;
   missing: boolean;
   opacity?: number;
+  upright?: boolean;
 }) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   useEffect(() => {
@@ -1045,7 +1055,7 @@ function SpriteVisual({ url, width, height, tint, active, missing, opacity = 1 }
   }, [url]);
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh rotation={upright ? [0, 0, 0] : [-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[width, height]} />
         <meshBasicMaterial color={texture ? '#ffffff' : tint} map={texture ?? undefined} transparent opacity={active ? opacity : 0.4} side={THREE.DoubleSide} />
       </mesh>

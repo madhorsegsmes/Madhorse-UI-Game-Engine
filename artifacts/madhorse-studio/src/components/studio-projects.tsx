@@ -9,6 +9,7 @@ import { getSystemActivity, subscribeSystemActivity } from '@/lib/system-activit
 import { createEgoUiKit } from '@/lib/ego-ui-kit';
 import { createGameCamera } from '@/lib/game-camera';
 import { createGameStarterKit } from '@/lib/scene-starter-kits';
+import { FPS_CONTROLS } from '@/lib/fps-starter-kit';
 import { removeFreshWorkspace, saveFreshWorkspace } from '@/lib/fresh-workspace-storage';
 import { deleteLocalAsset, saveLocalAsset } from '@/lib/asset-vault';
 import type { ProjectAsset } from '@/lib/scene-model';
@@ -19,11 +20,11 @@ import { FightingCharacterCustomization } from './fighting-character-customizati
 const fightingStarterVision = 'A fixed side-view 3D fighting game with detailed human fighters, editable combat actions and HUD, plus imported FBX fighters and high-resolution stage assets.';
 const rtsStarterVision = 'An editable isometric medieval RTS settlement in Sunstone Vale: a fortified keep, terracotta cottages, market roads, crop farms, wooded edges, resource sites, human squads, and an eastern outpost.';
 
-type StarterChoice = '2d-fighting' | 'rts';
+type StarterChoice = '2d-fighting' | 'rts' | 'fps';
 
 function readStarterChoice(): StarterChoice | null {
   const requested = new URLSearchParams(window.location.search).get('starter');
-  return requested === 'rts' || requested === '2d-fighting' ? requested : null;
+  return requested === 'rts' || requested === '2d-fighting' || requested === 'fps' ? requested : null;
 }
 
 function createStarterSnapshot(projectName: string, choice: StarterChoice, fighterAppearances: FightingAppearancePair): {
@@ -31,21 +32,22 @@ function createStarterSnapshot(projectName: string, choice: StarterChoice, fight
   generatedAssets: Array<{ asset: ProjectAsset; file: File }>;
 } {
   const isRts = choice === 'rts';
-  const starter = createGameStarterKit(isRts ? 'rts' : 'fighting', { x: -15, y: 50, z: 0 }, fighterAppearances);
+  const isFps = choice === 'fps';
+  const starter = createGameStarterKit(isFps ? 'shooter' : isRts ? 'rts' : 'fighting', { x: -15, y: 50, z: 0 }, fighterAppearances);
   const camera = createGameCamera(starter.entities);
-  camera.position = isRts ? { x: 8, y: 32, z: 36 } : { x: 0, y: 1.2, z: -17 };
-  camera.target = isRts ? { x: 0, y: 0, z: 0 } : { x: 0, y: 1.2, z: 0 };
-  camera.fov = isRts ? 43 : 42;
+  camera.position = isFps ? { x: 0, y: 1.6, z: -12 } : isRts ? { x: 8, y: 32, z: 36 } : { x: 0, y: 1.2, z: -17 };
+  camera.target = isFps ? { x: 0, y: 1.6, z: 0 } : isRts ? { x: 0, y: 0, z: 0 } : { x: 0, y: 1.2, z: 0 };
+  camera.fov = isFps ? 70 : isRts ? 43 : 42;
   camera.placement = 'custom';
-  const uiControls = createEgoUiKit([isRts ? 'rts' : 'fighting'], 0);
+  const uiControls = createEgoUiKit([isFps ? 'shooter' : isRts ? 'rts' : 'fighting'], 0);
   return {
     snapshot: {
       projectName,
-      egoGameVision: isRts ? rtsStarterVision : fightingStarterVision,
+      egoGameVision: isFps ? 'First-person industrial training facility with editable cover, lighting, modular carbine, six targets, collision-aware shooting, ammo, reload, sprint, crouch and jump.' : isRts ? rtsStarterVision : fightingStarterVision,
       egoGameFlow: 'undecided',
-      egoGameNotes: isRts
+      egoGameNotes: isFps ? FPS_CONTROLS : isRts
         ? 'RTS starter controls: move with WASD; press T to order nearby allied NPCs to the Market Gate beacon, G to gather a nearby resource cache, K to craft planks, and B to place a temporary construction block. The starting scene is assembled from editable keep, cottage, farm, road, well, forest, resource, and squad pieces. Edit the mission, terrain, buildings, units, and HUD in Studio. This starter is a playable prototype, not a complete commercial RTS: squad selection, pathfinding, and a full economy are not included yet.'
-        : 'Use A/D to move, F/G for attacks, Control to block, Shift to run, and C to crouch. Import an FBX fighter through Assets, select the fighter root, then choose its model in Model Renderer. Import FBX or GLB stage models and their image textures for high-resolution environments. Edit health bars and action buttons in the UI builder.',
+        : 'Use A/D to move, F/G for attacks, Control to block, Shift to run, and C to crouch. Import a fighter image or FBX/GLB model through Hierarchy → Import asset. Double-click Player Fighter or Training Rival, choose Character type and its asset under Replace fighter · 2D / 3D, then Save Changes. This changes appearance without removing combat or movement. Import FBX or GLB stage models and their image textures for high-resolution environments. Edit health bars and action buttons in the UI builder.',
       entities: starter.entities,
       camera,
       assets: starter.generatedAssets?.map(({ asset }) => asset) ?? [],
@@ -87,7 +89,7 @@ export default function StudioProjects() {
     return active?.name ? null : 'name';
   });
   const [draft, setDraft] = useState(() =>
-    templateChoice === 'rts' ? 'My RTS Game' : templateChoice === '2d-fighting' ? 'My 2D Fighting Game' : '',
+    templateChoice === 'fps' ? 'My FPS Game' : templateChoice === 'rts' ? 'My RTS Game' : templateChoice === '2d-fighting' ? 'My 2D/3D Fighting Game' : '',
   );
   const [error, setError] = useState(initial.error);
   const [savingProject, setSavingProject] = useState(false);
@@ -131,7 +133,7 @@ export default function StudioProjects() {
           await Promise.all(generatedAssets.map(({ asset }) => deleteLocalAsset(id, asset.id)));
           return;
         }
-        if (starterChoice === 'rts') {
+        if (starterChoice === 'rts' || starterChoice === 'fps') {
           setRenderSettings(current => ({ ...current, quality: 'high' }));
         }
         clearStarterRequestFromUrl();
@@ -142,7 +144,7 @@ export default function StudioProjects() {
       } catch (cause) {
         try { removeFreshWorkspace(id); } catch { /* Storage may be unavailable. Existing project data stays untouched. */ }
         await Promise.allSettled(generatedAssetIds.map(assetId => deleteLocalAsset(id, assetId)));
-        const kindLabel = (templateChoice ?? '2d-fighting') === 'rts' ? 'RTS' : 'fighting-game';
+        const kindLabel = templateChoice === 'fps' ? 'FPS' : (templateChoice ?? '2d-fighting') === 'rts' ? 'RTS' : 'fighting-game';
         setError(cause instanceof Error
           ? `The ${kindLabel} starter could not be saved. Existing projects were left untouched. ${cause.message}`
           : `The ${kindLabel} starter could not be saved. Existing projects were left untouched.`);
@@ -231,12 +233,12 @@ export default function StudioProjects() {
           }
         }}>
         <h2 id="project-name-heading">{mode === 'template'
-          ? templateChoice === 'rts' ? 'Name your RTS project' : 'Name your 2D fighting game'
+          ? templateChoice === 'fps' ? 'Name your FPS game' : templateChoice === 'rts' ? 'Name your RTS project' : 'Name your 2D/3D fighting game'
           : mode === 'new' ? 'New project' : mode === 'rename' ? 'Rename project' : 'Name your project'}</h2>
         <p>{mode === 'template'
-          ? templateChoice === 'rts'
+          ? templateChoice === 'fps' ? 'Create an editable first-person training facility with a modular weapon, six targets, colliding walls and cover, PBR surfaces, lighting, shooting, reload, sprint, crouch, jump, and a HUD. Press Play Test to begin. Your other projects remain untouched.' : templateChoice === 'rts'
             ? 'This creates a separate RTS project with an editable strategy map, two bases, squads, resource caches, a rally objective, and a mission HUD. Studio will start with its High render preset; you can change it later. Existing projects stay untouched.'
-            : 'This creates a separate project with a fighting arena, two editable fighters, combat controls, and a Play Test HUD. Your other saved projects stay untouched.'
+            : 'This creates a separate project with a fighting arena, two editable fighters, combat controls, and a Play Test HUD. Change the floor, backdrop, sky, textures, objects, controls, and HUD in Studio. Your other saved projects stay untouched.'
           : mode === 'new'
             ? 'Your current project stays saved in this browser.'
             : 'This name will appear above the scene view. Your scene and files will be kept.'}</p>
@@ -257,7 +259,7 @@ export default function StudioProjects() {
             setError('');
           }}>Cancel</button>}
           <button type="submit" disabled={savingProject}>{savingProject ? 'Creating…'
-            : mode === 'template' ? templateChoice === 'rts' ? 'Create RTS project' : 'Create fighting game'
+            : mode === 'template' ? templateChoice === 'fps' ? 'Create FPS game' : templateChoice === 'rts' ? 'Create RTS project' : 'Create fighting game'
               : mode === 'new' ? 'Create project' : 'Save name'}</button>
         </footer>
       </form>

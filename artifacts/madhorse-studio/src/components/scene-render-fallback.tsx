@@ -2,12 +2,15 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { SVGRenderer } from 'three/examples/jsm/renderers/SVGRenderer.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { getCamera, getEffect, getLight, getPrimitive, getSpriteRenderer, getUICanvas, getWorldTransform, type SceneEntity } from '@/lib/scene-model';
+import { getCamera, getEffect, getLight, getModelRenderer, getPrimitive, getSkybox, getSpriteRenderer, getUICanvas, getWorldTransform, type SceneEntity } from '@/lib/scene-model';
 import { createPrimitiveGeometry, sceneEditorFramePose } from '@/lib/scene-view-geometry';
 import type { SceneFocus } from '@/lib/scene-view-geometry';
 import { createCharacterBodyMesh, isCharacterBodySurfacePart, isCharacterBuilderModelRoot } from '@/lib/character-builder-geometry';
 import { makeGameViewCamera, type GameCamera } from '@/lib/game-camera';
 import type { SceneRenderSettings } from '@/hooks/use-scene-render-settings';
+import { fighterVisualMode, isFighterEntity } from '@/lib/fighter-visual';
+
+const noAssetUrls: Record<string, string> = {};
 
 function makeSceneCamera(source: GameCamera, aspect: number) {
   const camera = new THREE.PerspectiveCamera(source.fov || 50, aspect, 0.1, 24);
@@ -25,7 +28,7 @@ function makeSceneCamera(source: GameCamera, aspect: number) {
 }
 
 export function SceneRenderFallback({
-  entities, camera, settings, zoom, sceneFocus, gameView = false, detail = 'full',
+  entities, camera, settings, zoom, sceneFocus, gameView = false, detail = 'full', assetUrls = noAssetUrls,
 }: {
   entities: SceneEntity[];
   camera?: GameCamera;
@@ -34,6 +37,7 @@ export function SceneRenderFallback({
   sceneFocus: SceneFocus | null;
   gameView?: boolean;
   detail?: 'full' | 'thumbnail';
+  assetUrls?: Record<string, string>;
   selectedEntityId: string | null;
   onSelectEntity: (id: string) => void;
 }) {
@@ -45,11 +49,13 @@ export function SceneRenderFallback({
     if (!host) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(settings.background);
+    const sky = entities.filter(entity => entity.active).map(getSkybox).find(component => component?.enabled);
+    const background = sky?.color ?? settings.background;
+    scene.background = new THREE.Color(background);
     const viewCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
     const renderer = new SVGRenderer();
     renderer.setQuality('high');
-    renderer.setClearColor(new THREE.Color(settings.background), 1);
+    renderer.setClearColor(new THREE.Color(background), 1);
     renderer.domElement.setAttribute('role', 'img');
     renderer.domElement.setAttribute('aria-label', 'Rendered 3D scene with solid mesh geometry');
     renderer.domElement.dataset.testid = 'scene3d-software-renderer';
@@ -84,10 +90,27 @@ export function SceneRenderFallback({
       else materials.add(axes.material);
     }
 
+    const replacedFighters = entities.filter(entity => {
+      const model = getModelRenderer(entity);
+      return (isFighterEntity(entity) && fighterVisualMode(entity) !== 'default') || Boolean(model?.enabled && model.assetId);
+    });
+    const hiddenParts = new Set<string>();
+    const replacedIds = new Set(replacedFighters.map(entity => entity.id));
+    const byId = new Map(entities.map(entity => [entity.id, entity]));
+    for (const entity of entities) {
+      let ancestor = entity.parentId;
+      const visited = new Set<string>();
+      while (ancestor && !visited.has(ancestor)) {
+        if (replacedIds.has(ancestor)) { hiddenParts.add(entity.id); break; }
+        visited.add(ancestor);
+        ancestor = byId.get(ancestor)?.parentId ?? null;
+      }
+    }
     const characterRootIds = new Set(
       entities.filter(isCharacterBuilderModelRoot).map((entity) => entity.id),
     );
     for (const root of entities.filter(isCharacterBuilderModelRoot)) {
+      if (replacedIds.has(root.id) || !root.active) continue;
       const bodyParts = entities.filter((entity) => entity.parentId === root.id);
       const body = createCharacterBodyMesh(bodyParts, detail === 'thumbnail'
         ? { resolution: 24, maxTriangles: 5000 }
@@ -120,7 +143,7 @@ export function SceneRenderFallback({
     }
 
     for (const entity of entities) {
-      if (!entity.active || entity.isGroup) continue;
+      if (!entity.active || entity.isGroup || getSkybox(entity) || hiddenParts.has(entity.id) || replacedIds.has(entity.id)) continue;
       const isUnifiedBodyPart = Boolean(
         entity.parentId
         && characterRootIds.has(entity.parentId)
@@ -278,6 +301,45 @@ export function SceneRenderFallback({
       }
       viewCamera.updateMatrixWorld();
       renderer.render(scene, viewCamera);
+      // SVGRenderer cannot texture meshes. Project image assets explicitly so
+      // 2D replacement fighters remain visible even without a WebGL context.
+      for (const fighter of replacedFighters) {
+        if (!fighter.active) continue;
+        const transform = getWorldTransform(entities, fighter.id);
+        if (!transform) continue;
+        const sprite = getSpriteRenderer(fighter);
+        const imageMode = fighterVisualMode(fighter) === 'sprite' && sprite;
+        const heightMeters = imageMode ? sprite.height / 10 * transform.scale.z : 1.8 * transform.scale.z;
+        const widthMeters = imageMode ? sprite.width / 10 * transform.scale.x : 1 * transform.scale.x;
+        const center = new THREE.Vector3((transform.position.x - 50) / 10,
+          transform.position.z / 10 + heightMeters / 2, (transform.position.y - 50) / 10);
+        const depth = -center.clone().applyMatrix4(viewCamera.matrixWorldInverse).z;
+        if (depth <= viewCamera.near) continue;
+        const point = center.project(viewCamera);
+        const pixelWidth = widthMeters * viewCamera.projectionMatrix.elements[0] / depth * width / 2;
+        const pixelHeight = heightMeters * viewCamera.projectionMatrix.elements[5] / depth * height / 2;
+        const url = imageMode && sprite.assetId ? assetUrls[sprite.assetId] : undefined;
+        if (url) {
+          const image = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+          image.setAttribute('href', url);
+          image.setAttribute('x', String(point.x * width / 2 - pixelWidth / 2));
+          image.setAttribute('y', String(-point.y * height / 2 - pixelHeight / 2));
+          image.setAttribute('width', String(pixelWidth));
+          image.setAttribute('height', String(pixelHeight));
+          image.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+          image.dataset.entityId = fighter.id;
+          renderer.domElement.append(image);
+        } else {
+          const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          label.setAttribute('x', String(point.x * width / 2));
+          label.setAttribute('y', String(-point.y * height / 2));
+          label.setAttribute('fill', '#e9c8a2');
+          label.setAttribute('text-anchor', 'middle');
+          label.setAttribute('font-size', '10');
+          label.textContent = imageMode ? 'Fighter image unavailable' : '3D model · WebGL required';
+          renderer.domElement.append(label);
+        }
+      }
       renderer.domElement.dataset.renderedFaces = String(renderer.info.render.faces);
       if (renderer.domElement.parentElement !== host) {
         host.replaceChildren(renderer.domElement);
@@ -293,7 +355,7 @@ export function SceneRenderFallback({
       geometries.forEach((geometry) => geometry.dispose());
       materials.forEach((material) => material.dispose());
     };
-  }, [camera, detail, entities, gameView, sceneFocus, settings, zoom]);
+  }, [assetUrls, camera, detail, entities, gameView, sceneFocus, settings, zoom]);
 
   return (
     <div className="mh-scene3d__soft-preview" data-testid="scene3d-soft-preview">

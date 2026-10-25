@@ -19,6 +19,8 @@ import { GameFeatureSettings } from './game-feature-settings';
 import { VisualLogicEditor } from './visual-logic-editor';
 import type { VisualLogicNode } from '@/lib/scene-model';
 import { getPbrSurfacePreset, matchPbrSurfacePreset, pbrSurfacePresets } from '@/lib/pbr-surface-presets';
+import { fighterVisualDraft, isFighterEntity, withFighterVisual, type FighterVisualMode } from '@/lib/fighter-visual';
+import { withSceneModelAppearance } from '@/lib/scene-model-appearance';
 
 type Props = {
   entity: SceneEntity;
@@ -33,7 +35,7 @@ type Props = {
 };
 
 function toDraft(entity: SceneEntity) {
-  const values: Record<string, string> = { active: String(entity.active) };
+  const values: Record<string, string> = { active: String(entity.active), ...fighterVisualDraft(entity) };
   for (const component of entity.components) {
     if (component.type === 'gameFeature') {
       Object.assign(values, gameFeatureDraft(component));
@@ -60,6 +62,12 @@ function toDraft(entity: SceneEntity) {
       values['primitive.metalness'] = String(metalness);
       values['primitive.surfacePreset'] = matchPbrSurfacePreset(roughness, metalness, opacity);
       values['primitive.textureAssetId'] = component.textureAssetId ?? '';
+      const model = entity.components.find(item => item.type === 'modelRenderer');
+      values['primitive.modelAssetId'] = model?.type === 'modelRenderer' && model.enabled ? model.assetId ?? '' : '';
+      const terrain = component.terrainSettings ?? { width: 20, depth: 20, height: 0, mountainHeight: 0, riverDepth: 0, riverCount: 0 };
+      for (const key of ['width', 'depth', 'height', 'mountainHeight', 'riverDepth', 'riverCount'] as const) {
+        values[`terrain.${key}`] = String(terrain[key]);
+      }
     } else if (component.type === 'light') {
       values['light.kind'] = component.kind;
       values['light.color'] = component.color;
@@ -187,7 +195,7 @@ export function SceneObjectInspector({
         inputMode="decimal"
         min={min}
         max={max}
-        step={step}
+        step={key === 'terrain.riverCount' ? step : 'any'}
         value={values[key] ?? ''}
         onChange={event => setValue(key, event.currentTarget.value)}
       />
@@ -251,7 +259,11 @@ export function SceneObjectInspector({
       if (item.type === 'primitive') return {
         ...item,
         shape: values['primitive.shape'] as PrimitiveShape,
-        terrainSettings: values['primitive.shape'] === 'terrain' ? item.terrainSettings : undefined,
+        terrainSettings: values['primitive.shape'] === 'terrain' ? {
+          width: number('terrain.width'), depth: number('terrain.depth'), height: number('terrain.height'),
+          mountainHeight: number('terrain.mountainHeight'), riverDepth: number('terrain.riverDepth'),
+          riverCount: number('terrain.riverCount'),
+        } : undefined,
         terrainEdits: values['primitive.shape'] === 'terrain' ? item.terrainEdits : undefined,
         color: values['primitive.color'],
         opacity: number('primitive.opacity'),
@@ -360,12 +372,30 @@ export function SceneObjectInspector({
         assetId: values['model.assetId'] || null,
       };
     });
-    const updated: SceneEntity = {
+    let updated: SceneEntity = {
       ...entity,
       name: canRename ? name.trim() : entity.name,
       active: values.active === 'true',
       components: nextComponents,
     };
+    if (isFighterEntity(entity)) {
+      try {
+        updated = withFighterVisual(updated, values['fighter.mode'] as FighterVisualMode,
+          values['fighter.assetId'], assets,
+          { width: number('fighter.width'), height: number('fighter.height') });
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'Could not replace the fighter.');
+        return;
+      }
+    }
+    if (!isFighterEntity(entity) && component('primitive')) {
+      try {
+        updated = withSceneModelAppearance(updated, values['primitive.modelAssetId'] ?? '', assets);
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'Could not replace the scene model.');
+        return;
+      }
+    }
     if (canRename && !updated.name) {
       setError('Enter a name for this object.');
       return;
@@ -429,12 +459,35 @@ export function SceneObjectInspector({
           </label>
         )}
         {canEditActive && checkboxField('Active in scene', 'active')}
+        {isFighterEntity(entity) && section('Replace fighter · 2D / 3D', <>
+          <p className="fresh-inspector-note">Change this fighter’s appearance without losing movement, attacks, health, or controls. Import files through Hierarchy → Import asset first.</p>
+          {selectField('Character type', 'fighter.mode', [
+            { value: 'default', label: 'Default template character' },
+            { value: 'sprite', label: '2D sprite / image' },
+            { value: 'model', label: '3D model · FBX / GLB / glTF' },
+          ])}
+          {values['fighter.mode'] !== 'default' && selectField(
+            values['fighter.mode'] === 'sprite' ? 'Fighter image' : 'Fighter model',
+            'fighter.assetId', assetOptions(values['fighter.mode'] === 'sprite' ? imageAssets : modelAssets),
+          )}
+          {values['fighter.mode'] === 'sprite' && <>
+            {numberField('Sprite width', 'fighter.width', 0.1, 512, 0.1)}
+            {numberField('Sprite height', 'fighter.height', 0.1, 512, 0.1)}
+            <p className="fresh-inspector-note">10 units = 1 metre. The sprite stands upright and faces the viewing camera.</p>
+          </>}
+          <p className="fresh-inspector-note">Press Save Changes to apply. Choose Default template character to restore the original model.</p>
+        </>)}
         {entity.components.some(item => item.type === 'transform') && <>
           {vectorFields('Position', 'transform.position', -100000, 100000, 0.1)}
           {vectorFields('Rotation', 'transform.rotation', -360000, 360000, 1)}
-          {vectorFields('Scale', 'transform.scale', 0.1, 1000, 0.1)}
+          {vectorFields('Scale', 'transform.scale', 0, 1000, 0.1)}
         </>}
         {primitive && section('3D Shape', <>
+          {selectField('3D model replacement', 'primitive.modelAssetId', [
+            { value: '', label: 'Original editable shape' },
+            ...modelAssets.map(asset => ({ value: asset.id, label: asset.name })),
+          ])}
+          <p className="fresh-inspector-note">Import a model through Hierarchy → Import asset to replace this piece. Its position, collision and gameplay stay attached. Choose Original editable shape to restore it. The surface controls below edit the original shape; imported models use their own materials.</p>
           {selectField('Shape', 'primitive.shape', [
             ...primitiveShapes.map(shape => ({ value: shape.value, label: shape.label })),
             { value: 'terrain', label: 'Terrain' },
@@ -452,11 +505,17 @@ export function SceneObjectInspector({
           {numberField('Opacity', 'primitive.opacity', 0.05, 1, 0.05)}
           {selectField('Surface texture', 'primitive.textureAssetId', assetOptions(imageAssets))}
         </>)}
-        {primitive?.shape === 'terrain' && section('World Building Tools',
+        {primitive && values['primitive.shape'] === 'terrain' && section('Terrain & World Building', <>
+          {numberField('Terrain width', 'terrain.width', 1, 500, 0.1)}
+          {numberField('Terrain depth', 'terrain.depth', 1, 500, 0.1)}
+          {numberField('Ground height', 'terrain.height', 0, 100, 0.1)}
+          {numberField('Mountain height', 'terrain.mountainHeight', 0, 100, 0.1)}
+          {numberField('River depth', 'terrain.riverDepth', 0, 50, 0.1)}
+          {numberField('Number of rivers', 'terrain.riverCount', 0, 10, 1)}
           <p className="fresh-world-tool-hint" data-testid="terrain-sculpt-summary">
             {primitive.terrainEdits?.length ?? 0} terrain sculpt edits saved. Right-click this Terrain in Hierarchy to raise, lower, or smooth it, or add trees and water.
-          </p>,
-        )}
+          </p>
+        </>)}
         {physics && section('Physics', <>
           {checkboxField('Enabled', 'physics.enabled')}
           {checkboxField('Collider enabled', 'physics.colliderEnabled')}
@@ -502,14 +561,14 @@ export function SceneObjectInspector({
           ])}
           {numberField('Intensity', 'effect.intensity', 0, 10, 0.1)}
         </>)}
-        {sprite && section('Sprite Renderer', <>
+        {sprite && !isFighterEntity(entity) && section('Sprite Renderer', <>
           {checkboxField('Enabled', 'sprite.enabled')}
           {colorField('Tint', 'sprite.tint')}
           {numberField('Width', 'sprite.width', 0.1, 512, 0.1)}
           {numberField('Height', 'sprite.height', 0.1, 512, 0.1)}
           {selectField('Image asset', 'sprite.assetId', assetOptions(imageAssets))}
         </>)}
-        {model && section('Model Renderer', <>
+        {model && !primitive && !isFighterEntity(entity) && section('Model Renderer', <>
           {checkboxField('Enabled', 'model.enabled')}
           {selectField('Model asset', 'model.assetId', assetOptions(modelAssets))}
         </>)}

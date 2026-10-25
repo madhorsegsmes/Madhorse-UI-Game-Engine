@@ -3,8 +3,9 @@ import { playerActionDefinitions, type PlayerActionComponent, type PlayerActionN
 import { gameFeatureDefinitions, type GameFeatureComponent, type GameFeatureName } from './game-feature-model';
 import type { AudioPlayStyle } from './game-audio';
 import { advanceGenreAction, createGenreResources, type GenreResources } from './player-genre-actions';
+import { firstPersonHit } from './fps-aim';
 
-export type ActionInput = { moveX: number; moveY: number; heldKeys?: readonly string[]; pressedKeys?: readonly string[] };
+export type ActionInput = { moveX: number; moveY: number; heldKeys?: readonly string[]; pressedKeys?: readonly string[]; lookYaw?: number; lookPitch?: number };
 export type ActionAudioEvent = { action: AudioPlayStyle; clipAssetId: string | null; volume: number; pitch: number };
 export type ActionHud = {
   playerId: string; player: string; mode: string; wood: number; planks: number; speed: number;
@@ -136,6 +137,8 @@ export function resolveActionMovement(
       Math.min(1, Math.abs(current.speed) / 2) * Math.sign(current.speed);
     dx = Math.sin(current.heading) * current.speed * dt * 10;
     dy = Math.cos(current.heading) * current.speed * dt * 10;
+  } else if (input.lookYaw !== undefined) {
+    current.heading = input.lookYaw * Math.PI / 180;
   } else if (Math.hypot(input.moveX, input.moveY) > 0) {
     current.heading = Math.atan2(input.moveX, input.moveY);
   }
@@ -331,13 +334,21 @@ export function advancePlayerActions(
           : (!action.targetId || candidate.entity.id === action.targetId) &&
             candidate.projection >= 0 && candidate.offAxis <= Math.max(4, Math.max(candidate.target.scale.x, candidate.target.scale.y) * 5)),
       ).sort((a, b) => a.distance - b.distance);
-      const hit = candidates[0];
+      const fpsShot = action.action === 'shoot' && input.lookYaw !== undefined;
+      const impact = fpsShot ? firstPersonHit(next, player.id, input.lookYaw!, input.lookPitch ?? 0,
+        action.settings.range, motion.crouching) : null;
+      const hit = fpsShot ? candidates.find(candidate => candidate.entity.id === impact?.id) : candidates[0];
       emit(action);
       if (action.action === 'shoot' || action.action === 'cast') {
-        const shotLength = hit?.distance ?? range;
+        const shotLength = fpsShot ? impact?.distance ?? range : hit?.distance ?? range;
         for (let index = 1; index <= 12; index++) {
           const distance = shotLength * index / 12;
-          makeMarker({ x: position.x + aim.x * distance, y: position.y + aim.y * distance, z: position.z + 5 }, action.action === 'cast' ? '#b384ff' : '#ffe8a3', 0.12, state, now);
+          const pitch = (input.lookPitch ?? 0) * Math.PI / 180;
+          makeMarker({
+            x: position.x + aim.x * distance * (fpsShot ? Math.cos(pitch) : 1),
+            y: position.y + aim.y * distance * (fpsShot ? Math.cos(pitch) : 1),
+            z: position.z + (fpsShot ? (motion.crouching ? 9 : 16) + Math.sin(pitch) * distance : 5),
+          }, action.action === 'cast' ? '#b384ff' : '#ffe8a3', 0.12, state, now);
         }
       } else {
         makeMarker({ x: position.x + aim.x * 8, y: position.y + aim.y * 8, z: position.z + 5 }, '#ff7854', 0.5, state, now);

@@ -3,8 +3,9 @@ import { createPlayerAction } from './player-action-model';
 import { createPluginComponent } from './scene-plugin-catalog';
 import { applyEgoFighterAppearance, createEgoCharacterScene, createEgoClothingTextureAsset } from './character-builder-starter';
 import { defaultFightingAppearancePair, type FightingAppearancePair } from './fighter-appearance';
+import { createFpsStarterKit } from './fps-starter-kit';
 import {
-  createPhysicsComponent, createStoryboardComponent, createTransformComponent, getPrimitive, getTransform,
+  createPhysicsComponent, createSceneEntity, createStoryboardComponent, createTransformComponent, getPrimitive, getTransform,
   type EffectComponent, type PrimitiveShape, type ProjectAsset, type SceneEntity, type StoryboardBeat,
   type TerrainBrushEdit, type Vector3, type VisualLogicNode,
 } from './scene-model';
@@ -14,7 +15,7 @@ export const gameStarterKits: { id: GameStarterKitId; title: string; description
   { id: 'shooter', title: 'FPS Training Arena', description: 'A first-person camera with shooting, ammo, targets, health, and a small test arena.' },
   { id: 'rpg', title: 'RPG Quest', description: 'A player with inventory and spells, a character to meet, and a quest path to explore.' },
   { id: 'puzzle', title: 'Key-and-Gate Puzzle', description: 'Find a key, enter a trigger, and use safe visual logic to open the gate.' },
-  { id: 'fighting', title: '2D Fighting Arena', description: 'A fixed side-view 3D arena with detailed human fighters, optional FBX replacements, editable combat moves, health bars, and an editable stage.' },
+  { id: 'fighting', title: '2D/3D Fighting Arena', description: 'An editable side-view arena: replace fighters with sprites or 3D models, change the floor, backdrop, sky and textures, and customize combat moves and HUD.' },
   { id: 'rts', title: 'RTS · Sunstone Vale', description: 'An editable isometric medieval settlement with a central keep, cottages, farms, roads, woods, resource sites, squads, and an RTS command HUD.' },
 ];
 
@@ -123,6 +124,8 @@ function createFightingStarterKit(center: Vector3, appearances: FightingAppearan
     { x: center.x + 62, y: center.y + 19, z: center.z + 42.5 }, { x: 0.58, y: 0.58, z: 0.58 });
   const stageStripe = createVisualPart('Stage Center Stripe', null, 'rounded-cube', '#9a4546',
     { x: center.x, y: center.y - 23, z: center.z + 0.2 }, { x: 15.2, y: 0.12, z: 0.08 });
+  const sky = createSceneEntity('Arena Sky Background', { ...center }, null, false);
+  sky.components.push({ id: crypto.randomUUID(), type: 'skybox', enabled: true, color: '#171b26' });
   const clothingTexture = createEgoClothingTextureAsset();
   const playerBuild = createEgoCharacterScene(appearances.player.race, 1.8, { x: -4, z: 0 }, 'Player Fighter', clothingTexture.asset.id);
   const rivalBuild = createEgoCharacterScene(appearances.rival.race, 1.8, { x: 4, z: 0 }, 'Training Rival', clothingTexture.asset.id);
@@ -168,14 +171,14 @@ function createFightingStarterKit(center: Vector3, appearances: FightingAppearan
   rival.components.push(rivalHealth, createGameFeature('status-bar'), rivalLight, rivalHeavy);
 
   const entities = [
-    floor, backdrop, leftLight, rightLight, stageStripe,
+    floor, backdrop, leftLight, rightLight, stageStripe, sky,
     ...playerFighter.entities,
     ...rivalFighter.entities,
   ];
   return {
     entities,
     playerId: player.id,
-    title: '2D Fighting Arena',
+    title: '2D/3D Fighting Arena',
     generatedAssets: [clothingTexture],
   };
 }
@@ -764,33 +767,17 @@ export function createGameStarterKit(
   const center = { x: anchor.x + 65, y: anchor.y, z: anchor.z };
   if (kind === 'fighting') return createFightingStarterKit(center, fightingAppearances);
   if (kind === 'rts') return createRtsStarterKit(center);
+  if (kind === 'shooter') return createFpsStarterKit(center);
   const floor = createObject('Starter Arena', 'plane', '#414653',
     { x: center.x, y: center.y, z: center.z - 3 }, { x: 18, y: 18, z: 0.5 });
   const player = createActor('Player', { ...center, z: center.z + 1.4 }, '#6397d8', 'character-controller-player');
-  if (kind === 'shooter') {
-    const controller = player.components.find(component => component.type === 'characterController');
-    if (controller?.type === 'characterController') controller.perspective = 'first-person';
-  }
   player.components = player.components.map(component =>
     component.type === 'physics' ? createPhysicsComponent('dynamic') : component,
   );
   player.components.push(createGameFeature('health'), createGameFeature('status-bar'));
   const entities: SceneEntity[] = [floor, player];
 
-  if (kind === 'shooter') {
-    player.components.push(createPlayerAction('shoot'), createPlayerAction('reload'), createPlayerAction('crouch'), createPlayerAction('run'));
-    const target = createActor('Target Dummy', { x: center.x, y: center.y + 8, z: center.z + 1.4 }, '#c14654', 'character-controller-patrol');
-    const targetHealth = createGameFeature('health');
-    if (targetHealth.type === 'gameFeature') targetHealth.settings.contactDamage = 0;
-    target.components.push(targetHealth);
-    const cover = createObject('Practice Cover', 'rounded-cube', '#767984',
-      { x: center.x + 4, y: center.y + 5, z: center.z - 1 }, { x: 2, y: 1, z: 2 });
-    entities.push(target, cover, createStoryboard('Shooter Mission', [
-      { title: 'Move through the arena', note: 'Use WASD to move and press Space to jump.' },
-      { title: 'Practice your aim', note: 'Select Target Dummy in your shooting settings to focus your shots.' },
-      { title: 'Manage ammunition', note: 'Use your reload key before the magazine runs out.' },
-    ]));
-  } else if (kind === 'rpg') {
+  if (kind === 'rpg') {
     player.components.push(
       createPlayerAction('fight'), createPlayerAction('cast'), createPlayerAction('heal'),
       createPlayerAction('run'), createGameFeature('inventory'), createGameFeature('interact'),

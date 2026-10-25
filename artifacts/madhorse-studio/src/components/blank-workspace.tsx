@@ -164,15 +164,23 @@ function SceneViewport({
   activeTool: SceneCursorTool | null;
 }) {
   const [transformMode, setTransformMode] = useState<SceneTransformMode>('translate');
+  const firstPerson = isPlaying && entities.some(entity => entity.active && entity.components.some(component =>
+    component.type === 'characterController' && component.enabled && component.role === 'player' && component.perspective === 'first-person'));
+  const displayedEntities = firstPerson ? entities.map(entity => entity.components.some(component =>
+    component.type === 'characterController' && component.role === 'player' && component.perspective === 'first-person')
+    ? { ...entity, components: entity.components.map(component => component.type === 'primitive' ? { ...component, enabled: false } : component) } : entity) : entities;
+  const rangeTargets = entities.filter(entity =>
+    entity.components.some(component => component.type === 'gameFeature' && component.enabled && component.kind === 'health') &&
+    !entity.components.some(component => component.type === 'characterController' && component.role === 'player'));
   return (
-    <div className="fresh-viewport">
+    <div className="fresh-viewport" data-fps-viewport={firstPerson ? 'true' : undefined}>
       <ScenePreview3D
         projectName={projectName}
         primaryCamera={camera}
         gameCamera={camera}
         gameView={isPlaying || canvasView}
         activeTool={activeTool}
-        entities={entities}
+        entities={displayedEntities}
         assets={assets}
         assetUrls={assetUrls}
         selectedEntityId={selection}
@@ -187,6 +195,13 @@ function SceneViewport({
         onSelectPrimaryCamera={() => onSelect(PRIMARY_CAMERA_ID)}
       />
       {isPlaying && actionHud && <PlayerActionHud hud={actionHud} />}
+      {firstPerson && <>
+        <div style={{ position: 'absolute', left: '50%', top: '50%', color: '#fff', fontSize: 24, pointerEvents: 'none', transform: 'translate(-50%,-50%)', textShadow: '0 0 3px #000' }} aria-label="FPS crosshair">+</div>
+        <div style={{ position: 'absolute', top: 48, left: 16, padding: '8px 12px', background: '#091520df', color: '#e6f2fa', fontSize: 11, pointerEvents: 'none', maxWidth: '70%' }}>
+          {rangeTargets.length > 0 && <strong>{rangeTargets.every(entity => !entity.active) ? 'RANGE CLEARED · Stop and restart to replay' : `TARGETS ${rangeTargets.filter(entity => !entity.active).length} / ${rangeTargets.length}`}<br /></strong>}
+          Click scene: mouse look · Left click / J: fire · WASD: move · R: reload · Shift: sprint · C: crouch · Space: jump · Esc: stop
+        </div>
+      </>}
     </div>
   );
 }
@@ -2335,6 +2350,12 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
     const lastFootstepTime = new Map<string, number>();
     const lastFootstepPosition = new Map<string, { x: number; y: number; z: number }>();
     const runtimeState = createSceneRuntimeState(entities, playPlayerRef.current);
+    const fpsPlayer = entities.find(entity => entity.active && entity.components.some(component =>
+      component.type === 'characterController' && component.enabled && component.role === 'player' && component.perspective === 'first-person'));
+    let lookYaw = fpsPlayer ? getTransform(fpsPlayer).rotation.z : 0;
+    let lookPitch = 0;
+    const shootKey = fpsPlayer?.components.find(component => component.type === 'playerAction' && component.enabled && component.action === 'shoot');
+    const fireKey = shootKey?.type === 'playerAction' ? shootKey.key : 'j';
     setEditingEntityId(null);
     setRuntimeEntities(entities);
     setRuntimeCamera(camera);
@@ -2372,18 +2393,45 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
       pressed.delete(event.key.toLowerCase());
     };
     const releaseKeys = () => { pressed.clear(); runtimeInput.tapped.clear(); };
+    const onMouseMove = (event: globalThis.MouseEvent) => {
+      if (!fpsPlayer || !document.pointerLockElement?.matches('[data-fps-viewport]')) return;
+      lookYaw = (lookYaw + event.movementX * .14) % 360;
+      lookPitch = Math.max(-80, Math.min(80, lookPitch - event.movementY * .12));
+    };
+    const onMouseDown = (event: globalThis.MouseEvent) => {
+      if (!fpsPlayer || event.button !== 0 || !(event.target instanceof Element)) return;
+      const viewport = event.target.closest<HTMLElement>('[data-fps-viewport]');
+      if (!viewport || event.target.closest('button, input, select, textarea')) return;
+      if (document.pointerLockElement === viewport) {
+        event.preventDefault();
+        onRuntimeKey(fireKey, true);
+      } else {
+        try { void viewport.requestPointerLock()?.catch(() => setStatus('Mouse capture unavailable. Use arrow keys to look and J to shoot.')); }
+        catch { setStatus('Mouse capture unavailable. Use arrow keys to look and J to shoot.'); }
+      }
+    };
+    const onMouseUp = () => { if (fpsPlayer) pressed.delete(fireKey); };
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
     window.addEventListener('blur', releaseKeys);
     document.addEventListener('visibilitychange', releaseKeys);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mouseup', onMouseUp);
 
     const frame = (now: number) => {
       const delta = Math.min(0.05, Math.max(0, (now - previousTime) / 1000));
       previousTime = now;
       elapsed += delta;
+      if (fpsPlayer) {
+        lookYaw += (Number(pressed.has('arrowright')) - Number(pressed.has('arrowleft'))) * delta * 90;
+        lookPitch = Math.max(-80, Math.min(80, lookPitch +
+          (Number(pressed.has('arrowup')) - Number(pressed.has('arrowdown'))) * delta * 70));
+      }
       const input = {
-        moveX: Number(pressed.has('d') || pressed.has('arrowright')) - Number(pressed.has('a') || pressed.has('arrowleft')),
-        moveY: Number(pressed.has('w') || pressed.has('arrowup')) - Number(pressed.has('s') || pressed.has('arrowdown')),
+        moveX: Number(pressed.has('d') || !fpsPlayer && pressed.has('arrowright')) - Number(pressed.has('a') || !fpsPlayer && pressed.has('arrowleft')),
+        moveY: Number(pressed.has('w') || !fpsPlayer && pressed.has('arrowup')) - Number(pressed.has('s') || !fpsPlayer && pressed.has('arrowdown')),
+        ...(fpsPlayer ? { lookYaw, lookPitch } : {}),
         jumpPressed: runtimeInput.tapped.has(' '),
         heldKeys: [...pressed],
         pressedKeys: [...runtimeInput.tapped],
@@ -2459,7 +2507,8 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
         const targetTransform = followed ? getWorldTransform(liveEntities, followed.id) : null;
         if (targetTransform) {
           const isFirstPerson = followed === firstPerson;
-          const viewHeight = isFirstPerson ? 1.6 : 1.1;
+          const crouching = followed?.components.some(component => component.type === 'playerAction' && component.action === 'crouch' && pressed.has(component.key));
+          const viewHeight = isFirstPerson ? crouching ? .9 : 1.6 : 1.1;
           const target = {
             x: (targetTransform.position.x - 50) / 10,
             y: targetTransform.position.z / 10 + viewHeight,
@@ -2467,12 +2516,13 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
           };
           const heading = (targetTransform.rotation.z * Math.PI) / 180;
           const firstPersonTarget = {
-            x: target.x + Math.sin(heading) * 4,
-            y: target.y,
-            z: target.z + Math.cos(heading) * 4,
+            x: target.x + Math.sin(heading) * Math.cos(lookPitch * Math.PI / 180) * 4,
+            y: target.y + Math.sin(lookPitch * Math.PI / 180) * 4,
+            z: target.z + Math.cos(heading) * Math.cos(lookPitch * Math.PI / 180) * 4,
           };
           setRuntimeCamera({
             ...camera,
+            rotation: undefined,
             target: isFirstPerson ? firstPersonTarget : target,
             position: isFirstPerson ? target : thirdPerson
               ? { x: target.x + 2.4, y: target.y + 1.8, z: target.z - 5 }
@@ -2495,6 +2545,10 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
       window.cancelAnimationFrame(frameRequest);
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('mouseup', onMouseUp);
+      if (document.pointerLockElement?.matches('[data-fps-viewport]')) document.exitPointerLock();
       window.removeEventListener('blur', releaseKeys);
       document.removeEventListener('visibilitychange', releaseKeys);
       releaseKeys();

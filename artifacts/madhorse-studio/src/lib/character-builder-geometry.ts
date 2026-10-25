@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { MarchingCubes } from 'three/examples/jsm/objects/MarchingCubes.js';
 import { getTransform, type SceneEntity } from './scene-model';
+import { isFighterEntity } from './fighter-visual';
 
 const BODY_RESOLUTION = 56;
 const MAX_BODY_TRIANGLES = 36_000;
@@ -13,6 +14,7 @@ export function isCharacterBuilderModelRoot(entity: SceneEntity) {
       || entity.name.startsWith('Character ·')
       || entity.name === 'Player Fighter'
       || entity.name === 'Training Rival'
+      || isFighterEntity(entity)
     );
 }
 

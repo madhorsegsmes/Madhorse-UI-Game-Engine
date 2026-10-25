@@ -14,3 +14,13 @@ Hub starter previews must correspond to the editable scene users receive, not ju
 **Why:** The user wants the RTS Hub image to match actual scene pieces that appear when the template is opened in Studio.
 
 **How to apply:** Assemble the starter from editable objects, groups, and materials that visibly match its preview. Keep the Hub preview label clear that this is a template, and test the actual created scene.
+
+FPS firing checks need clear, reachable shooting positions as well as deliberate
+occluded shots.
+
+**Why:** A fixed test offset behind each target placed the player inside cover,
+making correct cover occlusion look like broken shooting.
+
+**How to apply:** Inspect the actual first collider hit before changing aim logic.
+Verify shots from clear positions damage targets and shots into cover do not;
+do not weaken collision or occlusion to make a firing test pass.
