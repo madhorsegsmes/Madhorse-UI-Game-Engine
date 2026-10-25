@@ -5,14 +5,18 @@ import { applyEgoFighterAppearance, createEgoCharacterScene, createEgoClothingTe
 import { defaultFightingAppearancePair, type FightingAppearancePair } from './fighter-appearance';
 import { createFpsStarterKit } from './fps-starter-kit';
 import { createPixelRpgStarter } from './pixel-rpg-starter';
+import { createCartRacerStarter } from './cart-racer-starter';
+import { createCardDuelStarter } from './card-duel-starter';
 import {
   createPhysicsComponent, createSceneEntity, createStoryboardComponent, createTransformComponent, getPrimitive, getTransform,
   type EffectComponent, type PrimitiveShape, type ProjectAsset, type SceneEntity, type StoryboardBeat,
   type TerrainBrushEdit, type Vector3, type VisualLogicNode,
 } from './scene-model';
 
-export type GameStarterKitId = 'shooter' | 'third-person-shooter' | 'mmorpg' | 'rpg' | 'puzzle' | 'fighting' | 'rts' | 'pixel-rpg';
+export type GameStarterKitId = 'shooter' | 'third-person-shooter' | 'mmorpg' | 'rpg' | 'puzzle' | 'fighting' | 'rts' | 'pixel-rpg' | 'cart-racer' | 'card-duel';
 export const gameStarterKits: { id: GameStarterKitId; title: string; description: string }[] = [
+  {id:'card-duel',title:'Card Duel · Astral Nexus',description:'An original three-lane card duel against a computer rival, with editable 20-card decks, monster summons, tributes, spells, wards and life points.'},
+  {id:'cart-racer',title:'Cart Racer Stylized',description:'An editable pastel 3D kart time trial: arcade driving, a chase camera, ordered checkpoints, three laps and best-lap timing.'},
   { id:'pixel-rpg',title:'2D RPG · Mosslight Trail',description:'An original color-handheld-style pixel village with editable sprites, grid movement, dialogue, healing, wild creatures, turn-based battles, capture orbs and a first quest.' },
   { id: 'shooter', title: 'FPS Training Arena', description: 'A first-person camera with shooting, ammo, targets, health, and a small test arena.' },
   { id: 'third-person-shooter', title: 'Third-Person Shooter · Ironlight Ops', description: 'A detailed human operative, over-the-shoulder camera, cover, shooting, ammo, health, and multiplayer-ready movement.' },
@@ -844,6 +848,8 @@ export function createGameStarterKit(
 } {
   const center = { x: anchor.x + 65, y: anchor.y, z: anchor.z };
   if (kind === 'pixel-rpg') return createPixelRpgStarter(center);
+  if (kind === 'cart-racer') return createCartRacerStarter(center);
+  if (kind === 'card-duel') return createCardDuelStarter(center);
   if (kind === 'fighting') return createFightingStarterKit(center, fightingAppearances);
   if (kind === 'rts') return createRtsStarterKit(center);
   if (kind === 'shooter') return createFpsStarterKit(center);

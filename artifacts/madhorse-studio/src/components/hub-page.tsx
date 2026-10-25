@@ -71,9 +71,14 @@ const fightingFallbackSettings = {
   background: '#333538',
 };
 
-type HubStarterKind = Extract<GameStarterKitId, 'fighting' | 'rts' | 'shooter' | 'third-person-shooter' | 'mmorpg' | 'pixel-rpg'>;
+type HubStarterKind = Extract<GameStarterKitId, 'fighting' | 'rts' | 'shooter' | 'third-person-shooter' | 'mmorpg' | 'pixel-rpg' | 'cart-racer' | 'card-duel'>;
 
 function templatePreviewCamera(kind: HubStarterKind, aspect: number, playerWorld: { x: number; z: number }) {
+  if(kind==='cart-racer')return {
+    ...createGameCamera([]),placement:'custom' as const,fov:44,
+    position:{x:playerWorld.x+6,y:4.2,z:playerWorld.z+8},
+    target:{x:playerWorld.x,y:.9,z:playerWorld.z},
+  };
   if (kind === 'fighting') return createFightingPreviewCamera(aspect);
   if (kind === 'rts') {
     return {
@@ -114,6 +119,8 @@ function FightingGamePreview({ kind }: { kind: HubStarterKind }) {
   const playerWorld = { x: (playerTransform.x - 50) / 10, z: (playerTransform.y - 50) / 10 };
   const [camera, setCamera] = useState(() => templatePreviewCamera(kind, 16 / 9, playerWorld));
   const previewLabels: Record<HubStarterKind, [string, string]> = {
+    'card-duel':['CARD DUEL','PLAYER VS COMPUTER'],
+    'cart-racer':['CART RACER STYLIZED','EDITABLE 3D TRACK'],
     'pixel-rpg': ['2D RPG', 'EDITABLE RPG WORLD'],
     fighting: ['3D FIGHTERS', 'SIDE-VIEW ARENA'],
     rts: ['SUNSTONE VALE', 'EDITABLE RTS WORLD'],
@@ -249,10 +256,10 @@ export default function HubPage() {
         <section className="hub-pathways" aria-labelledby="hub-pathways-title">
           <div className="hub-section-intro">
             <div>
-              <div className="hub-kicker"><span className="hub-kicker-line" /> THREE WAYS INTO YOUR WORLD</div>
+              <div className="hub-kicker"><span className="hub-kicker-line" /> GAME STARTER TEMPLATES</div>
               <h2 id="hub-pathways-title">Choose your <span>next move.</span></h2>
             </div>
-            <p>Choose a fighting game, an RTS world, a first-person range, or a third-person shooter, then edit the starter in Studio.</p>
+            <p>Choose a game template, from fighting and strategy to RPG adventures and stylized kart racing, then make it yours in Studio.</p>
           </div>
           <div className="hub-pathway-grid">
             <a className="hub-pathway-card hub-pathway-studio" href={`${studioPath}?starter=2d-fighting`} data-testid="card-studio">
@@ -323,6 +330,28 @@ export default function HubPage() {
                 <p>Original Game Boy Color–era pixel style: explore a town, talk to neighbors, battle and capture creatures, then complete your first quest. Edit the map, sprites and stats.</p>
               </div>
               <span className="hub-card-link">CREATE 2D RPG <ArrowUpRight size={15} /></span>
+            </a>
+            <a className="hub-pathway-card hub-pathway-studio" href={`${studioPath}?starter=cart-racer`} data-testid="card-cart-racer">
+              <div className="hub-card-top"><span>07 / CART RACER STARTER</span><span className="hub-card-index"><Compass size={16}/></span></div>
+              <div className="hub-card-graphic hub-graphic-fighting" aria-hidden="true">
+                <FightingGamePreview kind="cart-racer"/>
+              </div>
+              <div className="hub-card-copy">
+                <h3>Cart Racer Stylized</h3>
+                <p>A colorful 3D kart time trial with arcade driving, a chase camera, ordered checkpoints, three laps and best-lap timing. Edit the kart, track, barriers and scenery.</p>
+              </div>
+              <span className="hub-card-link">CREATE CART RACER <ArrowUpRight size={15}/></span>
+            </a>
+            <a className="hub-pathway-card hub-pathway-studio" href={`${studioPath}?starter=card-duel`} data-testid="card-card-duel">
+              <div className="hub-card-top"><span>08 / CARD DUEL STARTER</span><span className="hub-card-index"><Layers3 size={16}/></span></div>
+              <div className="hub-card-graphic hub-graphic-fighting" aria-hidden="true">
+                <FightingGamePreview kind="card-duel"/>
+              </div>
+              <div className="hub-card-copy">
+                <h3>Card Duel</h3>
+                <p>Fast three-lane duels against Nova: summon original monsters, tribute for stronger cards, cast spells and set wards. Edit both 20-card decks, artwork, stats and life points.</p>
+              </div>
+              <span className="hub-card-link">CREATE CARD DUEL <ArrowUpRight size={15}/></span>
             </a>
           </div>
         </section>

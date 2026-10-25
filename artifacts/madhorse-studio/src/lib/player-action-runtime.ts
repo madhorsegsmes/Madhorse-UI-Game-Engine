@@ -5,10 +5,12 @@ import type { AudioPlayStyle } from './game-audio';
 import { advanceGenreAction, createGenreResources, type GenreResources } from './player-genre-actions';
 import { firstPersonHit } from './fps-aim';
 import { fighterAttackDuration, type FighterAttack, type FighterMotionEvent } from './fighter-playback';
+import { advanceCartProgress, cartFeature, cartRaceText, createCartProgress, readCartCourse, type CartRaceProgress } from './cart-racer-runtime';
 
 export type ActionInput = { moveX: number; moveY: number; heldKeys?: readonly string[]; pressedKeys?: readonly string[]; lookYaw?: number; lookPitch?: number };
 export type ActionAudioEvent = { action: AudioPlayStyle; clipAssetId: string | null; volume: number; pitch: number };
 export type ActionHud = {
+  raceText?: string;
   playerId: string; player: string; mode: string; wood: number; planks: number; speed: number;
   controls: { action: PlayerActionName; key: string; label: string }[];
   extraControls: { key: string; label: string }[];
@@ -26,6 +28,7 @@ export type ActionHud = {
   maxSpecialMeter: number;
 };
 type PlayerState = {
+  raceProgress: CartRaceProgress | null;
   baseScale: Vector3; groundZ: number; heading: number; driving: boolean; speed: number;
   wood: number; planks: number; coins: number; keys: number;
   health: number; maxHealth: number; spawn: Vector3; checkpoint: Vector3 | null;
@@ -91,7 +94,9 @@ function getPlayerState(entity: SceneEntity, state: PlayerActionRuntimeState) {
     const maxHealth = Number(healthFeature?.settings.maxHealth ?? 100);
     current = {
       baseScale: { ...transform.scale }, groundZ: transform.position.z,
-      heading: transform.rotation.z * Math.PI / 180, driving: false, speed: 0,
+      heading: (cartFeature(entity)?.settings.role==='player'?-1:1)*transform.rotation.z * Math.PI / 180,
+      driving: cartFeature(entity)?.settings.role==='player' && cartFeature(entity)?.settings.startDriving===true, speed: 0,
+      raceProgress:null,
       wood: Number(inventory?.settings.startingWood ?? actions.find(action => action.action === 'craft')?.settings.startingWood ?? 0),
       planks: Number(inventory?.settings.startingPlanks ?? actions.find(action => action.action === 'build')?.settings.startingPlanks ?? 0),
       coins: Number(inventory?.settings.startingCoins ?? 0), keys: Number(inventory?.settings.startingKeys ?? 0),
@@ -124,7 +129,10 @@ export function resolveActionMovement(
   const block = actions.find(action => action.action === 'block');
   const held = new Set(input.heldKeys ?? []);
   if (!race) { current.driving = false; current.speed = 0; }
-  if (race && input.pressedKeys?.includes(race.key)) {
+  const completedRace=cartFeature(player)?.settings.role==='player' && current.raceProgress?.finished;
+  const automaticKart=cartFeature(player)?.settings.role==='player' && cartFeature(player)?.settings.startDriving===true;
+  if(completedRace){current.driving=true;current.speed=0;}
+  if (race && !completedRace && !automaticKart && input.pressedKeys?.includes(race.key)) {
     current.driving = !current.driving;
     current.speed = 0;
     current.feedback = current.driving ? 'Driving on: W/S accelerate and brake; A/D steer.' : 'Driving off: walking controls restored.';
@@ -135,7 +143,7 @@ export function resolveActionMovement(
   let dx = 0; let dy = 0;
   if (race && current.driving) {
     const { acceleration, maxSpeed, turnSpeed } = race.settings;
-    if (input.moveY) current.speed += input.moveY * acceleration * dt;
+    if (input.moveY && !completedRace) current.speed += input.moveY * acceleration * dt;
     else current.speed = Math.sign(current.speed) * Math.max(0, Math.abs(current.speed) - acceleration * 0.3 * dt);
     current.speed = Math.min(maxSpeed, Math.max(-maxSpeed / 3, current.speed));
     current.heading += input.moveX * turnSpeed * Math.PI / 180 * dt *
@@ -629,6 +637,16 @@ export function advancePlayerActions(
     : current.roundBreakUntil > now
       ? `ROUND ${current.roundNumber} · ${score} · NEXT ROUND`
       : `ROUND ${current.roundNumber} · ${Math.ceil(current.roundTime)}s · ${score}`;
+  const raceFeature=cartFeature(player);
+  let raceText: string | undefined;
+  if(raceFeature?.settings.role==='player'){
+    const racePosition=getWorldTransform(next,player.id)?.position ?? position;
+    const course=readCartCourse(next),laps=Number(raceFeature.settings.laps);
+    const previous=current.raceProgress ?? createCartProgress(racePosition,now);
+    current.raceProgress=advanceCartProgress(previous,racePosition,now,laps,course);
+    raceText=cartRaceText(current.raceProgress,laps,course.gates.length);
+    if(current.raceProgress.finished){current.speed=0;say('Race complete! Stop and restart Play/Test to race again.');}
+  }else current.raceProgress=null;
   return {
     entities: [...next.map(entity => {
       if (!entity.components.some(component => component.type === 'playerAction' && component.enabled && ROSTER_ATTACKS.has(component.action))) return entity;
@@ -645,13 +663,16 @@ export function advancePlayerActions(
       } };
     }), ...[...state.effects.values()].map(effect => effect.entity)], events, audioEvents,
     hud: showHud ? {
+      raceText,
       playerId: player.id, player: player.name, mode: motion.driving ? 'Driving' : motion.blocking ? 'Blocking' : motion.crouching ? 'Crouching' : motion.running ? 'Running' : 'Walking',
       wood: current.wood, planks: current.planks, speed: Math.round(Math.abs(current.speed) * 3.6),
-      controls: actions.map(action => ({ action: action.action, key: action.key, label: playerActionDefinitions[action.action].label })),
+      controls: actions.filter(action=>!(raceFeature?.settings.role==='player'&&raceFeature.settings.startDriving===true&&action.action==='race'))
+        .map(action => ({ action: action.action, key: action.key, label: playerActionDefinitions[action.action].label })),
       extraControls: interact && interactKey ? [{ key: interactKey, label: 'Interact' }] : [],
       showHealth, health: current.health, maxHealth: current.maxHealth,
       showInventory, inventoryText: `Wood ${current.wood} · Planks ${current.planks} · Coins ${current.coins} · Keys ${current.keys}`,
       resourceText: [
+        raceText,
         ...(spell ? [`Mana ${Math.floor(current.genre.mana)}/${current.genre.maxMana}`] : []),
         ...(actions.some(action => ['draw-card', 'play-card', 'end-turn'].includes(action.action))
           ? [`Turn ${current.genre.turn} · Hand ${current.genre.hand} · Deck ${current.genre.deck} · Energy ${current.genre.energy}/${current.genre.maxEnergy}`] : []),

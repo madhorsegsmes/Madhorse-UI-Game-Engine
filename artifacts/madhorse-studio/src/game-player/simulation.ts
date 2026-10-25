@@ -2,6 +2,7 @@ import { advanceSceneRuntime, createSceneRuntimeState, type RuntimeInput } from 
 import { applyEgoAnimationController } from '../lib/ego-animation-controller';
 import { getTransform, getWorldTransform } from '../lib/scene-model';
 import type { WebGameData } from '../lib/web-game-format';
+import { cartChaseCamera } from '../lib/cart-racer-runtime';
 
 /** Uses the same gameplay and animation implementation as Studio; never mutates the exported starting state. */
 export class StandaloneSimulation {
@@ -58,6 +59,8 @@ export class StandaloneSimulation {
     const transform = getWorldTransform(this.entities, player.id);
     if (!transform) return this.game.camera;
     const target = { x: (transform.position.x - 50) / 10, y: transform.position.z / 10 + 1.1, z: (transform.position.y - 50) / 10 };
+    const cartCamera=cartChaseCamera(this.game.camera,this.entities,player.id,this.perspective==='first-person');
+    if(cartCamera)return cartCamera;
     if (this.perspective === 'third-person') {
       return { ...this.game.camera, rotation: undefined, target,
         position: { x: target.x + 2.4, y: target.y + 1.8, z: target.z - 5 } };

@@ -1,3 +1,4 @@
+import { cartFeature } from './cart-racer-runtime';
 import {
   getTransform,
   getWorldTransform,
@@ -101,7 +102,8 @@ export function advanceSceneRuntime(
     ? { ...input, ...firstPersonMove(input.moveX, input.moveY, input.lookYaw ?? getTransform(player!).rotation.z),
       lookYaw: input.lookYaw ?? getTransform(player!).rotation.z }
     : fighterMode ? { ...input, moveY: 0 } : input;
-  const actionMotion = player ? resolveActionMovement(player, playerInput, state.actions, dt) : null;
+  const actionMotion = player ? resolveActionMovement(player,
+    cartFeature(player)?.settings.role==='player'?input:playerInput, state.actions, dt) : null;
   const pressedKeys = new Set(input.pressedKeys ?? []);
   const pressedAction = actionMotion?.actions.find(action =>
     pressedKeys.has(action.key) && ['fight', 'light-attack', 'heavy-attack', 'special-attack', 'cast', 'shoot'].includes(action.action),
@@ -157,7 +159,8 @@ export function advanceSceneRuntime(
           ...actionMotion.current.baseScale,
           z: actionMotion.current.baseScale.z * actionMotion.heightMultiplier,
         };
-        if (actionMotion.driving || firstPerson) nextRotation = { ...transform.rotation, z: actionMotion.current.heading * 180 / Math.PI };
+        if (actionMotion.driving || firstPerson) nextRotation = { ...transform.rotation,
+          z: actionMotion.current.heading * 180 / Math.PI * (cartFeature(entity)?.settings.role==='player'?-1:1) };
       }
 
       let velocity = state.jumpVelocity.get(entity.id) ?? 0;
@@ -173,7 +176,7 @@ export function advanceSceneRuntime(
         if (nextHeight === 0) velocity = 0;
         state.jumpVelocity.set(entity.id, velocity);
       }
-      if (firstPerson) {
+      if (firstPerson || cartFeature(entity)?.settings.role==='player') {
         Object.assign(nextPosition, firstPersonCollide(entities, entity.id, transform.position, nextPosition,
           actionMotion?.heightMultiplier ?? 1));
       }

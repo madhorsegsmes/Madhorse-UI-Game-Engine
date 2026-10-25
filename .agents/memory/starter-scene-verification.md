@@ -34,3 +34,9 @@ simulation for the CPU to finish rounds.
 **How to apply:** Batch starting the match, combat inputs, and immediate assertions
 where possible. Check an equivalent deterministic sequence before treating an
 unexpected round result as a movement-timing defect.
+
+Derive navigation-test targets from the assembled scene's world transforms rather than repeating assumptions about factory anchors.
+
+**Why:** A kart-driving check used the wrong circuit origin and missed correctly placed checkpoint gates, initially looking like a placement defect.
+
+**How to apply:** Read checkpoint positions from the created scene before steering a test driver. Compare actual world positions before changing placement or collision logic.

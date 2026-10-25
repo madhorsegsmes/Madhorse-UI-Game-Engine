@@ -1,6 +1,8 @@
 import { actionKeyOptions } from './player-action-model';
 
 export const gameFeatureNames = [
+  'card-duel',
+  'cart-racer',
   'health', 'inventory', 'interact', 'pickup', 'door', 'checkpoint',
   'status-bar', 'message', 'visual-effect', 'creature-rpg',
 ] as const;
@@ -20,6 +22,39 @@ export type GameFeatureComponent = {
   clipAssetId?: string | null; volume?: number;
 };
 export const gameFeatureDefinitions: Record<GameFeatureName, GameFeatureDefinition> = {
+  'card-duel': {
+    label:'Card Duel',help:'Choose Duel table for the rules, or Card for a deck entry. Rename cards in the Hierarchy, edit their stats here and replace artwork in Sprite Renderer. Both decks use shared cards unless you choose a specific owner. Play/Test runs a temporary duel against the computer.',
+    fields:[
+      {name:'role',label:'This object is',type:'select',default:'card',options:[{value:'board',label:'Duel table / rules'},{value:'card',label:'Card definition'}]},
+      {name:'owner',label:'Card belongs to',type:'select',default:'both',options:[{value:'both',label:'Both decks'},{value:'player',label:'Player deck'},{value:'rival',label:'Rival deck'}]},
+      {name:'cardType',label:'Card type',type:'select',default:'monster',options:[{value:'monster',label:'Monster'},{value:'spell',label:'Spell'},{value:'trap',label:'Trap'}]},
+      {name:'attack',label:'Card attack',type:'number',default:1500,min:0,max:9999,integer:true},
+      {name:'defense',label:'Card defense',type:'number',default:1200,min:0,max:9999,integer:true},
+      {name:'level',label:'Monster level (5–6: 1 tribute; 7–8: 2)',type:'number',default:4,min:1,max:8,integer:true},
+      {name:'effect',label:'Card effect',type:'select',default:'none',options:['none','heal','damage','destroy','shield','boost','draw'].map(value=>({value,label:value[0].toUpperCase()+value.slice(1)}))},
+      {name:'power',label:'Effect strength',type:'number',default:500,min:0,max:4000,integer:true},
+      {name:'copies',label:'Copies in each chosen deck',type:'number',default:2,min:1,max:10,integer:true},
+      {name:'description',label:'Card description',type:'text',default:'An original Astral Nexus card.',min:0,max:300},
+      {name:'cardColor',label:'Card frame color',type:'color',default:'#c69350'},
+      {name:'startingLife',label:'Table: starting life points',type:'number',default:4000,min:1000,max:20000,integer:true},
+      {name:'openingHand',label:'Table: opening hand size',type:'number',default:4,min:3,max:6,integer:true},
+      {name:'openingField',label:'Table: start with a beginner monster each',type:'boolean',default:true},
+      {name:'playerName',label:'Table: player name',type:'text',default:'You',min:1,max:40},
+      {name:'rivalName',label:'Table: computer rival name',type:'text',default:'Nova',min:1,max:40},
+      {name:'boardColor',label:'Table background color',type:'color',default:'#111e39'},
+    ],
+  },
+  'cart-racer': {
+    label:'Cart Racer',help:'An editable arcade time trial. Put Player on a kart with Racing and a Player Controller. Add ordered gates numbered 0, 1, 2… across the track. Gates must be crossed forward; completing every gate finishes a lap.',
+    fields:[
+      {name:'role',label:'What is this?',type:'select',default:'gate',options:[{value:'player',label:'Player kart'},{value:'gate',label:'Checkpoint gate'}]},
+      {name:'startDriving',label:'Start ready to drive',type:'boolean',default:true},
+      {name:'laps',label:'Laps to finish',type:'number',default:3,min:1,max:99,integer:true},
+      {name:'gateIndex',label:'Gate order (starts at 0)',type:'number',default:0,min:0,max:31,integer:true},
+      {name:'gateWidth',label:'Gate width (metres)',type:'number',default:10,min:1,max:100},
+      {name:'gateDepth',label:'Gate height clearance (metres)',type:'number',default:4,min:1,max:30},
+    ],
+  },
   'creature-rpg': {
     label: '2D Creature RPG', help: 'A top-down, tile-based RPG role. Edit sprites in Sprite Renderer. Player, neighbors, walls, grass and creature stats drive the shared RPG Play/Test and web-game runtime.',
     fields: [

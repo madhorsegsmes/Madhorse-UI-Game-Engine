@@ -23,9 +23,12 @@ export function firstPersonCollide(
     const transform = getWorldTransform(entities, entity.id);
     if (!transform) return [];
     const p = transform.position, s = physics.size;
+    const yaw=transform.rotation.z*Math.PI/180;
+    const width=Math.abs(Math.cos(yaw))*s.x+Math.abs(Math.sin(yaw))*s.y;
+    const depth=Math.abs(Math.sin(yaw))*s.x+Math.abs(Math.cos(yaw))*s.y;
     if (p.z + s.z / 2 <= desired.z + .01 || p.z - s.z / 2 >= desired.z + height) return [];
-    return [{ minX: p.x - s.x / 2 - radiusX, maxX: p.x + s.x / 2 + radiusX,
-      minY: p.y - s.y / 2 - radiusY, maxY: p.y + s.y / 2 + radiusY }];
+    return [{ minX: p.x - width / 2 - radiusX, maxX: p.x + width / 2 + radiusX,
+      minY: p.y - depth / 2 - radiusY, maxY: p.y + depth / 2 + radiusY }];
   });
   const blocked = (x: number, y: number) => boxes.some(box =>
     x > box.minX && x < box.maxX && y > box.minY && y < box.maxY);

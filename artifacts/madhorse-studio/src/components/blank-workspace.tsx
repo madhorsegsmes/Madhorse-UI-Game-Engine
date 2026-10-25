@@ -9,10 +9,12 @@ import { Activity, ArrowDown, ArrowUp, Box, Check, ChevronDown, ChevronRight, Ci
 import { ScenePreview3D, type SceneFrameRequest, type SceneTransformMode } from './scene-preview-3d';
 import { WorkspaceRenderSettings } from './scene-render-settings';
 import { isPixelRpgScene } from '@/lib/pixel-rpg-runtime';
+import {isCardDuelScene} from '@/lib/card-duel-runtime';
 import type { SceneCursorTool } from './scene-tool-cursor';
 import { MultiplayerToolsPanel } from './multiplayer-tools-panel';
 import { genrePlayerFunctionTools } from '@/lib/player-function-tools';
 import { actionKeyOptions } from '@/lib/player-action-model';
+import { cartChaseCamera } from '@/lib/cart-racer-runtime';
 import {
   createScriptableObjectAsset,
   createPhysicsComponent,
@@ -207,7 +209,7 @@ function SceneViewport({
         onPrimaryCameraChange={onCameraChange}
         onSelectPrimaryCamera={() => onSelect(PRIMARY_CAMERA_ID)}
       />
-      {isPlaying && actionHud && !isPixelRpgScene(entities) && <PlayerActionHud hud={actionHud} />}
+      {isPlaying && actionHud && !isPixelRpgScene(entities) && !isCardDuelScene(entities) && <PlayerActionHud hud={actionHud} />}
       {canTogglePerspective && <div style={{
         position: 'absolute', top: 12, right: 12, padding: '6px 9px', border: '1px solid #54687b',
         borderRadius: 4, background: '#091520df', color: '#e6f2fa', fontSize: 10, pointerEvents: 'none',
@@ -2749,7 +2751,7 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
             y: target.y + Math.sin(lookPitch * Math.PI / 180) * 4,
             z: target.z + Math.cos(heading) * Math.cos(lookPitch * Math.PI / 180) * 4,
           };
-          setRuntimeCamera({
+          setRuntimeCamera((followed && cartChaseCamera(camera,liveEntities,followed.id,isFirstPerson)) ?? {
             ...camera,
             rotation: undefined,
             target: isFirstPerson ? firstPersonTarget : target,
