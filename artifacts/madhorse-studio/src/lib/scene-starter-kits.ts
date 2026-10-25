@@ -10,14 +10,22 @@ import {
   type TerrainBrushEdit, type Vector3, type VisualLogicNode,
 } from './scene-model';
 
-export type GameStarterKitId = 'shooter' | 'rpg' | 'puzzle' | 'fighting' | 'rts';
+export type GameStarterKitId = 'shooter' | 'third-person-shooter' | 'rpg' | 'puzzle' | 'fighting' | 'rts';
 export const gameStarterKits: { id: GameStarterKitId; title: string; description: string }[] = [
   { id: 'shooter', title: 'FPS Training Arena', description: 'A first-person camera with shooting, ammo, targets, health, and a small test arena.' },
+  { id: 'third-person-shooter', title: 'Third-Person Shooter · Ironlight Ops', description: 'A detailed human operative, over-the-shoulder camera, cover, shooting, ammo, health, and multiplayer-ready movement.' },
   { id: 'rpg', title: 'RPG Quest', description: 'A player with inventory and spells, a character to meet, and a quest path to explore.' },
   { id: 'puzzle', title: 'Key-and-Gate Puzzle', description: 'Find a key, enter a trigger, and use safe visual logic to open the gate.' },
   { id: 'fighting', title: '2D/3D Fighting Arena', description: 'An editable side-view arena: replace fighters with sprites or 3D models, change the floor, backdrop, sky and textures, and customize combat moves and HUD.' },
   { id: 'rts', title: 'RTS · Sunstone Vale', description: 'An editable isometric medieval settlement with a central keep, cottages, farms, roads, woods, resource sites, squads, and an RTS command HUD.' },
 ];
+
+function addMultiplayerComponent(entity: SceneEntity, kind: 'multiplayer-player' | 'multiplayer-object') {
+  const mode = kind === 'multiplayer-player' ? 'player' : 'object';
+  if (entity.components.some(component => component.type === 'multiplayerPlugin' && component.mode === mode)) return;
+  const plugin = createPluginComponent(kind, 0).component;
+  if (plugin.type === 'multiplayerPlugin') entity.components.push(plugin);
+}
 
 function createObject(name: string, shape: PrimitiveShape, color: string, position: Vector3, scale: Vector3): SceneEntity {
   const transform = createTransformComponent(position);
@@ -164,6 +172,8 @@ function createFightingStarterKit(center: Vector3, appearances: FightingAppearan
     createPlayerAction('run'),
     createPlayerAction('crouch'),
   );
+  addMultiplayerComponent(player, 'multiplayer-player');
+  addMultiplayerComponent(rival, 'multiplayer-object');
   const rivalLight = createPlayerAction('light-attack');
   const rivalHeavy = createPlayerAction('heavy-attack');
   rivalLight.targetId = player.id;
@@ -360,6 +370,7 @@ function createRtsUnit(
     createGameFeature('health'),
     createGameFeature('status-bar'),
   );
+  addMultiplayerComponent(unit.root, 'multiplayer-object');
   return unit.entities;
 }
 
@@ -638,6 +649,7 @@ function createRtsStarterKit(center: Vector3): {
     { x: 1.6, y: 1.6, z: 3.8 }, roof.asset.id);
   const fieldCommander = createRtsUnit('Field Commander', { x: -7, y: 0 }, '#a74e45',
     'character-controller-player', clothing.asset.id);
+  addMultiplayerComponent(fieldCommander[0], 'multiplayer-player');
   getTransform(fieldCommander[0]).rotation.z = 0;
   const alliedUnits = [
     ...createRtsUnit('Vale Guard · 01', { x: -9, y: -1.8 }, '#ba6550', 'character-controller-npc', clothing.asset.id),
@@ -768,9 +780,11 @@ export function createGameStarterKit(
   if (kind === 'fighting') return createFightingStarterKit(center, fightingAppearances);
   if (kind === 'rts') return createRtsStarterKit(center);
   if (kind === 'shooter') return createFpsStarterKit(center);
+  if (kind === 'third-person-shooter') return createFpsStarterKit(center, 'third-person');
   const floor = createObject('Starter Arena', 'plane', '#414653',
     { x: center.x, y: center.y, z: center.z - 3 }, { x: 18, y: 18, z: 0.5 });
   const player = createActor('Player', { ...center, z: center.z + 1.4 }, '#6397d8', 'character-controller-player');
+  addMultiplayerComponent(player, 'multiplayer-player');
   player.components = player.components.map(component =>
     component.type === 'physics' ? createPhysicsComponent('dynamic') : component,
   );
@@ -783,6 +797,7 @@ export function createGameStarterKit(
       createPlayerAction('run'), createGameFeature('inventory'), createGameFeature('interact'),
     );
     const guide = createActor('Quest Guide', { x: center.x, y: center.y + 7, z: center.z + 1.4 }, '#64a787', 'character-controller-patrol');
+    addMultiplayerComponent(guide, 'multiplayer-object');
     guide.components.push(createGameFeature('message'));
     entities.push(guide, createObject('Quest Marker', 'octahedron', '#efc262',
       { x: center.x - 7, y: center.y + 11, z: center.z + 1 }, { x: 0.8, y: 0.8, z: 0.8 }),
@@ -794,11 +809,13 @@ export function createGameStarterKit(
   } else {
     const key = createObject('Puzzle Key', 'octahedron', '#f0cb59',
       { x: center.x + 6, y: center.y + 2, z: center.z + 1 }, { x: 0.55, y: 0.55, z: 0.55 });
+    addMultiplayerComponent(key, 'multiplayer-object');
     const pickup = createGameFeature('pickup');
     if (pickup.type === 'gameFeature') pickup.settings.item = 'keys';
     key.components.push(pickup);
     const gate = createObject('Puzzle Gate', 'cube', '#9564c7',
       { x: center.x + 14, y: center.y + 2, z: center.z + 1 }, { x: 1.5, y: 0.7, z: 2 });
+    addMultiplayerComponent(gate, 'multiplayer-object');
     gate.active = false;
     const zone = createObject('Gate Trigger', 'sphere', '#59b2c7',
       { x: center.x + 12, y: center.y + 2, z: center.z }, { x: 2.5, y: 2.5, z: 2 });

@@ -9,10 +9,10 @@ import { getSystemActivity, subscribeSystemActivity } from '@/lib/system-activit
 import { createEgoUiKit } from '@/lib/ego-ui-kit';
 import { createGameCamera } from '@/lib/game-camera';
 import { createGameStarterKit } from '@/lib/scene-starter-kits';
-import { FPS_CONTROLS } from '@/lib/fps-starter-kit';
+import { FPS_CONTROLS, THIRD_PERSON_SHOOTER_CONTROLS } from '@/lib/fps-starter-kit';
 import { removeFreshWorkspace, saveFreshWorkspace } from '@/lib/fresh-workspace-storage';
 import { deleteLocalAsset, saveLocalAsset } from '@/lib/asset-vault';
-import type { ProjectAsset } from '@/lib/scene-model';
+import { getTransform, type ProjectAsset } from '@/lib/scene-model';
 import { useSceneRenderSettings } from '@/hooks/use-scene-render-settings';
 import { defaultFightingAppearancePair, type FightingAppearancePair } from '@/lib/fighter-appearance';
 import { FightingCharacterCustomization } from './fighting-character-customization';
@@ -20,11 +20,13 @@ import { FightingCharacterCustomization } from './fighting-character-customizati
 const fightingStarterVision = 'A fixed side-view 3D fighting game with detailed human fighters, editable combat actions and HUD, plus imported FBX fighters and high-resolution stage assets.';
 const rtsStarterVision = 'An editable isometric medieval RTS settlement in Sunstone Vale: a fortified keep, terracotta cottages, market roads, crop farms, wooded edges, resource sites, human squads, and an eastern outpost.';
 
-type StarterChoice = '2d-fighting' | 'rts' | 'fps';
+type StarterChoice = '2d-fighting' | 'rts' | 'fps' | 'third-person-shooter';
 
 function readStarterChoice(): StarterChoice | null {
   const requested = new URLSearchParams(window.location.search).get('starter');
-  return requested === 'rts' || requested === '2d-fighting' || requested === 'fps' ? requested : null;
+  return requested === 'rts' || requested === '2d-fighting' || requested === 'fps' || requested === 'third-person-shooter'
+    ? requested
+    : null;
 }
 
 function createStarterSnapshot(projectName: string, choice: StarterChoice, fighterAppearances: FightingAppearancePair): {
@@ -33,19 +35,39 @@ function createStarterSnapshot(projectName: string, choice: StarterChoice, fight
 } {
   const isRts = choice === 'rts';
   const isFps = choice === 'fps';
-  const starter = createGameStarterKit(isFps ? 'shooter' : isRts ? 'rts' : 'fighting', { x: -15, y: 50, z: 0 }, fighterAppearances);
+  const isThirdPerson = choice === 'third-person-shooter';
+  const starter = createGameStarterKit(
+    isFps ? 'shooter' : isRts ? 'rts' : isThirdPerson ? 'third-person-shooter' : 'fighting',
+    { x: -15, y: 50, z: 0 },
+    fighterAppearances,
+  );
+  const player = starter.entities.find(entity => entity.id === starter.playerId);
+  const playerPosition = player ? getTransform(player).position : { x: 50, y: 50, z: 0 };
+  const playerWorld = {
+    x: (playerPosition.x - 50) / 10,
+    y: playerPosition.z / 10,
+    z: (playerPosition.y - 50) / 10,
+  };
   const camera = createGameCamera(starter.entities);
-  camera.position = isFps ? { x: 0, y: 1.6, z: -12 } : isRts ? { x: 8, y: 32, z: 36 } : { x: 0, y: 1.2, z: -17 };
-  camera.target = isFps ? { x: 0, y: 1.6, z: 0 } : isRts ? { x: 0, y: 0, z: 0 } : { x: 0, y: 1.2, z: 0 };
-  camera.fov = isFps ? 70 : isRts ? 43 : 42;
+  camera.position = isFps ? { x: playerWorld.x, y: playerWorld.y + 1.6, z: playerWorld.z }
+    : isRts ? { x: 8, y: 32, z: 36 }
+      : isThirdPerson ? { x: playerWorld.x + 3, y: playerWorld.y + 5, z: playerWorld.z - 10 }
+        : { x: 0, y: 1.2, z: -17 };
+  camera.target = isFps ? { x: playerWorld.x, y: playerWorld.y + 1.6, z: playerWorld.z + 12 }
+    : isRts ? { x: 0, y: 0, z: 0 }
+      : isThirdPerson ? { x: playerWorld.x, y: playerWorld.y + 1.2, z: playerWorld.z + 2 }
+        : { x: 0, y: 1.2, z: 0 };
+  camera.fov = isFps ? 70 : isRts ? 43 : isThirdPerson ? 55 : 42;
   camera.placement = 'custom';
-  const uiControls = createEgoUiKit([isFps ? 'shooter' : isRts ? 'rts' : 'fighting'], 0);
+  const uiControls = createEgoUiKit([isFps || isThirdPerson ? 'shooter' : isRts ? 'rts' : 'fighting'], 0);
   return {
     snapshot: {
       projectName,
-      egoGameVision: isFps ? 'First-person industrial training facility with editable cover, lighting, modular carbine, six targets, collision-aware shooting, ammo, reload, sprint, crouch and jump.' : isRts ? rtsStarterVision : fightingStarterVision,
+      egoGameVision: isFps ? 'First-person industrial training facility with editable cover, lighting, modular carbine, six targets, collision-aware shooting, ammo, reload, sprint, crouch and jump.'
+        : isThirdPerson ? 'Third-person tactical shooter with a detailed human operative, an over-the-shoulder camera, editable cover, a modular carbine, targets, collision-aware shooting, ammo, reload, sprint, crouch, jump, and multiplayer movement.'
+          : isRts ? rtsStarterVision : fightingStarterVision,
       egoGameFlow: 'undecided',
-      egoGameNotes: isFps ? FPS_CONTROLS : isRts
+      egoGameNotes: isFps ? FPS_CONTROLS : isThirdPerson ? THIRD_PERSON_SHOOTER_CONTROLS : isRts
         ? 'RTS starter controls: move with WASD; press T to order nearby allied NPCs to the Market Gate beacon, G to gather a nearby resource cache, K to craft planks, and B to place a temporary construction block. The starting scene is assembled from editable keep, cottage, farm, road, well, forest, resource, and squad pieces. Edit the mission, terrain, buildings, units, and HUD in Studio. This starter is a playable prototype, not a complete commercial RTS: squad selection, pathfinding, and a full economy are not included yet.'
         : 'Use A/D to move, F/G for attacks, Control to block, Shift to run, and C to crouch. Import a fighter image or FBX/GLB model through Hierarchy → Import asset. Double-click Player Fighter or Training Rival, choose Character type and its asset under Replace fighter · 2D / 3D, then Save Changes. This changes appearance without removing combat or movement. Import FBX or GLB stage models and their image textures for high-resolution environments. Edit health bars and action buttons in the UI builder.',
       entities: starter.entities,
@@ -89,7 +111,10 @@ export default function StudioProjects() {
     return active?.name ? null : 'name';
   });
   const [draft, setDraft] = useState(() =>
-    templateChoice === 'fps' ? 'My FPS Game' : templateChoice === 'rts' ? 'My RTS Game' : templateChoice === '2d-fighting' ? 'My 2D/3D Fighting Game' : '',
+    templateChoice === 'fps' ? 'My FPS Game'
+      : templateChoice === 'third-person-shooter' ? 'My Third-Person Shooter'
+        : templateChoice === 'rts' ? 'My RTS Game'
+          : templateChoice === '2d-fighting' ? 'My 2D/3D Fighting Game' : '',
   );
   const [error, setError] = useState(initial.error);
   const [savingProject, setSavingProject] = useState(false);
@@ -233,10 +258,14 @@ export default function StudioProjects() {
           }
         }}>
         <h2 id="project-name-heading">{mode === 'template'
-          ? templateChoice === 'fps' ? 'Name your FPS game' : templateChoice === 'rts' ? 'Name your RTS project' : 'Name your 2D/3D fighting game'
+          ? templateChoice === 'fps' ? 'Name your FPS game'
+            : templateChoice === 'third-person-shooter' ? 'Name your third-person shooter'
+              : templateChoice === 'rts' ? 'Name your RTS project' : 'Name your 2D/3D fighting game'
           : mode === 'new' ? 'New project' : mode === 'rename' ? 'Rename project' : 'Name your project'}</h2>
         <p>{mode === 'template'
-          ? templateChoice === 'fps' ? 'Create an editable first-person training facility with a modular weapon, six targets, colliding walls and cover, PBR surfaces, lighting, shooting, reload, sprint, crouch, jump, and a HUD. Press Play Test to begin. Your other projects remain untouched.' : templateChoice === 'rts'
+          ? templateChoice === 'fps' ? 'Create an editable first-person training facility with a modular weapon, six targets, colliding walls and cover, PBR surfaces, lighting, shooting, reload, sprint, crouch, jump, and a HUD. Press Play Test to begin. Your other projects remain untouched.'
+            : templateChoice === 'third-person-shooter' ? 'Create an editable tactical shooter with a detailed human operative, shoulder camera, cover, moving target operatives, shooting, reload, sprint, crouch, jump, and multiplayer movement. Your other projects remain untouched.'
+              : templateChoice === 'rts'
             ? 'This creates a separate RTS project with an editable strategy map, two bases, squads, resource caches, a rally objective, and a mission HUD. Studio will start with its High render preset; you can change it later. Existing projects stay untouched.'
             : 'This creates a separate project with a fighting arena, two editable fighters, combat controls, and a Play Test HUD. Change the floor, backdrop, sky, textures, objects, controls, and HUD in Studio. Your other saved projects stay untouched.'
           : mode === 'new'
@@ -259,7 +288,9 @@ export default function StudioProjects() {
             setError('');
           }}>Cancel</button>}
           <button type="submit" disabled={savingProject}>{savingProject ? 'Creating…'
-            : mode === 'template' ? templateChoice === 'fps' ? 'Create FPS game' : templateChoice === 'rts' ? 'Create RTS project' : 'Create fighting game'
+            : mode === 'template' ? templateChoice === 'fps' ? 'Create FPS game'
+              : templateChoice === 'third-person-shooter' ? 'Create third-person shooter'
+                : templateChoice === 'rts' ? 'Create RTS project' : 'Create fighting game'
               : mode === 'new' ? 'Create project' : 'Save name'}</button>
         </footer>
       </form>

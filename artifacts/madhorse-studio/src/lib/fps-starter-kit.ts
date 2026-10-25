@@ -2,12 +2,36 @@ import { createSceneEntity, createPhysicsComponent, getTransform, type SceneEnti
 import { createPluginComponent } from './scene-plugin-catalog';
 import { createGameFeature } from './game-feature-model';
 import { createPlayerAction } from './player-action-model';
+import { createEgoCharacterScene, createEgoClothingTextureAsset } from './character-builder-starter';
 
 export const FPS_CONTROLS = 'Click the viewport to capture the mouse. Mouse: look · WASD: move/strafe · Left click or J: shoot · R: reload · Shift: sprint · C: crouch · Space: jump · Esc: release mouse / stop test. Clear all six range targets. Play Test changes reset when stopped.';
+export const THIRD_PERSON_SHOOTER_CONTROLS = 'Click the viewport to capture the mouse. Mouse: look · WASD: move/strafe · Left click or J: shoot · R: reload · Shift: sprint · C: crouch · Space: jump · Esc: release mouse / stop test.';
 
-export function createFpsStarterKit(center: Vector3) {
+function addMultiplayerComponent(entity: SceneEntity, kind: 'multiplayer-player' | 'multiplayer-object') {
+  const mode = kind === 'multiplayer-player' ? 'player' : 'object';
+  if (entity.components.some(component => component.type === 'multiplayerPlugin' && component.mode === mode)) return;
+  const plugin = createPluginComponent(kind, 0).component;
+  if (plugin.type === 'multiplayerPlugin') entity.components.push(plugin);
+}
+
+function createDetailedOperative(offset: { x: number; z: number }, name: string, clothingTextureAssetId: string) {
+  const build = createEgoCharacterScene('human', 1.8, offset, name, clothingTextureAssetId);
+  const root = build.entities.find(entity => entity.id === build.setupId)!;
+  const body = build.entities.find(entity => entity.id === build.characterId)!;
+  root.name = name;
+  root.isGroup = true;
+  root.generatedBy = 'character-builder';
+  const model = body.components.find(component => component.type === 'modelRenderer');
+  if (model) root.components.push({ ...model, id: crypto.randomUUID() });
+  const parts = build.entities.filter(entity => entity.parentId === body.id);
+  for (const part of parts) part.parentId = root.id;
+  return { root, parts };
+}
+
+export function createFpsStarterKit(center: Vector3, perspective: 'first-person' | 'third-person' = 'first-person') {
   const entities: SceneEntity[] = [];
   const generatedAssets: Array<{ asset: ProjectAsset; file: File }> = [];
+  const thirdPerson = perspective === 'third-person';
   function texture(name: string, svg: string) {
     const file = new File([svg], name, { type: 'image/svg+xml' });
     const asset: ProjectAsset = { id: crypto.randomUUID(), name, kind: 'image', mimeType: file.type, size: file.size, addedAt: new Date().toISOString() };
@@ -52,12 +76,20 @@ export function createFpsStarterKit(center: Vector3) {
     box(`Cover crate · ${i + 1}`, x, y, h / 2, w, d, h, '#64756d', true, steel);
     box(`Crate hazard trim · ${i + 1}`, x, y - d / 2 - .015, h * .65, w * .9, .035, .2, '#ffffff', false, hazard);
   }
-  const player = createSceneEntity('FPS Player', pos(0, -12, 0), null, false);
-  player.components = [getTransform(player)];
-  const controller = createPluginComponent('character-controller-player', 0).component;
+  const clothingTexture = thirdPerson ? createEgoClothingTextureAsset() : null;
+  if (clothingTexture) generatedAssets.push(clothingTexture);
+  const detailedOperative = clothingTexture
+    ? createDetailedOperative({ x: 0, z: -12 }, 'Ironlight Operative · Player', clothingTexture.asset.id)
+    : null;
+  const player = detailedOperative?.root ?? createSceneEntity('FPS Player', pos(0, -12, 0), null, false);
+  if (!detailedOperative) player.components = [getTransform(player)];
+  const controller = createPluginComponent(
+    thirdPerson ? 'character-controller-third-person' : 'character-controller-player',
+    0,
+  ).component;
   if (controller.type === 'characterController') {
-    controller.perspective = 'first-person';
-    controller.moveSpeed = 5;
+    controller.perspective = perspective;
+    controller.moveSpeed = thirdPerson ? 6 : 5;
   }
   const body = createPhysicsComponent('dynamic');
   body.size = { x: 6, y: 6, z: 18 };
@@ -68,10 +100,39 @@ export function createFpsStarterKit(center: Vector3) {
   const health = createGameFeature('health');
   health.settings.contactDamage = 0;
   player.components.push(controller, body, health, createGameFeature('status-bar'), shoot, reload,
-    createPlayerAction('run'), createPlayerAction('crouch'),
-    { id: crypto.randomUUID(), type: 'primitive', enabled: true, shape: 'capsule', color: '#628392', textureAssetId: null });
-  getTransform(player).scale = { x: .6, y: .6, z: 1.8 };
-  entities.push(player);
+    createPlayerAction('run'), createPlayerAction('crouch'));
+  addMultiplayerComponent(player, 'multiplayer-player');
+  if (!detailedOperative) {
+    player.components.push({ id: crypto.randomUUID(), type: 'primitive', enabled: true, shape: 'capsule', color: '#628392', textureAssetId: null });
+    getTransform(player).scale = { x: .6, y: .6, z: 1.8 };
+  }
+  entities.push(player, ...(detailedOperative?.parts ?? []));
+  if (thirdPerson && clothingTexture) {
+    for (const [name, offset] of [
+      ['Moving Target Operative · Alpha', { x: -8, z: 5 }],
+      ['Moving Target Operative · Bravo', { x: 8, z: 13 }],
+    ] as const) {
+      const target = createDetailedOperative(offset, name, clothingTexture.asset.id);
+      const patrol = createPluginComponent('character-controller-patrol', 0).component;
+      if (patrol.type === 'characterController') {
+        patrol.role = 'npc';
+        patrol.behavior = 'patrol';
+        patrol.perspective = 'third-person';
+        patrol.moveSpeed = 0.8;
+        patrol.patrolRadius = 0.65;
+      }
+      const health = createGameFeature('health');
+      health.settings.contactDamage = 0;
+      target.root.components.push(
+        patrol,
+        createPhysicsComponent('dynamic'),
+        health,
+        createGameFeature('status-bar'),
+      );
+      addMultiplayerComponent(target.root, 'multiplayer-object');
+      entities.push(target.root, ...target.parts);
+    }
+  }
   // Independent pieces: users can remodel or replace the weapon in Hierarchy.
   const weapon = createSceneEntity('FPS Carbine · editable weapon', { x: 4.6, y: 7.5, z: 6.5 }, player.id, false);
   weapon.components = [getTransform(weapon)];
@@ -89,6 +150,7 @@ export function createFpsStarterKit(center: Vector3) {
   }
   for (const [i, [x, y]] of [[0, -2], [-4, 6], [3, 10], [-9, 15], [0, 16], [9, 4]].entries()) {
     const target = box(`Range Target ${i + 1}`, x, y, .9, .7, .55, 1.8, '#b85d47');
+    addMultiplayerComponent(target, 'multiplayer-object');
     const targetHealth = createGameFeature('health');
     targetHealth.settings.contactDamage = 0;
     target.components.push(targetHealth);
@@ -111,5 +173,10 @@ export function createFpsStarterKit(center: Vector3) {
     light.components.push({ id: crypto.randomUUID(), type: 'light', enabled: true, kind, color, intensity });
     entities.push(light);
   }
-  return { entities, playerId: player.id, title: 'FPS · Ironlight Training Facility', generatedAssets };
+  return {
+    entities,
+    playerId: player.id,
+    title: thirdPerson ? 'Third-Person Shooter · Ironlight Ops' : 'FPS · Ironlight Training Facility',
+    generatedAssets,
+  };
 }

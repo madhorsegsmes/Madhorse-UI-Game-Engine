@@ -2686,7 +2686,7 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
     };
 
     void syncRoom();
-    const timer = window.setInterval(() => void syncRoom(), 500);
+    const timer = window.setInterval(() => void syncRoom(), 200);
     return () => {
       disposed = true;
       window.clearInterval(timer);

@@ -214,9 +214,9 @@ export function MultiplayerToolsPanel({ member, snapshot, onMemberChange, onSnap
       )}
 
       <p className="fresh-multiplayer-note">
-        Open the same saved scene on each PC, add Network Player to your player, then press Play Test on both.
-        The host controls Sync Object movement. Updates arrive twice per second.
-        Rooms support up to 32 players and reset when the server restarts.
+        Built-in game templates already include Network Player on the playable character. Host a room, open the same saved scene on each PC, join with the code, then press Play Test.
+        The host synchronizes marked world objects; every player sends their movement. Use Send Game Event for game-specific room events.
+        Rooms support up to 32 players. Movement updates arrive about five times per second; rooms reset when the server restarts.
       </p>
       {message && <p className="fresh-multiplayer-status" role="status">{message}</p>}
     </section>

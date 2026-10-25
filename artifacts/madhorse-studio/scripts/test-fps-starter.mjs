@@ -19,6 +19,32 @@ try {
       assert(kit.entities.every(isSceneEntity), 'Invalid FPS entities: ' + kit.entities.filter(e => !isSceneEntity(e)).map(e => e.name).join(', '));
       assert.equal(kit.generatedAssets.length, 2);
       assert.equal(kit.entities.filter(e => /^Range Target [0-9]+$/.test(e.name)).length, 6);
+      const starterIds = ['shooter', 'third-person-shooter', 'fighting', 'rts', 'rpg', 'puzzle'];
+      const starterKits = starterIds.map(id => createGameStarterKit(id, { x: -15, y: 50, z: 0 }));
+      for (const starter of starterKits) {
+        const playable = starter.entities.find(entity => entity.id === starter.playerId);
+        assert(playable, starter.title + ' has no player entity');
+        assert(playable.components.some(component => component.type === 'multiplayerPlugin' && component.mode === 'player'),
+          starter.title + ' does not automatically network its player');
+      }
+      const thirdPersonKit = starterKits.find(starter => starter.title.includes('Third-Person Shooter'));
+      assert(thirdPersonKit, 'Third-person starter is missing');
+      assert(thirdPersonKit.entities.every(isSceneEntity), 'Invalid third-person entities');
+      assert(thirdPersonKit.generatedAssets.length > kit.generatedAssets.length, 'Third-person starter should include its character clothing texture');
+      const thirdPersonPlayer = thirdPersonKit.entities.find(entity => entity.id === thirdPersonKit.playerId);
+      assert(thirdPersonPlayer.components.some(component => component.type === 'modelRenderer'), 'Third-person player should have a rendered model');
+      assert(thirdPersonPlayer.components.some(component => component.type === 'characterController' && component.perspective === 'third-person'),
+        'Third-person player needs the third-person camera controller');
+      assert(thirdPersonPlayer.components.some(component => component.type === 'playerAction' && component.action === 'shoot'),
+        'Third-person player needs the shooting action');
+      const movingOperative = thirdPersonKit.entities.find(entity => entity.name === 'Moving Target Operative · Alpha');
+      assert(movingOperative?.components.some(component => component.type === 'multiplayerPlugin' && component.mode === 'object'),
+        'Moving target operatives should synchronize with the host');
+      const patrolState = createSceneRuntimeState(thirdPersonKit.entities, thirdPersonKit.playerId);
+      const patrolResult = advanceSceneRuntime(thirdPersonKit.entities, .25, .5,
+        { moveX: 0, moveY: 0, jumpPressed: false, lookYaw: 0, lookPitch: 0 }, patrolState);
+      assert.notEqual(getTransform(patrolResult.entities.find(entity => entity.id === movingOperative.id)).position.x,
+        getTransform(movingOperative).position.x, 'Third-person target operatives should patrol');
       const restored = JSON.parse(original);
       assert(restored.every(isSceneEntity), 'FPS project survives serialization');
       function runtime() {
@@ -95,7 +121,7 @@ try {
         'Targets remaining: ' + JSON.stringify(combat.entities.filter(e => /^Range Target [0-9]+$/.test(e.name) && e.active).map(e => ({ name: e.name, health: combat.state.actions.health.get(e.id) }))));
       assert.equal(JSON.stringify(kit.entities), original, 'Play Test never changes saved template data');
       assert.equal(runtime().entities.filter(e => /^Range Target [0-9]+$/.test(e.name) && e.active).length, 6, 'Restart restores all six targets');
-      console.log('PASS: FPS data, spawn lane, mouse-relative walking/strafe, sprint, crouch, jump, cover and wall collisions, aimed combat, ammo/reload, all-six-target completion, and reset.');
+      console.log('PASS: all six templates auto-network players; third-person model, clothing, camera control, shooting, moving networked NPC targets, plus FPS movement, cover, aiming, ammo/reload, target completion, and reset.');
     ` },
     bundle: true, platform: 'node', format: 'esm', write: false,
     alias: { '@': join(project, 'src') }, logLevel: 'silent',

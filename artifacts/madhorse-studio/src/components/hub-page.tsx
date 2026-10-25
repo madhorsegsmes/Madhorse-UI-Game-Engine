@@ -14,9 +14,10 @@ import {
   Swords,
 } from 'lucide-react';
 import './hub-page.css';
-import { createGameStarterKit } from '@/lib/scene-starter-kits';
+import { createGameStarterKit, type GameStarterKitId } from '@/lib/scene-starter-kits';
 import { createFightingPreviewCamera } from '@/lib/fighting-preview-camera';
 import { createGameCamera } from '@/lib/game-camera';
+import { getTransform } from '@/lib/scene-model';
 import { DEFAULT_SCENE_RENDER_SETTINGS } from '@/hooks/use-scene-render-settings';
 import { ScenePreview3D } from './scene-preview-3d';
 import { SceneRenderFallback } from './scene-render-fallback';
@@ -69,55 +70,87 @@ const fightingFallbackSettings = {
   background: '#333538',
 };
 
-function templatePreviewCamera(fps: boolean, aspect: number) {
-  if (!fps) return createFightingPreviewCamera(aspect);
+type HubStarterKind = Extract<GameStarterKitId, 'fighting' | 'rts' | 'shooter' | 'third-person-shooter'>;
+
+function templatePreviewCamera(kind: HubStarterKind, aspect: number, playerWorld: { x: number; z: number }) {
+  if (kind === 'fighting') return createFightingPreviewCamera(aspect);
+  if (kind === 'rts') {
+    return {
+      ...createGameCamera([]),
+      placement: 'custom' as const,
+      fov: 46,
+      position: { x: 37, y: 37, z: -46 },
+      target: { x: 0, y: 2, z: 0 },
+    };
+  }
+  if (kind === 'third-person-shooter') {
+    return {
+      ...createGameCamera([]),
+      placement: 'custom' as const,
+      fov: 48,
+      position: { x: playerWorld.x + 8, y: 8, z: playerWorld.z - 13 },
+      target: { x: playerWorld.x, y: 1.2, z: playerWorld.z },
+    };
+  }
   const distance = Math.max(1, 1.6 / Math.max(.3, aspect));
   return {
-    ...createGameCamera([]), rotation: undefined, placement: 'custom' as const, fov: 50,
+    ...createGameCamera([]),
+    placement: 'custom' as const,
+    fov: 50,
     position: { x: 21 * distance, y: 20 * distance, z: -31 * distance },
     target: { x: 0, y: 1, z: 1 },
   };
 }
 
-function FightingGamePreview({ fps = false }: { fps?: boolean }) {
-  // The card renders the same editable fighter geometry used by the Studio starter.
-  const [starter] = useState(() => createGameStarterKit(fps ? 'shooter' : 'fighting', { x: -15, y: 50, z: 0 }));
+function FightingGamePreview({ kind }: { kind: HubStarterKind }) {
+  // Every card renders editable objects from the same starter users receive in Studio.
+  const [starter] = useState(() => createGameStarterKit(kind, { x: -15, y: 50, z: 0 }));
   const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
-  const [camera, setCamera] = useState(() => templatePreviewCamera(fps, 16 / 9));
   const stageRef = useRef<HTMLDivElement>(null);
   const generatedAssets = starter.generatedAssets ?? [];
+  const player = starter.entities.find(entity => entity.id === starter.playerId);
+  const playerTransform = player ? getTransform(player).position : { x: 50, y: 50, z: 0 };
+  const playerWorld = { x: (playerTransform.x - 50) / 10, z: (playerTransform.y - 50) / 10 };
+  const [camera, setCamera] = useState(() => templatePreviewCamera(kind, 16 / 9, playerWorld));
+  const previewLabels: Record<HubStarterKind, [string, string]> = {
+    fighting: ['3D FIGHTERS', 'SIDE-VIEW ARENA'],
+    rts: ['SUNSTONE VALE', 'EDITABLE RTS WORLD'],
+    shooter: ['IRONLIGHT FACILITY', 'FIRST-PERSON RANGE'],
+    'third-person-shooter': ['IRONLIGHT OPS', 'THIRD-PERSON COMBAT'],
+  };
+  const [sceneLabel, detailLabel] = previewLabels[kind];
 
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
     const fit = () => {
       if (stage.clientWidth && stage.clientHeight) {
-        setCamera(templatePreviewCamera(fps, stage.clientWidth / stage.clientHeight));
+        setCamera(templatePreviewCamera(kind, stage.clientWidth / stage.clientHeight, playerWorld));
       }
     };
     const observer = new ResizeObserver(fit);
     observer.observe(stage);
     fit();
     return () => observer.disconnect();
-  }, [fps]);
+  }, [kind]);
 
   useEffect(() => {
     const urls = Object.fromEntries(generatedAssets.map(({ asset, file }) =>
       [asset.id, URL.createObjectURL(file)]));
     setAssetUrls(urls);
     return () => Object.values(urls).forEach(URL.revokeObjectURL);
-  }, [starter]);
+  }, [starter, generatedAssets]);
 
   return (
     <div className="hub-fight-screen">
       <div className="hub-fight-toolbar">
         <span><i /> PLAY TEST</span>
-        <span>{fps ? 'FPS FACILITY' : '3D FIGHTERS'} <b>/</b> {fps ? 'EDITABLE LEVEL' : 'SIDE VIEW'}</span>
+        <span>{sceneLabel} <b>/</b> {detailLabel}</span>
         <span>TEMPLATE SCENE</span>
       </div>
-      <div ref={stageRef} className="hub-fight-model-stage" data-testid={fps ? 'hub-fps-model-preview' : 'hub-fighting-model-preview'}>
+      <div ref={stageRef} className="hub-fight-model-stage" data-testid={`hub-${kind}-model-preview`}>
         <ScenePreview3D
-          projectName={fps ? 'Ironlight FPS Starter' : '2D/3D Fighting Starter'}
+          projectName={starter.title}
           gameView
           staticPreview
           gameCamera={camera}
@@ -126,7 +159,7 @@ function FightingGamePreview({ fps = false }: { fps?: boolean }) {
           assets={generatedAssets.map(({ asset }) => asset)}
           assetUrls={assetUrls}
           selectedEntityId={null}
-          playerPreviewPosition={{ x: 0, y: 0 }}
+          playerPreviewPosition={{ x: playerTransform.x, y: playerTransform.y }}
           transformMode="translate"
           readOnly
           onSelectEntity={() => undefined}
@@ -135,7 +168,7 @@ function FightingGamePreview({ fps = false }: { fps?: boolean }) {
           graphicsFallback={
             <SceneRenderFallback
               gameView
-              detail="thumbnail"
+              detail="full"
               entities={starter.entities}
               camera={camera}
               settings={fightingFallbackSettings}
@@ -146,150 +179,13 @@ function FightingGamePreview({ fps = false }: { fps?: boolean }) {
             />
           }
         />
-        {fps && <div className="hub-fight-hud" aria-hidden="true" style={{ justifyContent: 'space-between', fontSize: 8 }}>
-          <span>HEALTH 100</span><b>FPS</b><span>12 / 96 · TARGETS 0/6</span>
-        </div>}
-        <div className="hub-fight-hud" aria-hidden="true" style={fps ? { display: 'none' } : undefined}>
-          <span className="hub-fight-player-label">PLAYER</span>
-          <span className="hub-fight-health hub-fight-health-player"><i /></span>
-          <b>99</b>
-          <span className="hub-fight-health hub-fight-health-rival"><i /></span>
-          <span className="hub-fight-rival-label">RIVAL</span>
-        </div>
-        <span className="hub-fight-corner">3D MODEL TEMPLATE</span>
       </div>
     </div>
   );
 }
 
 function RtsGamePreview() {
-  return (
-    <div className="hub-rts-screen">
-      <div className="hub-rts-toolbar">
-        <span><i /> SUNSTONE VALE · RTS TEMPLATE</span>
-        <span>EDITABLE SETTLEMENT</span>
-        <span>BUILD IN STUDIO</span>
-      </div>
-      <div className="hub-rts-art">
-        <img className="hub-rts-art-backdrop" src={`${basePath}references/default-rts-world.webp`} alt="" />
-        <img className="hub-rts-art-image" src={`${basePath}references/default-rts-world.webp`} alt="" />
-      </div>
-      <svg className="hub-rts-svg" viewBox="0 0 720 320" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        <defs>
-          <linearGradient id="rts-sky" x1="0" y1="0" x2="0" y2="1">
-            <stop stopColor="#253a4b" />
-            <stop offset="1" stopColor="#768b73" />
-          </linearGradient>
-          <linearGradient id="rts-ground" x1="0" y1="0" x2="0.8" y2="1">
-            <stop stopColor="#82915c" />
-            <stop offset="1" stopColor="#394a3e" />
-          </linearGradient>
-          <linearGradient id="rts-river" x1="0" y1="0" x2="0.8" y2="1">
-            <stop stopColor="#83c0c2" />
-            <stop offset="1" stopColor="#387c91" />
-          </linearGradient>
-          <linearGradient id="rts-stone" x1="0" y1="0" x2="0" y2="1">
-            <stop stopColor="#d1c3a1" />
-            <stop offset="1" stopColor="#655d53" />
-          </linearGradient>
-          <linearGradient id="rts-glass" x1="0" y1="0" x2="1" y2="1">
-            <stop stopColor="#e4ffff" stopOpacity=".82" />
-            <stop offset=".5" stopColor="#65b7c2" stopOpacity=".64" />
-            <stop offset="1" stopColor="#1e6274" stopOpacity=".9" />
-          </linearGradient>
-          <pattern id="rts-map-grid" width="36" height="24" patternUnits="userSpaceOnUse" patternTransform="skewY(-24)">
-            <path d="M36 0H0V24" fill="none" stroke="#e9dfba" strokeOpacity=".12" strokeWidth="1" />
-          </pattern>
-          <filter id="rts-glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="7" result="blur" />
-            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-        </defs>
-        <rect width="720" height="320" fill="url(#rts-sky)" />
-        <path d="M0 132 75 77l62 39 72-76 88 87 63-55 72 54 79-72 86 78 62-43 61 49v84H0z" fill="#33464a" opacity=".82" />
-        <path d="M0 169 91 105l84 54 93-81 100 91 72-58 97 61 71-79 112 88v139H0z" fill="#566950" opacity=".9" />
-        <path d="m0 200 198-43 169 51 143-50 210 42v120H0z" fill="url(#rts-ground)" />
-        <path d="M310 160c35 24 49 47 73 65 33 24 66 39 104 55l-16 40c-51-22-94-41-133-72-34-27-49-50-75-68z" fill="url(#rts-river)" opacity=".95" />
-        <path d="M311 178c34 25 51 47 75 65 28 21 63 39 91 50" fill="none" stroke="#d5e7db" strokeOpacity=".44" strokeWidth="3" />
-        <path d="m0 225 198-43 169 51 143-50 210 42v95H0z" fill="url(#rts-map-grid)" />
-        <path d="M70 258 198 224l131 40 83-25M411 239l98-35 126 25" fill="none" stroke="#cfbb8e" strokeWidth="8" opacity=".54" />
-        <path d="m70 253 128-34 131 39m82-24 83-30 126 23" fill="none" stroke="#ead9af" strokeWidth="2" opacity=".6" />
-        <g transform="translate(111 189)">
-          <path d="m0 20 37-13 35 14-37 15z" fill="#a65f48" />
-          <path d="M0 20v34l35 16V36z" fill="#815243" />
-          <path d="M35 36 72 21v34L35 70z" fill="#543b38" />
-          <path d="m-7 18 44-16 42 17-43 17z" fill="url(#rts-stone)" />
-          <path d="m12 13 25-9 24 10-26 9z" fill="#c3a46a" />
-          <path d="M19 54v-15l11 4v16z" fill="#263238" />
-          <path d="M50 30v-12l7-2v12" fill="#d0b46f" />
-          <path d="M58 15V1" stroke="#d8c89c" strokeWidth="2" />
-          <path d="m58 2 13 4-13 4z" fill="#bd5d46" />
-        </g>
-        <g transform="translate(532 199) scale(.83)">
-          <path d="m0 20 37-13 35 14-37 15z" fill="#657a8f" />
-          <path d="M0 20v34l35 16V36z" fill="#485766" />
-          <path d="M35 36 72 21v34L35 70z" fill="#303a45" />
-          <path d="m-7 18 44-16 42 17-43 17z" fill="url(#rts-stone)" />
-          <path d="m12 13 25-9 24 10-26 9z" fill="#8896a0" />
-          <path d="M19 54v-15l11 4v16z" fill="#1f292d" />
-          <path d="M50 30v-12l7-2v12" fill="#e3d2a0" />
-          <path d="M58 15V1" stroke="#d8c89c" strokeWidth="2" />
-          <path d="m58 2 13 4-13 4z" fill="#6689ae" />
-        </g>
-        <g fill="#345b43" stroke="#9db577" strokeOpacity=".55">
-          <path d="m53 213 8-33 10 34-9 7z" /><path d="m72 213 9-40 12 43-12 5z" />
-          <path d="m635 191 9-35 11 38-10 4z" /><path d="m654 197 11-44 13 47-12 5z" />
-          <path d="m271 221 7-30 9 32-8 4z" /><path d="m446 223 8-33 10 36-9 4z" />
-        </g>
-        <g opacity=".94">
-          <g transform="translate(240 201)">
-            <ellipse cx="0" cy="33" rx="34" ry="9" fill="#1b3438" opacity=".58" />
-            <path d="M-31 32a31 31 0 0 1 62 0z" fill="url(#rts-glass)" stroke="#b8e8df" strokeWidth="2" />
-            <path d="M-31 31h62M0 2v31M-18 8l11 24M18 8 7 32" fill="none" stroke="#d9eee2" strokeOpacity=".74" strokeWidth="2" />
-            <path d="M-37 33h74" stroke="#d9c38b" strokeWidth="4" />
-            <circle cx="0" cy="18" r="6" fill="#a5e9bd" filter="url(#rts-glow)" />
-            <path d="M-20 24q20-8 40 0" fill="none" stroke="#cbefc3" strokeWidth="3" opacity=".68" />
-          </g>
-          <g transform="translate(477 207) scale(.82)">
-            <ellipse cx="0" cy="33" rx="34" ry="9" fill="#1b3438" opacity=".58" />
-            <path d="M-31 32a31 31 0 0 1 62 0z" fill="url(#rts-glass)" stroke="#b8e8df" strokeWidth="2" />
-            <path d="M-31 31h62M0 2v31M-18 8l11 24M18 8 7 32" fill="none" stroke="#d9eee2" strokeOpacity=".74" strokeWidth="2" />
-            <path d="M-37 33h74" stroke="#d9c38b" strokeWidth="4" />
-            <circle cx="0" cy="18" r="6" fill="#87c9ee" filter="url(#rts-glow)" />
-          </g>
-        </g>
-        <g fill="#739363" stroke="#d7d39a" strokeOpacity=".38">
-          <path d="m18 235 10-31 12 34-11 4z" /><path d="m39 240 8-27 12 30-11 4z" />
-          <path d="m584 227 10-33 13 37-12 4z" /><path d="m608 232 8-27 13 30-11 4z" />
-          <path d="m186 240 7-24 10 26-9 3z" /><path d="m504 237 8-29 11 32-10 4z" />
-        </g>
-        <g filter="url(#rts-glow)" fill="#9debc0">
-          <circle cx="242" cy="218" r="2.8" /><circle cx="478" cy="221" r="2.8" />
-          <circle cx="373" cy="210" r="4.2" fill="#eed18b" />
-        </g>
-        <g transform="translate(356 205)" fill="#d6c79b" stroke="#f1e7ce" strokeWidth="1.2" opacity=".96">
-          <path d="m0 0 3-13 4 13 4 3-4 3-1 10h-5l-1-10-4-3z" />
-          <path d="m-13 8 2-9 4 9 4 3-4 2-1 7h-4l-1-7-3-2z" fill="#a85a48" />
-          <path d="m16 10 2-9 4 9 4 3-4 2-1 7h-4l-1-7-3-2z" fill="#607d9c" />
-        </g>
-        <g opacity=".72" fill="none" stroke="#c7efec">
-          <path d="M302 235q19-9 39 0t39 0t39 0" strokeWidth="2" />
-          <path d="M314 245q17-7 33 0t35 0" strokeWidth="1.2" opacity=".7" />
-        </g>
-        <g filter="url(#rts-glow)">
-          <circle cx="304" cy="214" r="8" fill="#efcf71" />
-          <circle cx="335" cy="218" r="6" fill="#d77a56" />
-          <circle cx="364" cy="233" r="6" fill="#d77a56" />
-          <circle cx="434" cy="247" r="7" fill="#8ab4d4" />
-        </g>
-        <g fontFamily="monospace" fontSize="9" letterSpacing="1.4" fill="#efe7d3">
-          <text x="18" y="24">SUNSTONE VALE / SCULPTED HIGHLANDS</text>
-          <text x="18" y="300" fill="#d7cba9">TERRAIN · BIODOMES · SQUADS · VFX</text>
-          <text x="568" y="300" fill="#d4b875">HIGH · SHADOWS · PLAY</text>
-        </g>
-      </svg>
-    </div>
-  );
+  return <FightingGamePreview kind="rts" />;
 }
 
 export default function HubPage() {
@@ -353,13 +249,13 @@ export default function HubPage() {
               <div className="hub-kicker"><span className="hub-kicker-line" /> THREE WAYS INTO YOUR WORLD</div>
               <h2 id="hub-pathways-title">Choose your <span>next move.</span></h2>
             </div>
-            <p>Choose an RTS world, a fighting arena, or a first-person training facility, then make it your own in Studio.</p>
+            <p>Choose a fighting game, an RTS world, a first-person range, or a third-person shooter, then edit the starter in Studio.</p>
           </div>
           <div className="hub-pathway-grid">
             <a className="hub-pathway-card hub-pathway-studio" href={`${studioPath}?starter=2d-fighting`} data-testid="card-studio">
               <div className="hub-card-top"><span>01 / FIGHTING STARTER</span><span className="hub-card-index"><Swords size={16} /></span></div>
               <div className="hub-card-graphic hub-graphic-fighting" aria-hidden="true">
-                <FightingGamePreview />
+                <FightingGamePreview kind="fighting" />
               </div>
               <div className="hub-card-copy">
                 <h3>2D/3D Fighting Game</h3>
@@ -382,7 +278,7 @@ export default function HubPage() {
 
             <a className="hub-pathway-card hub-pathway-studio" href={`${studioPath}?starter=fps`} data-testid="card-fps">
               <div className="hub-card-top"><span>03 / FPS STARTER</span><span className="hub-card-index"><ScanLine size={16} /></span></div>
-              <div className="hub-card-graphic hub-graphic-fighting" aria-hidden="true"><FightingGamePreview fps /></div>
+              <div className="hub-card-graphic hub-graphic-fighting" aria-hidden="true"><FightingGamePreview kind="shooter" /></div>
               <div className="hub-card-copy">
                 <h3>FPS · Ironlight Facility</h3>
                 <p>A playable first-person range with mouse look, strafing, a modular carbine, shooting, reload, sprint, crouch, jump, and six targets. Edit the floor, walls, cover, textures, lighting, weapon, and HUD.</p>
@@ -390,8 +286,20 @@ export default function HubPage() {
               <span className="hub-card-link">CREATE FPS GAME <ArrowUpRight size={15} /></span>
             </a>
 
+            <a className="hub-pathway-card hub-pathway-studio" href={`${studioPath}?starter=third-person-shooter`} data-testid="card-third-person-shooter">
+              <div className="hub-card-top"><span>04 / THIRD-PERSON SHOOTER</span><span className="hub-card-index"><ScanLine size={16} /></span></div>
+              <div className="hub-card-graphic hub-graphic-fighting" aria-hidden="true">
+                <FightingGamePreview kind="third-person-shooter" />
+              </div>
+              <div className="hub-card-copy">
+                <h3>Third-Person Shooter</h3>
+                <p>A detailed editable human fighter, over-the-shoulder camera, cover, shooting, reload, sprint, crouch, and multiplayer-ready player controls.</p>
+              </div>
+              <span className="hub-card-link">CREATE THIRD-PERSON GAME <ArrowUpRight size={15} /></span>
+            </a>
+
             <a className="hub-pathway-card hub-pathway-workflow" href={studioPath} data-testid="card-workflow">
-              <div className="hub-card-top"><span>04 / THE WORKFLOW</span><span className="hub-card-index"><Layers3 size={16} /></span></div>
+              <div className="hub-card-top"><span>05 / THE WORKFLOW</span><span className="hub-card-index"><Layers3 size={16} /></span></div>
               <div className="hub-card-graphic hub-graphic-workflow" aria-hidden="true">
                 <span className="hub-workflow-step step-idea"><Sparkles size={15} /><b>IDEA</b></span>
                 <span className="hub-workflow-connector connector-one" />

@@ -4,7 +4,14 @@ import { gameStarterKits, type GameStarterKitId } from '@/lib/scene-starter-kits
 import { defaultFightingAppearancePair, type FightingAppearancePair } from '@/lib/fighter-appearance';
 import { FightingCharacterCustomization } from './fighting-character-customization';
 
-const icons = { shooter: Crosshair, rpg: Swords, puzzle: Puzzle, fighting: Swords, rts: Compass };
+const icons: Record<GameStarterKitId, typeof Crosshair> = {
+  shooter: Crosshair,
+  'third-person-shooter': Crosshair,
+  rpg: Swords,
+  puzzle: Puzzle,
+  fighting: Swords,
+  rts: Compass,
+};
 
 export function GameStarterKitDialog({ onAdd, onClose }: {
   onAdd: (kit: GameStarterKitId, appearances?: FightingAppearancePair) => void;
