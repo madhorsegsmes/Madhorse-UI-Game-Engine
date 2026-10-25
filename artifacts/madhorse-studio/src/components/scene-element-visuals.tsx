@@ -2,18 +2,26 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { getCamera, getEffect, getLight, getPrimitive, getUICanvas, type SceneEntity, type PrimitiveComponent, type EffectComponent } from '@/lib/scene-model';
+import type { ProjectAsset } from '@/lib/scene-model';
+import type { PbrMaterialDefinition } from '@/lib/pbr-material';
 import { beginSystemActivity } from '@/lib/system-activity';
 import { createPrimitiveGeometry } from '@/lib/scene-view-geometry';
 import { CameraModel } from './camera-model';
 import { sceneTextureCache } from '@/lib/scene-texture-cache';
+import { usePbrTextures } from './use-pbr-textures';
 
-export function SceneElementVisual({ entity, gameView, active, assetUrls, onError, selected = false, primary = false }: {
-  entity: SceneEntity; gameView: boolean; active: boolean; selected?: boolean; primary?: boolean; assetUrls: Record<string, string>; onError: (message: string) => void;
+export function SceneElementVisual({ entity, gameView, active, assets, assetUrls, onError, selected = false, primary = false }: {
+  entity: SceneEntity; gameView: boolean; active: boolean; selected?: boolean; primary?: boolean;
+  assets: ProjectAsset[]; assetUrls: Record<string, string>; onError: (message: string) => void;
 }) {
   const primitive = getPrimitive(entity);
   const light = getLight(entity);
   const effect = getEffect(entity);
-  if (primitive) return primitive.enabled ? <PrimitiveVisual active={active} primitive={primitive} url={primitive.textureAssetId ? assetUrls[primitive.textureAssetId] : undefined} onError={onError} /> : null;
+  if (primitive) {
+    const material = assets.find(asset => asset.id === primitive.materialAssetId && asset.kind === 'pbr-material')?.pbrMaterial;
+    return primitive.enabled ? <PrimitiveVisual active={active} primitive={primitive} material={material}
+      assetUrls={assetUrls} url={primitive.textureAssetId ? assetUrls[primitive.textureAssetId] : undefined} onError={onError} /> : null;
+  }
   if (light) return light.enabled ? <>
     {active && (light.kind === 'ambient' ? <ambientLight color={light.color} intensity={light.intensity} />
       : light.kind === 'directional' ? <directionalLight
@@ -125,14 +133,22 @@ function SceneEffectVisual({ effect }: { effect: EffectComponent }) {
   </group>;
 }
 
-function PrimitiveVisual({ primitive, url, onError, active }: { primitive: PrimitiveComponent; url?: string; active: boolean; onError: (message: string) => void }) {
+function PrimitiveVisual({ primitive, material, assetUrls, url, onError, active }: {
+  primitive: PrimitiveComponent; material?: PbrMaterialDefinition; assetUrls: Record<string, string>;
+  url?: string; active: boolean; onError: (message: string) => void;
+}) {
   const renderer = useThree(state => state.gl);
   const anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
+  const pbrTextures = usePbrTextures(material, assetUrls, anisotropy);
   const geometry = useMemo(
     () => createPrimitiveGeometry(primitive.shape, primitive.terrainSettings, primitive.terrainEdits),
     [primitive.shape, primitive.terrainSettings, primitive.terrainEdits],
   );
+  useEffect(() => {
+    const uv = geometry.getAttribute('uv');
+    if (uv && !geometry.getAttribute('uv2')) geometry.setAttribute('uv2', uv);
+  }, [geometry]);
   useEffect(() => () => geometry.dispose(), [geometry]);
   useEffect(() => {
     setTexture(null);
@@ -153,8 +169,24 @@ function PrimitiveVisual({ primitive, url, onError, active }: { primitive: Primi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url, anisotropy]);
   return <mesh geometry={geometry} castShadow receiveShadow>
-    <meshStandardMaterial color={primitive.color} map={texture} roughness={primitive.roughness ?? .58} metalness={primitive.metalness ?? .08} side={THREE.DoubleSide}
-      transparent={!active || (primitive.opacity ?? 1) < 1} opacity={active ? primitive.opacity ?? 1 : .35}
-      depthWrite={(primitive.opacity ?? 1) >= 1} />
+    <meshStandardMaterial
+      color={material?.baseColor ?? primitive.color}
+      map={pbrTextures.baseColor ?? texture}
+      normalMap={pbrTextures.normal}
+      normalScale={new THREE.Vector2(material?.normalScale ?? 1, material?.normalScale ?? 1)}
+      roughnessMap={pbrTextures.roughness}
+      metalnessMap={pbrTextures.metalness}
+      aoMap={pbrTextures.ambientOcclusion}
+      aoMapIntensity={material?.ambientOcclusionIntensity ?? 1}
+      emissive={material?.emissiveColor ?? '#000000'}
+      emissiveMap={pbrTextures.emissive}
+      emissiveIntensity={material?.emissiveIntensity ?? 0}
+      roughness={material?.roughness ?? primitive.roughness ?? .58}
+      metalness={material?.metalness ?? primitive.metalness ?? .08}
+      side={THREE.DoubleSide}
+      transparent={!active || (material?.opacity ?? primitive.opacity ?? 1) < 1}
+      opacity={active ? material?.opacity ?? primitive.opacity ?? 1 : .35}
+      depthWrite={(material?.opacity ?? primitive.opacity ?? 1) >= 1}
+    />
   </mesh>;
 }

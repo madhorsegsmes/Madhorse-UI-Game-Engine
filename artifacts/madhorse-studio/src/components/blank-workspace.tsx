@@ -55,6 +55,7 @@ import {
 } from '@/lib/multiplayer-client';
 import { applyMultiplayerSnapshot, createMultiplayerUpdate } from '@/lib/multiplayer-runtime';
 import { SceneObjectInspector } from './scene-object-inspector';
+import { PbrMaterialEditor } from './pbr-material-editor';
 import { SystemDebugger } from './system-debugger';
 import {
   HierarchyContextMenu,
@@ -64,6 +65,7 @@ import {
   type PlaneSettings,
 } from './hierarchy-context-menu';
 import { AnimationEditor } from './animation-editor';
+import { createPbrMaterialAsset } from '@/lib/pbr-material';
 import { isGameAnimationCollection, sampleGameAnimation, type GameAnimation } from '@/lib/game-api';
 import {
   applyEgoAnimationController,
@@ -280,6 +282,8 @@ function SettingsPanel({
   onOpenTimeline,
   onCreateScriptableObject,
   onEditScriptableObject,
+  onCreatePbrMaterial,
+  onEditPbrMaterial,
   onAttachPlugin,
   onSaveEntity,
   multiplayerMember,
@@ -301,6 +305,8 @@ function SettingsPanel({
   onOpenTimeline: () => void;
   onCreateScriptableObject: () => void;
   onEditScriptableObject: (assetId: string) => void;
+  onCreatePbrMaterial: () => void;
+  onEditPbrMaterial: (assetId: string) => void;
   onAttachPlugin: (entityId: string, kind: PluginComponentKind) => void;
   onSaveEntity: (entity: SceneEntity) => void;
   multiplayerMember: MultiplayerRoomMember | null;
@@ -761,7 +767,7 @@ function SettingsPanel({
               <div className="fresh-plugin-workbench">
                 <p className="fresh-plugin-instruction">
                   {activePluginTab === 'asset'
-                    ? 'Create a reusable Scriptable Object for project data. It can hold text, numbers, and on/off values.'
+                    ? 'Create reusable project data and physically based materials. PBR maps can be shared across scene objects.'
                     : <>
                       These are Madhorse’s simple versions of common Unity and Unreal tools.
                       {selectedEntity
@@ -843,6 +849,34 @@ function SettingsPanel({
                         <span>{asset.name}</span>
                         <small>{asset.data?.fields.length ?? 0} fields · Edit</small>
                       </button>
+                    ))}
+                  </section>
+                )}
+                {activePluginTab === 'asset' && (
+                  <section className="fresh-scriptable-library" aria-label="PBR Materials" data-testid="pbr-material-library">
+                    <div className="pbr-library-heading">
+                      <strong>PBR Materials</strong>
+                      <button type="button" data-testid="create-pbr-material" onClick={onCreatePbrMaterial}>Create / Import</button>
+                    </div>
+                    <p className="fresh-inspector-note">
+                      Reusable base color, normal, roughness, metalness, AO, and emissive materials.
+                      Select one in an object’s settings to apply it.
+                    </p>
+                    {assets.filter(asset => asset.kind === 'pbr-material').map(asset => (
+                      <div className="pbr-library-card" key={asset.id} data-testid={`pbr-material-${asset.id}`}>
+                        <button type="button" className="pbr-library-edit" onClick={() => onEditPbrMaterial(asset.id)}>
+                          <span>{asset.name}</span>
+                          <small>{asset.pbrMaterial ? Object.values(asset.pbrMaterial.maps).filter(Boolean).length : 0} maps · Edit</small>
+                        </button>
+                        {selectedEntity?.components.some(component =>
+                          component.type === 'primitive' ||
+                          component.type === 'modelRenderer' && component.enabled && Boolean(component.assetId),
+                        ) && <button type="button" className="fresh-plugin-add"
+                          data-testid={`apply-pbr-material-${asset.id}`}
+                          onClick={() => onSaveEntity(assignPbrMaterial(selectedEntity, asset.id))}>
+                          Apply to {selectedEntity.name}
+                        </button>}
+                      </div>
                     ))}
                   </section>
                 )}
@@ -1647,6 +1681,19 @@ function WorldToolsPanel({
   );
 }
 
+function assignPbrMaterial(entity: SceneEntity, materialAssetId: string): SceneEntity {
+  const hasAssignedModel = entity.components.some(component =>
+    component.type === 'modelRenderer' && component.enabled && Boolean(component.assetId));
+  return {
+    ...entity,
+    components: entity.components.map(component => {
+      if (hasAssignedModel && component.type === 'modelRenderer') return { ...component, materialAssetId };
+      if (!hasAssignedModel && component.type === 'primitive') return { ...component, materialAssetId };
+      return component;
+    }),
+  };
+}
+
 export default function BlankWorkspace({ projectId, projectName, projectControls }: {
   projectId: string; projectName: string; projectControls: (disabled: boolean, snapshot: FreshWorkspaceSnapshot) => ReactNode;
 }) {
@@ -1660,6 +1707,7 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
   const [camera, setCamera] = useState<GameCamera>(savedWorkspace.camera ?? initialScene.camera);
   const [assets, setAssets] = useState<ProjectAsset[]>(savedWorkspace.assets ?? []);
   const [editingScriptableObjectId, setEditingScriptableObjectId] = useState<string | null>(null);
+  const [editingPbrMaterialId, setEditingPbrMaterialId] = useState<string | null>(null);
   const [animations, setAnimations] = useState<GameAnimation[]>(savedWorkspace.animations ?? []);
   const animationsRef = useRef(animations);
   const [animationControllers, setAnimationControllers] = useState<EgoAnimationController[]>(savedWorkspace.animationControllers ?? []);
@@ -1737,6 +1785,9 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
     ? primaryCameraEntity(camera)
     : entities.find(entity => entity.id === selection) ?? null;
   const editingScriptableObject = assets.find(asset => asset.id === editingScriptableObjectId && asset.kind === 'data') ?? null;
+  const editingPbrMaterial = editingPbrMaterialId && editingPbrMaterialId !== 'new'
+    ? assets.find(asset => asset.id === editingPbrMaterialId && asset.kind === 'pbr-material') ?? null
+    : null;
   function createScriptableObject() {
     const asset = createScriptableObjectAsset();
     setAssets(current => [...current, asset]);
@@ -1748,6 +1799,43 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
     setAssets(current => current.map(item => item.id === asset.id ? asset : item));
     setEditingScriptableObjectId(null);
     setStatus(`${asset.name} saved with this project.`);
+  }
+  function savePbrMaterial(asset: ProjectAsset) {
+    if (asset.kind !== 'pbr-material' || !isProjectAsset(asset)) {
+      setStatus('PBR material could not be saved. Check its values and texture maps.');
+      return;
+    }
+    setAssets(current => current.some(item => item.id === asset.id)
+      ? current.map(item => item.id === asset.id ? asset : item)
+      : [...current, asset]);
+    setEditingPbrMaterialId(null);
+    setStatus(`${asset.name} saved as a reusable project PBR material.`);
+  }
+  async function importPbrMaps(files: File[]): Promise<ProjectAsset[]> {
+    if (files.length > 16) throw new Error('Import up to 16 texture maps at a time.');
+    const imported = files.map(file => {
+      if (file.size > WORKSPACE_ASSET_LIMIT) throw new Error(`${file.name} exceeds the 100 MB browser asset limit.`);
+      if (projectAssetKind(file.name, file.type) !== 'image') {
+        throw new Error('PBR maps must be PNG, JPEG, or WebP images.');
+      }
+      return {
+        id: crypto.randomUUID(),
+        name: file.name,
+        kind: 'image' as const,
+        mimeType: file.type || 'application/octet-stream',
+        size: file.size,
+        addedAt: new Date().toISOString(),
+      };
+    });
+    const results = await Promise.allSettled(imported.map((asset, index) =>
+      saveLocalAsset(projectId, asset.id, files[index])));
+    const failed = results.find(result => result.status === 'rejected');
+    if (failed?.status === 'rejected') {
+      await Promise.allSettled(imported.map(asset => deleteLocalAsset(projectId, asset.id)));
+      throw failed.reason instanceof Error ? failed.reason : new Error('Could not store all PBR maps on this device.');
+    }
+    setAssets(current => [...current, ...imported]);
+    return imported;
   }
   const builderProject: BuilderDocument = {
     id: projectId,
@@ -3420,6 +3508,8 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
               onOpenTimeline={openTimeline}
               onCreateScriptableObject={createScriptableObject}
               onEditScriptableObject={setEditingScriptableObjectId}
+              onCreatePbrMaterial={() => setEditingPbrMaterialId('new')}
+              onEditPbrMaterial={setEditingPbrMaterialId}
               onAttachPlugin={attachPluginComponent}
               onSaveEntity={updateEntitySettings}
               multiplayerMember={multiplayerMember}
@@ -3594,6 +3684,14 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
         asset={editingScriptableObject}
         onClose={() => setEditingScriptableObjectId(null)}
         onSave={saveScriptableObject}
+      />}
+      {editingPbrMaterialId && (editingPbrMaterialId === 'new' || editingPbrMaterial) && <PbrMaterialEditor
+        key={editingPbrMaterial?.id ?? 'new-pbr-material'}
+        asset={editingPbrMaterial}
+        imageAssets={assets.filter(asset => asset.kind === 'image')}
+        onImportMaps={importPbrMaps}
+        onSave={savePbrMaterial}
+        onClose={() => setEditingPbrMaterialId(null)}
       />}
       {status && <div className="fresh-status" role="status">{status}<button type="button" onClick={() => setStatus('')} aria-label="Dismiss status">×</button></div>}
       {modelingOpen && <Suspense fallback={<div className="fresh-status" role="status">Loading modeling workspace…</div>}>

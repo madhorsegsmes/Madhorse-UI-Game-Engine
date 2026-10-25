@@ -62,6 +62,7 @@ function toDraft(entity: SceneEntity) {
       values['primitive.metalness'] = String(metalness);
       values['primitive.surfacePreset'] = matchPbrSurfacePreset(roughness, metalness, opacity);
       values['primitive.textureAssetId'] = component.textureAssetId ?? '';
+      values['primitive.materialAssetId'] = component.materialAssetId ?? '';
       const model = entity.components.find(item => item.type === 'modelRenderer');
       values['primitive.modelAssetId'] = model?.type === 'modelRenderer' && model.enabled ? model.assetId ?? '' : '';
       const terrain = component.terrainSettings ?? { width: 20, depth: 20, height: 0, mountainHeight: 0, riverDepth: 0, riverCount: 0 };
@@ -138,6 +139,7 @@ function toDraft(entity: SceneEntity) {
     } else if (component.type === 'modelRenderer') {
       values['model.enabled'] = String(component.enabled);
       values['model.assetId'] = component.assetId ?? '';
+      values['model.materialAssetId'] = component.materialAssetId ?? '';
     }
   }
   return values;
@@ -163,9 +165,11 @@ export function SceneObjectInspector({
     setValues(current => ({
       ...current,
       [key]: value,
-      ...(key === 'primitive.roughness' || key === 'primitive.metalness' || key === 'primitive.opacity'
-        ? { 'primitive.surfacePreset': 'custom' }
+      ...(key === 'primitive.roughness' || key === 'primitive.metalness' || key === 'primitive.opacity' ||
+        key === 'primitive.color' || key === 'primitive.textureAssetId'
+        ? { 'primitive.surfacePreset': 'custom', 'primitive.materialAssetId': '' }
         : {}),
+      ...(key === 'model.assetId' ? { 'model.materialAssetId': '' } : {}),
     }));
     setError('');
   };
@@ -270,6 +274,7 @@ export function SceneObjectInspector({
         roughness: number('primitive.roughness'),
         metalness: number('primitive.metalness'),
         textureAssetId: values['primitive.textureAssetId'] || null,
+        materialAssetId: values['primitive.materialAssetId'] || null,
       };
       if (item.type === 'light') return {
         ...item,
@@ -370,6 +375,7 @@ export function SceneObjectInspector({
         ...item,
         enabled: values['model.enabled'] === 'true',
         assetId: values['model.assetId'] || null,
+        materialAssetId: values['model.materialAssetId'] || null,
       };
     });
     let updated: SceneEntity = {
@@ -434,6 +440,7 @@ export function SceneObjectInspector({
   const skybox = component('skybox');
   const imageAssets = assets.filter(asset => asset.kind === 'image');
   const modelAssets = assets.filter(asset => asset.kind === 'model');
+  const pbrMaterials = assets.filter(asset => asset.kind === 'pbr-material');
   const audioAssets = assets.filter(asset => asset.kind === 'audio');
   const assetOptions = (items: ProjectAsset[]) => [
     { value: '', label: 'None' },
@@ -492,6 +499,14 @@ export function SceneObjectInspector({
             ...primitiveShapes.map(shape => ({ value: shape.value, label: shape.label })),
             { value: 'terrain', label: 'Terrain' },
           ])}
+          {selectField(values['primitive.modelAssetId'] ? 'Project PBR material for model' : 'Project PBR material',
+            'primitive.materialAssetId', [
+              { value: '', label: 'Use object material' },
+              ...pbrMaterials.map(asset => ({ value: asset.id, label: asset.name })),
+            ])}
+          {values['primitive.materialAssetId']
+            ? <p className="fresh-inspector-note">The shared PBR material is applied to this object. Edit it under Plugins → Asset Plugins → PBR Materials, or choose “Use object material” to return to per-object settings.</p>
+            : <>
           {colorField('Surface color', 'primitive.color')}
           <label className="fresh-setting">
             <span>Surface preset</span>
@@ -504,6 +519,7 @@ export function SceneObjectInspector({
           {numberField('Metalness', 'primitive.metalness', 0, 1, 0.01)}
           {numberField('Opacity', 'primitive.opacity', 0.05, 1, 0.05)}
           {selectField('Surface texture', 'primitive.textureAssetId', assetOptions(imageAssets))}
+            </>}
         </>)}
         {primitive && values['primitive.shape'] === 'terrain' && section('Terrain & World Building', <>
           {numberField('Terrain width', 'terrain.width', 1, 500, 0.1)}
@@ -571,6 +587,11 @@ export function SceneObjectInspector({
         {model && !primitive && !isFighterEntity(entity) && section('Model Renderer', <>
           {checkboxField('Enabled', 'model.enabled')}
           {selectField('Model asset', 'model.assetId', assetOptions(modelAssets))}
+          {selectField('Project PBR material', 'model.materialAssetId', [
+            { value: '', label: 'Use imported model materials' },
+            ...pbrMaterials.map(asset => ({ value: asset.id, label: asset.name })),
+          ])}
+          <p className="fresh-inspector-note">A project PBR material overrides the imported model’s surface maps. Create or edit reusable materials under Plugins → Asset Plugins.</p>
         </>)}
         {script && section('Script', <>
           {checkboxField('Enabled', 'script.enabled')}

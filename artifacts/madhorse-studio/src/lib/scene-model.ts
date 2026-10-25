@@ -1,5 +1,6 @@
 import { isPlayerActionComponent, type PlayerActionComponent } from './player-action-model';
 import { isGameFeatureComponent, type GameFeatureComponent } from './game-feature-model';
+import { isPbrMaterialDefinition } from './pbr-material';
 export type Vector3 = { x: number; y: number; z: number };
 export const SCENE_ORIGIN: Vector3 = { x: 50, y: 50, z: 0 };
 
@@ -27,6 +28,7 @@ export type ModelRendererComponent = {
   type: 'modelRenderer';
   enabled: boolean;
   assetId: string | null;
+  materialAssetId?: string | null;
 };
 
 export type PhysicsBodyType = 'static' | 'dynamic' | 'kinematic';
@@ -100,6 +102,7 @@ export type PrimitiveComponent = {
   opacity?: number;
   roughness?: number;
   metalness?: number;
+  materialAssetId?: string | null;
 };
 export type LightComponent = {
   id: string; type: 'light'; enabled: boolean;
@@ -201,11 +204,12 @@ export type SceneEntity = {
 export type ProjectAsset = {
   id: string;
   name: string;
-  kind: 'image' | 'model' | 'audio' | 'data';
+  kind: 'image' | 'model' | 'audio' | 'data' | 'pbr-material';
   mimeType: string;
   size: number;
   addedAt: string;
   data?: ScriptableObjectData;
+  pbrMaterial?: import('./pbr-material').PbrMaterialDefinition;
 };
 
 export type ScriptableObjectField = {
@@ -399,7 +403,8 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
   }
   if (item.type === 'modelRenderer') {
     return typeof item.enabled === 'boolean' &&
-      (item.assetId === null || typeof item.assetId === 'string');
+      (item.assetId === null || typeof item.assetId === 'string') &&
+      (item.materialAssetId === undefined || item.materialAssetId === null || typeof item.materialAssetId === 'string');
   }
   if (item.type === 'primitive') {
     const validTerrain = item.terrainSettings === undefined || isTerrainSettings(item.terrainSettings);
@@ -414,7 +419,8 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
       (item.roughness === undefined || Number.isFinite(item.roughness) && item.roughness >= 0 && item.roughness <= 1) &&
       (item.metalness === undefined || Number.isFinite(item.metalness) && item.metalness >= 0 && item.metalness <= 1) &&
       (item.opacity === undefined || Number.isFinite(item.opacity) && item.opacity >= .05 && item.opacity <= 1) &&
-      /^#[0-9a-f]{6}$/i.test(item.color) && (item.textureAssetId === null || typeof item.textureAssetId === 'string');
+      /^#[0-9a-f]{6}$/i.test(item.color) && (item.textureAssetId === null || typeof item.textureAssetId === 'string') &&
+      (item.materialAssetId === undefined || item.materialAssetId === null || typeof item.materialAssetId === 'string');
   }
   if (item.type === 'light') {
     return typeof item.enabled === 'boolean' && ['point', 'directional', 'ambient'].includes(item.kind) &&
@@ -591,13 +597,21 @@ export function isProjectAsset(value: unknown): value is ProjectAsset {
   if (!value || typeof value !== 'object') return false;
   const asset = value as ProjectAsset;
   if (typeof asset.id !== 'string' || typeof asset.name !== 'string' ||
-      !['image', 'model', 'audio', 'data'].includes(asset.kind) ||
+      !['image', 'model', 'audio', 'data', 'pbr-material'].includes(asset.kind) ||
       typeof asset.mimeType !== 'string' || !Number.isFinite(asset.size) ||
       asset.size < 0 || typeof asset.addedAt !== 'string') return false;
-  if (asset.kind !== 'data') return asset.data === undefined;
-  return asset.mimeType === 'application/x-madhorse-scriptable-object' &&
+  if (asset.kind === 'pbr-material') {
+    const material = asset.pbrMaterial;
+    return asset.mimeType === 'application/x-madhorse-pbr-material+json' &&
+      material !== undefined && isPbrMaterialDefinition(material) &&
+      asset.size === JSON.stringify(material).length && asset.data === undefined;
+  }
+  if (asset.kind !== 'data') return asset.data === undefined && asset.pbrMaterial === undefined;
+  return asset.pbrMaterial === undefined &&
+    asset.mimeType === 'application/x-madhorse-scriptable-object' &&
     isScriptableObjectData(asset.data) && asset.size === JSON.stringify(asset.data).length;
 }
+
 
 export function isScriptableObjectData(value: unknown): value is ScriptableObjectData {
   if (!value || typeof value !== 'object') return false;

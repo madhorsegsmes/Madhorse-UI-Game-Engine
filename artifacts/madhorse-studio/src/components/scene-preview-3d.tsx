@@ -10,10 +10,12 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { TextureLoader } from 'three';
 import { SceneWebGLBoundary } from './scene-webgl-boundary';
 import { SceneRenderFallback } from './scene-render-fallback';
+import { usePbrTextures } from './use-pbr-textures';
 import { FloatingTransformToolbar } from './floating-transform-toolbar';
 import { SceneToolCursor, type SceneCursorTool } from './scene-tool-cursor';
 import { useSceneRenderSettings } from '@/hooks/use-scene-render-settings';
 import { publishDiagnostic } from '@/lib/system-diagnostics';
+import type { PbrMaterialDefinition } from '@/lib/pbr-material';
 import { getSceneObjectTypeLabel, SceneObjectGlyph } from './scene-object-glyph';
 import { beginSystemActivity } from '@/lib/system-activity';
 import { hasRenderableModelGeometry } from '@/lib/scene-model-validation';
@@ -913,6 +915,8 @@ function EntityNode(props: SceneWorldProps & {
             url={modelUrl}
             assets={props.assets}
             assetUrls={props.assetUrls}
+            pbrMaterial={props.assets.find(asset =>
+              asset.id === (model?.materialAssetId ?? getPrimitive(entity)?.materialAssetId) && asset.kind === 'pbr-material')?.pbrMaterial}
             onError={props.onModelError}
             onStatus={props.onModelStatus}
             clearError={props.clearError}
@@ -929,7 +933,8 @@ function EntityNode(props: SceneWorldProps & {
       ) : entity.isGroup ? null : !model?.enabled && (getPrimitive(entity) || getLight(entity) || getCamera(entity) || getUICanvas(entity)) ? (
         <SceneElementVisual entity={entity} gameView={Boolean(props.gameView)} active={effective}
           selected={selectedEntity} primary={isPrimary}
-          assetUrls={props.assetUrls} onError={(message) => props.onModelError(entity.id, message)} />
+          assets={props.assets} assetUrls={props.assetUrls}
+          onError={(message) => props.onModelError(entity.id, message)} />
       ) : model?.enabled ? (
         modelUrl && modelAsset ? (
           <ModelAssetView
@@ -939,6 +944,7 @@ function EntityNode(props: SceneWorldProps & {
             url={modelUrl}
             assets={props.assets}
             assetUrls={props.assetUrls}
+            pbrMaterial={props.assets.find(asset => asset.id === model.materialAssetId && asset.kind === 'pbr-material')?.pbrMaterial}
             onError={props.onModelError}
             onStatus={props.onModelStatus}
             clearError={props.clearError}
@@ -1096,11 +1102,22 @@ function AssetPlaceholder({ message, failed, onStatus }: { message: string; fail
   );
 }
 
-type LoadedModelProps = { id: string; asset: ProjectAsset; url: string; assets: ProjectAsset[]; assetUrls: Record<string, string>; onError: (id: string, message: string) => void; onStatus: (id: string, message: string) => void; clearError: (id: string) => void; opacity: number; fitHeight?: number };
+type LoadedModelProps = {
+  id: string; asset: ProjectAsset; url: string; assets: ProjectAsset[]; assetUrls: Record<string, string>;
+  pbrMaterial?: PbrMaterialDefinition;
+  onError: (id: string, message: string) => void; onStatus: (id: string, message: string) => void;
+  clearError: (id: string) => void; opacity: number; fitHeight?: number;
+};
 
 function ModelAssetView(props: LoadedModelProps) {
   const [object, setObject] = useState<THREE.Object3D | null>(null);
   const [failure, setFailure] = useState('');
+  const renderer = useThree(state => state.gl);
+  const anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  const pbrTextures = usePbrTextures(props.pbrMaterial, props.assetUrls, anisotropy);
+  const overriddenMaterials = useRef(new Map<THREE.Mesh, {
+    materialId: string; original: THREE.Material | THREE.Material[]; copies: THREE.MeshStandardMaterial[];
+  }>());
   const ext = props.asset.name.slice(props.asset.name.lastIndexOf('.')).toLowerCase();
   const supported = ['.glb', '.gltf', '.obj', '.fbx', '.dae'].includes(ext);
   const loaderTypes = useMemo(() => {
@@ -1188,6 +1205,9 @@ function ModelAssetView(props: LoadedModelProps) {
       root.traverse((item) => {
         const mesh = item as THREE.Mesh;
         if (!mesh.isMesh) return;
+        if (mesh.geometry.getAttribute('uv') && !mesh.geometry.getAttribute('uv2')) {
+          mesh.geometry.setAttribute('uv2', mesh.geometry.getAttribute('uv'));
+        }
         const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         mesh.castShadow = mats.some(material => !material.transparent || material.opacity >= .8);
         mesh.receiveShadow = true;
@@ -1229,6 +1249,67 @@ function ModelAssetView(props: LoadedModelProps) {
     }
     return () => { alive = false; finish(); };
   }, [props.id, props.asset, props.url, props.assets, props.assetUrls, props.opacity, props.fitHeight, props.onError, props.onStatus, props.clearError, supported, loaderTypes, ext]);
+
+  useEffect(() => {
+    if (!object) return;
+    const materialId = props.pbrMaterial
+      ? props.assets.find(asset => asset.kind === 'pbr-material' && asset.pbrMaterial === props.pbrMaterial)?.id
+      : undefined;
+    object.traverse(item => {
+      const mesh = item as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      let record = overriddenMaterials.current.get(mesh);
+      if (record && record.materialId !== materialId) {
+        mesh.material = record.original;
+        record.copies.forEach(copy => copy.dispose());
+        overriddenMaterials.current.delete(mesh);
+        record = undefined;
+      }
+      if (!props.pbrMaterial || !materialId) return;
+      if (!record) {
+        const original = mesh.material;
+        const source = Array.isArray(original) ? original : [original];
+        const copies = source.map(material => material instanceof THREE.MeshStandardMaterial
+          ? material.clone() : new THREE.MeshStandardMaterial());
+        record = { materialId, original, copies };
+        overriddenMaterials.current.set(mesh, record);
+        mesh.material = Array.isArray(original) ? copies : copies[0];
+      }
+      record.copies.forEach(copy => {
+        const material = props.pbrMaterial!;
+        copy.color.set(material.baseColor);
+        copy.map = pbrTextures.baseColor ?? copy.map;
+        copy.normalMap = pbrTextures.normal ?? copy.normalMap;
+        copy.roughnessMap = pbrTextures.roughness ?? copy.roughnessMap;
+        copy.metalnessMap = pbrTextures.metalness ?? copy.metalnessMap;
+        copy.aoMap = pbrTextures.ambientOcclusion ?? copy.aoMap;
+        copy.aoMapIntensity = material.ambientOcclusionIntensity;
+        copy.emissive.set(material.emissiveColor);
+        copy.emissiveMap = pbrTextures.emissive ?? copy.emissiveMap;
+        copy.emissiveIntensity = material.emissiveIntensity;
+        copy.normalScale.setScalar(material.normalScale);
+        copy.roughness = material.roughness;
+        copy.metalness = material.metalness;
+        copy.transparent = material.opacity < 1 || props.opacity < 1 || copy.transparent;
+        copy.opacity = Math.min(material.opacity, props.opacity);
+        copy.needsUpdate = true;
+      });
+    });
+  }, [object, props.assets, props.pbrMaterial, pbrTextures]);
+
+  useEffect(() => {
+    if (!object) return;
+    return () => {
+      object.traverse(item => {
+        const mesh = item as THREE.Mesh;
+        const record = mesh.isMesh ? overriddenMaterials.current.get(mesh) : undefined;
+        if (!record) return;
+        mesh.material = record.original;
+        record.copies.forEach(copy => copy.dispose());
+        overriddenMaterials.current.delete(mesh);
+      });
+    };
+  }, [object]);
 
   if (failure) return <ModelFailure message={failure} />;
   if (!object) return <LoadingModel name={props.asset.name} />;

@@ -19,7 +19,8 @@ export function useProjectAssetUrls(
     async function loadProjectAssets() {
       const referenced = new Set(referencedAssetIds);
       const visibleAssets = assets.filter((asset) =>
-        asset.kind !== 'data' && (asset.kind === 'image' || referenced.has(asset.id)),
+        asset.kind !== 'data' && asset.kind !== 'pbr-material' &&
+        (asset.kind === 'image' || referenced.has(asset.id)),
       );
       const results = await Promise.all(visibleAssets.map(async (asset) => {
         try {

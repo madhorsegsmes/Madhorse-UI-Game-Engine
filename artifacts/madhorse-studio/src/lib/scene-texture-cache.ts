@@ -1,10 +1,10 @@
-import { LinearFilter, LinearMipmapLinearFilter, SRGBColorSpace, Texture, TextureLoader } from 'three';
+import { LinearFilter, LinearMipmapLinearFilter, NoColorSpace, SRGBColorSpace, Texture, TextureLoader, type ColorSpace } from 'three';
 
 type Listener = { ready: (texture: Texture) => void; failed: () => void };
 type LoadTexture = (url: string, ready: (texture: Texture) => void, failed: () => void) => void;
 
 /** Shared color maps; a material releases its lease, not another material's texture. */
-export function createSceneTextureCache(load: LoadTexture) {
+export function createSceneTextureCache(load: LoadTexture, colorSpace: ColorSpace = SRGBColorSpace) {
   const entries = new Map<string, { texture: Texture | null; listeners: Set<Listener>; failed: boolean }>();
   return {
     acquire(url: string, anisotropy: number, listener: Listener) {
@@ -25,7 +25,7 @@ export function createSceneTextureCache(load: LoadTexture) {
         try {
           load(url, texture => {
             if (lease.failed || entries.get(key) !== lease || !lease.listeners.size) { texture.dispose(); return; }
-            texture.colorSpace = SRGBColorSpace;
+            texture.colorSpace = colorSpace;
             texture.anisotropy = level;
             texture.minFilter = LinearMipmapLinearFilter;
             texture.magFilter = LinearFilter;
@@ -64,3 +64,5 @@ export function createSceneTextureCache(load: LoadTexture) {
 const loader = new TextureLoader();
 export const sceneTextureCache = createSceneTextureCache((url, ready, failed) =>
   { loader.load(url, ready, undefined, failed); });
+export const sceneLinearTextureCache = createSceneTextureCache((url, ready, failed) =>
+  { loader.load(url, ready, undefined, failed); }, NoColorSpace);

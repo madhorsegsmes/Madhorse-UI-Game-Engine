@@ -70,7 +70,7 @@ const guideByGame: Record<EgoGameType, string[]> = {
 
 function projectScan(project: BuilderDocument, animationsCount: number, animationControllersCount: number) {
   const components = project.entities.flatMap((entity) => entity.components);
-  const assetCounts = { image: 0, model: 0, audio: 0, data: 0 };
+  const assetCounts = { image: 0, model: 0, audio: 0, data: 0, 'pbr-material': 0 };
   for (const asset of project.assets) assetCounts[asset.kind]++;
   let boardCounts = { nodes: 0, images: 0, videos: 0, menus: 0, audio: 0 };
   try {

@@ -215,22 +215,26 @@ export function WorkspaceBrowserMenus(props?: WorkspaceBrowserProps) {
             if (asset.kind === 'image') onAssignAsset?.(selectedEntity.id, asset.id);
             else if (asset.kind === 'model') onAssignModel?.(selectedEntity.id, asset.id);
           }}
-          disabled={!selectedEntity || asset.kind === 'audio'}
+          disabled={!selectedEntity || asset.kind === 'audio' || asset.kind === 'pbr-material'}
           aria-label={asset.kind === 'audio'
             ? `${asset.name}; choose this sound in the object's Audio settings`
+            : asset.kind === 'pbr-material'
+              ? `${asset.name}; apply this material in the object's Settings panel`
             : selectedEntity ? `Apply ${asset.name} to ${selectedEntity.name}` : `${asset.name}; select an object to apply`}
           data-testid={`apply-asset-${asset.id}`}
         >
           <span className={`browser-asset-preview${asset.kind === 'model' ? ' is-model' : ''}`}>
             {url ? <img src={url} alt="" /> : asset.kind === 'model'
               ? <span className="browser-model-mark" aria-hidden="true">3D</span>
-              : asset.kind === 'audio'
+                : asset.kind === 'pbr-material'
+                  ? <span className="browser-image-mark" aria-hidden="true">PBR</span>
+                : asset.kind === 'audio'
                 ? <span className="browser-image-mark" aria-hidden="true">AUD</span>
                 : <span className="browser-image-mark" aria-hidden="true">IMG</span>}
           </span>
           <span className="browser-asset-info">
             <strong title={asset.name}>{asset.name}</strong>
-            <span>{asset.kind === 'model' ? 'Model file' : asset.kind === 'audio' ? 'Audio clip' : 'Image'} · {formatSize(asset.size)}</span>
+            <span>{asset.kind === 'pbr-material' ? 'PBR material' : asset.kind === 'model' ? 'Model file' : asset.kind === 'audio' ? 'Audio clip' : 'Image'} · {formatSize(asset.size)}</span>
             <span className="browser-asset-mime">{asset.mimeType || 'Unknown type'}</span>
           </span>
         </button>

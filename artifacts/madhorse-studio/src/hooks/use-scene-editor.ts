@@ -122,21 +122,24 @@ export function useSceneEditor<T extends ProjectSceneDocument>({
     setAssetStatus('');
   }, [project.id]);
 
-  const referencedAssetIds = useMemo(() => [...new Set(
-    [...project.entities, ...(project.prefabs ?? []).flatMap((prefab) => prefab.entities)]
+  const referencedAssetIds = useMemo(() => [...new Set([
+    ...[...project.entities, ...(project.prefabs ?? []).flatMap((prefab) => prefab.entities)]
       .flatMap((entity) => [
         getSpriteRenderer(entity)?.assetId,
         getModelRenderer(entity)?.assetId,
+        getModelRenderer(entity)?.materialAssetId,
         getPrimitive(entity)?.textureAssetId,
+        getPrimitive(entity)?.materialAssetId,
         ...entity.components
           .filter(component => component.type === 'gameAudio' || component.type === 'playerWalkAudio' ||
             component.type === 'playerAction' || component.type === 'gameFeature')
           .map(component => component.type === 'gameFeature' ? component.clipAssetId :
             component.type === 'playerAction' || component.type === 'gameAudio' || component.type === 'playerWalkAudio'
               ? component.clipAssetId : null),
-      ])
-      .filter((assetId): assetId is string => Boolean(assetId)),
-  )], [project.entities, project.prefabs]);
+      ]),
+    ...project.assets.filter(asset => asset.kind === 'pbr-material')
+      .flatMap(asset => Object.values(asset.pbrMaterial?.maps ?? {})),
+  ].filter((assetId): assetId is string => Boolean(assetId)))], [project.entities, project.prefabs, project.assets]);
   const assetUrls = useProjectAssetUrls(project.id, project.assets, referencedAssetIds, setAssetStatus);
 
   function updateProjectScene(updates: Partial<Pick<T, 'entities' | 'assets' | 'uiControls' | 'physics'>>) {
