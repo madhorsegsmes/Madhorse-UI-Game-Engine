@@ -114,7 +114,7 @@ function createFightingStarterKit(center: Vector3, appearances: FightingAppearan
   generatedAssets: Array<{ asset: ProjectAsset; file: File }>;
 } {
   const floor = createObject('Fighting Stage Floor', 'rounded-cube', '#292d38',
-    { x: center.x, y: center.y, z: center.z - 0.24 }, { x: 16, y: 7, z: 0.48 });
+    { x: center.x, y: center.y, z: center.z - 2.4 }, { x: 16, y: 7, z: 0.48 });
   const backdrop = createVisualPart('Arena Backdrop', null, 'rounded-cube', '#171b26',
     { x: center.x, y: center.y + 33.5, z: center.z + 34 }, { x: 16, y: 0.28, z: 6.8 });
   const leftLight = createVisualPart('Crimson Arena Light', null, 'sphere', '#d94a43',

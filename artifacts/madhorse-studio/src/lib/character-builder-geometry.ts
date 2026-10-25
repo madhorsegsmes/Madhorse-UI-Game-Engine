@@ -35,7 +35,10 @@ function smoothMinimum(a: number, b: number, blend: number) {
   return Math.min(a, b) - h * h * blend * 0.25;
 }
 
-export function createCharacterBodyMesh(parts: SceneEntity[]): CharacterBodyMesh | null {
+export function createCharacterBodyMesh(
+  parts: SceneEntity[],
+  options: { resolution?: number; maxTriangles?: number } = {},
+): CharacterBodyMesh | null {
   const ellipsoids: Ellipsoid[] = parts
     .filter((part) => part.active && isCharacterBodySurfacePart(part))
     .map((part) => {
@@ -72,7 +75,9 @@ export function createCharacterBodyMesh(parts: SceneEntity[]): CharacterBodyMesh
   const halfExtents = max.clone().sub(min).multiplyScalar(0.5);
 
   const material = new THREE.MeshBasicMaterial();
-  const surface = new MarchingCubes(BODY_RESOLUTION, material, false, false, MAX_BODY_TRIANGLES);
+  const resolution = Math.max(16, Math.min(BODY_RESOLUTION, Math.round(options.resolution ?? BODY_RESOLUTION)));
+  const maxTriangles = Math.max(1000, Math.min(MAX_BODY_TRIANGLES, Math.round(options.maxTriangles ?? MAX_BODY_TRIANGLES)));
+  const surface = new MarchingCubes(resolution, material, false, false, maxTriangles);
   surface.isolation = 0;
   surface.reset();
   // Unvisited boundary samples must also be outside the zero isosurface.

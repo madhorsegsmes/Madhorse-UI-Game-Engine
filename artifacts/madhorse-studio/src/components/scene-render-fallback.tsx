@@ -1,11 +1,12 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { SVGRenderer } from 'three/examples/jsm/renderers/SVGRenderer.js';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { getCamera, getEffect, getLight, getPrimitive, getSpriteRenderer, getUICanvas, getWorldTransform, type SceneEntity } from '@/lib/scene-model';
 import { createPrimitiveGeometry, sceneEditorFramePose } from '@/lib/scene-view-geometry';
 import type { SceneFocus } from '@/lib/scene-view-geometry';
 import { createCharacterBodyMesh, isCharacterBodySurfacePart, isCharacterBuilderModelRoot } from '@/lib/character-builder-geometry';
-import type { GameCamera } from '@/lib/game-camera';
+import { makeGameViewCamera, type GameCamera } from '@/lib/game-camera';
 import type { SceneRenderSettings } from '@/hooks/use-scene-render-settings';
 
 function makeSceneCamera(source: GameCamera, aspect: number) {
@@ -24,13 +25,15 @@ function makeSceneCamera(source: GameCamera, aspect: number) {
 }
 
 export function SceneRenderFallback({
-  entities, camera, settings, zoom, sceneFocus,
+  entities, camera, settings, zoom, sceneFocus, gameView = false, detail = 'full',
 }: {
   entities: SceneEntity[];
   camera?: GameCamera;
   settings: SceneRenderSettings;
   zoom: number;
   sceneFocus: SceneFocus | null;
+  gameView?: boolean;
+  detail?: 'full' | 'thumbnail';
   selectedEntityId: string | null;
   onSelectEntity: (id: string) => void;
 }) {
@@ -86,7 +89,9 @@ export function SceneRenderFallback({
     );
     for (const root of entities.filter(isCharacterBuilderModelRoot)) {
       const bodyParts = entities.filter((entity) => entity.parentId === root.id);
-      const body = createCharacterBodyMesh(bodyParts);
+      const body = createCharacterBodyMesh(bodyParts, detail === 'thumbnail'
+        ? { resolution: 24, maxTriangles: 5000 }
+        : undefined);
       const transform = getWorldTransform(entities, root.id);
       if (!body || !transform) continue;
       const assembly = new THREE.Group();
@@ -143,7 +148,17 @@ export function SceneRenderFallback({
       const primitive = getPrimitive(entity);
       const effect = getEffect(entity);
       if (primitive?.enabled) {
-        const geometry = createPrimitiveGeometry(primitive.shape, primitive.terrainSettings, primitive.terrainEdits);
+        // Thumbnail tessellation changes only this small software render, never
+        // the editable source models or their full-detail WebGL geometry.
+        const geometry = detail === 'thumbnail' && primitive.shape === 'sphere'
+          ? new THREE.SphereGeometry(.5, 12, 8)
+          : detail === 'thumbnail' && primitive.shape === 'rounded-cube'
+            ? transform.scale.x > 4 && transform.scale.z < 1
+              // Small floor tiles let SVG's depth sorter put feet in front of
+              // the ground, rather than one large triangle painting over legs.
+              ? new THREE.BoxGeometry(1, 1, 1, 16, 1, 16)
+              : new RoundedBoxGeometry(1, 1, 1, 1, .08)
+            : createPrimitiveGeometry(primitive.shape, primitive.terrainSettings, primitive.terrainEdits);
         const material = new THREE.MeshStandardMaterial({
           color: primitive.color,
           roughness: primitive.roughness ?? 0.58,
@@ -238,22 +253,30 @@ export function SceneRenderFallback({
       target: { x: 0, y: 0, z: 0 },
       fov: 50,
     };
-    const cameraMarker = new THREE.CameraHelper(makeSceneCamera(mainCamera, 16 / 9));
-    scene.add(cameraMarker);
-    geometries.add(cameraMarker.geometry);
-    if (Array.isArray(cameraMarker.material)) cameraMarker.material.forEach((material) => materials.add(material));
-    else materials.add(cameraMarker.material);
+    if (!gameView) {
+      const cameraMarker = new THREE.CameraHelper(makeSceneCamera(mainCamera, 16 / 9));
+      scene.add(cameraMarker);
+      geometries.add(cameraMarker.geometry);
+      if (Array.isArray(cameraMarker.material)) cameraMarker.material.forEach((material) => materials.add(material));
+      else materials.add(cameraMarker.material);
+    }
 
     const draw = () => {
       if (!host.isConnected) return;
       const width = Math.max(1, host.clientWidth);
       const height = Math.max(1, host.clientHeight);
       renderer.setSize(width, height);
-      viewCamera.aspect = width / height;
-      viewCamera.updateProjectionMatrix();
-      const pose = sceneEditorFramePose(mainCamera, width / height, zoom, sceneFocus, viewCamera.fov);
-      viewCamera.position.set(pose.position.x, pose.position.y, pose.position.z);
-      viewCamera.lookAt(pose.target.x, pose.target.y, pose.target.z);
+      if (gameView) {
+        // Use the same lens and pose as WebGL, not the editor's elevated orbit.
+        viewCamera.copy(makeGameViewCamera(mainCamera, width / height));
+      } else {
+        viewCamera.aspect = width / height;
+        viewCamera.updateProjectionMatrix();
+        const pose = sceneEditorFramePose(mainCamera, width / height, zoom, sceneFocus, viewCamera.fov);
+        viewCamera.position.set(pose.position.x, pose.position.y, pose.position.z);
+        viewCamera.lookAt(pose.target.x, pose.target.y, pose.target.z);
+      }
+      viewCamera.updateMatrixWorld();
       renderer.render(scene, viewCamera);
       renderer.domElement.dataset.renderedFaces = String(renderer.info.render.faces);
       if (renderer.domElement.parentElement !== host) {
@@ -270,15 +293,15 @@ export function SceneRenderFallback({
       geometries.forEach((geometry) => geometry.dispose());
       materials.forEach((material) => material.dispose());
     };
-  }, [camera, entities, sceneFocus, settings, zoom]);
+  }, [camera, detail, entities, gameView, sceneFocus, settings, zoom]);
 
   return (
     <div className="mh-scene3d__soft-preview" data-testid="scene3d-soft-preview">
       <div ref={hostRef} className="mh-scene3d__software-canvas" />
-      {hasCube && <span className="mh-scene3d__geometry-note" data-testid="scene3d-soft-object-starter-cube">
+      {!gameView && hasCube && <span className="mh-scene3d__geometry-note" data-testid="scene3d-soft-object-starter-cube">
         Cube · solid 3D box mesh
       </span>}
-      {camera && <span className="mh-scene3d__software-camera" data-testid="scene3d-soft-camera">
+      {!gameView && camera && <span className="mh-scene3d__software-camera" data-testid="scene3d-soft-camera">
         Main Camera · 3D frustum
       </span>}
       <span className="mh-scene3d__soft-note">SOFTWARE 3D PREVIEW · SVG MESH RENDERER</span>

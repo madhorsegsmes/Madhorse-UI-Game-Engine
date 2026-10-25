@@ -39,6 +39,18 @@ to initialize a GPU or software WebGL renderer in this environment.
 project tools remain usable. Report graphics verification as blocked when no
 context can be created; DOM-only editor checks do not prove 3D rendering works.
 
+Software mesh thumbnails need their own rendering budget and depth-sort checks;
+never substitute unrelated illustration art when a preview must show actual models.
+
+**Why:** SVG mesh rendering has no depth buffer. Excessive tessellation can stall
+the browser, while very large ground triangles can paint over characters' legs
+even when their camera-space bounds are correct.
+
+**How to apply:** Preserve full-detail source/editor models, use appropriately
+sampled geometry for small software previews, subdivide broad ground surfaces
+enough for painter sorting, and inspect the resulting image rather than trusting
+face counts or element presence alone.
+
 Changing a custom hook's hook count during a live Vite session can leave an
 existing component with its old layout and cause a hook-order error.
 

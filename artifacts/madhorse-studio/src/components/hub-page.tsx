@@ -1,5 +1,5 @@
 import { useUser } from '@clerk/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowDownRight,
   ArrowRight,
@@ -15,8 +15,10 @@ import {
 } from 'lucide-react';
 import './hub-page.css';
 import { createGameStarterKit } from '@/lib/scene-starter-kits';
-import type { GameCamera } from '@/lib/game-camera';
+import { createFightingPreviewCamera } from '@/lib/fighting-preview-camera';
+import { DEFAULT_SCENE_RENDER_SETTINGS } from '@/hooks/use-scene-render-settings';
 import { ScenePreview3D } from './scene-preview-3d';
+import { SceneRenderFallback } from './scene-render-fallback';
 
 const basePath = import.meta.env.BASE_URL;
 const studioPath = `${basePath}editor/`;
@@ -60,111 +62,33 @@ function EngineArtwork() {
   );
 }
 
-function FightingGameFallback() {
-  return (
-    <div className="hub-fight-screen">
-      <div className="hub-fight-toolbar">
-        <span><i /> PLAY TEST</span>
-        <span>2D ARENA <b>/</b> SCENE 01</span>
-        <span>RUNNING</span>
-      </div>
-      <svg className="hub-fight-svg" viewBox="0 0 720 320" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        <defs>
-          <linearGradient id="fight-bg" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#141a26" />
-            <stop offset="0.68" stopColor="#27222a" />
-            <stop offset="1" stopColor="#171719" />
-          </linearGradient>
-          <linearGradient id="fight-floor" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#45414a" />
-            <stop offset="1" stopColor="#1b1a1e" />
-          </linearGradient>
-          <linearGradient id="fight-red" x1="0" y1="0" x2="1" y2="1">
-            <stop stopColor="#ed7259" />
-            <stop offset="1" stopColor="#842b35" />
-          </linearGradient>
-          <linearGradient id="fight-blue" x1="0" y1="0" x2="1" y2="1">
-            <stop stopColor="#83b8d7" />
-            <stop offset="1" stopColor="#31538a" />
-          </linearGradient>
-          <radialGradient id="fight-glow">
-            <stop stopColor="#d74e43" stopOpacity=".58" />
-            <stop offset="1" stopColor="#d74e43" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <rect width="720" height="320" fill="url(#fight-bg)" />
-        <ellipse cx="355" cy="142" rx="275" ry="128" fill="url(#fight-glow)" opacity=".58" />
-        <path d="M0 102h720M0 118h720" stroke="#c14f48" strokeOpacity=".22" />
-        <path d="M0 104h60V51h35v53h44V69h38v35h46V44h45v60h43V58h32v46h48V65h42v39h47V45h42v59h43V68h47v36h40" fill="#17191f" stroke="#6b4140" strokeOpacity=".45" />
-        <path d="M0 216h720v104H0z" fill="url(#fight-floor)" />
-        <path d="M0 217h720M80 320l100-103m70 103 44-103m180 103-40-103m135 103-95-103" stroke="#d87962" strokeOpacity=".25" />
-        <path d="M0 260h720M0 294h720" stroke="#bbb2aa" strokeOpacity=".1" />
-        <path d="M49 197h622" stroke="#d35c50" strokeWidth="4" opacity=".8" />
-
-        <g transform="translate(28 15)">
-          <text x="0" y="13" fill="#e8e1dc" fontSize="11" fontWeight="700" letterSpacing="1.7">PLAYER 1</text>
-          <text x="0" y="28" fill="#bcaeaa" fontSize="8" letterSpacing="1.1">MADHORSE FIGHTER</text>
-          <path d="M0 37h250l-12 20H0z" fill="#101216" stroke="#6f5555" />
-          <path d="M4 41h226l-9 12H4z" fill="url(#fight-red)" />
-        </g>
-        <g transform="translate(442 15)">
-          <text x="250" y="13" textAnchor="end" fill="#e8e1dc" fontSize="11" fontWeight="700" letterSpacing="1.7">RIVAL</text>
-          <text x="250" y="28" textAnchor="end" fill="#bcaeaa" fontSize="8" letterSpacing="1.1">TRAINING OPPONENT</text>
-          <path d="M0 37h250v20H12z" fill="#101216" stroke="#6f5555" />
-          <path d="M20 41h226v12H20z" fill="url(#fight-blue)" />
-        </g>
-        <g>
-          <rect x="327" y="20" width="66" height="49" rx="4" fill="#171719" stroke="#70413d" />
-          <text x="360" y="40" textAnchor="middle" fill="#f0eae6" fontSize="23" fontWeight="800">99</text>
-          <text x="360" y="55" textAnchor="middle" fill="#c57a68" fontSize="7" letterSpacing="1.6">ROUND 01</text>
-        </g>
-
-        <g transform="translate(250 211)">
-          <ellipse cx="0" cy="0" rx="35" ry="7" fill="#08090c" opacity=".55" />
-          <path d="M-18-61l-14 36 8 22 16-2 6-34 8 34 16 2 8-22-14-36z" fill="#37333a" stroke="#111216" strokeWidth="3" />
-          <path d="M-22-94q0-13 19-18 22 4 24 19l-3 35-38 1z" fill="url(#fight-red)" stroke="#191519" strokeWidth="3" />
-          <path d="M-20-97q4-20 21-19 20 3 22 23l-8 1-6-10-25 8z" fill="#d7a17e" stroke="#21191a" strokeWidth="3" />
-          <path d="M-25-84l-23 14 5 20 14 5 12-24M19-84l22 10 12 18-8 11-19-13-13-15" fill="url(#fight-red)" stroke="#20191a" strokeWidth="4" strokeLinejoin="round" />
-          <path d="M-36-58l-13 8-2 14 18 2 9-12M38-57l12 6 4 14-17 4-10-11" fill="#e4b46f" stroke="#2a2021" strokeWidth="3" />
-          <path d="M-15-19l12 2-5 29-16 3-5-5 7-10zM10-18l13-3 11 20 14 13-5 6-24-7-8-16z" fill="#aa3739" stroke="#1a1719" strokeWidth="3" strokeLinejoin="round" />
-          <path d="M-27 13l17-3 4 9-22 5-8-4zM34 11l17 10-4 7-24-7-2-7z" fill="#d8d4d1" stroke="#19191d" strokeWidth="3" />
-          <path d="M-15-83h11M10-82h10" stroke="#251c1d" strokeWidth="3" strokeLinecap="round" />
-        </g>
-        <g transform="translate(470 211) scale(-1 1)">
-          <ellipse cx="0" cy="0" rx="35" ry="7" fill="#08090c" opacity=".55" />
-          <path d="M-18-61l-14 36 8 22 16-2 6-34 8 34 16 2 8-22-14-36z" fill="#302f3a" stroke="#111216" strokeWidth="3" />
-          <path d="M-22-94q0-13 19-18 22 4 24 19l-3 35-38 1z" fill="url(#fight-blue)" stroke="#191519" strokeWidth="3" />
-          <path d="M-20-97q4-20 21-19 20 3 22 23l-8 1-6-10-25 8z" fill="#b87960" stroke="#21191a" strokeWidth="3" />
-          <path d="M-25-84l-23 14 5 20 14 5 12-24M19-84l22 10 12 18-8 11-19-13-13-15" fill="url(#fight-blue)" stroke="#20191a" strokeWidth="4" strokeLinejoin="round" />
-          <path d="M-36-58l-13 8-2 14 18 2 9-12M38-57l12 6 4 14-17 4-10-11" fill="#f0cd70" stroke="#2a2021" strokeWidth="3" />
-          <path d="M-15-19l12 2-5 29-16 3-5-5 7-10zM10-18l13-3 11 20 14 13-5 6-24-7-8-16z" fill="#315998" stroke="#1a1719" strokeWidth="3" strokeLinejoin="round" />
-          <path d="M-27 13l17-3 4 9-22 5-8-4zM34 11l17 10-4 7-24-7-2-7z" fill="#d8d4d1" stroke="#19191d" strokeWidth="3" />
-          <path d="M-15-83h11M10-82h10" stroke="#251c1d" strokeWidth="3" strokeLinecap="round" />
-        </g>
-        <path d="M311 145l26-16 25 1" fill="none" stroke="#f3c777" strokeWidth="3" strokeLinecap="round" opacity=".9" />
-        <circle cx="337" cy="130" r="3" fill="#fff3d7" />
-        <text x="28" y="305" fill="#c6b9b3" fontSize="8" letterSpacing="1.3">A / D MOVE</text>
-        <text x="125" y="305" fill="#c6b9b3" fontSize="8" letterSpacing="1.3">F LIGHT</text>
-        <text x="212" y="305" fill="#c6b9b3" fontSize="8" letterSpacing="1.3">CTRL BLOCK</text>
-        <text x="328" y="305" fill="#e5c889" fontSize="8" letterSpacing="1.3">J HEAVY · K SPECIAL</text>
-      </svg>
-      <span className="hub-fight-corner">2D SIDE VIEW</span>
-    </div>
-  );
-}
-
-const fightingTemplateCamera: GameCamera = {
-  position: { x: 0, y: 2.35, z: -6.3 },
-  target: { x: 0, y: 1.0, z: 0 },
-  fov: 34,
-  placement: 'custom',
+const fightingFallbackSettings = {
+  ...DEFAULT_SCENE_RENDER_SETTINGS,
+  showGrid: false,
+  background: '#333538',
 };
 
 function FightingGamePreview() {
   // The card renders the same editable fighter geometry used by the Studio starter.
   const [starter] = useState(() => createGameStarterKit('fighting', { x: -15, y: 50, z: 0 }));
   const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
+  const [camera, setCamera] = useState(() => createFightingPreviewCamera(16 / 9));
+  const stageRef = useRef<HTMLDivElement>(null);
   const generatedAssets = starter.generatedAssets ?? [];
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const fit = () => {
+      if (stage.clientWidth && stage.clientHeight) {
+        setCamera(createFightingPreviewCamera(stage.clientWidth / stage.clientHeight));
+      }
+    };
+    const observer = new ResizeObserver(fit);
+    observer.observe(stage);
+    fit();
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const urls = Object.fromEntries(generatedAssets.map(({ asset, file }) =>
@@ -180,13 +104,13 @@ function FightingGamePreview() {
         <span>3D FIGHTERS <b>/</b> SIDE VIEW</span>
         <span>TEMPLATE SCENE</span>
       </div>
-      <div className="hub-fight-model-stage" data-testid="hub-fighting-model-preview">
+      <div ref={stageRef} className="hub-fight-model-stage" data-testid="hub-fighting-model-preview">
         <ScenePreview3D
           projectName="2D Fighting Starter"
           gameView
           staticPreview
-          gameCamera={fightingTemplateCamera}
-          primaryCamera={fightingTemplateCamera}
+          gameCamera={camera}
+          primaryCamera={camera}
           entities={starter.entities}
           assets={generatedAssets.map(({ asset }) => asset)}
           assetUrls={assetUrls}
@@ -197,7 +121,19 @@ function FightingGamePreview() {
           onSelectEntity={() => undefined}
           onTransformCommit={() => undefined}
           onTransformModeChange={() => undefined}
-          graphicsFallback={<FightingGameFallback />}
+          graphicsFallback={
+            <SceneRenderFallback
+              gameView
+              detail="thumbnail"
+              entities={starter.entities}
+              camera={camera}
+              settings={fightingFallbackSettings}
+              zoom={100}
+              sceneFocus={null}
+              selectedEntityId={null}
+              onSelectEntity={() => undefined}
+            />
+          }
         />
         <div className="hub-fight-hud" aria-hidden="true">
           <span className="hub-fight-player-label">PLAYER</span>
@@ -206,7 +142,7 @@ function FightingGamePreview() {
           <span className="hub-fight-health hub-fight-health-rival"><i /></span>
           <span className="hub-fight-rival-label">RIVAL</span>
         </div>
-        <span className="hub-fight-corner">LIVE 3D TEMPLATE</span>
+        <span className="hub-fight-corner">3D MODEL TEMPLATE</span>
       </div>
     </div>
   );
