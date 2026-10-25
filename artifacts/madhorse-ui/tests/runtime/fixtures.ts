@@ -1,4 +1,5 @@
 import { test as base, expect, type Page } from '@playwright/test';
+import { expectScriptStatus } from './runtime-status';
 
 // Preserve the actual engine/runtime failure, not an engine-wide skip or a
 // catch-and-pass fallback. These attachments are included in both reports.
@@ -71,7 +72,7 @@ export async function run(page: Page) {
 
 export async function finished(page: Page) {
   // Compilation/download time is deliberately separate from the 5s execution budget.
-  await expect(status(page)).toHaveText('Script finished.', { timeout: 180_000 });
+  await expectScriptStatus(page, 'Script finished.');
   await expect(frames(page)).toHaveCount(0);
   await expect(stopButton(page)).toBeDisabled();
 }

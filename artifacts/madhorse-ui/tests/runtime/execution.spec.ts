@@ -1,4 +1,5 @@
 import { expect } from '@playwright/test';
+import { expectScriptStatus } from './runtime-status';
 import { test, languages, openScripts, importSource, run, finished, status, output, frames, stopButton } from './fixtures';
 
 for (const language of languages) {
@@ -12,7 +13,7 @@ for (const language of languages) {
     await expect(output(page)).toContainText(`hello ${language.name}`);
     await importSource(page, `broken.${language.extension}`, language.invalid);
     await run(page);
-    await expect(status(page)).toHaveText('Script stopped with an error.', { timeout: 180_000 });
+    await expectScriptStatus(page, 'Script stopped with an error.');
     await expect(output(page)).not.toHaveText('Output will appear here.');
     await expect(output(page)).not.toContainText('hello ');
     await expect(frames(page)).toHaveCount(0);
@@ -26,7 +27,7 @@ for (const language of languages) {
     await openScripts(page);
     await importSource(page, `loop.${language.extension}`, language.loop);
     await run(page);
-    await expect(status(page)).toHaveText(/Running (script|WebAssembly|C# script)…/, { timeout: 180_000 });
+    await expectScriptStatus(page, /Running (script|WebAssembly|C# script)…/);
     const start = Date.now();
     await expect(status(page)).toHaveText('Script stopped with an error.', { timeout: 8_000 });
     expect(Date.now() - start).toBeGreaterThan(3_500);
@@ -35,7 +36,7 @@ for (const language of languages) {
     await expect(frames(page)).toHaveCount(0);
 
     await run(page);
-    await expect(status(page)).toHaveText(/Running (script|WebAssembly|C# script)…/, { timeout: 180_000 });
+    await expectScriptStatus(page, /Running (script|WebAssembly|C# script)…/);
     const stoppedAt = Date.now();
     await stopButton(page).click();
     await expect(status(page)).toHaveText('Script stopped.');

@@ -1,4 +1,5 @@
 import { expect } from '@playwright/test';
+import { expectScriptStatus } from './runtime-status';
 import { test, openScripts, importSource, run, finished, output, frames, status, stopButton } from './fixtures';
 
 test('initial load and importing scripts never download language runtimes', async ({ page }) => {
@@ -88,7 +89,7 @@ test('opaque sandbox denies app storage, parent DOM, private API and external re
   });
   await importSource(page, 'hold.js', 'while (true) {}');
   await run(page);
-  await expect(status(page)).toHaveText('Running script…', { timeout: 180_000 });
+  await expectScriptStatus(page, 'Running script…');
   await expect(frames(page)).toHaveCount(1);
   const sandbox = await frames(page).getAttribute('sandbox');
   expect(sandbox).toBe('allow-scripts');

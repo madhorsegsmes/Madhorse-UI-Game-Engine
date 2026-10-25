@@ -101,3 +101,16 @@ test('regression guard rejects publishing bypasses', () => {
     assert.throws(() => assertBlockedBy({ ...original, ...mutation }, 'runtime-gate'));
   }
 });
+
+test('runtime watchdog is bounded and leaves time to upload failure evidence', () => {
+  const gate = runtime.jobs['script-runtime'];
+  const check = gate.steps.find(step => step.name === 'Check script runtimes in all three engines');
+  const upload = gate.steps.find(step => step.uses?.startsWith('actions/upload-artifact@'));
+  assert.match(check.run, /set -euo pipefail/);
+  assert.match(check.run, /timeout --signal=INT --kill-after=30s 72m pnpm/);
+  assert.equal(check['timeout-minutes'], 75);
+  assert.equal(check['continue-on-error'], undefined);
+  assert.equal(upload.if, '${{ always() }}');
+  assert.equal(upload['timeout-minutes'], 10);
+  assert.ok(gate['timeout-minutes'] >= check['timeout-minutes'] + upload['timeout-minutes'] + 3);
+});
