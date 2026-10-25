@@ -12,11 +12,13 @@ import type {
 } from './scene-model';
 import { physicsContactPairs } from './physics-broadphase';
 import { canBodiesCollide, collidesWithWorldFloor } from './collision-layers';
+import { sweepBox, type BoxSweepHit } from './physics-sweep';
 
 type PhysicsBodyState = {
   entity: SceneEntity;
   physics: PhysicsComponent;
   position: Vector3;
+  previousPosition: Vector3;
   halfSize: Vector3;
   velocity: Vector3;
   inverseMass: number;
@@ -26,6 +28,41 @@ const axisKeys = {
   '2d': ['x', 'y'] as const,
   '3d': ['x', 'y', 'z'] as const,
 };
+
+function advanceContinuousBody(
+  body: PhysicsBodyState,
+  stationary: PhysicsBodyState[],
+  axes: readonly (keyof Vector3)[],
+  dt: number,
+): void {
+  let start = { ...body.previousPosition };
+  let remaining = dt;
+  // Bound sliding/bounce work per frame. At the limit, stop at the last safe
+  // contact instead of advancing unchecked through the remaining obstacles.
+  for (let iteration = 0; iteration < 3; iteration++) {
+    const movement = { x: 0, y: 0, z: 0 };
+    for (const axis of axes) movement[axis] = body.velocity[axis] * remaining;
+    let closest: { hit: BoxSweepHit; target: PhysicsBodyState } | null = null;
+    for (const target of stationary) {
+      if (!canBodiesCollide(body.physics, target.physics)) continue;
+      const hit = sweepBox(start, movement, body.halfSize, target.position, target.halfSize, axes);
+      if (hit && (!closest || hit.time < closest.hit.time)) closest = { hit, target };
+    }
+    if (!closest) {
+      body.position = { ...start };
+      for (const axis of axes) body.position[axis] += movement[axis];
+      return;
+    }
+    const { hit, target } = closest;
+    for (const axis of axes) start[axis] += movement[axis] * hit.time;
+    start[hit.axis] += hit.normal * Math.min(1e-5, body.halfSize[hit.axis] * 0.001);
+    body.velocity[hit.axis] *= -Math.min(body.physics.restitution, target.physics.restitution);
+    const friction = Math.max(0, 1 - (body.physics.friction + target.physics.friction) / 2 * 8 * remaining);
+    for (const axis of axes) if (axis !== hit.axis) body.velocity[axis] *= friction;
+    remaining *= 1 - hit.time;
+  }
+  body.position = start;
+}
 
 function isEffectivelyActive(entity: SceneEntity, byId: Map<string, SceneEntity>): boolean {
   let current: SceneEntity | undefined = entity;
@@ -115,6 +152,7 @@ export function stepPhysicsScene(
       entity,
       physics,
       position,
+      previousPosition: world.position,
       halfSize: {
         x: physics.size.x * Math.abs(world.scale.x) / 2,
         y: physics.size.y * Math.abs(world.scale.y) / 2,
@@ -126,6 +164,12 @@ export function stepPhysicsScene(
   }
 
   if (!bodies.some(body => body.inverseMass > 0)) return entities;
+  const stationary = bodies.filter(body => body.physics.bodyType === 'static' && body.physics.colliderEnabled);
+  for (const body of bodies) {
+    if (body.inverseMass > 0 && body.physics.colliderEnabled && body.physics.continuousCollision) {
+      advanceContinuousBody(body, stationary, axes, dt);
+    }
+  }
   const verticalAxis = settings.dimension === '2d' ? 'y' : 'z';
   for (const body of bodies) {
     if (!body.physics.colliderEnabled || body.inverseMass === 0 || !collidesWithWorldFloor(body.physics)) continue;

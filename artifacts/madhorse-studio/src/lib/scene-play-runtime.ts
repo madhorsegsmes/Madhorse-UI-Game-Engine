@@ -12,6 +12,8 @@ import {
   type ActionAudioEvent, type ActionHud, type PlayerActionRuntimeState,
 } from './player-action-runtime';
 import { firstPersonCollide, firstPersonMove } from './fps-aim';
+import { stepRuntimeRigidBodies } from './runtime-rigid-bodies';
+import type { Vector3 } from './scene-model';
 
 export type RuntimeInput = {
   moveX: number;
@@ -29,6 +31,7 @@ export type RuntimeTriggerEvent = {
 };
 
 export type SceneRuntimeState = {
+  rigidBodyVelocities?: Map<string, Vector3>;
   contacts: Set<string>;
   jumpVelocity: Map<string, number>;
   patrolOrigins: Map<string, { x: number; y: number }>;
@@ -289,7 +292,10 @@ export function advanceSceneRuntime(
     player?.id, playerInput, state.actions, elapsedSeconds, actionMotion,
   );
   return {
-    entities: actionResult.entities,
+    entities: stepRuntimeRigidBodies(
+      actionResult.entities, dt, state.rigidBodyVelocities ??= new Map(),
+      entity => Boolean(getController(entity)?.enabled || getPlayerActions(entity).some(action => action.enabled)),
+    ),
     events: [...events, ...actionResult.events],
     audioEvents: actionResult.audioEvents,
     hud: actionResult.hud,

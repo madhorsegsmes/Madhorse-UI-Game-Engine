@@ -6,7 +6,7 @@ Reviewed 2026-10-25. This is a capability comparison, not a claim of feature or 
 | --- | --- | --- |
 | Editor | Hierarchy, transforms, object settings, scene/game cameras, history, prefabs, named projects | Mature multi-scene authoring, collaborative editing and production asset workflows |
 | Rendering | Three.js/WebGL2, PBR, lighting/shadows, environment and render settings | Nanite-style virtual geometry, Lumen-style dynamic GI, production ray tracing and virtual shadow maps are not implemented equivalents |
-| Physics | Local rigid-body/AABB simulation, broadphase, gravity, contact response; six editable collision groups with mutual masks | PhysX/Chaos-class mesh/convex solvers, joints, cloth, destruction and reliable continuous collision detection |
+| Physics | Local rigid-body/AABB simulation, broadphase, gravity, contact response; six collision groups, editable presets and opt-in swept-box CCD against stationary boxes | PhysX/Chaos-class mesh/convex solvers, joints, cloth, destruction, moving-body/rotational CCD and large-scale solver performance |
 | Characters and animation | Editable character building, imported model assets, animation controllers and coordinated scene animation | Mature retargeting, robust IK/control-rig authoring, animation debugging and production-quality deformation pipelines |
 | World building | Terrain/world tools and editable genre starters | Seamless world partition, streaming budgets, HLOD generation and scalable navigation-mesh baking |
 | Assets | Import/export, materials/textures, browser-local asset storage | Full DCC reimport/dependency pipeline, automated LOD generation, texture/platform cooking and robust compression workflows |
@@ -34,9 +34,31 @@ Reviewed 2026-10-25. This is a capability comparison, not a claim of feature or 
 
 Do not add buttons claiming these systems exist before their runtime behavior and authoring workflow work. Keep Hub thumbnail costs separate from Studio quality.
 
+## Further comparison and upgrades
+
+Unity offers discrete, continuous and continuous-dynamic collision modes; Unreal exposes a Use CCD setting on physics bodies. A production engine needs contact detection along a body's travel path, not only at its final position.
+
+Madhorse now has an opt-in **Continuous collision (fast objects)** setting in object Physics. It sweeps the existing axis-aligned body box against active stationary static boxes, selects the earliest time of impact, respects both contact masks, and resolves remaining sliding/bouncing motion with a bounded three-hit budget. At the limit it stops at the last safe contact instead of advancing unchecked.
+
+This is not full PhysX/Chaos CCD: dynamic/kinematic target motion, changing rotations, triangles, deformation and pre-existing overlaps are outside the sweep's scope. The ordinary discrete solver still handles overlapping endpoints. Enable it selectively because each enabled moving body checks eligible stationary colliders; it is not a large-world spatial-query accelerator.
+
+Collision presets simplify setup: Solid, World, Player, NPC, Fast projectile, Decoration and Ghost. Fast projectile enables continuous detection, ignores other projectiles and opts the object into Simulate in Play. Presets do not implement guns, player controls, damage or body-type changes. Every setting stays editable and is applied through the normal Save Changes action.
+
+**Runtime connection:** The shared 3D Studio scene runtime and standalone player now run opted-in dynamic rigid bodies through the same solver. Enable **Simulate this rigid body in Play** and optionally set launch velocity; velocity is initialized once per simulation entry. Existing scenes default to opt-out to preserve authored motion. Character/action-controlled entities retain movement authority, and temporary kinematic proxies never change saved body components. Dedicated card/pixel-game rules and controller collision queries remain separate systems.
+
+### Additional gaps confirmed by this comparison
+
+- **Physics:** moving-body CCD, angular dynamics, shape casts, reliable joints/ragdolls and a general-purpose physics backend.
+- **Animation:** authored retargeting maps, skeletal IK, blend-space authoring and motion matching—not more procedural poses alone.
+- **World scale:** streamed scene chunks, navigation generation, HLOD and asynchronous asset residency with measured memory budgets.
+- **Rendering:** material/shader authoring, baked/dynamic indirect lighting and scalable visibility/occlusion systems. PBR alone does not provide these.
+- **Production:** platform asset cooking, build automation, authoritative server infrastructure and hardware-based performance regression tests.
+
 ## Official comparison sources
 
 - Unity 6 layer-based collision detection: https://docs.unity.com/en-us/engine/6000.0/manual/physics-section/physics-overview/collision-section/collision-detection/layer-based-collision
 - Unreal Engine traces/channels: https://dev.epicgames.com/documentation/unreal-engine/traces-in-unreal-engine---overview
 - Unreal Engine Lumen: https://dev.epicgames.com/documentation/unreal-engine/lumen-global-illumination-and-reflections-in-unreal-engine
 - Unreal Engine Nanite: https://dev.epicgames.com/documentation/unreal-engine/nanite-virtualized-geometry-in-unreal-engine
+- Unity sweep-based CCD: https://docs.unity.com/en-us/engine/6000.6/manual/physics-section/physics-overview/collision-section/collision-detection/continuous/sweep-based-ccd
+- Unreal physics bodies / Use CCD: https://dev.epicgames.com/documentation/unreal-engine/physics-bodies-reference-for-unreal-engine

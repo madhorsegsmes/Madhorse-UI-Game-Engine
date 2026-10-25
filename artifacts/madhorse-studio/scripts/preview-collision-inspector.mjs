@@ -25,6 +25,29 @@ await build({
     }
     flushSync(()=>createRoot(document.getElementById('root')).render(<Preview/>));
     for(const details of document.querySelectorAll('details'))details.open=true;
+    if(new URL(location.href).searchParams.has('verifyPreset')){
+      const label=Array.from(document.querySelectorAll('label')).find(item=>
+        item.textContent.trim().startsWith('Collision preset'));
+      const select=label?.querySelector('select');
+      if(!select)throw new Error('Actual collision preset control was not rendered');
+      flushSync(()=>{
+        select.value='projectile';
+        select.dispatchEvent(new Event('change',{bubbles:true}));
+      });
+      document.querySelector('form').requestSubmit();
+      const physics=window.__savedCollisionObject?.components.find(item=>item.type==='physics');
+      const result=document.createElement('p');
+      result.id='preset-save-verification';
+      if(physics?.collisionLayer!==4 || physics?.collisionMask!==47 || physics?.continuousCollision!==true || physics?.simulateInPlay!==true){
+        result.textContent='FAIL: preset did not reach the actual inspector Save Changes callback';
+        result.style.color='#ff5656';
+        console.error(result.textContent);
+      }else{
+        result.textContent='PASS: actual inspector saved Projectile group, mask 47, continuous detection and Simulate in Play.';
+        result.style.color='#8dffc4';
+      }
+      document.body.prepend(result);
+    }
   ` },
   plugins: [{ name: 'single-react', setup(builder) {
     builder.onResolve({ filter: /^react(?:-dom)?(?:[/].*)?$/ }, args => ({ path: require.resolve(args.path) }));

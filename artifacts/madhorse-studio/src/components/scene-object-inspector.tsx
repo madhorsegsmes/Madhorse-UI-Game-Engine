@@ -21,7 +21,7 @@ import type { VisualLogicNode } from '@/lib/scene-model';
 import { getPbrSurfacePreset, matchPbrSurfacePreset, pbrSurfacePresets } from '@/lib/pbr-surface-presets';
 import { fighterVisualDraft, isFighterEntity, withFighterVisual, type FighterVisualMode } from '@/lib/fighter-visual';
 import { withSceneModelAppearance } from '@/lib/scene-model-appearance';
-import { ALL_COLLISION_LAYERS, collisionLayers } from '@/lib/collision-layers';
+import { ALL_COLLISION_LAYERS, collisionLayers, collisionPresets, collisionPresetDraft } from '@/lib/collision-layers';
 
 type Props = {
   entity: SceneEntity;
@@ -110,6 +110,11 @@ function toDraft(entity: SceneEntity) {
       values['physics.gravityScale'] = String(component.gravityScale);
       values['physics.friction'] = String(component.friction);
       values['physics.restitution'] = String(component.restitution);
+      values['physics.continuousCollision'] = String(component.continuousCollision ?? false);
+      values['physics.simulateInPlay'] = String(component.simulateInPlay ?? false);
+      for (const axis of ['x', 'y', 'z'] as const) {
+        values[`physics.initialVelocity.${axis}`] = String(component.initialVelocity?.[axis] ?? 0);
+      }
       values['physics.collisionLayer'] = String(component.collisionLayer ?? 0);
       collisionLayers.forEach((_, index) => {
         values[`physics.collides.${index}`] = String(Boolean((component.collisionMask ?? ALL_COLLISION_LAYERS) & (1 << index)));
@@ -333,6 +338,11 @@ export function SceneObjectInspector({
         gravityScale: number('physics.gravityScale'),
         friction: number('physics.friction'),
         restitution: number('physics.restitution'),
+        continuousCollision: values['physics.continuousCollision'] === 'true',
+        simulateInPlay: values['physics.simulateInPlay'] === 'true',
+        initialVelocity: {
+          x: number('physics.initialVelocity.x'), y: number('physics.initialVelocity.y'), z: number('physics.initialVelocity.z'),
+        },
         collisionLayer: number('physics.collisionLayer'),
         collisionMask: collisionLayers.reduce((mask, _, index) =>
           values[`physics.collides.${index}`] === 'true' ? mask | (1 << index) : mask, 0),
@@ -552,8 +562,29 @@ export function SceneObjectInspector({
           {numberField('Gravity scale', 'physics.gravityScale', -10, 10, 0.1)}
           {numberField('Friction', 'physics.friction', 0, 1, 0.05)}
           {numberField('Bounciness', 'physics.restitution', 0, 1, 0.05)}
+          {checkboxField('Simulate this rigid body in Play', 'physics.simulateInPlay')}
+          <small>Opt-in physics for the shared 3D scene runtime and web player. Character/action controllers keep control of their own movement.</small>
+          <details>
+            <summary>Launch velocity (optional)</summary>
+            <small>Starting speed in scene units per second. Z is up. Applied when Play starts or this body enters simulation.</small>
+            {(['x', 'y', 'z'] as const).map(axis =>
+              <div key={axis}>{numberField(axis.toUpperCase(), `physics.initialVelocity.${axis}`, -100000, 100000, 1)}</div>)}
+          </details>
+          {checkboxField('Continuous collision (fast objects)', 'physics.continuousCollision')}
+          <small>On Dynamic bodies, sweeps against stationary Static box colliders. Moving-body pairs and rotation still use discrete contacts. Enable only where needed.</small>
           <details>
           <summary>Collision groups (advanced)</summary>
+          <label>
+            Collision preset
+            <select value="" onChange={event => {
+              const draft = collisionPresetDraft(event.target.value);
+              if (draft) setValues(current => ({ ...current, ...draft }));
+            }}>
+              <option value="">Choose a quick setup…</option>
+              {collisionPresets.map(preset => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
+            </select>
+          </label>
+          <small>Presets set contacts and detection—not body type or weapons. Fast projectile also enables Simulate in Play; set its launch velocity above. Every option stays editable.</small>
           {selectField('Collision group', 'physics.collisionLayer',
             collisionLayers.map((label, index) => ({ value: String(index), label })))}
           <p>Rigid-body contacts: choose which groups this object can bump into. Both objects must allow the contact.</p>

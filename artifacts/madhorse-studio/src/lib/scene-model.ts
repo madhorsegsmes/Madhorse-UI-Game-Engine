@@ -47,6 +47,9 @@ export type PhysicsComponent = {
   restitution: number;
   collisionLayer?: number;
   collisionMask?: number;
+  continuousCollision?: boolean;
+  simulateInPlay?: boolean;
+  initialVelocity?: Vector3;
 };
 export type PhysicsWorldSettings = {
   dimension: PhysicsDimension;
@@ -279,6 +282,8 @@ export function createPhysicsComponent(
     restitution: 0,
     collisionLayer: 0,
     collisionMask: 63,
+    continuousCollision: false,
+    simulateInPlay: false,
   };
 }
 
@@ -499,6 +504,10 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
 export function isPhysicsComponent(value: unknown): value is PhysicsComponent {
   if (!value || typeof value !== 'object') return false;
   const component = value as PhysicsComponent;
+  const initialVelocity = component.initialVelocity;
+  if (initialVelocity !== undefined && (!initialVelocity || typeof initialVelocity !== 'object' ||
+    !(['x', 'y', 'z'] as const).every(axis =>
+      Number.isFinite(initialVelocity[axis]) && Math.abs(initialVelocity[axis]) <= 100_000))) return false;
   return typeof component.id === 'string' &&
     component.type === 'physics' &&
     typeof component.enabled === 'boolean' &&
@@ -512,7 +521,9 @@ export function isPhysicsComponent(value: unknown): value is PhysicsComponent {
     Number.isFinite(component.gravityScale) && component.gravityScale >= -10 && component.gravityScale <= 10 &&
     Number.isFinite(component.friction) && component.friction >= 0 && component.friction <= 1 &&
     Number.isFinite(component.restitution) && component.restitution >= 0 && component.restitution <= 1 &&
-    isCollisionFilter(component);
+    isCollisionFilter(component) &&
+    (component.continuousCollision === undefined || typeof component.continuousCollision === 'boolean') &&
+    (component.simulateInPlay === undefined || typeof component.simulateInPlay === 'boolean');
 }
 
 export function createDefaultPhysicsWorldSettings(
