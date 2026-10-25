@@ -1,4 +1,5 @@
 import { isPlayerActionComponent, type PlayerActionComponent } from './player-action-model';
+import { isCollisionFilter } from './collision-layers';
 import { isGameFeatureComponent, type GameFeatureComponent } from './game-feature-model';
 import { isPbrMaterialDefinition } from './pbr-material';
 export type Vector3 = { x: number; y: number; z: number };
@@ -44,6 +45,8 @@ export type PhysicsComponent = {
   gravityScale: number;
   friction: number;
   restitution: number;
+  collisionLayer?: number;
+  collisionMask?: number;
 };
 export type PhysicsWorldSettings = {
   dimension: PhysicsDimension;
@@ -274,6 +277,8 @@ export function createPhysicsComponent(
     gravityScale: 1,
     friction: 0.4,
     restitution: 0,
+    collisionLayer: 0,
+    collisionMask: 63,
   };
 }
 
@@ -506,7 +511,8 @@ export function isPhysicsComponent(value: unknown): value is PhysicsComponent {
     Number.isFinite(component.mass) && component.mass >= 0.01 && component.mass <= 1000 &&
     Number.isFinite(component.gravityScale) && component.gravityScale >= -10 && component.gravityScale <= 10 &&
     Number.isFinite(component.friction) && component.friction >= 0 && component.friction <= 1 &&
-    Number.isFinite(component.restitution) && component.restitution >= 0 && component.restitution <= 1;
+    Number.isFinite(component.restitution) && component.restitution >= 0 && component.restitution <= 1 &&
+    isCollisionFilter(component);
 }
 
 export function createDefaultPhysicsWorldSettings(

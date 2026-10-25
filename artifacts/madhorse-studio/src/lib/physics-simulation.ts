@@ -11,6 +11,7 @@ import type {
   Vector3,
 } from './scene-model';
 import { physicsContactPairs } from './physics-broadphase';
+import { canBodiesCollide, collidesWithWorldFloor } from './collision-layers';
 
 type PhysicsBodyState = {
   entity: SceneEntity;
@@ -42,6 +43,7 @@ function applyContact(
   b: PhysicsBodyState,
   axes: readonly ('x' | 'y' | 'z')[],
 ): void {
+  if (!canBodiesCollide(a.physics, b.physics)) return;
   const overlaps = axes.map((axis) => ({
     axis,
     depth: a.halfSize[axis] + b.halfSize[axis] - Math.abs(a.position[axis] - b.position[axis]),
@@ -126,7 +128,7 @@ export function stepPhysicsScene(
   if (!bodies.some(body => body.inverseMass > 0)) return entities;
   const verticalAxis = settings.dimension === '2d' ? 'y' : 'z';
   for (const body of bodies) {
-    if (!body.physics.colliderEnabled || body.inverseMass === 0) continue;
+    if (!body.physics.colliderEnabled || body.inverseMass === 0 || !collidesWithWorldFloor(body.physics)) continue;
     const floor = body.halfSize[verticalAxis];
     if (body.position[verticalAxis] < floor) {
       body.position[verticalAxis] = floor;

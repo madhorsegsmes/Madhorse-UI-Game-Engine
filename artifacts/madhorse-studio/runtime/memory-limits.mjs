@@ -63,7 +63,11 @@ export function capDefinedMemory(bytes, maximumBytes) {
 
 export function capPythonLoader(source) {
   const needle = 'new WebAssembly.Memory({initial:INITIAL_MEMORY/65536,maximum:65536})';
+  const capped = `new WebAssembly.Memory({initial:INITIAL_MEMORY/65536,maximum:${memoryLimits.python / 65536}})`;
+  // Preparation can revisit an already-adapted cache. Accept only our exact
+  // ceiling, never arbitrary upstream memory declarations or duplicate memories.
+  if (!source.includes(needle) && source.split(capped).length === 2) return source;
   if (source.split(needle).length !== 2) throw new Error('Pyodide memory adapter needs review');
-  return source.replace(needle,
-    `new WebAssembly.Memory({initial:INITIAL_MEMORY/65536,maximum:${memoryLimits.python / 65536}})`);
+  if (source.includes(capped)) throw new Error('Pyodide memory adapter needs review');
+  return source.replace(needle, capped);
 }

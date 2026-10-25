@@ -28,6 +28,16 @@ rejection against actual prepared binaries and run finite guest allocations
 separately from cleanup/recovery. These ceilings are linear-memory limits,
 not guarantees about compiler buffers, downloaded assets or total browser RSS.
 
+Runtime preparation may encounter an already-patched loader cache.
+
+**Why:** Studio startup failed on the Python adapter's exact-match guard even
+though the cached loader already contained the required physical memory ceiling.
+Removing the ceiling would fix startup by weakening isolation.
+
+**How to apply:** Allow repeat preparation only for the exact supported capped
+layout. Keep rejection of changed, mixed or duplicate layouts; test both a fresh
+distribution and its already-adapted result.
+
 Treat wasmsharp's success flag as compilation success, not proof the guest ran
 without an exception.
 

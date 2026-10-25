@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { capPythonLoader, memoryLimits } from '../runtime/memory-limits.mjs';
+const require = createRequire(import.meta.url);
+const original = await readFile(new URL('pyodide.asm.js', `file://${require.resolve('pyodide')}`), 'utf8');
+const adapted = capPythonLoader(original);
+assert(adapted.includes(`maximum:${memoryLimits.python / 65536}`));
+assert.equal(capPythonLoader(adapted), adapted, 'Exact previously capped loaders are safe to prepare again');
+assert.throws(() => capPythonLoader('new WebAssembly.Memory({initial:1,maximum:9999})'));
+assert.throws(() => capPythonLoader(original + original));
+assert.throws(() => capPythonLoader(adapted + adapted));
+assert.throws(() => capPythonLoader(original + adapted));
+console.log('PASS: pinned Pyodide loader, repeat preparation, exact memory ceiling and fail-closed changed/duplicate layouts.');

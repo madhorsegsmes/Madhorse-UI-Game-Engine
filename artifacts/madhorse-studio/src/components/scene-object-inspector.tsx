@@ -21,6 +21,7 @@ import type { VisualLogicNode } from '@/lib/scene-model';
 import { getPbrSurfacePreset, matchPbrSurfacePreset, pbrSurfacePresets } from '@/lib/pbr-surface-presets';
 import { fighterVisualDraft, isFighterEntity, withFighterVisual, type FighterVisualMode } from '@/lib/fighter-visual';
 import { withSceneModelAppearance } from '@/lib/scene-model-appearance';
+import { ALL_COLLISION_LAYERS, collisionLayers } from '@/lib/collision-layers';
 
 type Props = {
   entity: SceneEntity;
@@ -109,6 +110,10 @@ function toDraft(entity: SceneEntity) {
       values['physics.gravityScale'] = String(component.gravityScale);
       values['physics.friction'] = String(component.friction);
       values['physics.restitution'] = String(component.restitution);
+      values['physics.collisionLayer'] = String(component.collisionLayer ?? 0);
+      collisionLayers.forEach((_, index) => {
+        values[`physics.collides.${index}`] = String(Boolean((component.collisionMask ?? ALL_COLLISION_LAYERS) & (1 << index)));
+      });
       for (const axis of ['x', 'y', 'z'] as const) values[`physics.size.${axis}`] = String(component.size[axis]);
     } else if (component.type === 'characterController') {
       values['controller.enabled'] = String(component.enabled);
@@ -328,6 +333,9 @@ export function SceneObjectInspector({
         gravityScale: number('physics.gravityScale'),
         friction: number('physics.friction'),
         restitution: number('physics.restitution'),
+        collisionLayer: number('physics.collisionLayer'),
+        collisionMask: collisionLayers.reduce((mask, _, index) =>
+          values[`physics.collides.${index}`] === 'true' ? mask | (1 << index) : mask, 0),
         size: { x: number('physics.size.x'), y: number('physics.size.y'), z: number('physics.size.z') },
       };
       if (item.type === 'characterController') return {
@@ -544,6 +552,15 @@ export function SceneObjectInspector({
           {numberField('Gravity scale', 'physics.gravityScale', -10, 10, 0.1)}
           {numberField('Friction', 'physics.friction', 0, 1, 0.05)}
           {numberField('Bounciness', 'physics.restitution', 0, 1, 0.05)}
+          <details>
+          <summary>Collision groups (advanced)</summary>
+          {selectField('Collision group', 'physics.collisionLayer',
+            collisionLayers.map((label, index) => ({ value: String(index), label })))}
+          <p>Rigid-body contacts: choose which groups this object can bump into. Both objects must allow the contact.</p>
+          {collisionLayers.map((label, index) =>
+            <div key={label}>{checkboxField(`Bump into ${label}${index === 1 ? ' (including built-in floor)' : ''}`, `physics.collides.${index}`)}</div>)}
+          <small>These groups affect rigid-body physics only. Trigger zones, navigation and gameplay hit checks are separate.</small>
+          </details>
           {vectorFields('Collider size', 'physics.size', 0.1, 512, 0.1)}
         </>)}
         {light && section('Light', <>
