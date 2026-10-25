@@ -28,6 +28,7 @@ import type {
   HealthStatus,
   MadBuilderInput,
   MadBuilderPlan,
+  MadHorseSystemReference,
   MultiplayerEventInput,
   MultiplayerGameEvent,
   MultiplayerPlayerInput,
@@ -62,6 +63,107 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetMadBuilderSystemReferenceUrl = () => {
+
+
+
+
+  return `/api/mad-builder/system-reference`
+}
+
+/**
+ * @summary Read the protected Madhorse Engine system reference
+ */
+export const getMadBuilderSystemReference = async ( options?: Parameters<typeof customFetch>[1]): Promise<MadHorseSystemReference> => {
+
+  return customFetch<MadHorseSystemReference>(getGetMadBuilderSystemReferenceUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMadBuilderSystemReferenceQueryKey = () => {
+    return [
+    `/api/mad-builder/system-reference`
+    ] as const;
+    }
+
+
+export const getGetMadBuilderSystemReferenceQueryOptions = <TData = Awaited<ReturnType<typeof getMadBuilderSystemReference>>, TError = ErrorType<void>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMadBuilderSystemReference>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMadBuilderSystemReferenceQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMadBuilderSystemReference>>> = ({ signal }) => getMadBuilderSystemReference({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMadBuilderSystemReference>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetMadBuilderSystemReferenceQueryResult = NonNullable<Awaited<ReturnType<typeof getMadBuilderSystemReference>>>
+export type GetMadBuilderSystemReferenceQueryError = ErrorType<void>
+
+
+export function useGetMadBuilderSystemReference<TData = Awaited<ReturnType<typeof getMadBuilderSystemReference>>, TError = ErrorType<void>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMadBuilderSystemReference>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMadBuilderSystemReference>>,
+          TError,
+          Awaited<ReturnType<typeof getMadBuilderSystemReference>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMadBuilderSystemReference<TData = Awaited<ReturnType<typeof getMadBuilderSystemReference>>, TError = ErrorType<void>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMadBuilderSystemReference>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMadBuilderSystemReference>>,
+          TError,
+          Awaited<ReturnType<typeof getMadBuilderSystemReference>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMadBuilderSystemReference<TData = Awaited<ReturnType<typeof getMadBuilderSystemReference>>, TError = ErrorType<void>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMadBuilderSystemReference>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Read the protected Madhorse Engine system reference
+ */
+
+export function useGetMadBuilderSystemReference<TData = Awaited<ReturnType<typeof getMadBuilderSystemReference>>, TError = ErrorType<void>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMadBuilderSystemReference>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetMadBuilderSystemReferenceQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getPlanMadBuilderUrl = () => {
 

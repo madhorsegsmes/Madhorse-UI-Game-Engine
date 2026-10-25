@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { getAuth } from '@clerk/express';
 import OpenAI from 'openai';
 import { PlanMadBuilderBody, PlanMadBuilderResponse, builderPlanJsonSchema } from '@workspace/api-zod';
-import { MADHORSE_ENGINE_BUILD_GUIDE } from '../lib/engine-build-guide';
+import { MADHORSE_ENGINE_SYSTEM_REFERENCE, MADHORSE_ENGINE_SYSTEM_REFERENCE_PROMPT } from '../lib/engine-system-reference';
 
 const router = Router();
 router.use((req, res, next) => {
@@ -13,6 +13,10 @@ router.use((req, res, next) => {
     return;
   }
   next();
+});
+router.get('/mad-builder/system-reference', (_req, res) => {
+  res.setHeader('Cache-Control', 'private, max-age=3600');
+  res.json(MADHORSE_ENGINE_SYSTEM_REFERENCE);
 });
 let running = 0;
 const requests = new Map<string, { count: number; until: number }>();
@@ -152,7 +156,7 @@ router.post('/mad-builder/plan', async (req, res) => {
       model: 'gpt-5.4-mini', max_completion_tokens: 12000, reasoning_effort: 'none',
       messages: [{
         role: 'system',
-        content: `${instructions}\n\n${MADHORSE_ENGINE_BUILD_GUIDE}${body.data.useEgoCharacterTools ? '\n\nLOCAL CHARACTER TOOLS ARE ACTIVE: the client will create the requested supported character or creature as detailed editable anatomy and add an animation state controller. Do not build duplicate character bodies or generic stacks of primitive body parts. Use the plan for the surrounding scene, stage, equipment, props, lighting, and other requested non-character objects. Include a simple ground plane only when needed to make a character-only build usable in the scene.' : ''}\nSelected build type: ${categoryInstruction}\nVisual quality profile: ${styleDirections[body.data.style ?? 'polished-game-ready']}\n${responseBudgetInstructions}\nReturn ONLY a JSON object matching this exact output schema. Include title, summary, warnings and parts, even for unsupported requests. Do not invent a different command format. Omit optional fields that do not apply; only parentKey and assetId may be null.\n${JSON.stringify(builderPlanJsonSchema)}`,
+        content: `${instructions}\n\n${MADHORSE_ENGINE_SYSTEM_REFERENCE_PROMPT}${body.data.useEgoCharacterTools ? '\n\nLOCAL CHARACTER TOOLS ARE ACTIVE: the client will create the requested supported character or creature as detailed editable anatomy and add an animation state controller. Do not build duplicate character bodies or generic stacks of primitive body parts. Use the plan for the surrounding scene, stage, equipment, props, lighting, and other requested non-character objects. Include a simple ground plane only when needed to make a character-only build usable in the scene.' : ''}\nSelected build type: ${categoryInstruction}\nVisual quality profile: ${styleDirections[body.data.style ?? 'polished-game-ready']}\n${responseBudgetInstructions}\nReturn ONLY a JSON object matching this exact output schema. Include title, summary, warnings and parts, even for unsupported requests. Do not invent a different command format. Omit optional fields that do not apply; only parentKey and assetId may be null.\n${JSON.stringify(builderPlanJsonSchema)}`,
       }, { role: 'user', content: referenceImages.length ? [
         { type: 'text', text: JSON.stringify({
           prompt: body.data.prompt,

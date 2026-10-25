@@ -14,6 +14,7 @@ import { usePbrTextures } from './use-pbr-textures';
 import { FloatingTransformToolbar } from './floating-transform-toolbar';
 import { SceneToolCursor, type SceneCursorTool } from './scene-tool-cursor';
 import { useSceneRenderSettings } from '@/hooks/use-scene-render-settings';
+import { getWebGLRenderProfile } from '@/lib/webgl-render-profile';
 import { publishDiagnostic } from '@/lib/system-diagnostics';
 import type { PbrMaterialDefinition } from '@/lib/pbr-material';
 import { getSceneObjectTypeLabel, SceneObjectGlyph } from './scene-object-glyph';
@@ -203,6 +204,7 @@ export function ScenePreview3D({
   const sceneBackground = skybox?.color ?? (gameView ? '#333538' : renderSettings.background);
   const hasAnimatedEffects = useMemo(() => entities.some(entity => getEffect(entity)?.enabled), [entities]);
   const [mobile, setMobile] = useState(false);
+  const webglProfile = getWebGLRenderProfile(renderSettings.quality, mobile);
   const rootRef = useRef<HTMLDivElement>(null);
   const performanceStatsRef = useRef<HTMLDivElement>(null);
   const cameraMarkerRef = useRef<HTMLButtonElement>(null);
@@ -214,9 +216,6 @@ export function ScenePreview3D({
   const [gameViewRotated, setGameViewRotated] = useState(false);
   const [cameraOrbitMode, setCameraOrbitMode] = useState<CanvasOrbitMode>('free');
   const editorCamera = primaryCamera ?? gameCamera;
-  const renderDpr: number | [number, number] = mobile || renderSettings.quality === 'performance'
-    ? 1
-    : renderSettings.quality === 'high' ? [1, 2] : [1, 1.5];
   const canOrbitGameCamera = Boolean(gameView && gameCamera && primaryCamera === gameCamera &&
     onPrimaryCameraChange && !readOnly);
   const frameCamera = () => { setSceneFocus(null); setZoom(100); setFrameToken((value) => value + 1); };
@@ -448,12 +447,12 @@ export function ScenePreview3D({
         >
         <Canvas
           camera={{ position: [0, 12, -16], fov: 48, near: 0.1, far: 3000 }}
-          dpr={renderDpr}
-          shadows={!mobile && renderSettings.quality === 'high' ? { type: THREE.PCFShadowMap } : false}
+          dpr={webglProfile.dpr}
+          shadows={webglProfile.shadows ? { type: THREE.PCFShadowMap } : false}
           frameloop={!staticPreview && (gameView || hasAnimatedEffects) ? 'always' : 'demand'}
           gl={{
-            antialias: !mobile,
-            powerPreference: !mobile && renderSettings.quality === 'high' ? 'high-performance' : 'low-power',
+            antialias: webglProfile.antialias,
+            powerPreference: webglProfile.powerPreference,
             alpha: false,
           }}
           onCreated={({ gl, scene }) => {

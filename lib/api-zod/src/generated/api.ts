@@ -9,6 +9,28 @@ import * as zod from 'zod';
 
 
 /**
+ * @summary Read the protected Madhorse Engine system reference
+ */
+export const GetMadBuilderSystemReferenceResponse = zod.object({
+  "version": zod.literal(1),
+  "title": zod.string(),
+  "policy": zod.string(),
+  "renderer": zod.object({
+  "name": zod.string(),
+  "target": zod.string(),
+  "qualityDefault": zod.string(),
+  "deviceTarget": zod.string(),
+  "fallback": zod.string()
+}),
+  "systems": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "summary": zod.string()
+}))
+})
+
+
+/**
  * @summary Plan an editable scene build using safe engine tools
  */
 export const planMadBuilderBodyPromptMin = 3;

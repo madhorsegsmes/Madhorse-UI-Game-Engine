@@ -12,7 +12,23 @@ tags:
     description: Health operations
   - name: multiplayer
     description: Temporary multiplayer rooms and lightweight play-test state sync
+  - name: mad-builder
+    description: Safe scene planning and protected engine reference data
 paths:
+  /mad-builder/system-reference:
+    get:
+      operationId: getMadBuilderSystemReference
+      tags: [mad-builder]
+      summary: Read the protected Madhorse Engine system reference
+      responses:
+        "200":
+          description: Versioned, read-only system reference for build tools
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MadHorseSystemReference"
+        "401":
+          description: Authentication is required
   /mad-builder/plan:
     post:
       operationId: planMadBuilder
@@ -220,6 +236,31 @@ components:
       type: http
       scheme: bearer
   schemas:
+    MadHorseSystemReference:
+      type: object
+      required: [version, title, policy, renderer, systems]
+      properties:
+        version: { type: integer, const: 1 }
+        title: { type: string }
+        policy: { type: string }
+        renderer:
+          type: object
+          required: [name, target, qualityDefault, deviceTarget, fallback]
+          properties:
+            name: { type: string }
+            target: { type: string }
+            qualityDefault: { type: string }
+            deviceTarget: { type: string }
+            fallback: { type: string }
+        systems:
+          type: array
+          items:
+            type: object
+            required: [id, name, summary]
+            properties:
+              id: { type: string }
+              name: { type: string }
+              summary: { type: string }
     MadBuilderInput:
       type: object
       required: [prompt, selectedName, assets]

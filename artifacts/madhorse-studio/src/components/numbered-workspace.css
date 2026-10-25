@@ -220,6 +220,16 @@ body::-webkit-scrollbar-thumb,
 .pbr-material-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .pbr-material-actions span { flex: 1; }
 .pbr-material-actions button { min-height: 31px; padding: 6px 10px; border: 1px solid #74514a; border-radius: 4px; background: #382522; color: #f2e5df; cursor: pointer; font: 600 11px/1 Inter, system-ui, sans-serif; }
+.engine-system-reference { border-color: #64413a; }
+.engine-system-reference .fresh-game-type-library-summary { display: flex; align-items: center; gap: 9px; }
+.engine-reference-lock { padding: 2px 5px; border: 1px solid #825347; border-radius: 3px; color: #e6a28d; font: 700 8px/1.3 Inter, system-ui, sans-serif; letter-spacing: .5px; }
+.engine-reference-policy { padding: 8px 10px; border-left: 2px solid #bd6954; background: #1c1817; color: #d7c6bd; font: 10px/1.5 Inter, system-ui, sans-serif; }
+.engine-reference-renderer { display: grid; gap: 4px; margin-bottom: 10px; padding: 9px 10px; border: 1px solid #433834; border-radius: 4px; color: #bdb0a9; font: 10px/1.45 Inter, system-ui, sans-serif; }
+.engine-reference-renderer strong { color: #e9d8cf; }
+.engine-reference-systems { display: grid; gap: 5px; max-height: 390px; margin: 0; padding: 0 3px 0 0; overflow: auto; list-style: none; }
+.engine-reference-systems li { display: grid; gap: 3px; padding: 7px 9px; border: 1px solid #332c29; border-radius: 4px; background: #191615; }
+.engine-reference-systems li strong { color: #e3c4b4; font: 650 10px/1.35 Inter, system-ui, sans-serif; }
+.engine-reference-systems li span { color: #b6a9a2; font: 9px/1.45 Inter, system-ui, sans-serif; }
 @media (max-width: 650px) {
   .pbr-material-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); }
   .pbr-material-editor-form { max-height: calc(100dvh - 105px); padding: 12px; }

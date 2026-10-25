@@ -55,6 +55,7 @@ import {
 } from '@/lib/multiplayer-client';
 import { applyMultiplayerSnapshot, createMultiplayerUpdate } from '@/lib/multiplayer-runtime';
 import { SceneObjectInspector } from './scene-object-inspector';
+import { EngineSystemReferencePanel } from './engine-system-reference-panel';
 import { PbrMaterialEditor } from './pbr-material-editor';
 import { SystemDebugger } from './system-debugger';
 import {
@@ -539,6 +540,7 @@ function SettingsPanel({
                   {ENGINE_EDITOR_PERFORMANCE_REFERENCE}
                 </pre>
               </details>
+              <EngineSystemReferencePanel />
               <div className="fresh-builder-log" role="region" aria-label="Read-only Mad Builder build log" data-testid="builder-log-readonly">
                 <div className="fresh-builder-log-heading">
                   <div>

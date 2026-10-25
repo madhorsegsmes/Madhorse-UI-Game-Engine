@@ -5,6 +5,28 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type MadHorseSystemReferenceRenderer = {
+  name: string;
+  target: string;
+  qualityDefault: string;
+  deviceTarget: string;
+  fallback: string;
+};
+
+export type MadHorseSystemReferenceSystemsItem = {
+  id: string;
+  name: string;
+  summary: string;
+};
+
+export interface MadHorseSystemReference {
+  version: 1;
+  title: string;
+  policy: string;
+  renderer: MadHorseSystemReferenceRenderer;
+  systems: MadHorseSystemReferenceSystemsItem[];
+}
+
 /**
  * Selected target type. Vehicle, house, RTS world, and fighting builds use their matching protected reference; auto follows the prompt.
  */
