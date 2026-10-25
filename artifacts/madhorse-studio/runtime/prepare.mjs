@@ -1,17 +1,33 @@
 import { build } from 'esbuild';
 import { createRequire } from 'node:module';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { capDefinedMemory, capPythonLoader, memoryLimits } from './memory-limits.mjs';
+import { prepareRuntimeCache } from './cache.mjs';
 
 const require = createRequire(import.meta.url);
 const appRoot = path.resolve(import.meta.dirname, '..');
-export const runtimeDirectory = path.join(appRoot, 'node_modules/.cache/madhorse-runtimes');
+// Runtime source, safety patches and dependency changes invalidate the cache.
+const fingerprint = createHash('sha256');
+for (const file of ['prepare.mjs', 'cache.mjs', 'memory-limits.mjs', 'javascript.mjs', 'lua.mjs', 'runner.js']) {
+  fingerprint.update(file).update(readFileSync(path.join(import.meta.dirname, file)));
+}
+fingerprint.update(readFileSync(path.resolve(appRoot, '../../pnpm-lock.yaml')));
+export const runtimeDirectory = path.join(appRoot, 'node_modules/.cache/madhorse-runtimes', fingerprint.digest('hex').slice(0, 24));
 const packageDirectory = (name) => path.dirname(require.resolve(name));
 
-export async function prepareRuntimes() {
+async function settleJobs(jobs) {
+  const results = await Promise.allSettled(jobs);
+  const failed = results.find(result => result.status === 'rejected');
+  if (failed) throw failed.reason;
+}
+
+export function prepareRuntimes() {
+  return prepareRuntimeCache(runtimeDirectory, async (runtimeDirectory) => {
   await mkdir(runtimeDirectory, { recursive: true });
-  await Promise.all([
+  await settleJobs([
     cp(packageDirectory('pyodide'), path.join(runtimeDirectory, 'python'), {
       recursive: true,
       filter: (file) => !/\.(map|ts|html|md)$/.test(file),
@@ -66,7 +82,7 @@ export async function prepareRuntimes() {
     minify: true,
     sourcemap: false,
   };
-  await Promise.all([
+  await settleJobs([
     build({
       ...common,
       entryPoints: [path.join(import.meta.dirname, 'javascript.mjs')],
@@ -99,6 +115,7 @@ export async function prepareRuntimes() {
     }),
     cp(path.join(import.meta.dirname, 'runner.js'), path.join(runtimeDirectory, 'runner.js')),
   ]);
+  });
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename)) {

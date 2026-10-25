@@ -162,3 +162,17 @@ an unsuitable interaction can falsely suggest a snapping defect.
 **How to apply:** Use the installed viewport control implementation for
 renderer-free pointer/transform checks when GPU capture is unavailable, and
 keep that evidence distinct from visual verification of the real GPU viewport.
+
+## Runtime preparation during workflow restarts
+
+Treat scripting-runtime preparation as potentially concurrent across processes.
+Never repair startup by bypassing memory-limit patches or exposing raw package
+distributions while preparation is incomplete.
+
+**Why:** Automatic merge/restart activity exposed an overlapping runtime-copy
+failure before Studio could open its port. Runtime preparation also applies
+the loader/WASM safety boundaries, so partial publication is not merely cosmetic.
+
+**How to apply:** Keep completed runtime versions immutable, invalidate caches
+when their safety code or dependencies change, and only publish fully patched
+output. Any cache cleanup must preserve versions still used by live services.
