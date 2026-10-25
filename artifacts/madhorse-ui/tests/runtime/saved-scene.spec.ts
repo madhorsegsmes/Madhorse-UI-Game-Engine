@@ -78,26 +78,37 @@ test('new projects open in the chosen 2D or 3D view and retain it after switchin
   await dialog.locator('input[name="new-project-preview-mode"][value="3d"]').check();
   await dialog.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect(page.getByTestId('tab-scene-3d')).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByTestId('scene-preview-3d')).toHaveAttribute('data-scene-entity-count', '2');
+  await expect(page.getByTestId('scene-preview-3d')).toHaveAttribute('data-scene-entity-count', '4');
   await expect.poll(() => page.evaluate((key) => JSON.parse(localStorage.getItem(key)!)
     .find((project: { name: string }) => project.name === 'Three Dimensional')?.previewMode, storageKey))
     .toBe('3d');
   const saved3d = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!)
     .find((project: { name: string }) => project.name === 'Three Dimensional'), storageKey);
+  expect(saved3d.physics.dimension).toBe('3d');
   expect(saved3d.entities).toEqual(expect.arrayContaining([
     expect.objectContaining({ id: 'starter-cube', name: 'Cube' }),
+    expect.objectContaining({ id: 'starter-ground', name: 'Ground' }),
+    expect.objectContaining({ id: 'starter-directional-light', name: 'Directional Light' }),
   ]));
 
   await createProject(page, 'Two Dimensional', '2d');
   await expect(page.getByTestId('tab-scene-2d')).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('scene-player')).toBeVisible();
   await expect(page.getByTestId('scene-preview')).toHaveClass(/scene-preview-2d/);
+  await expect.poll(() => page.evaluate((key) => JSON.parse(localStorage.getItem(key)!)
+    .find((project: { name: string }) => project.name === 'Two Dimensional')?.physics?.dimension, storageKey))
+    .toBe('2d');
+  const saved2d = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!)
+    .find((project: { name: string }) => project.name === 'Two Dimensional'), storageKey);
+  expect(saved2d.physics.dimension).toBe('2d');
+  expect(saved2d.entities.some((entity: { id: string }) =>
+    entity.id === 'starter-ground' || entity.id === 'starter-directional-light')).toBe(false);
 
   await page.getByLabel('Choose project').selectOption({ label: 'Three Dimensional' });
   await expect(page.getByTestId('tab-scene-3d')).toHaveAttribute('aria-selected', 'true');
   await page.reload();
   await expect(page.getByTestId('tab-scene-3d')).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByTestId('scene-preview-3d')).toHaveAttribute('data-scene-entity-count', '2');
+  await expect(page.getByTestId('scene-preview-3d')).toHaveAttribute('data-scene-entity-count', '4');
 
   await page.getByLabel('Project actions').click();
   await page.getByLabel('Choose project').selectOption({ label: 'Two Dimensional' });
@@ -105,6 +116,41 @@ test('new projects open in the chosen 2D or 3D view and retain it after switchin
   await page.reload();
   await expect(page.getByTestId('tab-scene-2d')).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('scene-player')).toBeVisible();
+});
+
+test('3D starter objects can be edited or removed and stay that way after reload', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Project actions').click();
+  await createProject(page, 'Editable 3D', '3d');
+  await expect.poll(() => page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? '[]')
+    .find((project: { name: string }) => project.name === 'Editable 3D')?.id, storageKey))
+    .toBeTruthy();
+  const hierarchy = page.getByTestId('hierarchy-panel');
+  if (!await hierarchy.isVisible()) await page.locator('.workspace-browser-hierarchy > summary').click();
+  await page.getByTestId('select-object-starter-directional-light').click();
+  await page.locator('.workspace-browser-data > summary').click();
+  await page.getByTestId('input-object-name').fill('Key Light');
+  await expect.poll(() => page.evaluate((key) => JSON.parse(localStorage.getItem(key)!)
+    .find((project: { name: string }) => project.name === 'Editable 3D')
+    .entities.find((entity: { id: string }) => entity.id === 'starter-directional-light').name, storageKey))
+    .toBe('Key Light');
+
+  await page.locator('.workspace-browser-hierarchy > summary').click();
+  await page.getByTestId('select-object-starter-ground').click();
+  await page.locator('.workspace-browser-data > summary').click();
+  await page.getByTestId('remove-object').click();
+  await page.getByTestId('confirm-remove-object-button').click();
+  await expect.poll(() => page.evaluate((key) => JSON.parse(localStorage.getItem(key)!)
+    .find((project: { name: string }) => project.name === 'Editable 3D')
+    .entities.some((entity: { id: string }) => entity.id === 'starter-ground'), storageKey))
+    .toBe(false);
+
+  await page.reload();
+  const restored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!)
+    .find((project: { name: string }) => project.name === 'Editable 3D'), storageKey);
+  expect(restored.entities.find((entity: { id: string }) => entity.id === 'starter-directional-light').name)
+    .toBe('Key Light');
+  expect(restored.entities.some((entity: { id: string }) => entity.id === 'starter-ground')).toBe(false);
 });
 
 test('invalid drafts cannot save, and old or malformed saved positions use the default', async ({ page }) => {

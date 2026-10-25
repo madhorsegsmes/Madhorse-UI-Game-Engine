@@ -99,6 +99,7 @@ export function SceneRenderFallback({
       scene.add(object);
 
       const primitive = getPrimitive(entity);
+      const light = getLight(entity);
       if (primitive?.enabled) {
         const geometry = createPrimitiveGeometry(primitive.shape, primitive.heightfield);
         const material = new THREE.MeshStandardMaterial({
@@ -117,6 +118,12 @@ export function SceneRenderFallback({
           geometries.add(edgeGeometry);
           materials.add(edgeMaterial);
         }
+        geometries.add(geometry);
+        materials.add(material);
+      } else if (light?.enabled) {
+        const geometry = new THREE.SphereGeometry(0.22, 12, 8);
+        const material = new THREE.MeshBasicMaterial({ color: light.color, wireframe: true });
+        object.add(new THREE.Mesh(geometry, material));
         geometries.add(geometry);
         materials.add(material);
       } else {

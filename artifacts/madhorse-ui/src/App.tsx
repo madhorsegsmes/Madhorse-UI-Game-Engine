@@ -52,6 +52,7 @@ import {
   createDefaultPlayer,
   createDefaultPhysicsWorldSettings,
   createStarterCube,
+  createStarter3DSceneEntities,
   getPhysicsComponent,
   getPrimitive,
   getSpriteRenderer,
@@ -441,6 +442,7 @@ function Home() {
     if (!name) return;
     runnerRef.current?.stop();
     setPhysicsPlaying(false);
+    const physics = createDefaultPhysicsWorldSettings(newProjectPreviewMode);
     const project = {
       id: crypto.randomUUID(),
       name,
@@ -448,9 +450,11 @@ function Home() {
       savedAt: '',
       previewMode: newProjectPreviewMode,
       scripts: [],
-      entities: [createDefaultPlayer(), createStarterCube()],
+      entities: newProjectPreviewMode === '3d'
+        ? createStarter3DSceneEntities()
+        : [createDefaultPlayer(), createStarterCube()],
       assets: [],
-      physics: createDefaultPhysicsWorldSettings(),
+      physics,
       animations: [],
       uiControls: [],
       gameCamera: createGameCamera([]),
@@ -1098,7 +1102,7 @@ function Home() {
                     onChange={() => setNewProjectPreviewMode('3d')}
                   />
                   <span className="new-project-mode-title">3D Scene Preview</span>
-                  <span className="new-project-mode-description">Open the editable starter Cube in the scene.</span>
+                  <span className="new-project-mode-description">Start with an editable Cube, ground, and directional light.</span>
                 </label>
               </fieldset>
               <div className="new-project-actions">

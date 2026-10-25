@@ -181,6 +181,56 @@ export function createStarterCube(): SceneEntity {
   };
 }
 
+export function createStarterGround(): SceneEntity {
+  const physics = createPhysicsComponent('static');
+  physics.size = { x: 100, y: 100, z: 0.1 };
+  return {
+    id: 'starter-ground',
+    name: 'Ground',
+    parentId: null,
+    active: true,
+    components: [
+      createTransformComponent({ x: 50, y: 50, z: 0 }),
+      {
+        id: crypto.randomUUID(),
+        type: 'primitive',
+        enabled: true,
+        shape: 'plane',
+        color: '#71816d',
+        textureAssetId: null,
+      },
+      physics,
+    ],
+  };
+}
+
+export function createStarterDirectionalLight(): SceneEntity {
+  return {
+    id: 'starter-directional-light',
+    name: 'Directional Light',
+    parentId: null,
+    active: true,
+    components: [
+      createTransformComponent({ x: 70, y: 30, z: 80 }),
+      {
+        id: crypto.randomUUID(),
+        type: 'light',
+        enabled: true,
+        kind: 'directional',
+        color: '#fff0d6',
+        intensity: 2,
+      },
+    ],
+  };
+}
+
+export function createStarter3DSceneEntities(): SceneEntity[] {
+  const player = createDefaultPlayer();
+  const cube = createStarterCube();
+  getTransform(cube).position.z = 5;
+  return [player, cube, createStarterGround(), createStarterDirectionalLight()];
+}
+
 export function createSceneEntity(
   name: string,
   position: Vector3 = { x: 50, y: 50, z: 0 },

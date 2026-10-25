@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { createDefaultPhysicsWorldSettings, createStarterCube, createDefaultPlayer, getPhysicsComponent, getPrimitive, getTransform, isSceneGraph } from '../../src/lib/scene-model';
+import { createDefaultPhysicsWorldSettings, createStarterCube, createStarter3DSceneEntities, createDefaultPlayer, getPhysicsComponent, getPrimitive, getTransform, isSceneGraph } from '../../src/lib/scene-model';
 import { createGameCamera } from '../../src/lib/game-camera';
 import { createPrimitiveGeometry } from '../../src/lib/scene-view-geometry';
 
@@ -15,6 +15,27 @@ test('starter cube is a centered, editable 3D solid with a matching static colli
   expect(isSceneGraph([createDefaultPlayer(), cube])).toBe(true);
   expect(createGameCamera([createDefaultPlayer(), cube]).target).toEqual({ x: 0, y: 0, z: 0 });
   geometry.dispose();
+});
+
+test('3D starter scene includes a visible ground, matching static collider, and directional light', () => {
+  const entities = createStarter3DSceneEntities();
+  const cube = entities.find((entity) => entity.id === 'starter-cube')!;
+  const ground = entities.find((entity) => entity.id === 'starter-ground')!;
+  const light = entities.find((entity) => entity.id === 'starter-directional-light')!;
+  const plane = getPrimitive(ground);
+  const collider = getPhysicsComponent(ground);
+  expect(plane).toMatchObject({ shape: 'plane', enabled: true, color: '#71816d', textureAssetId: null });
+  expect(getTransform(ground)).toMatchObject({ position: { x: 50, y: 50, z: 0 } });
+  expect(collider).toMatchObject({
+    bodyType: 'static', colliderEnabled: true, size: { x: 100, y: 100, z: 0.1 },
+  });
+  expect(getPrimitive(cube)).toMatchObject({ shape: 'cube' });
+  expect(getTransform(cube).position.z).toBe(5);
+  expect(light.components.find((component) => component.type === 'light')).toMatchObject({
+    kind: 'directional', enabled: true, intensity: 2,
+  });
+  expect(light.components.find((component) => component.type === 'physics')).toBeUndefined();
+  expect(isSceneGraph(entities)).toBe(true);
 });
 
 test('fresh projects show the cube in 3D, keep the 2D player intact, and migrate only once', async ({ page, browser }) => {
@@ -34,6 +55,7 @@ test('fresh projects show the cube in 3D, keep the 2D player intact, and migrate
   expect(saved.entities.map((entity: { id: string }) => entity.id)).toEqual(['player', 'starter-cube']);
   await page.getByTestId('tab-scene-3d').click();
   await expect(page.getByTestId('scene-preview-3d')).toHaveAttribute('data-scene-entity-count', '2');
+  await page.waitForTimeout(400);
 
   await page.evaluate(() => {
     const projects = JSON.parse(localStorage.getItem('madhorse-ui-projects')!);
@@ -45,6 +67,7 @@ test('fresh projects show the cube in 3D, keep the 2D player intact, and migrate
   await expect.poll(async () => (await project()).entities.length).toBe(2);
   saved = await project();
   expect(saved.starterSceneInitialized).toBe(true);
+  await page.waitForTimeout(400);
 
   await page.evaluate(() => {
     const projects = JSON.parse(localStorage.getItem('madhorse-ui-projects')!);
