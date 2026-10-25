@@ -22,11 +22,11 @@ import { PIXEL_RPG_CONTROLS } from '@/lib/pixel-rpg-starter';
 const fightingStarterVision = 'A fixed side-view 3D fighting game with detailed human fighters, editable combat actions and HUD, plus imported FBX fighters and high-resolution stage assets.';
 const rtsStarterVision = 'An editable isometric medieval RTS settlement in Sunstone Vale: a fortified keep, terracotta cottages, market roads, crop farms, wooded edges, resource sites, human squads, and an eastern outpost.';
 
-type StarterChoice = '2d-fighting' | 'rts' | 'fps' | 'third-person-shooter' | 'mmorpg' | '2d-rpg' | 'cart-racer' | 'card-duel';
+type StarterChoice = '2d-fighting' | 'rts' | 'fps' | 'third-person-shooter' | 'mmorpg' | '2d-rpg' | 'cart-racer' | 'card-duel' | 'basketball' | 'blank';
 
 function readStarterChoice(): StarterChoice | null {
   const requested = new URLSearchParams(window.location.search).get('starter');
-  return requested === 'card-duel' || requested === 'cart-racer' || requested === 'rts' || requested === '2d-fighting' || requested === '2d-rpg' || requested === 'fps' ||
+  return requested === 'basketball' || requested === 'blank' || requested === 'card-duel' || requested === 'cart-racer' || requested === 'rts' || requested === '2d-fighting' || requested === '2d-rpg' || requested === 'fps' ||
     requested === 'third-person-shooter' || requested === 'mmorpg'
     ? requested
     : null;
@@ -43,8 +43,9 @@ function createStarterSnapshot(projectName: string, choice: StarterChoice, fight
   const isPixelRpg = choice === '2d-rpg';
   const isCartRacer=choice==='cart-racer';
   const isCardDuel=choice==='card-duel';
+  const isBasketball=choice==='basketball',isBlank=choice==='blank';
   const starter = createGameStarterKit(
-    isCardDuel ? 'card-duel' : isCartRacer ? 'cart-racer' : isPixelRpg ? 'pixel-rpg' : isFps ? 'shooter' : isRts ? 'rts' : isThirdPerson ? 'third-person-shooter' : isMmorpg ? 'mmorpg' : 'fighting',
+    isBlank?'blank':isBasketball?'basketball':isCardDuel ? 'card-duel' : isCartRacer ? 'cart-racer' : isPixelRpg ? 'pixel-rpg' : isFps ? 'shooter' : isRts ? 'rts' : isThirdPerson ? 'third-person-shooter' : isMmorpg ? 'mmorpg' : 'fighting',
     { x: -15, y: 50, z: 0 },
     fighterAppearances,
   );
@@ -66,11 +67,13 @@ function createStarterSnapshot(projectName: string, choice: StarterChoice, fight
         : { x: 0, y: 1.2, z: 0 };
   camera.fov = isFps ? 70 : isRts ? 43 : isThirdPerson || isMmorpg || isCartRacer ? 55 : 42;
   camera.placement = 'custom';
-  const uiControls = isPixelRpg || isCartRacer || isCardDuel ? [] : createEgoUiKit([isFps || isThirdPerson ? 'shooter' : isRts ? 'rts' : 'fighting'], 0);
+  if(isBasketball){camera.position={x:17.25,y:16.8,z:-22.96};camera.target={x:0,y:1,z:0};camera.fov=52;}
+  const uiControls = isPixelRpg || isCartRacer || isCardDuel || isBasketball || isBlank ? [] : createEgoUiKit([isFps || isThirdPerson ? 'shooter' : isRts ? 'rts' : 'fighting'], 0);
   return {
     snapshot: {
       projectName,
-      egoGameVision: isCardDuel ? 'Card Duel · Astral Nexus: an original three-lane collectible-card duel against Nova, with 20-card decks, 4000 starting life points, opening creatures for beginners, one normal summon each turn, tribute summons, attack/defense positions, spells, reactive wards, a computer opponent, victory/defeat and deck-out rules. Cards, art, deck copies, life and names remain editable. This is an original beginner starter, not a Yu-Gi-Oh rules emulator or licensed card collection.'
+      egoGameVision: isBlank?'':isBasketball?'Sports · 3D Basketball: original Metro Comets versus Harbor Waves in an editable 3v3 arena. A three-minute exhibition with computer teammates and rivals, timed shot release, physical shot arcs, two/three-point scoring, dribbling, passes, interceptions, steals, rebounds and a 24-second possession clock. This is the first sports starter, not a full NBA 2K simulation. Other sports and licensed players are not included.'
+        : isCardDuel ? 'Card Duel · Astral Nexus: an original three-lane collectible-card duel against Nova, with 20-card decks, 4000 starting life points, opening creatures for beginners, one normal summon each turn, tribute summons, attack/defense positions, spells, reactive wards, a computer opponent, victory/defeat and deck-out rules. Cards, art, deck copies, life and names remain editable. This is an original beginner starter, not a Yu-Gi-Oh rules emulator or licensed card collection.'
         : isCartRacer ? 'Cart Racer Stylized: an original pastel 3D solo kart time trial with an editable turquoise kart, helmeted driver, oval track, candy curbs, checkpoint arches, arcade steering and a three-lap finish. No AI opponents or power-ups are included in this starter.'
         : isPixelRpg ? 'An original color-handheld-style 2D pixel RPG: Mosslight Trail village, grid exploration, talking neighbors, healing, wild creature encounters, turn-based combat, capture orbs, an editable companion and a first capture-and-return quest.'
         : isMmorpg ? 'A multiplayer fantasy role-playing world with a detailed third-person hero, first-person view toggle, settlement, quests, NPCs, melee combat, spells, health, inventory, gathering, crafting, and editable story progression.'
@@ -78,7 +81,8 @@ function createStarterSnapshot(projectName: string, choice: StarterChoice, fight
         : isThirdPerson ? 'Third-person tactical shooter with a detailed human operative, an over-the-shoulder camera, editable cover, a modular carbine, targets, collision-aware shooting, ammo, reload, sprint, crouch, jump, and multiplayer movement.'
           : isRts ? rtsStarterVision : fightingStarterVision,
       egoGameFlow: 'undecided',
-      egoGameNotes: isCardDuel ? 'Click cards to choose actions. Summon once in Main; tribute one monster for levels 5–6 or two for levels 7–8. Play spells, set wards, choose Battle, then select your attacker and an enemy zone (or Attack directly when their field is empty). No attacks on turn 1. End Turn lets Nova play. Life reaching zero or drawing from an empty deck ends the duel. Stop and replay to reset. In the Hierarchy, rename cards and edit Card Duel settings or replace their Sprite Renderer art. Edit Duel Table for life, names, opening hand, opening monsters and background.'
+      egoGameNotes: isBlank?'':isBasketball?'Click the court to focus. WASD/arrows move, Shift sprints, hold Space then release near the green band to shoot, E passes and switches to the receiver, Q switches home teammates, F tries a nearby steal. On-screen buttons offer the same actions. Stop/replay resets the exhibition. Edit Arena basketball settings for names, match time and court bounds; edit players, hoop rim centers, court meshes, materials and textures in the Hierarchy. Simple exhibition rules only: no fouls, franchise/career mode or online sports matchmaking.'
+        : isCardDuel ? 'Click cards to choose actions. Summon once in Main; tribute one monster for levels 5–6 or two for levels 7–8. Play spells, set wards, choose Battle, then select your attacker and an enemy zone (or Attack directly when their field is empty). No attacks on turn 1. End Turn lets Nova play. Life reaching zero or drawing from an empty deck ends the duel. Stop and replay to reset. In the Hierarchy, rename cards and edit Card Duel settings or replace their Sprite Renderer art. Edit Duel Table for life, names, opening hand, opening monsters and background.'
         : isCartRacer ? 'W/Up: accelerate · S/Down: brake/reverse · A/D or Left/Right: steer. Driving starts automatically. Drive North → West → South → Finish, in order, for three laps. Lap, checkpoint, elapsed and best-lap times appear in Play/Test. Stop and replay to reset. Edit the kart, road, barriers, gate order, laps, speed and steering in the Hierarchy and object settings.'
         : isPixelRpg ? PIXEL_RPG_CONTROLS : isMmorpg
         ? 'MMORPG starter controls: WASD to move, F to fight, Q to cast, H to heal, G to gather, K to craft, U to recruit a companion, Shift to run, C to crouch, E to interact, and V to switch between first- and third-person views. Use Multiplayer Tools to host or join a room (up to 32 players). This is an editable multiplayer starter, not a persistent MMO service.'
@@ -313,7 +317,7 @@ export default function StudioProjects() {
           }
         }}>
         <h2 id="project-name-heading">{mode === 'template'
-          ? templateChoice === 'card-duel' ? 'Name your Card Duel project'
+          ? templateChoice === 'blank'?'Name your Blank Canvas project':templateChoice==='basketball'?'Name your 3D Basketball project':templateChoice === 'card-duel' ? 'Name your Card Duel project'
             : templateChoice === 'cart-racer' ? 'Name your Cart Racer Stylized project'
             : templateChoice === '2d-rpg' ? 'Name your 2D RPG'
             : templateChoice === 'mmorpg' ? 'Name your MMORPG'
@@ -322,7 +326,7 @@ export default function StudioProjects() {
               : templateChoice === 'rts' ? 'Name your RTS project' : 'Name your 2D/3D fighting game'
           : mode === 'new' ? 'New project' : mode === 'rename' ? 'Rename project' : 'Name your project'}</h2>
         <p>{mode === 'template'
-          ? templateChoice === 'card-duel' ? 'Create Astral Nexus, an original three-lane card duel with original artwork, editable 20-card decks, monster summons, spells, wards and a playable computer rival. Your existing projects remain untouched.'
+          ? templateChoice==='blank'?'Start with an empty scene and no template assets, characters or game rules. All building tools remain available. Your existing projects remain untouched.':templateChoice==='basketball'?'Create an original 3D basketball arena with six athletes, computer teammates and opponents, passing, timed shots, scoring and editable match settings. Your existing projects remain untouched.':templateChoice === 'card-duel' ? 'Create Astral Nexus, an original three-lane card duel with original artwork, editable 20-card decks, monster summons, spells, wards and a playable computer rival. Your existing projects remain untouched.'
             : templateChoice === 'cart-racer' ? 'Create an original pastel 3D kart time trial: editable kart, colorful oval track, checkpoint arches, three laps, timing and a chase camera. Accelerate with W, brake with S and steer with A/D. Your existing projects remain untouched.'
             : templateChoice === '2d-rpg' ? 'Create Mosslight Trail: an original color-handheld-style 2D RPG with an editable pixel town, sprites, talking neighbors, healing, creature battles, capture orbs and a first quest. Use WASD/arrows, E to talk and battle keys 1–3. Your other projects remain untouched.'
             : templateChoice === 'mmorpg' ? 'Create an editable fantasy MMORPG starter with a detailed hero, quest guide, settlement, combat, spells, inventory, gathering, crafting, and a V key to switch between first- and third-person views. Multiplayer rooms support up to 32 players. This is a playable starter, not a persistent MMO service; your other projects remain untouched.'

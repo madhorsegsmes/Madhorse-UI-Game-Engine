@@ -1,6 +1,7 @@
 import { actionKeyOptions } from './player-action-model';
 
 export const gameFeatureNames = [
+  'basketball',
   'card-duel',
   'cart-racer',
   'health', 'inventory', 'interact', 'pickup', 'door', 'checkpoint',
@@ -22,6 +23,21 @@ export type GameFeatureComponent = {
   clipAssetId?: string | null; volume?: number;
 };
 export const gameFeatureDefinitions: Record<GameFeatureName, GameFeatureDefinition> = {
+  basketball:{
+    label:'3D Basketball',help:'An original 3v3 exhibition. Choose Arena for match rules, Player for an athlete, Ball for the game ball or Hoop for the physical rim center. Home attacks the Home hoop. WASD moves, Space charges/releases a shot, E passes, Q switches teammates and F attempts a steal. Play/Test never changes the authored court.',
+    fields:[
+      {name:'role',label:'Sports object',type:'select',default:'player',options:['arena','player','ball','hoop','indicator'].map(value=>({value,label:value[0].toUpperCase()+value.slice(1)}))},
+      {name:'team',label:'Team / attacking team for a hoop',type:'select',default:'home',options:[{value:'home',label:'Home'},{value:'away',label:'Away'}]},
+      {name:'controlled',label:'Start as this home player',type:'boolean',default:false},
+      {name:'jerseyNumber',label:'Jersey number',type:'number',default:1,min:1,max:99,integer:true},
+      {name:'moveSpeed',label:'Player speed (metres per second)',type:'number',default:5,min:1,max:12},
+      {name:'matchSeconds',label:'Arena: exhibition length (seconds)',type:'number',default:180,min:30,max:3600,integer:true},
+      {name:'courtWidth',label:'Arena: court width (metres)',type:'number',default:15,min:10,max:40},
+      {name:'courtLength',label:'Arena: court length (metres)',type:'number',default:28,min:20,max:60},
+      {name:'homeName',label:'Arena: home team name',type:'text',default:'Metro Comets',min:1,max:40},
+      {name:'awayName',label:'Arena: away team name',type:'text',default:'Harbor Waves',min:1,max:40},
+    ],
+  },
   'card-duel': {
     label:'Card Duel',help:'Choose Duel table for the rules, or Card for a deck entry. Rename cards in the Hierarchy, edit their stats here and replace artwork in Sprite Renderer. Both decks use shared cards unless you choose a specific owner. Play/Test runs a temporary duel against the computer.',
     fields:[

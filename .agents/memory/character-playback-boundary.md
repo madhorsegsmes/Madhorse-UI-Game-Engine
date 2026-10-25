@@ -26,3 +26,14 @@ away from the opponent even though the logical attack hits.
 
 **How to apply:** Verify the model's actual front direction and both fighters'
 world-space facing, not just numeric yaw values.
+
+Preserve generated character identity when adding friendly athlete or NPC labels.
+Put custom display labels on a grouping object rather than changing the identity
+used to recognize the smooth body and skin rig.
+
+**Why:** A sports starter's friendly mesh-root rename disabled native smooth-body
+recognition and temporary rig playback, leaving the anatomy pieces uncombined.
+
+**How to apply:** Check that newly assembled characters still qualify for the
+native body renderer and receive a temporary animation pose before assessing
+model quality. Verify clothing remains attached to that same rig.

@@ -120,6 +120,13 @@ export function createCharacterSkinRig(body: CharacterBodyMesh) {
       const hand = segments[byName.get(`${name}-hand`)!];
       const shoulder = upper.start.clone().add(offset);
       const wrist = fore.end.clone().add(offset);
+      if(pose.basketball){
+        const sports=pose.basketball;
+        wrist.copy(v(side*.23,1.05+stride*side*.08,.16).multiplyScalar(unit).add(offset));
+        if(sports.dribble&&side===1)wrist.copy(v(.34,.92+Math.abs(Math.sin(time*10))*.25,.14).multiplyScalar(unit).add(offset));
+        wrist.lerp(v(side*.13,1.88,.27).multiplyScalar(unit).add(offset),sports.shoot);
+        wrist.lerp(v(side*.18,1.38,.49).multiplyScalar(unit).add(offset),sports.passing);
+      }
       if (pose?.blocking) wrist.add(v(side * .025, .13, -.01).multiplyScalar(unit));
       const strike = kind === 'light-attack' && side === -1 || kind === 'heavy-attack' && side === 1;
       if (strike) wrist.lerp(v(side * .2, 1.43, .53).multiplyScalar(unit).add(offset), amount);

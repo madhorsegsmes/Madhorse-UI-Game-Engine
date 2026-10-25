@@ -5,6 +5,8 @@ import { defaultFightingAppearancePair, type FightingAppearancePair } from '@/li
 import { FightingCharacterCustomization } from './fighting-character-customization';
 
 const icons: Record<GameStarterKitId, typeof Crosshair> = {
+  basketball:Globe2,
+  blank:Compass,
   shooter: Crosshair,
   'third-person-shooter': Crosshair,
   mmorpg: Globe2,

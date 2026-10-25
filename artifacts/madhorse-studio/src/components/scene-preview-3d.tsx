@@ -57,6 +57,8 @@ import { isPixelRpgScene } from '@/lib/pixel-rpg-runtime';
 import { PixelRpgViewport } from './pixel-rpg-viewport';
 import {isCardDuelScene} from '@/lib/card-duel-runtime';
 import {CardDuelViewport} from './card-duel-viewport';
+import {isBasketballScene} from '@/lib/basketball-runtime';
+import {BasketballViewport} from './basketball-viewport';
 
 export type ScenePreview3DProps = {
   /** Explicit playback state for runtimes that also have a non-playing game view. */
@@ -203,6 +205,9 @@ function TriggerZoneOutline({ zone }: { zone: TriggerZoneComponent }) {
 }
 
 export function ScenePreview3D(props: ScenePreview3DProps) {
+  if(isBasketballScene(props.entities))return <BasketballViewport {...props}
+    playing={Boolean(props.gameRunning??(props.gameView&&props.readOnly&&!props.staticPreview))}
+    renderScene={sceneProps=><StandardScenePreview3D {...sceneProps}/>}/>;
   if(isCardDuelScene(props.entities))return <CardDuelViewport {...props}
     playing={Boolean(props.gameRunning ?? (props.gameView&&props.readOnly&&!props.staticPreview))}/>;
   if (isPixelRpgScene(props.entities)) return <PixelRpgViewport {...props}

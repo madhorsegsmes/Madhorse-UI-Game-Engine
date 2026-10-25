@@ -71,7 +71,7 @@ const fightingFallbackSettings = {
   background: '#333538',
 };
 
-type HubStarterKind = Extract<GameStarterKitId, 'fighting' | 'rts' | 'shooter' | 'third-person-shooter' | 'mmorpg' | 'pixel-rpg' | 'cart-racer' | 'card-duel'>;
+type HubStarterKind = Extract<GameStarterKitId, 'fighting' | 'rts' | 'shooter' | 'third-person-shooter' | 'mmorpg' | 'pixel-rpg' | 'cart-racer' | 'card-duel' | 'basketball' | 'blank'>;
 
 function templatePreviewCamera(kind: HubStarterKind, aspect: number, playerWorld: { x: number; z: number }) {
   if(kind==='cart-racer')return {
@@ -119,6 +119,8 @@ function FightingGamePreview({ kind }: { kind: HubStarterKind }) {
   const playerWorld = { x: (playerTransform.x - 50) / 10, z: (playerTransform.y - 50) / 10 };
   const [camera, setCamera] = useState(() => templatePreviewCamera(kind, 16 / 9, playerWorld));
   const previewLabels: Record<HubStarterKind, [string, string]> = {
+    basketball:['SPORTS · BASKETBALL','EDITABLE 3D ARENA'],
+    blank:['BLANK CANVAS','START FROM SCRATCH'],
     'card-duel':['CARD DUEL','PLAYER VS COMPUTER'],
     'cart-racer':['CART RACER STYLIZED','EDITABLE 3D TRACK'],
     'pixel-rpg': ['2D RPG', 'EDITABLE RPG WORLD'],
@@ -352,6 +354,18 @@ export default function HubPage() {
                 <p>Fast three-lane duels against Nova: summon original monsters, tribute for stronger cards, cast spells and set wards. Edit both 20-card decks, artwork, stats and life points.</p>
               </div>
               <span className="hub-card-link">CREATE CARD DUEL <ArrowUpRight size={15}/></span>
+            </a>
+            <a className="hub-pathway-card hub-pathway-studio" href={`${studioPath}?starter=basketball`} data-testid="card-basketball">
+              <div className="hub-card-top"><span>09 / SPORTS STARTER</span><span className="hub-card-index"><Globe2 size={16}/></span></div>
+              <div className="hub-card-graphic hub-graphic-fighting" aria-hidden="true"><FightingGamePreview kind="basketball"/></div>
+              <div className="hub-card-copy"><h3>Sports · 3D Basketball</h3><p>Start the sports collection with an original 3v3 basketball exhibition. Move, pass, time your shots and defend against computer players. Edit the court, teams and match settings.</p></div>
+              <span className="hub-card-link">CREATE BASKETBALL <ArrowUpRight size={15}/></span>
+            </a>
+            <a className="hub-pathway-card hub-pathway-studio" href={`${studioPath}?starter=blank`} data-testid="card-blank-canvas">
+              <div className="hub-card-top"><span>10 / BLANK CANVAS</span><span className="hub-card-index"><Layers3 size={16}/></span></div>
+              <div className="hub-card-graphic hub-graphic-fighting" aria-hidden="true"><FightingGamePreview kind="blank"/></div>
+              <div className="hub-card-copy"><h3>Blank Canvas</h3><p>A fresh, named project with an empty scene. No starter characters, assets or game rules — use the Hierarchy and building tools to create your own game.</p></div>
+              <span className="hub-card-link">START FROM SCRATCH <ArrowUpRight size={15}/></span>
             </a>
           </div>
         </section>

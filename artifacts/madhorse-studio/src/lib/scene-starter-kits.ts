@@ -7,14 +7,16 @@ import { createFpsStarterKit } from './fps-starter-kit';
 import { createPixelRpgStarter } from './pixel-rpg-starter';
 import { createCartRacerStarter } from './cart-racer-starter';
 import { createCardDuelStarter } from './card-duel-starter';
+import {createBasketballStarter} from './basketball-starter';
 import {
   createPhysicsComponent, createSceneEntity, createStoryboardComponent, createTransformComponent, getPrimitive, getTransform,
   type EffectComponent, type PrimitiveShape, type ProjectAsset, type SceneEntity, type StoryboardBeat,
   type TerrainBrushEdit, type Vector3, type VisualLogicNode,
 } from './scene-model';
 
-export type GameStarterKitId = 'shooter' | 'third-person-shooter' | 'mmorpg' | 'rpg' | 'puzzle' | 'fighting' | 'rts' | 'pixel-rpg' | 'cart-racer' | 'card-duel';
+export type GameStarterKitId = 'shooter' | 'third-person-shooter' | 'mmorpg' | 'rpg' | 'puzzle' | 'fighting' | 'rts' | 'pixel-rpg' | 'cart-racer' | 'card-duel' | 'basketball' | 'blank';
 export const gameStarterKits: { id: GameStarterKitId; title: string; description: string }[] = [
+  {id:'basketball',title:'Sports · 3D Basketball',description:'Original 3v3 basketball: editable arena, human athletes, timed shooting, passing, steals, computer teams and a scored exhibition.'},
   {id:'card-duel',title:'Card Duel · Astral Nexus',description:'An original three-lane card duel against a computer rival, with editable 20-card decks, monster summons, tributes, spells, wards and life points.'},
   {id:'cart-racer',title:'Cart Racer Stylized',description:'An editable pastel 3D kart time trial: arcade driving, a chase camera, ordered checkpoints, three laps and best-lap timing.'},
   { id:'pixel-rpg',title:'2D RPG · Mosslight Trail',description:'An original color-handheld-style pixel village with editable sprites, grid movement, dialogue, healing, wild creatures, turn-based battles, capture orbs and a first quest.' },
@@ -850,6 +852,9 @@ export function createGameStarterKit(
   if (kind === 'pixel-rpg') return createPixelRpgStarter(center);
   if (kind === 'cart-racer') return createCartRacerStarter(center);
   if (kind === 'card-duel') return createCardDuelStarter(center);
+  if(kind==='basketball')return createBasketballStarter(center);
+  // A new-project choice, not an additive object kit: never clears an existing scene.
+  if(kind==='blank')return {entities:[],playerId:'',title:'Blank Canvas',generatedAssets:[]};
   if (kind === 'fighting') return createFightingStarterKit(center, fightingAppearances);
   if (kind === 'rts') return createRtsStarterKit(center);
   if (kind === 'shooter') return createFpsStarterKit(center);

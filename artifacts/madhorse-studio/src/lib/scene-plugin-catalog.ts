@@ -101,7 +101,7 @@ export const scenePluginCatalog: Record<PluginCategory, ScenePluginDefinition[]>
     },
   ],
   'player-npc': [
-    ...(['health', 'inventory', 'interact', 'creature-rpg', 'cart-racer', 'card-duel'] as const).map(featurePlugin),
+    ...(['health', 'inventory', 'interact', 'creature-rpg', 'cart-racer', 'card-duel', 'basketball'] as const).map(featurePlugin),
     ...playerActionPlugins,
     { id: 'player-walk-audio', componentKind: 'player-walk-audio', label: 'Player Walk Audio', description: 'Play a footstep when the player walks in Play Test. Pick a clip or use the built-in thump.' },
     { id: 'character-controller-player', componentKind: 'character-controller-player', label: 'Player Controller', description: 'Add walking and jumping to the player.' },

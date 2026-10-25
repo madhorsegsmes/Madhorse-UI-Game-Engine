@@ -10,6 +10,7 @@ import { ScenePreview3D, type SceneFrameRequest, type SceneTransformMode } from 
 import { WorkspaceRenderSettings } from './scene-render-settings';
 import { isPixelRpgScene } from '@/lib/pixel-rpg-runtime';
 import {isCardDuelScene} from '@/lib/card-duel-runtime';
+import {isBasketballScene} from '@/lib/basketball-runtime';
 import type { SceneCursorTool } from './scene-tool-cursor';
 import { MultiplayerToolsPanel } from './multiplayer-tools-panel';
 import { genrePlayerFunctionTools } from '@/lib/player-function-tools';
@@ -209,7 +210,7 @@ function SceneViewport({
         onPrimaryCameraChange={onCameraChange}
         onSelectPrimaryCamera={() => onSelect(PRIMARY_CAMERA_ID)}
       />
-      {isPlaying && actionHud && !isPixelRpgScene(entities) && !isCardDuelScene(entities) && <PlayerActionHud hud={actionHud} />}
+      {isPlaying && actionHud && !isPixelRpgScene(entities) && !isCardDuelScene(entities) && !isBasketballScene(entities) && <PlayerActionHud hud={actionHud} />}
       {canTogglePerspective && <div style={{
         position: 'absolute', top: 12, right: 12, padding: '6px 9px', border: '1px solid #54687b',
         borderRadius: 4, background: '#091520df', color: '#e6f2fa', fontSize: 10, pointerEvents: 'none',

@@ -4,6 +4,7 @@ export type FighterMotionEvent = {
   hitAt?: number;
 };
 export type FighterPlayback = FighterMotionEvent & {
+  basketball?: {shoot:number;dribble:boolean;passing:number};
   time: number;
   moving: boolean;
   blocking: boolean;
