@@ -8,6 +8,142 @@ import { createDefaultPlayer, createModelRendererComponent, getTransform } from 
 import { PerspectiveCamera, Vector3 } from 'three';
 import { makeGameViewCamera } from '../../src/lib/game-camera';
 import { sceneFrameDistance } from '../../src/lib/scene-view-geometry';
+import { modelFixture, texturedModelFixture } from './model-fixtures';
+
+for (const format of ['glb', 'gltf', 'obj', 'fbx', 'dae']) {
+  test(`GPU ${format} model renders real geometry and persists after reload`, async ({ page }, info) => {
+    await page.goto('/');
+    await requireWebGL2(page, info);
+    const fixture = modelFixture(format);
+    await page.locator('.workspace-browser-assets > summary').click();
+    await page.getByTestId('input-assets').setInputFiles(fixture);
+    const card = page.locator('[data-testid^="asset-card-"]').filter({ hasText: fixture.name });
+    await expect(card).toBeVisible();
+    const assetId = (await card.getAttribute('data-testid'))!.replace('asset-card-', '');
+    // Assign through the real UI, then isolate its geometry for pixel checks.
+    await page.getByTestId(`apply-asset-${assetId}`).click();
+    await expect(page.getByTestId('scene-player')).toHaveAttribute('data-model-asset-id', assetId);
+    const player = createDefaultPlayer();
+    player.components.push(createModelRendererComponent(assetId));
+    getTransform(player).position = { x: 50, y: 50, z: 0 };
+    await setGPUScene(page, [player], {
+      position: { x: 0, y: 1, z: 7 }, target: { x: 0, y: 1, z: 0 }, fov: 50, placement: 'custom',
+    });
+    let before: Awaited<ReturnType<typeof gpuPixels>> | undefined;
+    for (const phase of ['import', 'reload']) {
+      if (phase === 'reload') await page.reload();
+      await expect(page.getByTestId('scene-player')).toHaveAttribute('data-model-asset-id', assetId);
+      const canvas = page.getByTestId('scene-game-view').locator('canvas');
+      await expect.poll(async () => (await gpuPixels(canvas, info, `${format}-${phase}-loading`)).stats.magenta.count)
+        .toBeGreaterThan(100);
+      const pixels = await gpuPixels(canvas, info, `${format}-${phase}`);
+      const triangle = pixels.stats.magenta;
+      // Check the actual triangle silhouette, not a DOM ready label or fallback cube.
+      const camera = makeGameViewCamera({
+        position: { x: 0, y: 1, z: 7 }, target: { x: 0, y: 1, z: 0 }, fov: 50, placement: 'custom',
+      }, pixels.width / pixels.height);
+      const projected = [[-1, 0], [1, 0], [-.6, 2]].map(([x, y]) => new Vector3(x, y, 0).project(camera));
+      expect(Math.abs(triangle.minX - (Math.min(...projected.map(p => p.x)) + 1) * pixels.width / 2)).toBeLessThan(4);
+      expect(Math.abs(triangle.maxX - (Math.max(...projected.map(p => p.x)) + 1) * pixels.width / 2)).toBeLessThan(4);
+      expect(Math.abs(triangle.minY - (1 - Math.max(...projected.map(p => p.y))) * pixels.height / 2)).toBeLessThan(4);
+      expect(Math.abs(triangle.maxY - (1 - Math.min(...projected.map(p => p.y))) * pixels.height / 2)).toBeLessThan(4);
+      const fill = triangle.count / ((triangle.maxX - triangle.minX) * (triangle.maxY - triangle.minY));
+      expect(fill).toBeGreaterThan(.4);
+      expect(fill).toBeLessThan(.6);
+      if (before) expect(Math.abs(triangle.count / before.stats.magenta.count - 1)).toBeLessThan(.03);
+      before = pixels;
+      await page.getByTestId('tab-scene-3d').click();
+      await expect(page.getByTestId('scene3d-asset-status')).toContainText(`Model ready · ${fixture.name}`);
+      await expect(page.getByTestId('scene3d-asset-status')).not.toContainText('Could not');
+    }
+  });
+
+  test(`GPU invalid ${format} reports its model error, never ready, including after reload`, async ({ page }, info) => {
+    await page.goto('/');
+    await requireWebGL2(page, info);
+    await page.getByTestId('tab-scene-3d').click();
+    await page.locator('.workspace-browser-assets > summary').click();
+    const name = `invalid.${format}`;
+    await page.getByTestId('input-assets').setInputFiles({
+      name, mimeType: 'application/octet-stream', buffer: Buffer.from('not a model'),
+    });
+    const card = page.locator('[data-testid^="asset-card-"]').filter({ hasText: name });
+    const id = (await card.getAttribute('data-testid'))!.replace('asset-card-', '');
+    await page.getByTestId(`apply-asset-${id}`).click();
+    for (const phase of ['import', 'reload']) {
+      if (phase === 'reload') {
+        await page.reload();
+        await page.getByTestId('tab-scene-3d').click();
+      }
+      await expect(page.getByTestId('scene-player')).toHaveAttribute('data-model-asset-id', id);
+      const notices = page.getByTestId('scene3d-asset-status');
+      // Each Three loader supplies different parser details. Require an actual
+      // per-model error (not just any status containing the filename).
+      const error = notices.locator('.is-error').filter({ hasText: name });
+      await expect(error).toHaveCount(1);
+      await expect(error).toContainText(` · ${name}`);
+      if (format === 'obj') await expect(error).toContainText('Model contains no renderable geometry');
+      if (format === 'glb' || format === 'gltf') await expect(error).toContainText(/JSON|token/i);
+      if (format === 'fbx') await expect(error).toContainText('FBXLoader');
+      await expect(notices).not.toContainText('Model ready');
+      await expect(notices).not.toContainText('Loading model');
+      await expect(page.getByTestId('scene3d-unavailable')).toHaveCount(0);
+    }
+  });
+}
+
+test('GPU local model texture persists and missing dependencies do not report ready', async ({ page }, info) => {
+  await page.goto('/');
+  await requireWebGL2(page, info);
+  const fixture = texturedModelFixture();
+  const buffer = await page.evaluate(() => {
+    const c = document.createElement('canvas'); c.width = c.height = 2;
+    const ctx = c.getContext('2d')!;
+    ctx.fillStyle = '#ff00ff'; ctx.fillRect(0, 0, 2, 2);
+    return c.toDataURL().split(',')[1];
+  });
+  await page.locator('.workspace-browser-assets > summary').click();
+  await page.getByTestId('input-assets').setInputFiles([
+    fixture, { name: 'local magenta.png', mimeType: 'image/png', buffer: Buffer.from(buffer, 'base64') },
+  ]);
+  const card = page.locator('[data-testid^="asset-card-"]').filter({ hasText: fixture.name });
+  await expect(card).toBeVisible();
+  const id = (await card.getAttribute('data-testid'))!.replace('asset-card-', '');
+  const player = createDefaultPlayer();
+  player.components.push(createModelRendererComponent(id));
+  getTransform(player).position = { x: 50, y: 50, z: 0 };
+  await setGPUScene(page, [player], {
+    position: { x: 0, y: 1, z: 7 }, target: { x: 0, y: 1, z: 0 }, fov: 50, placement: 'custom',
+  });
+  for (const phase of ['import', 'reload']) {
+    if (phase === 'reload') await page.reload();
+    await expect(page.getByTestId('scene-player')).toHaveAttribute('data-model-asset-id', id);
+    await expect.poll(async () => (await gpuPixels(
+      page.getByTestId('scene-game-view').locator('canvas'), info, `texture-${phase}`,
+    )).stats.magenta.count).toBeGreaterThan(100);
+  }
+  // A second model referencing a genuinely absent image must fail locally.
+  const missing = { ...fixture, name: 'missing-texture.gltf',
+    buffer: Buffer.from(fixture.buffer.toString().replace('local%20magenta.png', 'absent.png')) };
+  await page.getByTestId('tab-scene-3d').click();
+  await page.locator('.workspace-browser-assets > summary').click();
+  await page.getByTestId('input-assets').setInputFiles(missing);
+  const missingCard = page.locator('[data-testid^="asset-card-"]').filter({ hasText: missing.name });
+  await expect(missingCard).toBeVisible();
+  const missingId = (await missingCard.getAttribute('data-testid'))!.replace('asset-card-', '');
+  await page.getByTestId(`apply-asset-${missingId}`).click();
+  for (const phase of ['import', 'reload']) {
+    if (phase === 'reload') {
+      await page.reload();
+      await page.getByTestId('tab-scene-3d').click();
+    }
+    await expect(page.getByTestId('scene-player')).toHaveAttribute('data-model-asset-id', missingId);
+    const notices = page.getByTestId('scene3d-asset-status');
+    await expect(notices.locator('.is-error')).toContainText(`Missing local model dependency · absent.png · ${missing.name}`);
+    await expect(notices).not.toContainText(`Model ready · ${missing.name}`);
+    await expect(notices).not.toContainText('Loading model');
+  }
+});
 
 function projectedTriangle(width: number, height: number, camera: PerspectiveCamera) {
   // Fixture world-space TRS, independently applied to each actual model vertex.

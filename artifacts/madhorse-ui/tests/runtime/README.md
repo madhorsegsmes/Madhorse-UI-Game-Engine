@@ -14,6 +14,31 @@ not a claim that physical iOS devices or released Safari versions were tested. I
 deploys anything, calls real private APIs, or changes existing user projects.
 Do not run multiple copies against the same port.
 
+## Imported 3D file rendering and reload checks
+
+```sh
+REPLIT_PLAYWRIGHT_CHROMIUM_EXECUTABLE=/repl/tools/bin/chromium \
+  pnpm --filter @workspace/madhorse-ui run test:runtime editor.spec.ts \
+  --project=chromium --grep 'GPU (glb|gltf|obj|fbx|dae|invalid|local model)'
+```
+
+Omit the executable override on hosts using Playwright's installed Chromium.
+The cases also participate in the normal three-engine suite. WebGL 2 is required:
+an unavailable context fails explicitly, never skips or passes using the SVG
+fallback. Capability/renderer details and canvas screenshots accompany results.
+
+The small, self-authored fixtures in `model-fixtures.ts` exercise real GLB,
+glTF, OBJ, ASCII FBX and Collada loaders. Each imports through the asset input,
+assigns through the editor, and checks the actual game canvas's scalene triangle
+silhouette against projected vertices, then repeats after a genuine reload.
+The stored model reference and editor ready notice are checked as well.
+Malformed files must retain their filename-specific error after reload without
+a ready/loading notice or a whole-viewport graphics failure. A glTF with an
+encoded relative PNG path checks local texture resolution and IndexedDB
+persistence; a missing texture must produce the dependency-specific error.
+These are deliberately small static models, not proof of all exporter variants,
+binary FBX, skeletal animation, or hardware-GPU compatibility.
+
 ## Animation interpolation and looping checks
 
 ```sh
