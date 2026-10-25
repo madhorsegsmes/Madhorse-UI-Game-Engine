@@ -6,7 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 /**
- * Selected target type. Vehicle and house use their matching protected reference; auto follows the prompt.
+ * Selected build type. RTS world uses its isometric settlement reference; Vehicle and House use matching references; auto follows the prompt.
  */
 export type MadBuilderInputBuildCategory = typeof MadBuilderInputBuildCategory[keyof typeof MadBuilderInputBuildCategory];
 
@@ -15,6 +15,7 @@ export const MadBuilderInputBuildCategory = {
   auto: 'auto',
   vehicle: 'vehicle',
   house: 'house',
+  'rts-world': 'rts-world',
 } as const;
 
 /**
@@ -30,7 +31,7 @@ export const MadBuilderInputStyle = {
 } as const;
 
 /**
- * global-style guides finish only; category-default anchors the selected Vehicle or House type; user-target is the specific object reference.
+ * global-style guides finish only; category-default anchors the selected Vehicle, House or RTS world; user-target is the specific image reference.
  */
 export type BuilderReferenceImageRole = typeof BuilderReferenceImageRole[keyof typeof BuilderReferenceImageRole];
 
@@ -42,7 +43,7 @@ export const BuilderReferenceImageRole = {
 } as const;
 
 export interface BuilderReferenceImage {
-  /** global-style guides finish only; category-default anchors the selected Vehicle or House type; user-target is the specific object reference. */
+  /** global-style guides finish only; category-default anchors the selected Vehicle, House or RTS world; user-target is the specific image reference. */
   role: BuilderReferenceImageRole;
   /**
      * @maxLength 1500000
@@ -75,7 +76,7 @@ export interface MadBuilderInput {
   prompt: string;
   /** @maxLength 80 */
   selectedName: string;
-  /** Selected target type. Vehicle and house use their matching protected reference; auto follows the prompt. */
+  /** Selected build type. RTS world uses its isometric settlement reference; Vehicle and House use matching references; auto follows the prompt. */
   buildCategory?: MadBuilderInputBuildCategory;
   /**
      * Legacy single-image input. New clients should use referenceImages.
@@ -84,7 +85,7 @@ export interface MadBuilderInput {
      */
   referenceImage?: string;
   /**
-     * Optional selected category reference and user-specific target, forwarded transiently to the vision planner.
+   * Optional selected category reference and user-specific target, forwarded transiently to the vision planner.
      * @maxItems 2
      */
   referenceImages?: BuilderReferenceImage[];

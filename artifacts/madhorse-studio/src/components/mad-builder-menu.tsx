@@ -9,17 +9,20 @@ import './mad-builder-menu.css';
 
 const EXAMPLE = 'Build a small 3D house with four walls, a pitched roof, a front door, glass windows on each side, a ground plane around it and a warm point light inside.';
 const CAR_REFERENCE_PROMPT = 'Use the uploaded car image as the source of truth. If it is a two-door muscle or sports coupe, use the dedicated vehicle tool (muscle-coupe) for a contoured body, wheel openings, shaped glass cabin and four detailed wheels, not a stack of boxes. Match its real-world proportions, paint, dark trim and visible paired racing stripes. Build one editable car only, without scenery or duplicate details. Explain which hidden details are estimated and any differences imposed by the coupe template. Do not force other vehicle styles into this template.';
+const RTS_REFERENCE_PROMPT = 'Build an editable isometric RTS settlement inspired by the selected reference: a central fortified keep, connected winding paths, smaller homes and outposts, crop plots, forest clusters, visible resource sites, and clear routes for squads. Use warm earth and foliage colors, readable spacing, and grouped details.';
 const STYLE_STORAGE_KEY = 'madhorse-studio-mad-builder-style';
 const DEFAULT_REFERENCE_STORAGE_KEY = 'madhorse-studio-mad-builder-default-reference';
 const BUILD_CATEGORY_STORAGE_KEY = 'madhorse-studio-mad-builder-build-category';
 const DEFAULT_REFERENCE_URLS = {
   vehicle: `${import.meta.env.BASE_URL}references/default-style-coupe.webp`,
   house: `${import.meta.env.BASE_URL}references/default-style-house.webp`,
+  'rts-world': `${import.meta.env.BASE_URL}references/default-rts-world.webp`,
 };
 const BUILD_CATEGORIES: { value: BuilderBuildCategory; label: string }[] = [
   { value: 'auto', label: 'Automatic — follow the prompt' },
   { value: 'vehicle', label: 'Vehicle — orange coupe reference' },
   { value: 'house', label: 'House — Victorian reference' },
+  { value: 'rts-world', label: 'RTS world — isometric settlement reference' },
 ];
 const BUILD_STYLES: { value: BuilderStyle; label: string }[] = [
   { value: 'polished-game-ready', label: 'Polished game-ready' },
@@ -76,8 +79,9 @@ export function MadBuilderMenu(props: MadBuilderProps & {
   const [preparingImage, setPreparingImage] = useState(false);
   const defaultReferenceReady = defaultReferenceEnabled && !!defaultReferenceImage &&
     defaultReferenceLoadedFor === buildCategory;
-  const defaultReferenceName = buildCategory === 'house' ? 'Victorian house' : 'orange coupe';
-  const defaultReferenceUrl = buildCategory === 'house' ? DEFAULT_REFERENCE_URLS.house : DEFAULT_REFERENCE_URLS.vehicle;
+  const defaultReferenceName = buildCategory === 'house' ? 'Victorian house'
+    : buildCategory === 'rts-world' ? 'isometric RTS settlement' : 'orange coupe';
+  const defaultReferenceUrl = DEFAULT_REFERENCE_URLS[buildCategory === 'auto' ? 'vehicle' : buildCategory];
   const defaultReferenceRole = buildCategory === 'auto' ? 'global-style' as const : 'category-default' as const;
   const moduleOptions = getMadBuilderModules(moduleCategory);
   const selectedModule = moduleOptions.find((module) => module.id === moduleId) ?? moduleOptions[0];
@@ -130,7 +134,9 @@ export function MadBuilderMenu(props: MadBuilderProps & {
       ? 'Build a Victorian-style house based on the selected House reference.'
       : buildCategory === 'vehicle'
         ? 'Build a vehicle based on the selected Vehicle reference.'
-        : 'Build the object shown in the uploaded target reference.';
+        : buildCategory === 'rts-world'
+          ? 'Build an editable isometric RTS settlement from the selected world reference: terrain, roads, a central keep, smaller bases, resource sites, crop plots, forests, and a few unit groups.'
+          : 'Build the object shown in the uploaded target reference.';
     if (canPlan) void onPlan(prompt.trim() || fallbackPrompt, asPrefab, buildStyle, buildCategory, requestReferences()).catch(() => undefined);
   };
   const uploadReference = async (file: File | undefined) => {
@@ -158,10 +164,9 @@ export function MadBuilderMenu(props: MadBuilderProps & {
     setBuildCategory(next);
     setDefaultReferenceImage('');
     setDefaultReferenceLoadedFor('');
-    if (next !== 'auto') {
-      const category = next as MadBuilderModuleCategory;
-      setModuleCategory(category);
-      setModuleId(getMadBuilderModules(category)[0].id);
+    if (next === 'vehicle' || next === 'house') {
+      setModuleCategory(next);
+      setModuleId(getMadBuilderModules(next)[0].id);
     }
     try { window.localStorage.setItem(BUILD_CATEGORY_STORAGE_KEY, next); } catch { /* Keep this choice for the current session. */ }
   };
@@ -197,19 +202,19 @@ export function MadBuilderMenu(props: MadBuilderProps & {
                     {BUILD_CATEGORIES.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}
                   </select>
                 </label>
-                <p className="mb-hint">Vehicle selects the orange coupe reference; House selects the Victorian reference. Automatic follows your prompt.</p>
+                <p className="mb-hint">Vehicle selects the coupe, House the Victorian home, and RTS world the isometric settlement. Automatic follows your prompt.</p>
                 <label className="mb-check">
                   <input type="checkbox" checked={defaultReferenceEnabled} disabled={readOnly || busy}
                     onChange={(event) => updateDefaultReference(event.target.checked)} data-testid="checkbox-builder-default-reference" />
                   Use the selected default reference on every request
                 </label>
-                <p className="mb-hint">Vehicle and House references guide the selected subject. Automatic uses the coupe for finish only. An uploaded target image takes priority for the object's appearance.</p>
+                <p className="mb-hint">The selected reference guides that subject or world layout. Automatic uses the coupe for finish only. Your uploaded target takes priority.</p>
                 {preparingDefaultReference && defaultReferenceEnabled && <p className="mb-hint" role="status">Loading selected reference…</p>}
                 {defaultReferenceReady && <div className="mb-default-reference">
                   <img src={defaultReferenceImage} alt={`${defaultReferenceName} default reference`} data-testid="image-builder-default-reference" />
                   <span>{buildCategory === 'auto'
                     ? 'Orange coupe finish reference · subject follows your prompt'
-                    : `${buildCategory === 'house' ? 'Victorian house' : 'Orange coupe'} subject reference · sent with each request`}</span>
+                    : `${defaultReferenceName} · sent with each request`}</span>
                 </div>}
                 {defaultReferenceError && <p className="mb-error" role="alert" data-testid="text-builder-default-reference-error">{defaultReferenceError}</p>}
                 <div className="mb-module-tools" data-testid="section-builder-modules">
@@ -251,12 +256,12 @@ export function MadBuilderMenu(props: MadBuilderProps & {
               <button type="button" disabled={busy} onClick={() => { setReferenceImage(''); setReferenceName(''); }}>Remove</button>
             </div>}
             {referenceError && <p className="mb-error" role="alert">{referenceError}</p>}
-            <p className="mb-hint">An uploaded image guides the requested object's visible design. The selected category reference remains separate. Hidden sides are estimated; an exact 3D copy is not guaranteed.</p>
+            <p className="mb-hint">An uploaded target image guides its design or world layout and takes priority over the default reference. The builder creates editable geometry, not an exact 3D copy or complete RTS logic.</p>
             <label className="mb-prompt-label" htmlFor="mad-builder-prompt">What should Mad Bot build?</label>
             <textarea
               id="mad-builder-prompt" className="mb-textarea" value={prompt} maxLength={2000} rows={4}
               disabled={readOnly || busy} autoFocus={embedded && Boolean(props.onClose)}
-              placeholder="Describe what to build; a selected Vehicle or House reference can be built without extra text."
+              placeholder="Describe the world or object to build; a selected reference can guide the layout."
               aria-invalid={prompt.length > 0 && !valid}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); } }}
@@ -279,6 +284,10 @@ export function MadBuilderMenu(props: MadBuilderProps & {
             <div className="mb-row">
               <button type="button" className="mb-quiet" disabled={readOnly || busy} onClick={() => setPrompt(EXAMPLE)} data-testid="button-builder-example">Example: house</button>
               <button type="button" className="mb-quiet" disabled={readOnly || busy} onClick={() => setPrompt(CAR_REFERENCE_PROMPT)} data-testid="button-builder-car-reference-prompt">Example: car reference</button>
+              <button type="button" className="mb-quiet" disabled={readOnly || busy} onClick={() => {
+                updateBuildCategory('rts-world');
+                setPrompt(RTS_REFERENCE_PROMPT);
+              }} data-testid="button-builder-rts-reference-prompt">Example: RTS world</button>
               {phase === 'planning' || phase === 'applying' ? (
                 <button type="button" className="mb-danger mb-grow" onClick={onCancel} data-testid="button-builder-cancel">
                   {phase === 'planning' ? 'Cancel planning' : 'Cancel build'}
