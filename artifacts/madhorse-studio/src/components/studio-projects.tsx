@@ -10,35 +10,42 @@ import { createEgoUiKit } from '@/lib/ego-ui-kit';
 import { createGameCamera } from '@/lib/game-camera';
 import { createGameStarterKit } from '@/lib/scene-starter-kits';
 import { removeFreshWorkspace, saveFreshWorkspace } from '@/lib/fresh-workspace-storage';
+import { deleteLocalAsset, saveLocalAsset } from '@/lib/asset-vault';
+import type { ProjectAsset } from '@/lib/scene-model';
 
-const fightingStarterVision = 'A 2D side-view fighting game with a player, a training rival, editable combat actions, and a round HUD.';
+const fightingStarterVision = 'A fixed side-view 3D fighting game with detailed human fighters, editable combat actions and HUD, plus imported FBX fighters and high-resolution stage assets.';
 
-function createFightingStarterSnapshot(projectName: string): FreshWorkspaceSnapshot {
+function createFightingStarterSnapshot(projectName: string): {
+  snapshot: FreshWorkspaceSnapshot;
+  generatedAssets: Array<{ asset: ProjectAsset; file: File }>;
+} {
   const starter = createGameStarterKit('fighting', { x: -15, y: 50, z: 0 });
   const camera = createGameCamera(starter.entities);
   camera.position = { x: 0, y: 1.2, z: -17 };
   camera.target = { x: 0, y: 1.2, z: 0 };
   camera.fov = 42;
   camera.placement = 'custom';
-  const uiControls = createEgoUiKit(['fighting'], 0)
-    .filter(control => control.type === 'health-bar' || control.type === 'text');
+  const uiControls = createEgoUiKit(['fighting'], 0);
   return {
-    projectName,
-    egoGameVision: fightingStarterVision,
-    egoGameFlow: 'undecided',
-    egoGameNotes: 'Move with A and D. Strike with F, block with Control, run with Shift, and crouch with C. Use Play Test to try the arena.',
-    entities: starter.entities,
-    camera,
-    assets: [],
-    animations: [],
-    animationControllers: [],
-    builderHistory: [],
-    builderDraft: null,
-    builderDraftRequest: '',
-    builderBuildLogs: [],
-    prefabs: [],
-    uiControls,
-    scripts: [],
+    snapshot: {
+      projectName,
+      egoGameVision: fightingStarterVision,
+      egoGameFlow: 'undecided',
+      egoGameNotes: 'Use A/D to move, F/G for attacks, Control to block, Shift to run, and C to crouch. Import an FBX fighter through Assets, select the fighter root, then choose its model in Model Renderer. Import FBX or GLB stage models and their image textures for high-resolution environments. Edit health bars and action buttons in the UI builder.',
+      entities: starter.entities,
+      camera,
+      assets: starter.generatedAssets?.map(({ asset }) => asset) ?? [],
+      animations: [],
+      animationControllers: [],
+      builderHistory: [],
+      builderDraft: null,
+      builderDraftRequest: '',
+      builderBuildLogs: [],
+      prefabs: [],
+      uiControls,
+      scripts: [],
+    },
+    generatedAssets: starter.generatedAssets ?? [],
   };
 }
 
@@ -76,7 +83,7 @@ export default function StudioProjects() {
     if (menu.current) menu.current.open = false;
     setDraft(next === 'rename' ? active!.name : ''); setError(''); setMode(next);
   }
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
     let name: string;
     try { name = validateProjectName(draft); } catch (cause) { setError((cause as Error).message); return; }
@@ -87,14 +94,20 @@ export default function StudioProjects() {
         return;
       }
       const id = crypto.randomUUID();
+      setSavingProject(true);
+      let generatedAssetIds: string[] = [];
       try {
-        saveFreshWorkspace(createFightingStarterSnapshot(name), id);
+        const { snapshot, generatedAssets } = createFightingStarterSnapshot(name);
+        generatedAssetIds = generatedAssets.map(({ asset }) => asset.id);
+        await Promise.all(generatedAssets.map(({ asset, file }) => saveLocalAsset(id, asset.id, file)));
+        saveFreshWorkspace(snapshot, id);
         const next: StudioProjectRegistry = {
           activeId: id,
           projects: [...registry.projects, { id, name }],
         };
         if (!persist(next)) {
           removeFreshWorkspace(id);
+          await Promise.all(generatedAssets.map(({ asset }) => deleteLocalAsset(id, asset.id)));
           return;
         }
         clearFightingStarterRequest();
@@ -103,9 +116,12 @@ export default function StudioProjects() {
         setExportStatus(null);
       } catch (cause) {
         try { removeFreshWorkspace(id); } catch { /* Storage may be unavailable. Existing project data stays untouched. */ }
+        await Promise.allSettled(generatedAssetIds.map(assetId => deleteLocalAsset(id, assetId)));
         setError(cause instanceof Error
           ? `The fighting-game starter could not be saved. Existing projects were left untouched. ${cause.message}`
           : 'The fighting-game starter could not be saved. Existing projects were left untouched.');
+      } finally {
+        setSavingProject(false);
       }
       return;
     }
@@ -202,7 +218,7 @@ export default function StudioProjects() {
             setMode(null);
             setError('');
           }}>Cancel</button>}
-          <button type="submit">{mode === 'template' ? 'Create fighting game' : mode === 'new' ? 'Create project' : 'Save name'}</button>
+          <button type="submit" disabled={savingProject}>{savingProject ? 'Creating…' : mode === 'template' ? 'Create fighting game' : mode === 'new' ? 'Create project' : 'Save name'}</button>
         </footer>
       </form>
     </div>}

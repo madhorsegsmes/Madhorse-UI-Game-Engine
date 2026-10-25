@@ -2,6 +2,7 @@ import {
   createTransformComponent,
   getTransform,
   type PrimitiveShape,
+  type ProjectAsset,
   type SceneEntity,
   type Vector3,
 } from './scene-model';
@@ -15,7 +16,38 @@ type CharacterPiece = {
   point: CharacterPoint;
   size: CharacterSize;
   color: string;
+  textureAssetId?: string | null;
 };
+
+export function createEgoClothingTextureAsset() {
+  const id = crypto.randomUUID();
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <pattern id="weave" width="32" height="32" patternUnits="userSpaceOnUse">
+      <rect width="32" height="32" fill="#647080"/>
+      <path d="M0 4h32M0 12h32M0 20h32M0 28h32" stroke="#7e8995" stroke-width="2" opacity=".36"/>
+      <path d="M4 0v32M12 0v32M20 0v32M28 0v32" stroke="#364252" stroke-width="2" opacity=".48"/>
+      <path d="M0 7h32M7 0v32" stroke="#a5adb5" stroke-width="1" opacity=".18"/>
+    </pattern>
+    <pattern id="stitch" width="64" height="64" patternUnits="userSpaceOnUse">
+      <path d="M6 0v64M58 0v64" stroke="#d2b987" stroke-width="2" stroke-dasharray="4 7" opacity=".62"/>
+      <circle cx="32" cy="32" r="1.5" fill="#d9e0e5" opacity=".46"/>
+    </pattern>
+  </defs>
+  <rect width="512" height="512" fill="url(#weave)"/>
+  <rect width="512" height="512" fill="url(#stitch)" opacity=".42"/>
+</svg>`;
+  const file = new File([svg], 'madhorse-woven-clothing-texture.svg', { type: 'image/svg+xml' });
+  const asset: ProjectAsset = {
+    id,
+    name: file.name,
+    kind: 'image',
+    mimeType: file.type,
+    size: file.size,
+    addedAt: new Date().toISOString(),
+  };
+  return { asset, file };
+}
 
 function createGroup(name: string, parentId: string | null, position: Vector3, tagged = false): SceneEntity {
   return {
@@ -54,7 +86,7 @@ function createPiece(parentId: string, piece: CharacterPiece): SceneEntity {
         enabled: true,
         shape: piece.shape ?? 'sphere',
         color: piece.color,
-        textureAssetId: null,
+        textureAssetId: piece.textureAssetId ?? null,
         roughness: 0.76,
         metalness: 0,
       },
@@ -62,9 +94,10 @@ function createPiece(parentId: string, piece: CharacterPiece): SceneEntity {
   };
 }
 
-export function createCharacterBuilderStarterScene() {
+export function createCharacterBuilderStarterScene(textureAssetId?: string) {
   const setup = createGroup('Character Builder Setup', null, { x: 50, y: 50, z: 0 }, true);
   const character = createGroup('Default Human · T-Pose · 1.80 m', setup.id, { x: 50, y: 50, z: 50 }, true);
+  character.components.push({ id: crypto.randomUUID(), type: 'modelRenderer', enabled: true, assetId: null });
   const parts: CharacterPiece[] = [
     { name: 'Skin · Head', point: { x: 0, height: 1.695, depth: 0 }, size: { width: 0.19, height: 0.21, depth: 0.18 }, color: '#d6a17f' },
     { name: 'Skin · Jaw and chin', point: { x: 0, height: 1.605, depth: 0.025 }, size: { width: 0.14, height: 0.11, depth: 0.15 }, color: '#cd9675' },
@@ -72,10 +105,18 @@ export function createCharacterBuilderStarterScene() {
     { name: 'Skin · Chest', point: { x: 0, height: 1.385, depth: 0 }, size: { width: 0.43, height: 0.36, depth: 0.235 }, color: '#d5a07d' },
     { name: 'Skin · Abdomen', point: { x: 0, height: 1.13, depth: 0.012 }, size: { width: 0.32, height: 0.31, depth: 0.205 }, color: '#d2a07f' },
     { name: 'Skin · Pelvis', point: { x: 0, height: 0.99, depth: 0 }, size: { width: 0.35, height: 0.2, depth: 0.205 }, color: '#cd9675' },
-    { name: 'Clothing · Briefs', point: { x: 0, height: 0.99, depth: 0.014 }, size: { width: 0.39, height: 0.205, depth: 0.225 }, color: '#d8d7d0' },
-    { name: 'Clothing · Briefs waistband', point: { x: 0, height: 1.085, depth: 0.018 }, size: { width: 0.385, height: 0.035, depth: 0.22 }, color: '#ece9e1' },
+    { name: 'Clothing · Tailored shirt', point: { x: 0, height: 1.29, depth: 0.008 }, size: { width: 0.49, height: 0.58, depth: 0.285 }, color: '#ffffff', textureAssetId },
+    { name: 'Clothing · Left sleeve', point: { x: -0.27, height: 1.43, depth: 0 }, size: { width: 0.22, height: 0.31, depth: 0.21 }, color: '#ffffff', textureAssetId },
+    { name: 'Clothing · Right sleeve', point: { x: 0.27, height: 1.43, depth: 0 }, size: { width: 0.22, height: 0.31, depth: 0.21 }, color: '#ffffff', textureAssetId },
+    { name: 'Clothing · Left trousers', point: { x: -0.12, height: 0.68, depth: 0.005 }, size: { width: 0.23, height: 0.76, depth: 0.24 }, color: '#ffffff', textureAssetId },
+    { name: 'Clothing · Right trousers', point: { x: 0.12, height: 0.68, depth: 0.005 }, size: { width: 0.23, height: 0.76, depth: 0.24 }, color: '#ffffff', textureAssetId },
+    { name: 'Clothing · Belt', point: { x: 0, height: 1.015, depth: 0.012 }, size: { width: 0.39, height: 0.055, depth: 0.235 }, color: '#322b26' },
+    { name: 'Clothing · Left boot', point: { x: -0.12, height: 0.11, depth: 0.06 }, size: { width: 0.17, height: 0.18, depth: 0.28 }, color: '#34343a' },
+    { name: 'Clothing · Right boot', point: { x: 0.12, height: 0.11, depth: 0.06 }, size: { width: 0.17, height: 0.18, depth: 0.28 }, color: '#34343a' },
     { name: 'Face · Nose', point: { x: 0, height: 1.695, depth: 0.095 }, size: { width: 0.034, height: 0.065, depth: 0.052 }, color: '#bf8668' },
     { name: 'Face · Mouth', point: { x: 0, height: 1.635, depth: 0.083 }, size: { width: 0.055, height: 0.018, depth: 0.014 }, color: '#93695b' },
+    { name: 'Hair · Short style', point: { x: 0, height: 1.79, depth: -0.012 }, size: { width: 0.205, height: 0.115, depth: 0.19 }, color: '#302820' },
+    { name: 'Hair · Front fringe', point: { x: 0, height: 1.735, depth: 0.12 }, size: { width: 0.145, height: 0.065, depth: 0.04 }, color: '#302820' },
     { name: 'Skin · Clavicle', point: { x: 0, height: 1.535, depth: 0.12 }, size: { width: 0.29, height: 0.055, depth: 0.055 }, color: '#dfad8d' },
     { name: 'Skin · Abdomen definition', point: { x: 0, height: 1.14, depth: 0.105 }, size: { width: 0.16, height: 0.19, depth: 0.045 }, color: '#d8a684' },
   ];
@@ -350,8 +391,9 @@ export function createEgoCharacterScene(
   heightMeters: number,
   offset: { x: number; z: number } = { x: 0, z: 0 },
   requestedName?: string,
+  clothingTextureAssetId?: string,
 ) {
-  const starter = createCharacterBuilderStarterScene();
+  const starter = createCharacterBuilderStarterScene(clothingTextureAssetId);
   const setup = starter.entities.find((entity) => entity.name === 'Character Builder Setup')!;
   const character = starter.entities.find((entity) => entity.id === starter.characterId)!;
   const displayName = requestedName?.trim().slice(0, 48) || characterNames[species];

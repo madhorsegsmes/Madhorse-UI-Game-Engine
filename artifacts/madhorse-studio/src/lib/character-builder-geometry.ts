@@ -2,13 +2,18 @@ import * as THREE from 'three';
 import { MarchingCubes } from 'three/examples/jsm/objects/MarchingCubes.js';
 import { getTransform, type SceneEntity } from './scene-model';
 
-const BODY_RESOLUTION = 44;
-const MAX_BODY_TRIANGLES = 22_000;
-const BODY_BLEND = 0.035;
+const BODY_RESOLUTION = 56;
+const MAX_BODY_TRIANGLES = 36_000;
+const BODY_BLEND = 0.04;
 
 export function isCharacterBuilderModelRoot(entity: SceneEntity) {
   return entity.generatedBy === 'character-builder'
-    && (entity.name.startsWith('Default Human') || entity.name.startsWith('Character ·'));
+    && (
+      entity.name.startsWith('Default Human')
+      || entity.name.startsWith('Character ·')
+      || entity.name === 'Player Fighter'
+      || entity.name === 'Training Rival'
+    );
 }
 
 export function isCharacterBodySurfacePart(part: SceneEntity | string) {

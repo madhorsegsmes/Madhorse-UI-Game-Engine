@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createGameStarterKit } from '../src/lib/scene-starter-kits';
 import { isSceneGraph } from '../src/lib/scene-model';
 import { advanceSceneRuntime, createSceneRuntimeState } from '../src/lib/scene-play-runtime';
+import { createEgoUiKit } from '../src/lib/ego-ui-kit';
 
 test('the fighting starter is a valid editable scene with combat actions and a linked rival', () => {
   const starter = createGameStarterKit('fighting', { x: -15, y: 50, z: 0 });
@@ -21,12 +22,32 @@ test('the fighting starter is a valid editable scene with combat actions and a l
     player.components.some(component => component.type === 'playerAction' && component.action === action)));
   assert.ok(rival.components.some(component => component.type === 'gameFeature' && component.kind === 'health'));
   assert.ok(rival.components.some(component => component.type === 'playerAction' && component.action === 'heavy-attack'));
+  assert.ok(player.isGroup);
+  assert.ok(player.components.some(component => component.type === 'modelRenderer' && component.assetId === null));
+  assert.ok(starter.entities.some(entity => entity.parentId === player.id && entity.name === 'Clothing · Tailored shirt'));
+  const clothingTexture = starter.generatedAssets?.[0];
+  assert.ok(clothingTexture);
+  assert.equal(clothingTexture.asset.kind, 'image');
+  assert.ok(starter.entities.some(entity =>
+    entity.name === 'Clothing · Tailored shirt' &&
+    entity.components.some(component => component.type === 'primitive' && component.textureAssetId === clothingTexture.asset.id),
+  ));
   assert.equal(Math.abs(
     player.components.find(component => component.type === 'transform')?.position.x! -
     rival.components.find(component => component.type === 'transform')?.position.x!,
   ), 80);
   assert.ok(starter.entities.some(entity => entity.parentId === player.id && entity.name.includes('Head')));
   assert.ok(starter.entities.some(entity => entity.name === 'Fighting Stage Floor'));
+});
+
+test('the fighting HUD includes editable health, timer, and four attack/defense buttons', () => {
+  const controls = createEgoUiKit(['fighting'], 0);
+  assert.equal(controls.filter(control => control.type === 'health-bar').length, 2);
+  assert.ok(controls.some(control => control.label === 'ROUND 1 · 99'));
+  assert.deepEqual(
+    controls.filter(control => control.type === 'button').map(control => control.label),
+    ['Light', 'Heavy', 'Special', 'Block'],
+  );
 });
 
 test('the fighting starter has an editable round HUD, special meter and working player hits', () => {

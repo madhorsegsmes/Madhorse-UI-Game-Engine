@@ -1,9 +1,10 @@
 import { createGameFeature } from './game-feature-model';
 import { createPlayerAction } from './player-action-model';
 import { createPluginComponent } from './scene-plugin-catalog';
+import { createEgoCharacterScene, createEgoClothingTextureAsset } from './character-builder-starter';
 import {
-  createPhysicsComponent, createStoryboardComponent, createTransformComponent,
-  type PrimitiveShape, type SceneEntity, type StoryboardBeat, type Vector3, type VisualLogicNode,
+  createPhysicsComponent, createStoryboardComponent, createTransformComponent, getPrimitive, getTransform,
+  type PrimitiveShape, type ProjectAsset, type SceneEntity, type StoryboardBeat, type Vector3, type VisualLogicNode,
 } from './scene-model';
 
 export type GameStarterKitId = 'shooter' | 'rpg' | 'puzzle' | 'fighting';
@@ -11,7 +12,7 @@ export const gameStarterKits: { id: GameStarterKitId; title: string; description
   { id: 'shooter', title: 'FPS Training Arena', description: 'A first-person camera with shooting, ammo, targets, health, and a small test arena.' },
   { id: 'rpg', title: 'RPG Quest', description: 'A player with inventory and spells, a character to meet, and a quest path to explore.' },
   { id: 'puzzle', title: 'Key-and-Gate Puzzle', description: 'Find a key, enter a trigger, and use safe visual logic to open the gate.' },
-  { id: 'fighting', title: '2D Fighting Arena', description: 'Classic arcade-fighter starter with editable fighters, a CPU rival, move sets, rounds, health bars, and an editable stage.' },
+  { id: 'fighting', title: '2D Fighting Arena', description: 'A fixed side-view 3D arena with detailed human fighters, optional FBX replacements, editable combat moves, health bars, and an editable stage.' },
 ];
 
 function createObject(name: string, shape: PrimitiveShape, color: string, position: Vector3, scale: Vector3): SceneEntity {
@@ -57,35 +58,56 @@ function createVisualPart(
   };
 }
 
-function createFighterParts(root: SceneEntity, main: string, trim: string, skin: string): SceneEntity[] {
-  const parts: {
-    name: string; shape: PrimitiveShape; color: string; position: Vector3; scale: Vector3; rotation?: Vector3;
-  }[] = [
-    { name: 'Torso Armor', shape: 'rounded-cube', color: main, position: { x: 0, y: 0, z: 0.06 }, scale: { x: 0.54, y: 0.34, z: 0.44 } },
-    { name: 'Head', shape: 'sphere', color: skin, position: { x: 0, y: 0, z: 0.43 }, scale: { x: 0.28, y: 0.28, z: 0.25 } },
-    { name: 'Headband', shape: 'rounded-cube', color: trim, position: { x: 0, y: -0.02, z: 0.53 }, scale: { x: 0.31, y: 0.3, z: 0.08 } },
-    { name: 'Left Shoulder', shape: 'sphere', color: trim, position: { x: -0.34, y: 0, z: 0.2 }, scale: { x: 0.25, y: 0.25, z: 0.23 } },
-    { name: 'Right Shoulder', shape: 'sphere', color: trim, position: { x: 0.34, y: 0, z: 0.2 }, scale: { x: 0.25, y: 0.25, z: 0.23 } },
-    { name: 'Left Forearm', shape: 'capsule', color: main, position: { x: -0.45, y: 0, z: -0.01 }, scale: { x: 0.16, y: 0.17, z: 0.38 }, rotation: { x: 0, y: 0, z: 18 } },
-    { name: 'Right Forearm', shape: 'capsule', color: main, position: { x: 0.45, y: 0, z: -0.01 }, scale: { x: 0.16, y: 0.17, z: 0.38 }, rotation: { x: 0, y: 0, z: -18 } },
-    { name: 'Left Glove', shape: 'sphere', color: trim, position: { x: -0.52, y: -0.03, z: -0.18 }, scale: { x: 0.2, y: 0.2, z: 0.18 } },
-    { name: 'Right Glove', shape: 'sphere', color: trim, position: { x: 0.52, y: -0.03, z: -0.18 }, scale: { x: 0.2, y: 0.2, z: 0.18 } },
-    { name: 'Left Leg', shape: 'capsule', color: main, position: { x: -0.18, y: 0, z: -0.42 }, scale: { x: 0.19, y: 0.2, z: 0.43 } },
-    { name: 'Right Leg', shape: 'capsule', color: main, position: { x: 0.18, y: 0, z: -0.42 }, scale: { x: 0.19, y: 0.2, z: 0.43 } },
-    { name: 'Left Boot', shape: 'rounded-cube', color: trim, position: { x: -0.2, y: -0.04, z: -0.67 }, scale: { x: 0.29, y: 0.34, z: 0.16 } },
-    { name: 'Right Boot', shape: 'rounded-cube', color: trim, position: { x: 0.2, y: -0.04, z: -0.67 }, scale: { x: 0.29, y: 0.34, z: 0.16 } },
-  ];
-  return parts.map(part => createVisualPart(
-    `${root.name} · ${part.name}`, root.id, part.shape, part.color,
-    { x: part.position.x * 10, y: part.position.y * 10, z: part.position.z * 10 },
-    part.scale, part.rotation,
-  ));
+function poseFighterGuard(build: ReturnType<typeof createEgoCharacterScene>, tint: string) {
+  for (const side of [-1, 1] as const) {
+    const label = side < 0 ? 'Left' : 'Right';
+    const pose: Record<string, { x: number; height: number; depth: number; rotation?: number }> = {
+      [`Skin · ${label} upper arm`]: { x: side * 0.34, height: 1.39, depth: 0.02, rotation: side * 22 },
+      [`Skin · ${label} elbow`]: { x: side * 0.25, height: 1.31, depth: 0.075 },
+      [`Skin · ${label} forearm`]: { x: side * 0.19, height: 1.37, depth: 0.105, rotation: side * 42 },
+      [`Skin · ${label} wrist`]: { x: side * 0.13, height: 1.42, depth: 0.15 },
+      [`Skin · ${label} palm`]: { x: side * 0.11, height: 1.44, depth: 0.18 },
+    };
+    for (const [name, point] of Object.entries(pose)) {
+      const part = build.entities.find(entity => entity.name === name);
+      if (!part) continue;
+      const transform = getTransform(part);
+      transform.position = { x: 50 + point.x * 10, y: 50 + point.depth * 10, z: 50 + point.height * 10 };
+      if (point.rotation !== undefined) transform.rotation.y = point.rotation;
+    }
+    for (const part of build.entities.filter(entity => entity.name.startsWith(`Skin · ${label} hand · finger `))) {
+      const transform = getTransform(part);
+      transform.position.x = 50 + side * 0.115 * 10;
+      transform.position.y = 50 + 0.19 * 10;
+      transform.position.z = 50 + 1.41 * 10;
+    }
+  }
+  for (const entity of build.entities) {
+    if (entity.name.startsWith('Clothing ·')) {
+      const primitive = getPrimitive(entity);
+      if (primitive?.textureAssetId) primitive.color = tint;
+    }
+  }
+}
+
+function flattenCharacterFighter(build: ReturnType<typeof createEgoCharacterScene>, name: string) {
+  const root = build.entities.find(entity => entity.id === build.setupId)!;
+  const bodyRoot = build.entities.find(entity => entity.id === build.characterId)!;
+  const modelRenderer = bodyRoot.components.find(component => component.type === 'modelRenderer');
+  root.name = name;
+  root.isGroup = true;
+  root.generatedBy = 'character-builder';
+  if (modelRenderer) root.components.push({ ...modelRenderer, id: crypto.randomUUID() });
+  const parts = build.entities.filter(entity => entity.parentId === bodyRoot.id);
+  for (const part of parts) part.parentId = root.id;
+  return { root, entities: [root, ...parts] };
 }
 
 function createFightingStarterKit(center: Vector3): {
   entities: SceneEntity[];
   playerId: string;
   title: string;
+  generatedAssets: Array<{ asset: ProjectAsset; file: File }>;
 } {
   const floor = createObject('Fighting Stage Floor', 'rounded-cube', '#292d38',
     { x: center.x, y: center.y, z: center.z - 0.24 }, { x: 16, y: 7, z: 0.48 });
@@ -97,13 +119,24 @@ function createFightingStarterKit(center: Vector3): {
     { x: center.x + 62, y: center.y + 19, z: center.z + 42.5 }, { x: 0.58, y: 0.58, z: 0.58 });
   const stageStripe = createVisualPart('Stage Center Stripe', null, 'rounded-cube', '#9a4546',
     { x: center.x, y: center.y - 23, z: center.z + 0.2 }, { x: 15.2, y: 0.12, z: 0.08 });
-  const player = createActor('Player Fighter', { x: center.x - 40, y: center.y, z: center.z + 12 }, '#9f3037', 'character-controller-player');
-  const rival = createActor('Training Rival', { x: center.x + 40, y: center.y, z: center.z + 12 }, '#315998', 'character-controller-npc');
-  player.components = player.components.map(component =>
-    component.type === 'physics' ? createPhysicsComponent('dynamic') : component,
+  const clothingTexture = createEgoClothingTextureAsset();
+  const playerBuild = createEgoCharacterScene('human', 1.8, { x: -4, z: 0 }, 'Player Fighter', clothingTexture.asset.id);
+  const rivalBuild = createEgoCharacterScene('human', 1.8, { x: 4, z: 0 }, 'Training Rival', clothingTexture.asset.id);
+  poseFighterGuard(playerBuild, '#a94750');
+  poseFighterGuard(rivalBuild, '#5578ba');
+  const playerFighter = flattenCharacterFighter(playerBuild, 'Player Fighter');
+  const rivalFighter = flattenCharacterFighter(rivalBuild, 'Training Rival');
+  const player = playerFighter.root;
+  const rival = rivalFighter.root;
+  getTransform(player).rotation.z = 90;
+  getTransform(rival).rotation.z = -90;
+  player.components.push(
+    createPhysicsComponent('dynamic'),
+    createPluginComponent('character-controller-player', 0).component,
   );
-  rival.components = rival.components.map(component =>
-    component.type === 'physics' ? createPhysicsComponent('dynamic') : component,
+  rival.components.push(
+    createPhysicsComponent('dynamic'),
+    createPluginComponent('character-controller-npc', 0).component,
   );
 
   const playerHealth = createGameFeature('health');
@@ -130,10 +163,15 @@ function createFightingStarterKit(center: Vector3): {
 
   const entities = [
     floor, backdrop, leftLight, rightLight, stageStripe,
-    player, ...createFighterParts(player, '#9f3037', '#e2a56c', '#d7a27d'),
-    rival, ...createFighterParts(rival, '#315998', '#efc760', '#b8795d'),
+    ...playerFighter.entities,
+    ...rivalFighter.entities,
   ];
-  return { entities, playerId: player.id, title: '2D Fighting Arena' };
+  return {
+    entities,
+    playerId: player.id,
+    title: '2D Fighting Arena',
+    generatedAssets: [clothingTexture],
+  };
 }
 
 function createStoryboard(title: string, beatValues: Omit<StoryboardBeat, 'id' | 'complete'>[]) {
@@ -152,6 +190,7 @@ export function createGameStarterKit(kind: GameStarterKitId, anchor: Vector3): {
   entities: SceneEntity[];
   playerId: string;
   title: string;
+  generatedAssets?: Array<{ asset: ProjectAsset; file: File }>;
 } {
   const center = { x: anchor.x + 65, y: anchor.y, z: anchor.z };
   if (kind === 'fighting') return createFightingStarterKit(center);

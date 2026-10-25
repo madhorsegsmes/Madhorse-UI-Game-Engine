@@ -786,6 +786,10 @@ function EntityNode(props: SceneWorldProps & {
   const spriteUrl = sprite?.assetId ? props.assetUrls[sprite.assetId] : undefined;
   const childEntities = props.childrenByParent.get(entity.id) ?? [];
   const smoothCharacterRoot = isCharacterBuilderModelRoot(entity);
+  const assignedModel = Boolean(model?.enabled && model.assetId);
+  const humanModelHeight = smoothCharacterRoot
+    ? Number(entity.name.match(/(\d+(?:\.\d+)?)\s*m\b/i)?.[1]) || 1.8
+    : undefined;
   const setGroupRef = useCallback((node: THREE.Group | null) => {
     entityGroupRef.current = node;
     if (selectedEntity) props.onSelectedObject(node);
@@ -879,8 +883,30 @@ function EntityNode(props: SceneWorldProps & {
         <TriggerZoneOutline zone={getTriggerZone(entity)!} />
       )}
       {selectedEntity && !getCamera(entity) && <SelectionOutline active={effective} />}
-      {smoothCharacterRoot && <CharacterBuilderBodyVisual parts={childEntities} />}
-      {props.hideVisual ? null : entity.isGroup ? null : !model?.enabled && (getPrimitive(entity) || getLight(entity) || getCamera(entity) || getUICanvas(entity)) ? (
+      {smoothCharacterRoot && !assignedModel && <CharacterBuilderBodyVisual parts={childEntities} />}
+      {props.hideVisual ? null : assignedModel ? (
+        modelUrl && modelAsset ? (
+          <ModelAssetView
+            key={`${model?.assetId ?? ''}:${modelUrl}`}
+            id={entity.id}
+            asset={modelAsset}
+            url={modelUrl}
+            assets={props.assets}
+            assetUrls={props.assetUrls}
+            onError={props.onModelError}
+            onStatus={props.onModelStatus}
+            clearError={props.clearError}
+            opacity={effective ? 1 : 0.38}
+            fitHeight={humanModelHeight}
+          />
+        ) : (
+          <AssetPlaceholder
+            message={`Missing local model · ${modelAsset?.name ?? model?.assetId ?? 'unknown asset'}`}
+            failed
+            onStatus={() => props.onModelStatus(entity.id, `Model unavailable: ${modelAsset?.name ?? model?.assetId ?? 'unknown asset'}`)}
+          />
+        )
+      ) : entity.isGroup ? null : !model?.enabled && (getPrimitive(entity) || getLight(entity) || getCamera(entity) || getUICanvas(entity)) ? (
         <SceneElementVisual entity={entity} gameView={Boolean(props.gameView)} active={effective}
           selected={selectedEntity} primary={isPrimary}
           assetUrls={props.assetUrls} onError={(message) => props.onModelError(entity.id, message)} />
@@ -897,6 +923,7 @@ function EntityNode(props: SceneWorldProps & {
             onStatus={props.onModelStatus}
             clearError={props.clearError}
             opacity={effective ? 1 : 0.38}
+          fitHeight={humanModelHeight}
           />
         ) : (
           <AssetPlaceholder
@@ -927,7 +954,7 @@ function EntityNode(props: SceneWorldProps & {
           key={child.id}
           {...props}
           entity={child}
-          hideVisual={smoothCharacterRoot && child.active && isCharacterBodySurfacePart(child)}
+          hideVisual={assignedModel || (smoothCharacterRoot && child.active && isCharacterBodySurfacePart(child))}
         />
       ))}
     </group>
@@ -1042,7 +1069,7 @@ function AssetPlaceholder({ message, failed, onStatus }: { message: string; fail
   );
 }
 
-type LoadedModelProps = { id: string; asset: ProjectAsset; url: string; assets: ProjectAsset[]; assetUrls: Record<string, string>; onError: (id: string, message: string) => void; onStatus: (id: string, message: string) => void; clearError: (id: string) => void; opacity: number };
+type LoadedModelProps = { id: string; asset: ProjectAsset; url: string; assets: ProjectAsset[]; assetUrls: Record<string, string>; onError: (id: string, message: string) => void; onStatus: (id: string, message: string) => void; clearError: (id: string) => void; opacity: number; fitHeight?: number };
 
 function ModelAssetView(props: LoadedModelProps) {
   const [object, setObject] = useState<THREE.Object3D | null>(null);
@@ -1114,6 +1141,23 @@ function ModelAssetView(props: LoadedModelProps) {
         return;
       }
       const root: THREE.Object3D = ext === '.gltf' || ext === '.glb' ? result.scene : ext === '.dae' ? result.scene : result;
+      if (props.fitHeight && props.fitHeight > 0) {
+        root.updateMatrixWorld(true);
+        const originalBounds = new THREE.Box3().setFromObject(root);
+        const originalSize = new THREE.Vector3();
+        originalBounds.getSize(originalSize);
+        if (originalSize.y > 0.001) {
+          root.scale.multiplyScalar(props.fitHeight / originalSize.y);
+          root.updateMatrixWorld(true);
+          const fittedBounds = new THREE.Box3().setFromObject(root);
+          const center = new THREE.Vector3();
+          fittedBounds.getCenter(center);
+          root.position.x -= center.x;
+          root.position.y -= fittedBounds.min.y;
+          root.position.z -= center.z;
+          root.updateMatrixWorld(true);
+        }
+      }
       root.traverse((item) => {
         const mesh = item as THREE.Mesh;
         if (!mesh.isMesh) return;

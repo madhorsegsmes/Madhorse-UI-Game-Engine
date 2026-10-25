@@ -69,10 +69,12 @@ const UI_SEEDS: Record<EgoGameType, UiSeed[]> = {
   ],
   fighting: [
     { type: 'health-bar', label: 'PLAYER', x: 3, y: 4, width: 250, height: 42, color: '#c9433c' },
-    { type: 'health-bar', label: 'RIVAL', x: 75, y: 4, width: 250, height: 42, color: '#c9433c' },
+    { type: 'health-bar', label: 'RIVAL', x: 75, y: 4, width: 250, height: 42, color: '#527de1' },
     { type: 'text', label: 'ROUND 1 · 99', x: 44, y: 5, width: 160, height: 34, color: '#f0e9e2' },
-    { type: 'button', label: 'Block', x: 74, y: 84, width: 112, height: 42, color: '#48415b' },
-    { type: 'button', label: 'Special', x: 84, y: 84, width: 130, height: 42, color: '#7d3e91' },
+    { type: 'button', label: 'Light', x: 70, y: 83, width: 88, height: 36, color: '#9f3037' },
+    { type: 'button', label: 'Heavy', x: 82, y: 83, width: 88, height: 36, color: '#73313b' },
+    { type: 'button', label: 'Special', x: 70, y: 90, width: 88, height: 36, color: '#7d3e91' },
+    { type: 'button', label: 'Block', x: 82, y: 90, width: 88, height: 36, color: '#48415b' },
   ],
   rts: [
     { type: 'panel', label: 'Resources', x: 2, y: 3, width: 260, height: 60, color: '#29272a' },

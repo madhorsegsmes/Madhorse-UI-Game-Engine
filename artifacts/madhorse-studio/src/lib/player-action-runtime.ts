@@ -148,7 +148,10 @@ export function resolveActionMovement(
 export type ActionMotion = ReturnType<typeof resolveActionMovement>;
 
 function isPracticeTarget(entity: SceneEntity, playerId: string, effects: Set<string>) {
-  return entity.id !== playerId && entity.active && !entity.isGroup && !effects.has(entity.id) &&
+  const healthBearingNpcGroup = entity.isGroup &&
+    entity.components.some(component => component.type === 'characterController' && component.enabled && component.role === 'npc') &&
+    Boolean(featureByKind(entity, 'health'));
+  return entity.id !== playerId && entity.active && (!entity.isGroup || healthBearingNpcGroup) && !effects.has(entity.id) &&
     !entity.components.some(component => component.type === 'characterController' && component.role === 'player') &&
     entity.components.some(component =>
       (component.type === 'primitive' && component.enabled && !['plane', 'terrain'].includes(component.shape)) ||

@@ -102,7 +102,7 @@ import { GameStarterKitDialog } from './game-starter-kit-dialog';
 import { StoryboardEditor } from './storyboard-editor';
 import { downloadMadBuilderLogPdf, type MadBuilderBuildLog } from '@/lib/mad-builder-build-log';
 import { createGameTypeLibraryPdf, gameTypeLibraryEntryCount } from '@/lib/game-type-library';
-import { createEgoCharacterScene } from '@/lib/character-builder-starter';
+import { createEgoCharacterScene, createEgoClothingTextureAsset } from '@/lib/character-builder-starter';
 import { detectEgoCharacterRequests, type EgoCharacterSize } from '@/lib/ego-character-anatomy';
 import { createEgoWorkspaceContext, type EgoInterfaceContext } from '@/lib/ego-workspace-context';
 import { EgoPanelBox } from './ego-panel-box';
@@ -2013,8 +2013,16 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
         const requestedTypes = (Object.keys(egoPlayerActions) as EgoGameType[])
           .filter(type => gameTypeMatchers[type]?.test(prompt));
         const gameTypes: EgoGameType[] = requestedTypes.length ? requestedTypes : ['platformer'];
+        let clothingTextureAsset = current.assets.find(asset => asset.name === 'madhorse-woven-clothing-texture.svg');
+        if (!clothingTextureAsset) {
+          const generatedTexture = createEgoClothingTextureAsset();
+          await saveLocalAsset(projectId, generatedTexture.asset.id, generatedTexture.file);
+          clothingTextureAsset = generatedTexture.asset;
+        }
         const characterBuilds = requestedCharacters.map((request, index) => {
-          const build = createEgoCharacterScene(request.species, request.heightMeters, { x: 0, z: 0 }, request.displayName);
+          const build = createEgoCharacterScene(
+            request.species, request.heightMeters, { x: 0, z: 0 }, request.displayName, clothingTextureAsset!.id,
+          );
           const setup = build.entities.find(entity => entity.id === build.setupId);
           if (!setup) throw new Error(`The editable rig for ${request.displayName} is missing its root.`);
           setup.parentId = buildRoot.id;
@@ -2086,6 +2094,9 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
         setBuilderProjects([{
           ...current,
           entities,
+          assets: current.assets.some(asset => asset.id === clothingTextureAsset!.id)
+            ? current.assets
+            : [...current.assets, clothingTextureAsset!],
           prefabs,
           builderBuildLogs: buildLogs,
           builderHistory: nextHistory,
@@ -2161,9 +2172,18 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
 
     try {
       onProgress(`Creating editable creature anatomy for ${requestedCharacters.map(({ displayName }) => displayName).join(', ')}…`);
+      const current = builderProjectRef.current;
+      let clothingTextureAsset = current.assets.find(asset => asset.name === 'madhorse-woven-clothing-texture.svg');
+      if (!clothingTextureAsset) {
+        const generatedTexture = createEgoClothingTextureAsset();
+        await saveLocalAsset(projectId, generatedTexture.asset.id, generatedTexture.file);
+        clothingTextureAsset = generatedTexture.asset;
+      }
       const characterBuilds = requestedCharacters.map((request, index) => {
         const spacing = (index - (requestedCharacters.length - 1) / 2) * 2.2 + 1.25;
-        return createEgoCharacterScene(request.species, request.heightMeters, { x: spacing, z: 0 }, request.displayName);
+        return createEgoCharacterScene(
+          request.species, request.heightMeters, { x: spacing, z: 0 }, request.displayName, clothingTextureAsset!.id,
+        );
       });
       const animationPacks = characterBuilds.map(build =>
         createEgoAnimationPack(build.entities, build.characterId, gameTypes),
@@ -2173,10 +2193,12 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
       const animationDataSaved =
         isGameAnimationCollection(nextAnimations) &&
         isEgoAnimationControllerCollection(nextControllers);
-      const current = builderProjectRef.current;
       setBuilderProjects([{
         ...current,
         entities: [...current.entities, ...characterBuilds.flatMap((build) => build.entities)],
+        assets: current.assets.some(asset => asset.id === clothingTextureAsset!.id)
+          ? current.assets
+          : [...current.assets, clothingTextureAsset!],
       }]);
       if (animationDataSaved) {
         animationsRef.current = nextAnimations;
