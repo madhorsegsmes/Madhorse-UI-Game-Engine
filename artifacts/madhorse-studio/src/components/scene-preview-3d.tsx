@@ -1201,7 +1201,7 @@ function ModelAssetView(props: LoadedModelProps) {
       props.onStatus(props.id, '');
     }
     return () => { alive = false; finish(); };
-  }, [props.id, props.asset, props.url, props.assets, props.assetUrls, props.opacity, props.onError, props.onStatus, props.clearError, supported, loaderTypes, ext]);
+  }, [props.id, props.asset, props.url, props.assets, props.assetUrls, props.opacity, props.fitHeight, props.onError, props.onStatus, props.clearError, supported, loaderTypes, ext]);
 
   if (failure) return <ModelFailure message={failure} />;
   if (!object) return <LoadingModel name={props.asset.name} />;

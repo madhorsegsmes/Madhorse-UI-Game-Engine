@@ -232,3 +232,13 @@ reference image when one is supplied.
 **How to apply:** Add supported local tools as a post-processing step around
 validated plans; do not execute generated scripts or treat a model-only build as
 functional movement unless a real controller runtime is attached.
+
+The 2D fighting starter uses 3D FBX fighters in a fixed side-view arena; keep
+movement on the side plane while letting creators replace the fighters with
+project model assets and edit the HUD.
+
+**Why:** The user chose 3D FBX models for the fixed side-view fighting game.
+
+**How to apply:** Preserve the fixed camera and editable fighter roots. Keep
+imported model/texture files in browser-local project storage and do not rewrite
+existing saved projects automatically when the starter changes.
