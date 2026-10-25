@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGameStarterKit } from '../src/lib/scene-starter-kits';
-import { isSceneGraph } from '../src/lib/scene-model';
+import { getPrimitive, isSceneGraph } from '../src/lib/scene-model';
 import { advanceSceneRuntime, createSceneRuntimeState } from '../src/lib/scene-play-runtime';
 import { createEgoUiKit } from '../src/lib/ego-ui-kit';
 
@@ -70,6 +70,76 @@ test('the fighting starter has an editable round HUD, special meter and working 
   assert.ok(result.hud?.controls.some(control => control.key === 'j' && control.label === 'Heavy Attack'));
   const facedPlayer = result.entities.find(entity => entity.id === player.id);
   assert.equal(facedPlayer?.components.find(component => component.type === 'transform')?.rotation.z, 90);
+});
+
+test('the RTS starter creates a textured strategy map, squads, resources, mission, and editable HUD', () => {
+  const starter = createGameStarterKit('rts', { x: -15, y: 50, z: 0 });
+  const player = starter.entities.find(entity => entity.id === starter.playerId);
+  const terrain = starter.entities.find(entity => entity.name === 'Sunstone Vale · Sculpted Highlands');
+
+  assert.ok(isSceneGraph(starter.entities));
+  assert.equal(starter.title, 'RTS · Sunstone Vale');
+  assert.ok(player);
+  assert.ok(player.components.some(component => component.type === 'characterController' && component.role === 'player'));
+  assert.ok(['command', 'gather', 'craft', 'build', 'run', 'fight'].every(action =>
+    player.components.some(component => component.type === 'playerAction' && component.action === action)));
+  assert.ok(['Alliance Keep · West', 'Ashen Outpost · East', 'Stone Crossing', 'Rally Beacon · East Bridge']
+    .every(name => starter.entities.some(entity => entity.name === name)));
+  assert.ok(starter.entities.filter(entity => /Vale Guard|Vale Scout|Ashen Guard/.test(entity.name)).length >= 5);
+  assert.ok(starter.entities.some(entity => entity.name === 'Silver Run · River'));
+  assert.ok(starter.entities.some(entity => entity.name === 'Verdant Biodome · West Orchard'));
+  assert.ok(starter.entities.some(entity => entity.name === 'Moonwell Biodome · East Conservatory'));
+  assert.ok(starter.entities.filter(entity => entity.name === 'Panoramic glass shell').length >= 2);
+  assert.ok(starter.entities.some(entity => entity.name.includes('Crenellation')));
+  assert.ok(starter.entities.some(entity => entity.name.includes('Hydroponic terrace')));
+  assert.ok(starter.entities.some(entity => entity.name.includes('Highland crystals')));
+  assert.ok(starter.entities.some(entity => entity.name.includes('fog bank')));
+  assert.ok(starter.entities.some(entity => entity.name === 'Sunstone Vale · First Campaign Storyboard'));
+  assert.ok(terrain);
+  const terrainPrimitive = getPrimitive(terrain);
+  assert.equal(terrainPrimitive?.shape, 'terrain');
+  assert.deepEqual(
+    terrainPrimitive?.terrainSettings && [terrainPrimitive.terrainSettings.width, terrainPrimitive.terrainSettings.depth],
+    [40, 34],
+  );
+  assert.ok((terrainPrimitive?.terrainEdits?.length ?? 0) >= 6);
+  assert.ok(terrainPrimitive?.textureAssetId);
+  assert.ok(starter.generatedAssets?.some(({ asset }) => asset.name === 'madhorse-rts-meadow-texture.svg'));
+  assert.ok(starter.generatedAssets?.some(({ asset }) => asset.name === 'madhorse-rts-cut-stone-texture.svg'));
+  assert.ok(starter.generatedAssets?.some(({ asset }) => asset.name === 'madhorse-rts-copper-roof-texture.svg'));
+  assert.ok(starter.generatedAssets?.some(({ asset }) => asset.name === 'madhorse-rts-biodome-glass-texture.svg'));
+  assert.equal(starter.generatedAssets?.length, 7);
+  const styles = starter.entities.flatMap(entity => entity.components)
+    .filter(component => component.type === 'effect')
+    .map(component => component.style ?? 'aura');
+  assert.ok(styles.includes('portal') && styles.includes('motes') && styles.includes('mist'));
+
+  const controls = createEgoUiKit(['rts'], 0);
+  assert.ok(['Resources · Wood / Planks / Coins', 'Mini Map · Sunstone Vale', 'Selected Unit · Field Commander']
+    .every(label => controls.some(control => control.label === label)));
+  assert.deepEqual(
+    controls.filter(control => control.type === 'button').map(control => control.label),
+    ['Order · T', 'Gather · G', 'Craft · K', 'Build · B', 'Fight · F', 'Run · Shift'],
+  );
+});
+
+test('RTS Play Test actions rally nearby units, gather a cache, craft planks, and place a block', () => {
+  const starter = createGameStarterKit('rts', { x: -15, y: 50, z: 0 });
+  const state = createSceneRuntimeState(starter.entities, starter.playerId);
+  let entities = starter.entities;
+  const step = (key: string, time: number) => {
+    const result = advanceSceneRuntime(entities, 0.05, time, {
+      moveX: 0, moveY: 0, heldKeys: [], pressedKeys: [key],
+    }, state);
+    entities = result.entities;
+    return result.hud?.message ?? '';
+  };
+
+  assert.match(step('g', 0.05), /Gathered \d+ wood/);
+  assert.match(step('k', 0.1), /Crafted \d+ planks/);
+  assert.match(step('b', 0.15), /Block placed/);
+  assert.match(step('t', 0.2), /Ordered \d+ units/);
+  assert.ok(entities.some(entity => entity.name === 'Built Block 1'));
 });
 
 test('the training rival follows, attacks, and the player can block its round damage', () => {

@@ -12,26 +12,38 @@ import { createGameStarterKit } from '@/lib/scene-starter-kits';
 import { removeFreshWorkspace, saveFreshWorkspace } from '@/lib/fresh-workspace-storage';
 import { deleteLocalAsset, saveLocalAsset } from '@/lib/asset-vault';
 import type { ProjectAsset } from '@/lib/scene-model';
+import { useSceneRenderSettings } from '@/hooks/use-scene-render-settings';
 
 const fightingStarterVision = 'A fixed side-view 3D fighting game with detailed human fighters, editable combat actions and HUD, plus imported FBX fighters and high-resolution stage assets.';
+const rtsStarterVision = 'A real-time strategy campaign in Sunstone Vale: command human squads, gather resources, defend an alliance keep, and take the enemy outpost.';
 
-function createFightingStarterSnapshot(projectName: string): {
+type StarterChoice = '2d-fighting' | 'rts';
+
+function readStarterChoice(): StarterChoice | null {
+  const requested = new URLSearchParams(window.location.search).get('starter');
+  return requested === 'rts' || requested === '2d-fighting' ? requested : null;
+}
+
+function createStarterSnapshot(projectName: string, choice: StarterChoice): {
   snapshot: FreshWorkspaceSnapshot;
   generatedAssets: Array<{ asset: ProjectAsset; file: File }>;
 } {
-  const starter = createGameStarterKit('fighting', { x: -15, y: 50, z: 0 });
+  const isRts = choice === 'rts';
+  const starter = createGameStarterKit(isRts ? 'rts' : 'fighting', { x: -15, y: 50, z: 0 });
   const camera = createGameCamera(starter.entities);
-  camera.position = { x: 0, y: 1.2, z: -17 };
-  camera.target = { x: 0, y: 1.2, z: 0 };
-  camera.fov = 42;
+  camera.position = isRts ? { x: 0, y: 24, z: 29 } : { x: 0, y: 1.2, z: -17 };
+  camera.target = isRts ? { x: 0, y: 0, z: 0 } : { x: 0, y: 1.2, z: 0 };
+  camera.fov = isRts ? 50 : 42;
   camera.placement = 'custom';
-  const uiControls = createEgoUiKit(['fighting'], 0);
+  const uiControls = createEgoUiKit([isRts ? 'rts' : 'fighting'], 0);
   return {
     snapshot: {
       projectName,
-      egoGameVision: fightingStarterVision,
+      egoGameVision: isRts ? rtsStarterVision : fightingStarterVision,
       egoGameFlow: 'undecided',
-      egoGameNotes: 'Use A/D to move, F/G for attacks, Control to block, Shift to run, and C to crouch. Import an FBX fighter through Assets, select the fighter root, then choose its model in Model Renderer. Import FBX or GLB stage models and their image textures for high-resolution environments. Edit health bars and action buttons in the UI builder.',
+      egoGameNotes: isRts
+        ? 'RTS starter controls: move with WASD; press T to order nearby allied NPCs to the East Bridge rally beacon, G to gather a nearby resource cache, K to craft planks, and B to place a temporary construction block. Edit the mission, terrain, units, buildings, and HUD in Studio. This starter is a playable prototype, not a complete commercial RTS: squad selection, pathfinding, and a full economy are not included yet.'
+        : 'Use A/D to move, F/G for attacks, Control to block, Shift to run, and C to crouch. Import an FBX fighter through Assets, select the fighter root, then choose its model in Model Renderer. Import FBX or GLB stage models and their image textures for high-resolution environments. Edit health bars and action buttons in the UI builder.',
       entities: starter.entities,
       camera,
       assets: starter.generatedAssets?.map(({ asset }) => asset) ?? [],
@@ -49,7 +61,7 @@ function createFightingStarterSnapshot(projectName: string): {
   };
 }
 
-function clearFightingStarterRequest() {
+function clearStarterRequestFromUrl() {
   const url = new URL(window.location.href);
   url.searchParams.delete('starter');
   window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
@@ -62,12 +74,14 @@ export default function StudioProjects() {
   });
   const [registry, setRegistry] = useState<StudioProjectRegistry | null>(initial.registry);
   const active = registry?.projects.find(project => project.id === registry.activeId);
+  const [templateChoice, setTemplateChoice] = useState<StarterChoice | null>(() => readStarterChoice());
+  const [, setRenderSettings] = useSceneRenderSettings();
   const [mode, setMode] = useState<'name' | 'new' | 'rename' | 'template' | null>(() => {
-    if (new URLSearchParams(window.location.search).get('starter') === '2d-fighting') return 'template';
+    if (readStarterChoice()) return 'template';
     return active?.name ? null : 'name';
   });
   const [draft, setDraft] = useState(() =>
-    new URLSearchParams(window.location.search).get('starter') === '2d-fighting' ? 'My 2D Fighting Game' : '',
+    templateChoice === 'rts' ? 'My RTS Game' : templateChoice === '2d-fighting' ? 'My 2D Fighting Game' : '',
   );
   const [error, setError] = useState(initial.error);
   const [savingProject, setSavingProject] = useState(false);
@@ -97,7 +111,8 @@ export default function StudioProjects() {
       setSavingProject(true);
       let generatedAssetIds: string[] = [];
       try {
-        const { snapshot, generatedAssets } = createFightingStarterSnapshot(name);
+        const starterChoice = templateChoice ?? '2d-fighting';
+        const { snapshot, generatedAssets } = createStarterSnapshot(name, starterChoice);
         generatedAssetIds = generatedAssets.map(({ asset }) => asset.id);
         await Promise.all(generatedAssets.map(({ asset, file }) => saveLocalAsset(id, asset.id, file)));
         saveFreshWorkspace(snapshot, id);
@@ -110,16 +125,21 @@ export default function StudioProjects() {
           await Promise.all(generatedAssets.map(({ asset }) => deleteLocalAsset(id, asset.id)));
           return;
         }
-        clearFightingStarterRequest();
+        if (starterChoice === 'rts') {
+          setRenderSettings(current => ({ ...current, quality: 'high' }));
+        }
+        clearStarterRequestFromUrl();
+        setTemplateChoice(null);
         setMode(null);
         setDraft('');
         setExportStatus(null);
       } catch (cause) {
         try { removeFreshWorkspace(id); } catch { /* Storage may be unavailable. Existing project data stays untouched. */ }
         await Promise.allSettled(generatedAssetIds.map(assetId => deleteLocalAsset(id, assetId)));
+        const kindLabel = (templateChoice ?? '2d-fighting') === 'rts' ? 'RTS' : 'fighting-game';
         setError(cause instanceof Error
-          ? `The fighting-game starter could not be saved. Existing projects were left untouched. ${cause.message}`
-          : 'The fighting-game starter could not be saved. Existing projects were left untouched.');
+          ? `The ${kindLabel} starter could not be saved. Existing projects were left untouched. ${cause.message}`
+          : `The ${kindLabel} starter could not be saved. Existing projects were left untouched.`);
       } finally {
         setSavingProject(false);
       }
@@ -188,9 +208,12 @@ export default function StudioProjects() {
     {mode && <div className="studio-project-backdrop">
       <form className="studio-project-dialog" role="dialog" aria-modal="true" aria-labelledby="project-name-heading"
         onSubmit={submit} onKeyDown={event => {
-          if (event.key === 'Escape' && mode !== 'name') {
+          if (event.key === 'Escape' && mode !== 'name' && !savingProject) {
             event.stopPropagation();
-            if (mode === 'template') clearFightingStarterRequest();
+            if (mode === 'template') {
+              clearStarterRequestFromUrl();
+              setTemplateChoice(null);
+            }
             setMode(null);
             setError('');
           }
@@ -201,9 +224,13 @@ export default function StudioProjects() {
             if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
           }
         }}>
-        <h2 id="project-name-heading">{mode === 'template' ? 'Name your 2D fighting game' : mode === 'new' ? 'New project' : mode === 'rename' ? 'Rename project' : 'Name your project'}</h2>
+        <h2 id="project-name-heading">{mode === 'template'
+          ? templateChoice === 'rts' ? 'Name your RTS project' : 'Name your 2D fighting game'
+          : mode === 'new' ? 'New project' : mode === 'rename' ? 'Rename project' : 'Name your project'}</h2>
         <p>{mode === 'template'
-          ? 'This creates a separate project with a fighting arena, two editable fighters, combat controls, and a Play Test HUD. Your other saved projects stay untouched.'
+          ? templateChoice === 'rts'
+            ? 'This creates a separate RTS project with an editable strategy map, two bases, squads, resource caches, a rally objective, and a mission HUD. Studio will start with its High render preset; you can change it later. Existing projects stay untouched.'
+            : 'This creates a separate project with a fighting arena, two editable fighters, combat controls, and a Play Test HUD. Your other saved projects stay untouched.'
           : mode === 'new'
             ? 'Your current project stays saved in this browser.'
             : 'This name will appear above the scene view. Your scene and files will be kept.'}</p>
@@ -213,12 +240,17 @@ export default function StudioProjects() {
         </label>
         {error && <p id="project-name-error" role="alert">{error}</p>}
         <footer>
-          {mode !== 'name' && <button type="button" onClick={() => {
-            if (mode === 'template') clearFightingStarterRequest();
+          {mode !== 'name' && <button type="button" disabled={savingProject} onClick={() => {
+            if (mode === 'template') {
+              clearStarterRequestFromUrl();
+              setTemplateChoice(null);
+            }
             setMode(null);
             setError('');
           }}>Cancel</button>}
-          <button type="submit" disabled={savingProject}>{savingProject ? 'Creating…' : mode === 'template' ? 'Create fighting game' : mode === 'new' ? 'Create project' : 'Save name'}</button>
+          <button type="submit" disabled={savingProject}>{savingProject ? 'Creating…'
+            : mode === 'template' ? templateChoice === 'rts' ? 'Create RTS project' : 'Create fighting game'
+              : mode === 'new' ? 'Create project' : 'Save name'}</button>
         </footer>
       </form>
     </div>}

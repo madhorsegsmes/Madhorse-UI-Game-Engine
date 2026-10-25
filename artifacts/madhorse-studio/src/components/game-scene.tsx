@@ -355,6 +355,9 @@ function ScenePreview2D({
     onMoveEntity(entityId, next);
   };
 
+  const modelRootIds = useMemo(() => new Set(
+    entities.filter(entity => getModelRenderer(entity)?.enabled).map(entity => entity.id),
+  ), [entities]);
   const orderedEntities = [...entities].sort((a, b) =>
     (worldByEntity.get(a.id)?.position.z ?? 0) - (worldByEntity.get(b.id)?.position.z ?? 0),
   );
@@ -364,21 +367,33 @@ function ScenePreview2D({
       <div
         ref={fieldRef}
         className="scene-field"
-        aria-label="Game camera sprite fallback; full 3D graphics require WebGL 2"
+        aria-label="Software scene overview; full 3D materials and lighting require WebGL 2"
         data-testid="scene-field"
       >
         {orderedEntities.map((entity) => {
           const world = worldByEntity.get(entity.id);
           if (!world) return null;
           const sprite = getSpriteRenderer(entity);
-          if (!sprite && !getModelRenderer(entity)) return null;
-          const isPlayer = entity.id === 'player';
+          const modelRenderer = getModelRenderer(entity);
+          const primitive = getPrimitive(entity);
+          const hasVisibleChild = entity.isGroup && entities.some(child =>
+            child.parentId === entity.id && (getPrimitive(child)?.enabled || getModelRenderer(child)?.enabled || getSpriteRenderer(child)?.enabled),
+          );
+          const emptyGroup = Boolean(entity.isGroup && !hasVisibleChild && !modelRenderer);
+          if (!sprite?.enabled && !modelRenderer?.enabled && !primitive?.enabled && !emptyGroup) return null;
+          if (primitive?.shape === 'plane' || primitive?.shape === 'terrain') return null;
+          let ancestorId = entity.parentId;
+          while (ancestorId) {
+            if (modelRootIds.has(ancestorId)) return null;
+            ancestorId = entities.find(parent => parent.id === ancestorId)?.parentId ?? null;
+          }
+          if (getCamera(entity) || getLight(entity) || getUICanvas(entity)) return null;
+          const isPlayer = entity.id === 'player' || entity.components.some(component => component.type === 'playerAction');
           const previewPosition = isPlayer ? position : world.position;
           const projected = new Vector3(
             (previewPosition.x - 50) / 10, world.position.z / 10, (previewPosition.y - 50) / 10,
           ).project(camera);
-          if (entity.isGroup || projected.z < -1 || projected.z > 1 || getModelRenderer(entity)?.enabled ||
-              getPrimitive(entity) || getCamera(entity) || getLight(entity) || getUICanvas(entity)) return null;
+          if (projected.z < -1 || projected.z > 1) return null;
           const x = (projected.x + 1) * 50;
           const y = (1 - projected.y) * 50;
           const visibleHeight = 2 * Math.max(0.1, gameCamera.position.y - world.position.z / 10) *
@@ -399,6 +414,18 @@ function ScenePreview2D({
           })();
           if (inheritedInactive) return null;
           const imageUrl = sprite?.assetId ? assetUrls[sprite.assetId] : undefined;
+          const fallbackColor = (() => {
+            const name = entity.name.toLowerCase();
+            if (/enemy|ashen|ironwatch|outpost/.test(name)) return '#7897bb';
+            if (/wood|timber|tree|forest/.test(name)) return '#6d9855';
+            if (/coin|gold|beacon|rally/.test(name)) return '#d7b45b';
+            if (/water|river|run/.test(name)) return '#4d9dad';
+            if (/commander|guard|scout|alliance|barracks|keep/.test(name)) return '#bd6551';
+            return primitive?.color ?? '#8e9c88';
+          })();
+          const markerLabel = entity.name.trim().slice(0, 1).toUpperCase() || '•';
+          const markerRadius = primitive?.shape === 'sphere' || primitive?.shape === 'octahedron' ||
+            primitive?.shape === 'icosahedron' ? '50%' : primitive?.shape === 'capsule' ? '35%' : '3px';
           return (
             <button
               key={entity.id}
@@ -441,22 +468,23 @@ function ScenePreview2D({
               style={{
                 left: `${x}%`,
                 top: `${y}%`,
-                width: `${(sprite?.width ?? 14) / 10 * pixelsPerUnit}px`,
-                height: `${(sprite?.height ?? 14) / 10 * pixelsPerUnit}px`,
+                width: `${(sprite?.width ?? (modelRenderer?.enabled ? 12 : 8)) / 10 * pixelsPerUnit}px`,
+                height: `${(sprite?.height ?? (modelRenderer?.enabled ? 12 : 8)) / 10 * pixelsPerUnit}px`,
                 transform: `translate(-50%, -50%) rotate(${world.rotation.z}deg) scale(${world.scale.x}, ${world.scale.y})`,
-                backgroundColor: sprite?.enabled ? sprite.tint : 'transparent',
+                backgroundColor: sprite?.enabled ? sprite.tint : fallbackColor,
+                borderRadius: markerRadius,
                 zIndex: Math.round(world.position.z + 200),
               }}
             >
               {sprite?.enabled && imageUrl
                 ? <img src={imageUrl} alt="" draggable={false} />
-                : !sprite && <span className="scene-empty-object" aria-hidden="true">O</span>}
+                : <span className="scene-empty-object" aria-hidden="true">{markerLabel}</span>}
             </button>
           );
         })}
       </div>
       <span className="game-camera-fallback-note" data-testid="game-camera-fallback">
-        Limited graphics preview · sprites only. Full 3D game view requires WebGL 2.
+        Software overview · objects, units, and terrain markers. Full 3D materials and lighting require WebGL 2.
       </span>
     </div>
   );

@@ -28,7 +28,7 @@ import { SceneNavigation } from './scene-navigation';
 import { sceneEntityFocus, type SceneFocus } from '@/lib/scene-view-geometry';
 import {
   getModelRenderer,
-  getPrimitive, getCamera, getLight, getUICanvas,
+  getPrimitive, getCamera, getLight, getEffect, getUICanvas,
   getSpriteRenderer,
   getTriggerZone,
   getSkybox,
@@ -195,6 +195,7 @@ export function ScenePreview3D({
   const [renderSettings] = useSceneRenderSettings();
   const skybox = entities.map(getSkybox).find(component => component?.enabled);
   const sceneBackground = skybox?.color ?? (gameView ? '#333538' : renderSettings.background);
+  const hasAnimatedEffects = useMemo(() => entities.some(entity => getEffect(entity)?.enabled), [entities]);
   const [mobile, setMobile] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const performanceStatsRef = useRef<HTMLDivElement>(null);
@@ -440,8 +441,13 @@ export function ScenePreview3D({
         <Canvas
           camera={{ position: [0, 12, -16], fov: 48, near: 0.1, far: 3000 }}
           dpr={renderDpr}
-          frameloop={gameView ? 'always' : 'demand'}
-          gl={{ antialias: !mobile, powerPreference: 'low-power', alpha: false }}
+          shadows={!mobile && renderSettings.quality === 'high'}
+          frameloop={gameView || hasAnimatedEffects ? 'always' : 'demand'}
+          gl={{
+            antialias: !mobile,
+            powerPreference: !mobile && renderSettings.quality === 'high' ? 'high-performance' : 'low-power',
+            alpha: false,
+          }}
           onCreated={({ gl, scene }) => {
             gl.setClearColor(sceneBackground);
             scene.background = new THREE.Color(sceneBackground);

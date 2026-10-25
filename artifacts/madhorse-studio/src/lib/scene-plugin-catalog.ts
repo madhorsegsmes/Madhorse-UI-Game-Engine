@@ -290,7 +290,7 @@ export function createPluginComponent(
   if (kind === 'skybox') {
     return { component: { id, type: 'skybox', enabled: true, color: '#252a35' } };
   }
-  return { component: { id, type: 'effect', enabled: true, color: '#d676ff', intensity: 1 } };
+  return { component: { id, type: 'effect', enabled: true, color: '#d676ff', intensity: 1, style: 'aura' } };
 }
 
 export function getPluginComponentIdentity(kind: PluginComponentKind): SceneComponent['type'] {

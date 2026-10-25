@@ -14,7 +14,11 @@ export function parseStudioProjects(raw: string): StudioProjectRegistry {
   if (!value || !Array.isArray(value.projects) || !value.projects.length || value.projects.length > 200) throw new Error('Invalid project list.');
   const projects: StudioProject[] = value.projects.map((item: StudioProject) => {
     if (!item || typeof item.id !== 'string' || !/^[\w-]{1,100}$/.test(item.id) || typeof item.name !== 'string') throw new Error('Invalid project entry.');
-    return { id: item.id, name: validateProjectName(item.name) };
+    // The initial legacy workspace may not have been named yet. Keep it intact
+    // when a separately named template project is added.
+    const name = item.id === LEGACY_STUDIO_PROJECT_ID && !item.name.trim()
+      ? '' : validateProjectName(item.name);
+    return { id: item.id, name };
   });
   if (new Set(projects.map(item => item.id)).size !== projects.length) throw new Error('Duplicate project identifiers.');
   return { projects, activeId: projects.some(item => item.id === value.activeId) ? value.activeId : projects[0].id };

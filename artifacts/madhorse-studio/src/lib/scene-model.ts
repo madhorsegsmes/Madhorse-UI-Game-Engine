@@ -134,6 +134,7 @@ export type PlayerWalkAudioComponent = {
 };
 export type EffectComponent = {
   id: string; type: 'effect'; enabled: boolean; color: string; intensity: number;
+  style?: 'aura' | 'motes' | 'mist' | 'portal';
 };
 export type SkyboxComponent = {
   id: string; type: 'skybox'; enabled: boolean; color: string;
@@ -439,7 +440,8 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
     Number.isFinite(item.stepInterval) && item.stepInterval >= 0.15 && item.stepInterval <= 2;
   if (item.type === 'effect') return typeof item.enabled === 'boolean' &&
     /^#[0-9a-f]{6}$/i.test(item.color) && Number.isFinite(item.intensity) &&
-    item.intensity >= 0 && item.intensity <= 10;
+    item.intensity >= 0 && item.intensity <= 10 &&
+    (item.style === undefined || ['aura', 'motes', 'mist', 'portal'].includes(item.style));
   if (item.type === 'multiplayerPlugin') return typeof item.enabled === 'boolean' &&
     ['player', 'object', 'event'].includes(item.mode) &&
     typeof item.eventName === 'string' && item.eventName.length <= 80;

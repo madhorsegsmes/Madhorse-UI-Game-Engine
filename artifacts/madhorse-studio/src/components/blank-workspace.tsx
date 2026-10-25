@@ -76,7 +76,7 @@ import {
   saveFreshWorkspace,
   type FreshWorkspaceSnapshot,
 } from '@/lib/fresh-workspace-storage';
-import { loadLocalAsset, saveLocalAsset } from '@/lib/asset-vault';
+import { deleteLocalAsset, loadLocalAsset, saveLocalAsset } from '@/lib/asset-vault';
 import { MadBuilderMenu } from './mad-builder-menu';
 import { EgoAssistant } from './ego-assistant';
 import { useMadBuilder, type BuilderDocument } from '@/hooks/use-mad-builder';
@@ -2589,7 +2589,7 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
     setStatus('Storyboard saved with Scene 1 in this browser.');
   }, []);
 
-  const addStarterKit = useCallback((kind: GameStarterKitId) => {
+  const addStarterKit = useCallback(async (kind: GameStarterKitId) => {
     const anchor = selectedEntity
       ? getWorldTransform(entities, selectedEntity.id)?.position ?? getTransform(selectedEntity).position
       : SCENE_ORIGIN;
@@ -2599,11 +2599,24 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
       setStatus('The starter kit did not pass scene checks. No scene objects were added.');
       return;
     }
-    setEntities(next);
+    const generatedAssets = result.generatedAssets ?? [];
+    try {
+      await Promise.all(generatedAssets.map(({ asset, file }) => saveLocalAsset(projectId, asset.id, file)));
+    } catch (cause) {
+      await Promise.allSettled(generatedAssets.map(({ asset }) => deleteLocalAsset(projectId, asset.id)));
+      setStatus(cause instanceof Error
+        ? `The starter assets could not be saved, so no scene objects were added. ${cause.message}`
+        : 'The starter assets could not be saved, so no scene objects were added.');
+      return;
+    }
+    setEntities(current => [...current, ...result.entities]);
+    if (generatedAssets.length) {
+      setAssets(current => [...current, ...generatedAssets.map(({ asset }) => asset)]);
+    }
     setSelection(result.playerId);
     setStarterKitsOpen(false);
     setStatus(`${result.title} added beside your current objects. Existing scene data was kept.`);
-  }, [entities, selectedEntity]);
+  }, [entities, selectedEntity, projectId]);
 
   const removeEntityFromScene = useCallback((entityId: string) => {
     if (entityId === PRIMARY_CAMERA_ID || entityId === 'player') return;

@@ -90,6 +90,7 @@ function toDraft(entity: SceneEntity) {
     } else if (component.type === 'effect') {
       values['effect.color'] = component.color;
       values['effect.intensity'] = String(component.intensity);
+      values['effect.style'] = component.style ?? 'aura';
       values['effect.enabled'] = String(component.enabled);
     } else if (component.type === 'physics') {
       values['physics.enabled'] = String(component.enabled);
@@ -265,6 +266,13 @@ export function SceneObjectInspector({
         intensity: number('light.intensity'),
         enabled: values['light.enabled'] === 'true',
       };
+      if (item.type === 'effect') return {
+        ...item,
+        style: values['effect.style'] as NonNullable<typeof item.style>,
+        color: values['effect.color'],
+        intensity: number('effect.intensity'),
+        enabled: values['effect.enabled'] === 'true',
+      };
       if (item.type === 'camera') return {
         ...item,
         fov: number('camera.fov'),
@@ -293,12 +301,6 @@ export function SceneObjectInspector({
         volume: number('playerWalkAudio.volume'),
         pitch: number('playerWalkAudio.pitch'),
         stepInterval: number('playerWalkAudio.stepInterval'),
-      };
-      if (item.type === 'effect') return {
-        ...item,
-        color: values['effect.color'],
-        intensity: number('effect.intensity'),
-        enabled: values['effect.enabled'] === 'true',
       };
       if (item.type === 'physics') return {
         ...item,
@@ -492,6 +494,12 @@ export function SceneObjectInspector({
         {effect && section('Particle Effect', <>
           {checkboxField('Enabled', 'effect.enabled')}
           {colorField('Effect color', 'effect.color')}
+          {selectField('Style', 'effect.style', [
+            { value: 'aura', label: 'Aura' },
+            { value: 'motes', label: 'Floating motes' },
+            { value: 'mist', label: 'Soft mist' },
+            { value: 'portal', label: 'Portal ring' },
+          ])}
           {numberField('Intensity', 'effect.intensity', 0, 10, 0.1)}
         </>)}
         {sprite && section('Sprite Renderer', <>

@@ -21,3 +21,12 @@ test('legacy saves retain their original keys while new projects are isolated', 
   const boardKey = 'madhorse.vision-boards.v1';
   assert.equal(studioProjectStorageKey(boardKey, LEGACY_STUDIO_PROJECT_ID), boardKey);
 });
+test('a named template can be saved without discarding an unnamed legacy workspace', () => {
+  const projects = [{ id: LEGACY_STUDIO_PROJECT_ID, name: '' }, { id: 'rts-project', name: 'My RTS Game' }];
+  const parsed = parseStudioProjects(JSON.stringify({ activeId: 'rts-project', projects }));
+  assert.equal(parsed.activeId, 'rts-project');
+  assert.deepEqual(parsed.projects, projects);
+  assert.throws(() => parseStudioProjects(JSON.stringify({
+    projects: [{ id: 'another-project', name: '' }],
+  })));
+});

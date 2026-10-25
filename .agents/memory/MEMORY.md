@@ -17,3 +17,4 @@
 - [Vision Board authoring](vision-board-authoring.md) — media belongs to each node; creative effects must preserve the original files.
 - [Studio Clerk React compatibility](studio-clerk-react-compatibility.md) — keep Madhorse Studio’s React and ReactDOM aligned with Clerk’s current peer-version range.
 - [Hub-first authentication](hub-first-authentication.md) — after sign-up and sign-in, send users to the authenticated Hub before the editor.
+- [Starter scene verification](starter-scene-verification.md) — exercise advertised controls on the assembled map; valid components alone do not prove a playable starting layout.
