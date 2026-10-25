@@ -15,6 +15,7 @@ import { withSystemActivity } from '@/lib/system-activity';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import { GameScene } from '@/components/game-scene';
 import { cameraForEntity, createGameCamera, isGameCamera, type GameCamera } from '@/lib/game-camera';
+import { applyAnimationPreview } from '@/lib/animation-preview';
 import { PRIMARY_CAMERA_ID, updateCameraEntityTransform } from '@/lib/camera-editor';
 import { isPrefabCollection, type ScenePrefab } from '@/lib/scene-authoring';
 import { useSceneAuthoring } from '@/hooks/use-scene-authoring';
@@ -36,7 +37,6 @@ import {
   initialGamePosition,
   isGameAnimationCollection,
   isGamePosition,
-  sampleGameAnimation,
   type GameAnimation,
   type GamePosition,
 } from '@/lib/game-api';
@@ -59,7 +59,6 @@ import {
   isPhysicsComponent,
   isPhysicsWorldSettings,
   isSceneGraph,
-  type TransformComponent,
   type ProjectAsset,
   type PhysicsWorldSettings,
   type SceneEntity,
@@ -239,36 +238,6 @@ function getPlayerStartPosition(project: Pick<Project, 'entities'>): GamePositio
   return { x: world.position.x, y: world.position.y };
 }
 
-function applyAnimationPreview(
-  entities: SceneEntity[],
-  animation: GameAnimation,
-  time: number,
-): SceneEntity[] {
-  const targetId = animation.targetEntityId;
-  if (!entities.some((entity) => entity.id === targetId)) return entities;
-  const frame = sampleGameAnimation(animation, time);
-  return entities.map((entity) => {
-    if (entity.id !== targetId) return entity;
-    return {
-      ...entity,
-      components: entity.components.map((component) => {
-        if (component.type !== 'transform') return component;
-        const transform: TransformComponent = {
-          ...component,
-          position: { ...frame.position },
-          rotation: { ...frame.rotation },
-          scale: {
-            x: component.scale.x * frame.scale,
-            y: component.scale.y * frame.scale,
-            z: component.scale.z * frame.scale,
-          },
-        };
-        return transform;
-      }),
-    };
-  });
-}
-
 function applyScriptPreview(entities: SceneEntity[], positions: Record<string, GamePosition>): SceneEntity[] {
   return entities.map((entity) => {
     const position = positions[entity.id];
@@ -372,8 +341,11 @@ function Home() {
   const activeAnimationPreview = animationPreview?.projectId === activeProject.id && !isPlayMode
     ? animationPreview
     : null;
-  const sceneEntities = activeAnimationPreview
-    ? applyAnimationPreview(activeProject.entities, activeAnimationPreview.animation, activeAnimationPreview.time)
+  const previewClip = activeAnimationPreview
+    ? activeProject.animations?.find((animation) => animation.id === activeAnimationPreview.animation.id)
+    : null;
+  const sceneEntities = activeAnimationPreview && previewClip
+    ? applyAnimationPreview(activeProject.entities, previewClip, activeAnimationPreview.time)
     : activeProject.entities;
   const scenePosition = activeAnimationPreview
     ? getPlayerStartPosition({ entities: sceneEntities })
@@ -940,7 +912,7 @@ function Home() {
                 if (isPlayMode || activeAnimationPreview || !loadedProjects.canOverwrite || !isGameCamera(camera)) return;
                 updateActiveProject({ gameCamera: camera, activeCameraId: null });
               }}
-              readOnly={isPlayMode}
+              readOnly={isPlayMode || !loadedProjects.canOverwrite}
               animations={activeProject.animations ?? []}
               entities={sceneEditor.entities}
               selectedEntityId={sceneEditor.selectedEntityId}

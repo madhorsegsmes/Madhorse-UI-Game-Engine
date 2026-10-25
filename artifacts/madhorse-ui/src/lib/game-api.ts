@@ -11,34 +11,68 @@ export type GameAnimationKeyframe = {
   scale: number;
 };
 
+export type GameAnimationTrack = {
+  id: string;
+  targetEntityId: string;
+  keyframes: GameAnimationKeyframe[];
+};
+
 export type GameAnimation = {
   id: string;
   name: string;
-  targetEntityId: string;
   duration: number;
   loop: boolean;
+} & ({
+  tracks: GameAnimationTrack[];
+} | {
+  // Browser-local clips created before multi-object tracks remain readable.
+  targetEntityId: string;
   keyframes: GameAnimationKeyframe[];
-};
+});
+
+export function getAnimationTracks(animation: GameAnimation): GameAnimationTrack[] {
+  return 'tracks' in animation ? animation.tracks : [{
+    id: animation.id,
+    targetEntityId: animation.targetEntityId,
+    keyframes: animation.keyframes,
+  }];
+}
 
 export function isGameAnimation(value: unknown): value is GameAnimation {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const animation = value as GameAnimation;
   if (typeof animation.id !== 'string' || !animation.id ||
       typeof animation.name !== 'string' || animation.name.length > 80 ||
-      typeof animation.targetEntityId !== 'string' || !animation.targetEntityId ||
       typeof animation.loop !== 'boolean' ||
       typeof animation.duration !== 'number' || !Number.isFinite(animation.duration) ||
-      animation.duration < 0.05 || animation.duration > 600 ||
-      !Array.isArray(animation.keyframes) || animation.keyframes.length < 2 ||
-      animation.keyframes.length > 100) return false;
+      animation.duration < 0.05 || animation.duration > 600) return false;
 
+  if ('tracks' in animation && (!Array.isArray(animation.tracks) ||
+      animation.tracks.length < 1 || animation.tracks.length > 100)) return false;
+  const tracks = getAnimationTracks(animation);
+  const trackIds = new Set<string>();
+  const targets = new Set<string>();
+  for (const track of tracks) {
+    if (!track || typeof track !== 'object' || Array.isArray(track) ||
+        typeof track.id !== 'string' || !track.id || trackIds.has(track.id) ||
+        typeof track.targetEntityId !== 'string' || !track.targetEntityId ||
+        targets.has(track.targetEntityId) ||
+        !isAnimationKeyframes(track.keyframes, animation.duration)) return false;
+    trackIds.add(track.id);
+    targets.add(track.targetEntityId);
+  }
+  return true;
+}
+
+function isAnimationKeyframes(value: unknown, duration: number): boolean {
+  if (!Array.isArray(value) || value.length < 2 || value.length > 100) return false;
   const keyframeIds = new Set<string>();
   let previousTime = -1;
-  for (const keyframe of animation.keyframes) {
+  for (const keyframe of value) {
     if (!keyframe || typeof keyframe !== 'object' || Array.isArray(keyframe) ||
         typeof keyframe.id !== 'string' || !keyframe.id || keyframeIds.has(keyframe.id) ||
         typeof keyframe.time !== 'number' || !Number.isFinite(keyframe.time) ||
-        keyframe.time < 0 || keyframe.time > animation.duration || keyframe.time <= previousTime ||
+        keyframe.time < 0 || keyframe.time > duration || keyframe.time <= previousTime ||
         !isAnimationVector(keyframe.position, 10000) ||
         !isAnimationVector(keyframe.rotation, 36000) ||
         typeof keyframe.scale !== 'number' || !Number.isFinite(keyframe.scale) ||
@@ -87,12 +121,15 @@ export function createAnimationKeyframe(
   };
 }
 
-export function sampleGameAnimation(animation: GameAnimation, time: number): GameAnimationKeyframe {
+export function sampleGameAnimation(
+  animation: { duration: number; keyframes: GameAnimationKeyframe[] },
+  time: number,
+): GameAnimationKeyframe {
   const keyframes = animation.keyframes;
   const sampleTime = Math.max(0, Math.min(animation.duration, time));
   const rightIndex = keyframes.findIndex((frame) => frame.time >= sampleTime);
-  if (rightIndex <= 0) return { ...keyframes[Math.max(0, rightIndex)], time: sampleTime };
   if (rightIndex === -1) return { ...keyframes[keyframes.length - 1], time: sampleTime };
+  if (rightIndex === 0) return { ...keyframes[0], time: sampleTime };
   const left = keyframes[rightIndex - 1];
   const right = keyframes[rightIndex];
   const progress = (sampleTime - left.time) / (right.time - left.time);

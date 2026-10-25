@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   createAnimationKeyframe,
+  getAnimationTracks,
   isGameAnimation,
   sampleGameAnimation,
   type GameAnimation,
   type GameAnimationKeyframe,
+  type GameAnimationTrack,
 } from '@/lib/game-api';
 import { getTransform, type SceneEntity } from '@/lib/scene-model';
 
@@ -26,11 +28,17 @@ export function AnimationEditor({
   onPreviewFrame,
 }: AnimationEditorProps) {
   const [selectedId, setSelectedId] = useState(animations[0]?.id ?? '');
+  const [selectedTrackId, setSelectedTrackId] = useState('');
+  const [newTargetId, setNewTargetId] = useState('');
   const [playhead, setPlayhead] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const animationRef = useRef<GameAnimation | null>(null);
   const activeAnimation = animations.find((animation) => animation.id === selectedId) ?? animations[0] ?? null;
-  const targetEntity = entities.find((entity) => entity.id === activeAnimation?.targetEntityId);
+  const tracks = activeAnimation ? getAnimationTracks(activeAnimation) : [];
+  const activeTrack = tracks.find((track) => track.id === selectedTrackId) ?? tracks[0];
+  const targetEntity = entities.find((entity) => entity.id === activeTrack?.targetEntityId);
+  const availableTargets = entities.filter((entity) => !tracks.some((track) => track.targetEntityId === entity.id));
+  const newTarget = availableTargets.find((entity) => entity.id === newTargetId) ?? availableTargets[0];
 
   useEffect(() => {
     if (!animations.some((animation) => animation.id === selectedId)) {
@@ -62,13 +70,43 @@ export function AnimationEditor({
   }, [isPlaying, activeAnimation?.id, activeAnimation?.duration, activeAnimation?.loop, readOnly, onPreviewFrame]);
 
   const sortedFrames = useMemo(
-    () => [...(activeAnimation?.keyframes ?? [])].sort((a, b) => a.time - b.time),
-    [activeAnimation],
+    () => [...(activeTrack?.keyframes ?? [])].sort((a, b) => a.time - b.time),
+    [activeTrack],
   );
 
   function commitAnimation(next: GameAnimation) {
     if (!isGameAnimation(next) || readOnly) return;
-    onChange(animations.map((animation) => animation.id === next.id ? next : animation));
+    const clip: GameAnimation = {
+      id: next.id, name: next.name, duration: next.duration, loop: next.loop,
+      tracks: getAnimationTracks(next),
+    };
+    onChange(animations.map((animation) => animation.id === next.id ? clip : animation));
+  }
+
+  function commitTrack(next: GameAnimationTrack) {
+    if (!activeAnimation) return;
+    commitAnimation({
+      id: activeAnimation.id,
+      name: activeAnimation.name,
+      duration: activeAnimation.duration,
+      loop: activeAnimation.loop,
+      tracks: tracks.map((track) => track.id === next.id ? next : track),
+    });
+  }
+
+  function addTrack() {
+    if (!activeAnimation || !newTarget || readOnly || tracks.length >= 100) return;
+    const transform = getTransform(newTarget);
+    const track: GameAnimationTrack = {
+      id: crypto.randomUUID(),
+      targetEntityId: newTarget.id,
+      keyframes: [
+        createAnimationKeyframe(0, transform.position, transform.rotation),
+        createAnimationKeyframe(activeAnimation.duration, transform.position, transform.rotation),
+      ],
+    };
+    commitAnimation({ ...activeAnimation, tracks: [...tracks, track] });
+    setSelectedTrackId(track.id);
   }
 
   function createAnimation() {
@@ -79,13 +117,16 @@ export function AnimationEditor({
     const animation: GameAnimation = {
       id: crypto.randomUUID(),
       name: `${target.name.slice(0, 64)} Animation`,
-      targetEntityId: target.id,
       duration: 1,
       loop: false,
-      keyframes: [
-        createAnimationKeyframe(0, transform.position, transform.rotation),
-        createAnimationKeyframe(1, transform.position, transform.rotation),
-      ],
+      tracks: [{
+        id: crypto.randomUUID(),
+        targetEntityId: target.id,
+        keyframes: [
+          createAnimationKeyframe(0, transform.position, transform.rotation),
+          createAnimationKeyframe(1, transform.position, transform.rotation),
+        ],
+      }],
     };
     onChange([...animations, animation]);
     setSelectedId(animation.id);
@@ -95,8 +136,8 @@ export function AnimationEditor({
   }
 
   function updateFrame(frameId: string, changes: Partial<GameAnimationKeyframe>) {
-    if (!activeAnimation || readOnly) return;
-    const frames = [...activeAnimation.keyframes];
+    if (!activeAnimation || !activeTrack || readOnly) return;
+    const frames = [...activeTrack.keyframes];
     const index = frames.findIndex((frame) => frame.id === frameId);
     if (index < 0) return;
     const before = [...frames].sort((a, b) => a.time - b.time);
@@ -109,48 +150,50 @@ export function AnimationEditor({
       ? changes
       : { ...changes, time: Math.max(minTime, Math.min(maxTime, changes.time)) };
     frames[index] = { ...frames[index], ...boundedChanges };
-    commitAnimation({ ...activeAnimation, keyframes: frames.sort((a, b) => a.time - b.time) });
+    commitTrack({ ...activeTrack, keyframes: frames.sort((a, b) => a.time - b.time) });
   }
 
   function addKeyframe() {
-    if (!activeAnimation || !targetEntity || readOnly || activeAnimation.keyframes.length >= 100) return;
+    if (!activeAnimation || !activeTrack || !targetEntity || readOnly || activeTrack.keyframes.length >= 100) return;
     const frames = sortedFrames;
     const gapIndex = frames.slice(0, -1).reduce((best, frame, index) =>
       frames[index + 1].time - frame.time > frames[best + 1].time - frames[best].time ? index : best, 0);
     const time = (frames[gapIndex].time + frames[gapIndex + 1].time) / 2;
-    const sample = sampleGameAnimation(activeAnimation, time);
+    const sample = sampleGameAnimation({ ...activeTrack, duration: activeAnimation.duration }, time);
     const frame = {
       ...createAnimationKeyframe(time, sample.position, sample.rotation),
       scale: sample.scale,
     };
-    commitAnimation({ ...activeAnimation, keyframes: [...frames, frame].sort((a, b) => a.time - b.time) });
+    commitTrack({ ...activeTrack, keyframes: [...frames, frame].sort((a, b) => a.time - b.time) });
   }
 
   function removeKeyframe(frameId: string) {
-    if (!activeAnimation || readOnly || activeAnimation.keyframes.length <= 2) return;
-    commitAnimation({
-      ...activeAnimation,
-      keyframes: activeAnimation.keyframes.filter((frame) => frame.id !== frameId),
+    if (!activeTrack || readOnly || activeTrack.keyframes.length <= 2) return;
+    commitTrack({
+      ...activeTrack,
+      keyframes: activeTrack.keyframes.filter((frame) => frame.id !== frameId),
     });
   }
 
   function updateDuration(duration: number) {
     if (!activeAnimation || readOnly || !Number.isFinite(duration)) return;
     const boundedDuration = Math.max(0.05, Math.min(600, duration));
-    const frames = activeAnimation.keyframes
-      .map((frame) => ({ ...frame, time: Math.min(frame.time, boundedDuration) }))
-      .sort((a, b) => a.time - b.time);
-    const uniqueFrames = frames.filter((frame, index) => index === 0 || frame.time > frames[index - 1].time);
-    while (uniqueFrames.length < Math.min(2, frames.length)) {
-      const frame = frames[uniqueFrames.length];
-      uniqueFrames.push({ ...frame, time: boundedDuration });
-    }
-    commitAnimation({ ...activeAnimation, duration: boundedDuration, keyframes: uniqueFrames });
+    // Retiming every track proportionally preserves distinct keys and coordination.
+    commitAnimation({
+      ...activeAnimation,
+      duration: boundedDuration,
+      tracks: tracks.map((track) => ({
+        ...track,
+        keyframes: track.keyframes.map((frame) => ({
+          ...frame, time: frame.time / activeAnimation.duration * boundedDuration,
+        })),
+      })),
+    });
     setPlayhead((current) => Math.min(current, boundedDuration));
   }
 
   function setPreviewTime(time: number) {
-    if (!activeAnimation) return;
+    if (!activeAnimation || readOnly) return;
     setPlayhead(time);
     onPreviewFrame(activeAnimation, time);
   }
@@ -208,17 +251,48 @@ export function AnimationEditor({
                 />
               </label>
               <label className="animation-field">
-                Target
+                Object track
                 <select
-                  value={activeAnimation.targetEntityId}
-                  disabled={readOnly}
-                  onChange={(event) => commitAnimation({ ...activeAnimation, targetEntityId: event.target.value })}
-                  aria-label="Animation target"
+                  value={activeTrack?.id ?? ''}
+                  onChange={(event) => setSelectedTrackId(event.target.value)}
+                  aria-label="Animation track"
                 >
-                  {!targetEntity && <option value={activeAnimation.targetEntityId}>Missing scene object</option>}
-                  {entities.map((entity) => <option key={entity.id} value={entity.id}>{entity.name}</option>)}
+                  {tracks.map((track) => <option key={track.id} value={track.id}>
+                    {entities.find((entity) => entity.id === track.targetEntityId)?.name ?? 'Missing scene object'}
+                  </option>)}
                 </select>
               </label>
+              <label className="animation-field">
+                Track target
+                <select
+                  value={activeTrack?.targetEntityId ?? ''}
+                  disabled={readOnly}
+                  onChange={(event) => activeTrack && commitTrack({ ...activeTrack, targetEntityId: event.target.value })}
+                  aria-label="Animation target"
+                >
+                  {!targetEntity && <option value={activeTrack?.targetEntityId}>Missing scene object</option>}
+                  {entities.filter((entity) => entity.id === activeTrack?.targetEntityId ||
+                    !tracks.some((track) => track.targetEntityId === entity.id))
+                    .map((entity) => <option key={entity.id} value={entity.id}>{entity.name}</option>)}
+                </select>
+              </label>
+              <label className="animation-field">
+                Add object
+                <select value={newTarget?.id ?? ''} disabled={readOnly || !newTarget}
+                  onChange={(event) => setNewTargetId(event.target.value)} aria-label="New track object">
+                  {!newTarget && <option value="">All scene objects have tracks</option>}
+                  {availableTargets.map((entity) => <option key={entity.id} value={entity.id}>{entity.name}</option>)}
+                </select>
+              </label>
+              <div className="animation-preview-controls">
+                <button type="button" onClick={addTrack} disabled={readOnly || !newTarget || tracks.length >= 100}>
+                  + Add track
+                </button>
+                <button type="button" disabled={readOnly || tracks.length <= 1} onClick={() => {
+                  commitAnimation({ ...activeAnimation, tracks: tracks.filter((track) => track.id !== activeTrack?.id) });
+                  setSelectedTrackId('');
+                }}>Remove track</button>
+              </div>
               <label className="animation-field">
                 Duration (seconds)
                 <input
@@ -249,13 +323,14 @@ export function AnimationEditor({
                 <span role="status">{isPlaying ? `Playing · ${playhead.toFixed(2)}s` : `Preview · ${playhead.toFixed(2)}s`}</span>
               </div>
               <label className="animation-scrubber">
-                Timeline
+                Shared timeline · {tracks.length} {tracks.length === 1 ? 'object' : 'objects'}
                 <input
                   type="range"
                   min="0"
                   max={activeAnimation.duration}
                   step="0.01"
                   value={Math.min(playhead, activeAnimation.duration)}
+                  disabled={readOnly}
                   onChange={(event) => {
                     setIsPlaying(false);
                     setPreviewTime(Number(event.target.value));
@@ -265,8 +340,8 @@ export function AnimationEditor({
               </label>
               <div className="animation-keyframes">
                 <div className="animation-keyframes-heading">
-                  <strong>Keyframes</strong>
-                  <button type="button" onClick={addKeyframe} disabled={readOnly || activeAnimation.keyframes.length >= 100}>
+                  <strong>Track keyframes</strong>
+                  <button type="button" onClick={addKeyframe} disabled={readOnly || !targetEntity || (activeTrack?.keyframes.length ?? 0) >= 100}>
                     + Add at midpoint
                   </button>
                 </div>
@@ -325,7 +400,7 @@ export function AnimationEditor({
                       className="animation-remove-keyframe"
                       type="button"
                       onClick={() => removeKeyframe(frame.id)}
-                      disabled={readOnly || activeAnimation.keyframes.length <= 2}
+                      disabled={readOnly || (activeTrack?.keyframes.length ?? 0) <= 2}
                       aria-label={`Remove keyframe ${index + 1}`}
                     >×</button>
                   </fieldset>
