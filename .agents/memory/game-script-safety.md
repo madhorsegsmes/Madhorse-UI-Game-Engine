@@ -9,6 +9,12 @@ Game scripts may be imported and stored as project data, but must not execute di
 
 **How to apply:** Keep import, language display, and project storage separate from execution. Do not enable a Run action until a constrained runtime has been designed and verified for each supported language.
 
+Interface button actions must remain a small, data-only allowlist of built-in game operations, not script snippets or arbitrary runtime messages.
+
+**Why:** Creators need clickable game interfaces without expanding the script isolation boundary.
+
+**How to apply:** Validate saved actions and dispatch independently. Add future operations explicitly; never interpret action names as source, URLs, or host method names.
+
 Bind each isolated run's scene commands to one assigned object. Let scripts name that capability as `self`, validate all commands against the trusted target ID in the editor, and never expose scene/editor objects or project access to the worker.
 
 **Why:** A script attached to one scene object must not gain authority over the Player or other project objects just because it can print a valid command.

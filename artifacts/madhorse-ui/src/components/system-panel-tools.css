@@ -92,6 +92,9 @@
 .ui-controls-properties label { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 7px; color: #aaa6a3; }
 .ui-controls-properties input:not([type="color"]) { width: 100%; min-width: 0; height: 27px; padding: 4px 6px; border: 1px solid #383435; background: #111113; color: #e1d7d3; }
 .ui-controls-properties input[type="color"] { width: 100%; height: 27px; padding: 2px; border: 1px solid #383435; background: #111113; }
+.ui-controls-properties .ui-button-action-field { grid-template-columns: minmax(0, 1fr); }
+.ui-button-action-field select { width: 100%; min-width: 0; padding: 5px; border: 1px solid #383435; background: #111113; color: #e1d7d3; }
+.ui-button-action-field span { font-size: 10px; line-height: 1.4; }
 .ui-controls-position { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
 .ui-controls-editor .ui-controls-delete { justify-self: start; border-color: #6a3d38; color: #df8b82; }
 .ui-controls-note { padding-top: 6px; border-top: 1px solid #383435; font-size: 9px; }

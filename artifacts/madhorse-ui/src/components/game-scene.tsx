@@ -15,7 +15,7 @@ import {
   type SceneEntity,
   type TransformComponent,
 } from '@/lib/scene-model';
-import type { UIControlElement } from '@/lib/ui-controls';
+import { isUIButtonAction, type UIControlElement } from '@/lib/ui-controls';
 
 type GameSceneProps = {
   primaryCamera: GameCamera;
@@ -32,6 +32,8 @@ type GameSceneProps = {
   startingPosition: GamePosition;
   onSaveStartingPosition: (position: GamePosition) => void;
   readOnly: boolean;
+  isPlaying?: boolean;
+  onActivateUIControl?: (id: string) => void;
   onSelectEntity: (entityId: string) => void;
   onMoveEntity: (entityId: string, position: GamePosition) => void;
   onSelectUIControl: (id: string | null) => void;
@@ -63,6 +65,8 @@ export function GameScene({
   startingPosition,
   onSaveStartingPosition,
   readOnly,
+  isPlaying = false,
+  onActivateUIControl,
   onSelectEntity,
   onMoveEntity,
   onSelectUIControl,
@@ -177,7 +181,7 @@ export function GameScene({
             onCameraEntityTransform={onCameraEntityTransform}
             onSelectPrimaryCamera={onSelectPrimaryCamera}
           />
-          {viewMode === '2d' && uiControls.length > 0 && (
+          {(viewMode === '2d' || isPlaying) && uiControls.length > 0 && (
             <div className="game-ui-overlay" aria-label="Game interface preview" data-testid="game-ui-overlay">
               {uiControls.filter((control) => {
                 let owner = entities.find((entity) => getUICanvas(entity)?.controlId === control.id);
@@ -200,21 +204,30 @@ export function GameScene({
                       const canvas = getUICanvas(entity);
                       return canvas?.controlId === element.id && canvas.frame !== false;
                     }) ? 'is-canvas-root' : '',
-                    selectedUIControlId === element.id ? 'is-selected' : '',
+                    !isPlaying && selectedUIControlId === element.id ? 'is-selected' : '',
                     readOnly ? 'is-read-only' : '',
+                    isPlaying && element.type === 'button' ? 'is-game-button' : '',
                   ].filter(Boolean).join(' ')}
                   aria-label={`${element.label || element.type} interface element at ${Math.round(element.x)}%, ${Math.round(element.y)}%`}
-                  aria-pressed={selectedUIControlId === element.id}
+                  aria-pressed={isPlaying ? undefined : selectedUIControlId === element.id}
                   title={readOnly ? element.label : `${element.label}: drag to arrange`}
                   data-testid={`ui-preview-element-${element.id}`}
                   data-ui-control-id={element.id}
                   data-x={element.x}
                   data-y={element.y}
-                  disabled={readOnly}
-                  onClick={() => onSelectUIControl(element.id)}
-                  onKeyDown={(event) => moveUIControlFromKeyboard(event, element)}
+                  disabled={isPlaying
+                    ? element.type !== 'button' || !isUIButtonAction(element.action) || element.action === 'none'
+                    : readOnly}
+                  onClick={() => {
+                    if (isPlaying) {
+                      if (element.type === 'button' && isUIButtonAction(element.action)) onActivateUIControl?.(element.id);
+                    } else if (!readOnly) onSelectUIControl(element.id);
+                  }}
+                  onKeyDown={(event) => {
+                    if (!isPlaying) moveUIControlFromKeyboard(event, element);
+                  }}
                   onPointerDown={(event) => {
-                    if (readOnly) return;
+                    if (readOnly || isPlaying) return;
                     event.preventDefault();
                     onSelectUIControl(element.id);
                     uiDragging.current = { id: element.id, pointerId: event.pointerId };

@@ -4,7 +4,7 @@ import './system-panel-tools.css';
 import { AnimationEditor } from '@/components/animation-editor';
 import type { GameAnimation } from '@/lib/game-api';
 import type { SceneEntity } from '@/lib/scene-model';
-import type { UIControlElement, UIControlType } from '@/lib/ui-controls';
+import { UI_BUTTON_ACTIONS, isUIButtonAction, type UIControlElement, type UIControlType } from '@/lib/ui-controls';
 import type { GameCamera } from '@/lib/game-camera';
 import { GameCameraSettings } from '@/components/game-camera-settings';
 
@@ -149,6 +149,24 @@ export function SystemPanelTools({
                     onChange={(event) => onUpdateUIControl(selected.id, { label: event.target.value })}
                   />
                 </label>
+                {selected.type === 'button' && (
+                  <label className="ui-button-action-field">
+                    On click (during Play)
+                    <select
+                      value={selected.action ?? 'none'}
+                      data-testid="select-ui-button-action"
+                      onChange={(event) => {
+                        const action = event.target.value;
+                        if (isUIButtonAction(action)) onUpdateUIControl(selected.id, { action });
+                      }}
+                    >
+                      {UI_BUTTON_ACTIONS.map((action) => (
+                        <option key={action.value} value={action.value}>{action.label}</option>
+                      ))}
+                    </select>
+                    <span>Built-in actions only. Reset stops Play and restores the saved start; it does not change your project.</span>
+                  </label>
+                )}
                 <div className="ui-controls-position">
                   <label>
                     X %

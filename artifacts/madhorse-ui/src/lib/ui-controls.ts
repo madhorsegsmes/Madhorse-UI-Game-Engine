@@ -1,5 +1,29 @@
 export type UIControlType = 'text' | 'button' | 'health-bar' | 'panel';
 
+export const UI_BUTTON_ACTIONS = [
+  { value: 'none', label: 'No action' },
+  { value: 'stop-game', label: 'Stop game' },
+  { value: 'reset-preview', label: 'Reset preview to saved start' },
+] as const;
+export type UIButtonAction = typeof UI_BUTTON_ACTIONS[number]['value'];
+
+export function isUIButtonAction(value: unknown): value is UIButtonAction {
+  return typeof value === 'string' && UI_BUTTON_ACTIONS.some((action) => action.value === value);
+}
+
+// Data-only allowlist. Never interpret an action as source, a URL, or a runtime command.
+export function dispatchUIButtonAction(
+  value: unknown,
+  handlers: { stopGame: () => void; resetPreview: () => void },
+): boolean {
+  if (!isUIButtonAction(value)) return false;
+  switch (value) {
+    case 'stop-game': handlers.stopGame(); return true;
+    case 'reset-preview': handlers.resetPreview(); return true;
+    case 'none': return false;
+  }
+}
+
 export type UIControlElement = {
   id: string;
   type: UIControlType;
@@ -9,6 +33,7 @@ export type UIControlElement = {
   width: number;
   height: number;
   color: string;
+  action?: UIButtonAction;
 };
 
 const uiControlTypes: UIControlType[] = ['text', 'button', 'health-bar', 'panel'];
@@ -47,6 +72,7 @@ export function isUIControlCollection(value: unknown): value is UIControlElement
     const element = entry as UIControlElement;
     return typeof element.id === 'string' &&
       isUIControlType(element.type) &&
+      (element.action === undefined || (element.type === 'button' && isUIButtonAction(element.action))) &&
       typeof element.label === 'string' &&
       element.label.length <= 80 &&
       Number.isFinite(element.x) && element.x >= 0 && element.x <= 100 &&

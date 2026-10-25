@@ -43,7 +43,7 @@ import {
 import { ScriptCreate } from '@/components/script-create';
 import { scriptLanguages, maxScriptSize, maxProjectScriptsSize, movementStarter, scriptStorageError, sourceSize, type ScriptFile } from '@/lib/project-scripts';
 import { loadActiveProjectId, projectStorageKey, saveProjectSnapshotNow, useProjectAutosave } from '@/hooks/use-project-autosave';
-import { createUIControlElement, isUIControlCollection, type UIControlElement, type UIControlType } from '@/lib/ui-controls';
+import { createUIControlElement, dispatchUIButtonAction, isUIControlCollection, type UIControlElement, type UIControlType } from '@/lib/ui-controls';
 import { useSceneEditor } from '@/hooks/use-scene-editor';
 import {
   createDefaultPlayer,
@@ -466,6 +466,20 @@ function Home() {
     runnerRef.current?.stop();
   }
 
+  function resetPreview() {
+    stopProject();
+    setRuntimeError('');
+    setScene({ projectId: activeProject.id, position: { ...startingPosition } });
+    setScriptPreview({ projectId: activeProject.id, positions: {} });
+  }
+
+  function activateUIControl(id: string) {
+    if (!isPlayMode) return;
+    const element = activeProject.uiControls?.find((control) => control.id === id);
+    if (element?.type !== 'button') return;
+    dispatchUIButtonAction(element.action, { stopGame: stopProject, resetPreview });
+  }
+
   function saveStartingPosition(next: GamePosition) {
     if (!isGamePosition(next) || isPlayMode || activeAnimationPreview || !loadedProjects.canOverwrite) return;
     runnerRef.current?.stop();
@@ -584,11 +598,13 @@ function Home() {
   }
 
   function updateUIControl(id: string, changes: Partial<Omit<UIControlElement, 'id' | 'type'>>) {
-    if (isPlayMode) return;
+    if (isPlayMode || !loadedProjects.canOverwrite) return;
+    const uiControls = (activeProject.uiControls ?? []).map((element) =>
+      element.id === id ? { ...element, ...changes } : element,
+    );
+    if (!isUIControlCollection(uiControls)) return;
     updateActiveProject({
-      uiControls: (activeProject.uiControls ?? []).map((element) =>
-        element.id === id ? { ...element, ...changes } : element,
-      ),
+      uiControls,
     });
   }
 
@@ -668,6 +684,8 @@ function Home() {
             startingPosition={startingPosition}
             onSaveStartingPosition={saveStartingPosition}
             readOnly={isPlayMode || Boolean(activeAnimationPreview) || !loadedProjects.canOverwrite}
+            isPlaying={isPlayMode}
+            onActivateUIControl={activateUIControl}
             onSelectEntity={sceneEditor.onSelectEntity}
             onMoveEntity={sceneEditor.onMoveEntity}
             onUpdateTransform={sceneEditor.onUpdateTransform}
