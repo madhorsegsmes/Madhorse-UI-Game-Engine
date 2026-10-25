@@ -114,7 +114,7 @@ function FightingGamePreview({ kind }: { kind: HubStarterKind }) {
   const playerWorld = { x: (playerTransform.x - 50) / 10, z: (playerTransform.y - 50) / 10 };
   const [camera, setCamera] = useState(() => templatePreviewCamera(kind, 16 / 9, playerWorld));
   const previewLabels: Record<HubStarterKind, [string, string]> = {
-    'pixel-rpg': ['MOSSLIGHT TRAIL', 'EDITABLE 2D RPG'],
+    'pixel-rpg': ['2D RPG', 'EDITABLE RPG WORLD'],
     fighting: ['3D FIGHTERS', 'SIDE-VIEW ARENA'],
     rts: ['SUNSTONE VALE', 'EDITABLE RTS WORLD'],
     shooter: ['IRONLIGHT FACILITY', 'FIRST-PERSON RANGE'],
@@ -313,11 +313,13 @@ export default function HubPage() {
               <span className="hub-card-link">CREATE MMORPG <ArrowUpRight size={15} /></span>
             </a>
 
-            <a className="hub-pathway-card hub-pathway-workflow" href={`${studioPath}?starter=2d-rpg`} data-testid="card-pixel-rpg">
-              <div className="hub-card-top"><span>06 / 2D RPG TEMPLATE</span><span className="hub-card-index"><Layers3 size={16} /></span></div>
-              <FightingGamePreview kind="pixel-rpg" />
+            <a className="hub-pathway-card hub-pathway-studio" href={`${studioPath}?starter=2d-rpg`} data-testid="card-pixel-rpg">
+              <div className="hub-card-top"><span>06 / 2D RPG STARTER</span><span className="hub-card-index"><Layers3 size={16} /></span></div>
+              <div className="hub-card-graphic hub-graphic-fighting" aria-hidden="true">
+                <FightingGamePreview kind="pixel-rpg" />
+              </div>
               <div className="hub-card-copy">
-                <h3>2D RPG · Mosslight Trail</h3>
+                <h3>2D RPG</h3>
                 <p>Original Game Boy Color–era pixel style: explore a town, talk to neighbors, battle and capture creatures, then complete your first quest. Edit the map, sprites and stats.</p>
               </div>
               <span className="hub-card-link">CREATE 2D RPG <ArrowUpRight size={15} /></span>
