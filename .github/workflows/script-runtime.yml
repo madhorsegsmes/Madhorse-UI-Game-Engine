@@ -93,6 +93,12 @@ jobs:
           set -euo pipefail
           pnpm --filter @workspace/madhorse-ui run test:runtime:interpreters 2>&1 | tee generated-artifacts/script-runtime/interpreter-memory-test.log
 
+      - name: Check browser compiler host packaging
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter @workspace/madhorse-ui run test:runtime:hosts 2>&1 | tee generated-artifacts/script-runtime/host-packaging-test.log
+
       # Deliberately one invocation, no matrix/shards: the compiler runtimes
       # need the config's single worker. A setup or test failure fails the job.
       - name: Check script runtimes in all three engines

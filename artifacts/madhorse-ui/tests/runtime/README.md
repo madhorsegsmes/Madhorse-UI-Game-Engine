@@ -141,6 +141,20 @@ an independent 72-minute process watchdog (30-second kill grace), and a
 the 90-minute job budget. Deadlines fail the gate; they never approve incomplete
 coverage. All engines still run with one worker and no retries.
 
+Compiler host packaging bundles each trusted native/C# entry's static JavaScript
+dependencies in its original asset directory. WASM, sysroot and assembly URLs
+remain relative to the same public runtime directory; runtimes still load only
+on demand. This does not change the opaque origin, CSP, anonymous fetch rules,
+guest API surface or physical WASM ceilings. The compatibility suite checks both
+host exports inside the actual opaque classic worker, in addition to running real
+guest programs.
+
+The separate **Compiler host smoke (not release approval)** check provides early
+feedback on host imports, all seven language execution/error/rerun cases, and C17
+semantics across all three engines. It is a diagnostic subset, not a replacement
+for **Script runtime (Chromium, Firefox, WebKit)**. Never substitute the smoke
+check for the full required release gate.
+
 Every run uploads `generated-artifacts/script-runtime/` as
 `script-runtime-<run-id>-<attempt>` for 14 days, including failed runs. It contains
 HTML/JSON reports, traces, screenshots and attachments when produced, plus

@@ -1,0 +1,55 @@
+name: Compiler host smoke diagnostics
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/runtime-host-smoke.yml'
+      - 'artifacts/madhorse-ui/runtime/**'
+      - 'artifacts/madhorse-ui/tests/runtime/**'
+      - 'artifacts/madhorse-ui/package.json'
+      - 'artifacts/madhorse-ui/playwright.config.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compiler-host-smoke-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compiler-host-smoke:
+    name: Compiler host smoke (not release approval)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        timeout-minutes: 5
+      - name: Install the three matching browser engines
+        timeout-minutes: 10
+        run: pnpm --filter @workspace/madhorse-ui exec playwright install --with-deps chromium firefox webkit
+      - name: Check real host loading, all seven languages and C17 semantics
+        timeout-minutes: 13
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p generated-artifacts/script-runtime
+          timeout --signal=INT --kill-after=30s 12m pnpm --filter @workspace/madhorse-ui run test:runtime compatibility.spec.ts execution.spec.ts --grep 'native and C# host exports|imported hello world|C is compiled' 2>&1 | tee generated-artifacts/script-runtime/host-smoke.log
+      - name: Upload host-smoke evidence
+        if: ${{ always() }}
+        timeout-minutes: 5
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiler-host-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          path: generated-artifacts/script-runtime/
+          retention-days: 14
