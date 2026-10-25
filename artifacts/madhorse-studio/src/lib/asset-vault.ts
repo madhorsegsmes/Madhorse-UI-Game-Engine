@@ -5,12 +5,16 @@ const databaseVersion = 1;
 const storeName = 'project-assets';
 
 type AssetRecord = { key: string; projectId: string; assetId: string; blob: Blob };
+const connections = new Map<string, Promise<IDBDatabase>>();
 
 function openVault(name = databaseName, existingOnly = false): Promise<IDBDatabase> {
   if (typeof indexedDB === 'undefined') {
     return Promise.reject(new Error('This browser does not support local asset storage.'));
   }
-  return new Promise((resolve, reject) => {
+  const existing = connections.get(name);
+  if (existing) return existing;
+  const connection = new Promise<IDBDatabase>((resolve, reject) => {
+    let settled = false;
     const request = indexedDB.open(name, databaseVersion);
     request.onupgradeneeded = () => {
       if (existingOnly) { request.transaction?.abort(); return; }
@@ -19,10 +23,24 @@ function openVault(name = databaseName, existingOnly = false): Promise<IDBDataba
         database.createObjectStore(storeName, { keyPath: 'key' });
       }
     };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error('Could not open local asset storage.'));
-    request.onblocked = () => reject(new Error('Local asset storage is busy in another tab. Close the other Madhorse tab and try again.'));
+    request.onsuccess = () => {
+      const database = request.result;
+      if (settled) { database.close(); return; }
+      settled = true;
+      const forget = () => { if (connections.get(name) === connection) connections.delete(name); };
+      database.onversionchange = () => { forget(); database.close(); };
+      database.onclose = forget;
+      resolve(database);
+    };
+    request.onerror = () => { settled = true; reject(request.error ?? new Error('Could not open local asset storage.')); };
+    request.onblocked = () => {
+      settled = true;
+      reject(new Error('Local asset storage is busy in another tab. Close the other Madhorse tab and try again.'));
+    };
   });
+  connections.set(name, connection);
+  void connection.catch(() => { if (connections.get(name) === connection) connections.delete(name); });
+  return connection;
 }
 
 function recordKey(projectId: string, assetId: string) {
@@ -39,9 +57,9 @@ async function writeAsset(projectId: string, assetId: string, blob: Blob): Promi
       assetId,
       blob,
     } satisfies AssetRecord);
-    transaction.oncomplete = () => { database.close(); resolve(); };
-    transaction.onerror = () => { database.close(); reject(transaction.error ?? new Error('Could not save this asset on this device.')); };
-    transaction.onabort = () => { database.close(); reject(transaction.error ?? new Error('Could not save this asset on this device.')); };
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error ?? new Error('Could not save this asset on this device.'));
+    transaction.onabort = () => reject(transaction.error ?? new Error('Could not save this asset on this device.'));
   });
 }
 
@@ -55,9 +73,9 @@ async function readAsset(projectId: string, assetId: string, name = databaseName
       const record = request.result as AssetRecord | undefined;
       blob = record?.blob ?? null;
     };
-    transaction.oncomplete = () => { database.close(); resolve(blob); };
-    transaction.onerror = () => { database.close(); reject(transaction.error ?? new Error('Could not read this asset from this device.')); };
-    transaction.onabort = () => { database.close(); reject(transaction.error ?? new Error('Could not read this asset from this device.')); };
+    transaction.oncomplete = () => resolve(blob);
+    transaction.onerror = () => reject(transaction.error ?? new Error('Could not read this asset from this device.'));
+    transaction.onabort = () => reject(transaction.error ?? new Error('Could not read this asset from this device.'));
   });
 }
 
@@ -66,9 +84,9 @@ async function removeAsset(projectId: string, assetId: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(storeName, 'readwrite');
     transaction.objectStore(storeName).delete(recordKey(projectId, assetId));
-    transaction.oncomplete = () => { database.close(); resolve(); };
-    transaction.onerror = () => { database.close(); reject(transaction.error ?? new Error('Could not remove this asset from this device.')); };
-    transaction.onabort = () => { database.close(); reject(transaction.error ?? new Error('Could not remove this asset from this device.')); };
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error ?? new Error('Could not remove this asset from this device.'));
+    transaction.onabort = () => reject(transaction.error ?? new Error('Could not remove this asset from this device.'));
   });
 }
 

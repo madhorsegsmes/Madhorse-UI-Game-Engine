@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { PhysicsWorldSettings, SceneEntity, Vector3 } from '@/lib/scene-model';
 import { stepPhysicsScene } from '@/lib/physics-simulation';
-
-const FIXED_STEP_SECONDS = 1 / 60;
+import { SimulationClock } from '@/lib/simulation-clock';
 
 export function usePhysicsPreview(
   entities: SceneEntity[],
@@ -17,25 +16,20 @@ export function usePhysicsPreview(
 
     let currentEntities = entities;
     let animationFrame = 0;
-    let previousTime: number | null = null;
-    let accumulator = 0;
+    const clock = new SimulationClock(performance.now());
     const velocities = new Map<string, Vector3>();
 
     const advance = (time: number) => {
-      if (previousTime === null) previousTime = time;
-      accumulator += Math.min((time - previousTime) / 1000, 0.05);
-      previousTime = time;
-
-      while (accumulator >= FIXED_STEP_SECONDS) {
+      const batch = clock.advance(time, document.hidden);
+      for (let step = 0; step < batch.steps; step++) {
         currentEntities = stepPhysicsScene(
           currentEntities,
           settings,
-          FIXED_STEP_SECONDS,
+          clock.stepSeconds,
           velocities,
         );
-        accumulator -= FIXED_STEP_SECONDS;
       }
-      setPreviewEntities(currentEntities);
+      if (batch.steps) setPreviewEntities(currentEntities);
       animationFrame = requestAnimationFrame(advance);
     };
 

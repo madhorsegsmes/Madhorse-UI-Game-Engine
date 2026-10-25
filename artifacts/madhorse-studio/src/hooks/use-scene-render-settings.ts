@@ -16,17 +16,14 @@ export const DEFAULT_SCENE_RENDER_SETTINGS: SceneRenderSettings = {
   studioLighting: true,
   exposure: 1,
   background: '#1d1f22',
-  quality: 'balanced',
+  quality: 'high',
   showPerformanceStats: false,
 };
 
 const storageKey = 'madhorse-studio-scene-render-settings';
 
-function readSettings(): SceneRenderSettings {
-  try {
-    const raw = localStorage.getItem(storageKey);
-    if (!raw) return DEFAULT_SCENE_RENDER_SETTINGS;
-    const value = JSON.parse(raw) as Partial<SceneRenderSettings>;
+export function normalizeSceneRenderSettings(input: unknown): SceneRenderSettings {
+    const value = input && typeof input === 'object' ? input as Partial<SceneRenderSettings> : {};
     return {
       showGrid: typeof value.showGrid === 'boolean' ? value.showGrid : true,
       studioLighting: typeof value.studioLighting === 'boolean' ? value.studioLighting : true,
@@ -34,9 +31,16 @@ function readSettings(): SceneRenderSettings {
         ? Math.min(1.6, Math.max(0.5, value.exposure)) : 1,
       background: /^#[\da-f]{6}$/i.test(value.background ?? '')
         ? value.background! : DEFAULT_SCENE_RENDER_SETTINGS.background,
-      quality: value.quality === 'performance' || value.quality === 'high' ? value.quality : 'balanced',
+      quality: value.quality === 'performance' || value.quality === 'high' || value.quality === 'balanced'
+        ? value.quality : DEFAULT_SCENE_RENDER_SETTINGS.quality,
       showPerformanceStats: typeof value.showPerformanceStats === 'boolean' ? value.showPerformanceStats : false,
     };
+}
+
+function readSettings(): SceneRenderSettings {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    return raw ? normalizeSceneRenderSettings(JSON.parse(raw)) : DEFAULT_SCENE_RENDER_SETTINGS;
   } catch {
     return DEFAULT_SCENE_RENDER_SETTINGS;
   }
@@ -60,7 +64,7 @@ function subscribe(listener: () => void) {
   };
 }
 const setSettings: Dispatch<SetStateAction<SceneRenderSettings>> = value => {
-  snapshot = typeof value === 'function' ? value(getSnapshot()) : value;
+  snapshot = normalizeSceneRenderSettings(typeof value === 'function' ? value(getSnapshot()) : value);
   try { localStorage.setItem(storageKey, JSON.stringify(snapshot)); } catch { /* Keep session preferences. */ }
   listeners.forEach(listener => listener());
 };

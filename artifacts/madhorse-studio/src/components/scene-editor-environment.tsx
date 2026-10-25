@@ -10,11 +10,16 @@ export function SceneEditorEnvironment({ mobile, showGrid = true, studioLighting
       <hemisphereLight args={['#d9dde2', '#2a2422', (studioLighting ? 0.9 : 0.25) * exposure]} />
       <ambientLight intensity={(studioLighting ? 0.45 : 0.18) * exposure} />
       {studioLighting && <>
-        <directionalLight position={[7, 12, 6]} intensity={2.1 * exposure} />
+        <directionalLight position={[7, 12, 6]} intensity={2.1 * exposure}
+          castShadow={!mobile} shadow-mapSize-width={2048} shadow-mapSize-height={2048}
+          shadow-camera-left={-30} shadow-camera-right={30}
+          shadow-camera-top={30} shadow-camera-bottom={-30}
+          shadow-camera-near={.1} shadow-camera-far={100}
+          shadow-bias={-.0002} shadow-normalBias={.035} />
         <directionalLight position={[-7, 5, -8]} intensity={0.7 * exposure} color="#b3c0cf" />
       </>}
       {/* soft ground with contact pool under origin */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.03, 0]}>
+      <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.03, 0]}>
         <circleGeometry args={[220, 48]} />
         <meshStandardMaterial color="#26282b" roughness={1} />
       </mesh>

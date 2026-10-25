@@ -447,7 +447,7 @@ export function ScenePreview3D({
         <Canvas
           camera={{ position: [0, 12, -16], fov: 48, near: 0.1, far: 3000 }}
           dpr={renderDpr}
-          shadows={!mobile && renderSettings.quality === 'high'}
+          shadows={!mobile && renderSettings.quality === 'high' ? { type: THREE.PCFShadowMap } : false}
           frameloop={!staticPreview && (gameView || hasAnimatedEffects) ? 'always' : 'demand'}
           gl={{
             antialias: !mobile,
@@ -591,6 +591,7 @@ function SceneRendererSettings({ background, exposure }: { background: string; e
     scene.background = new THREE.Color(background);
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = exposure;
+    gl.outputColorSpace = THREE.SRGBColorSpace;
     invalidate();
   }, [background, exposure, gl, invalidate, scene]);
   return null;
@@ -1187,9 +1188,9 @@ function ModelAssetView(props: LoadedModelProps) {
       root.traverse((item) => {
         const mesh = item as THREE.Mesh;
         if (!mesh.isMesh) return;
-        mesh.castShadow = false;
-        mesh.receiveShadow = false;
         const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        mesh.castShadow = mats.some(material => !material.transparent || material.opacity >= .8);
+        mesh.receiveShadow = true;
         mats.forEach((material) => {
           if ('transparent' in material) {
             material.transparent = props.opacity < 1 || material.transparent;

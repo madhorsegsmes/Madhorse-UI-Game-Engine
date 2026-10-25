@@ -34,11 +34,11 @@ export function SceneRenderSettingsPanel({
           >
             <option value="performance">Performance · 1x</option>
             <option value="balanced">Balanced · up to 1.5x</option>
-            <option value="high">High · up to 2x</option>
+            <option value="high">Gaming PC · High · up to 2x</option>
           </select>
         </label>
         <p className="mh-scene3d__render-note">
-          Mobile stays capped at 1x for steadier performance.
+          Gaming PC quality is the default. Saved quality choices stay unchanged.
         </p>
         <label>
           <input

@@ -10,6 +10,7 @@ import type {
   SceneEntity,
   Vector3,
 } from './scene-model';
+import { physicsContactPairs } from './physics-broadphase';
 
 type PhysicsBodyState = {
   entity: SceneEntity;
@@ -83,10 +84,11 @@ export function stepPhysicsScene(
   deltaSeconds: number,
   velocities: Map<string, Vector3>,
 ): SceneEntity[] {
-  const dt = Math.max(0, Math.min(deltaSeconds, 0.05));
+  const dt = Number.isFinite(deltaSeconds) ? Math.max(0, Math.min(deltaSeconds, 0.05)) : 0;
   if (dt === 0) return entities;
 
   const byId = new Map(entities.map((entity) => [entity.id, entity]));
+  for (const id of velocities.keys()) if (!byId.has(id)) velocities.delete(id);
   const axes = axisKeys[settings.dimension];
   const bodies: PhysicsBodyState[] = [];
   for (const entity of entities) {
@@ -121,6 +123,7 @@ export function stepPhysicsScene(
     });
   }
 
+  if (!bodies.some(body => body.inverseMass > 0)) return entities;
   const verticalAxis = settings.dimension === '2d' ? 'y' : 'z';
   for (const body of bodies) {
     if (!body.physics.colliderEnabled || body.inverseMass === 0) continue;
@@ -137,14 +140,10 @@ export function stepPhysicsScene(
     }
   }
 
-  for (let index = 0; index < bodies.length; index += 1) {
-    const a = bodies[index];
-    if (!a.physics.colliderEnabled) continue;
-    for (let otherIndex = index + 1; otherIndex < bodies.length; otherIndex += 1) {
-      const b = bodies[otherIndex];
-      if (!b.physics.colliderEnabled) continue;
-      applyContact(a, b, axes);
-    }
+  for (let iteration = 0; iteration < 3; iteration++) {
+    const pairs = physicsContactPairs(bodies, settings.dimension);
+    if (!pairs.length) break;
+    for (const [a, b] of pairs) applyContact(bodies[a], bodies[b], axes);
   }
 
   const nextPositions = new Map(bodies

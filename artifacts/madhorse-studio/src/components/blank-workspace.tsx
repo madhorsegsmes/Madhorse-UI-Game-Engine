@@ -88,6 +88,7 @@ import { createMadBuilderModulePlan, getMadBuilderModule, type MadBuilderModuleI
 import type { UIControlElement } from '@/lib/ui-controls';
 import { createEgoUiKit as createEgoGameUiKit, egoPlayerActions, type EgoGameType, getEgoGameSelectionLabel } from '@/lib/ego-ui-kit';
 import { advanceSceneRuntime, createSceneRuntimeState } from '@/lib/scene-play-runtime';
+import { SimulationClock } from '@/lib/simulation-clock';
 import { publishStatus } from '@/lib/system-diagnostics';
 import { playAudioPreview, stopAudioPlayback, unlockSceneAudio } from '@/lib/game-audio';
 import { playerActionDefinitions } from '@/lib/player-action-model';
@@ -2335,7 +2336,7 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
     }
 
     let liveEntities = entities;
-    let previousTime = performance.now();
+    const simulationClock = new SimulationClock(performance.now());
     let elapsed = 0;
     let lastPublish = 0;
     let frameRequest = 0;
@@ -2420,8 +2421,9 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
     document.addEventListener('mouseup', onMouseUp);
 
     const frame = (now: number) => {
-      const delta = Math.min(0.05, Math.max(0, (now - previousTime) / 1000));
-      previousTime = now;
+      const batch = simulationClock.advance(now, document.hidden);
+      for (let stepIndex = 0; stepIndex < batch.steps; stepIndex++) {
+      const delta = simulationClock.stepSeconds;
       elapsed += delta;
       if (fpsPlayer) {
         lookYaw += (Number(pressed.has('arrowright')) - Number(pressed.has('arrowleft'))) * delta * 90;
@@ -2486,7 +2488,7 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
         lastFootstepPosition.set(entity.id, { ...position });
       }
 
-      if (now - lastPublish >= 33) {
+      if (stepIndex === batch.steps - 1 && now - lastPublish >= 33) {
         setRuntimeEntities(liveEntities);
         setRuntimeActionHud(result.hud);
         const actionPlayer = result.hud ? liveEntities.find(entity => entity.id === result.hud!.playerId) : undefined;
@@ -2536,6 +2538,7 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
           setRuntimeCamera(camera);
         }
         lastPublish = now;
+      }
       }
       frameRequest = window.requestAnimationFrame(frame);
     };

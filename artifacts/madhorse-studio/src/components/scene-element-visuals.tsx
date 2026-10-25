@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { getCamera, getEffect, getLight, getPrimitive, getUICanvas, type SceneEntity, type PrimitiveComponent, type EffectComponent } from '@/lib/scene-model';
 import { beginSystemActivity } from '@/lib/system-activity';
 import { createPrimitiveGeometry } from '@/lib/scene-view-geometry';
 import { CameraModel } from './camera-model';
+import { sceneTextureCache } from '@/lib/scene-texture-cache';
 
 export function SceneElementVisual({ entity, gameView, active, assetUrls, onError, selected = false, primary = false }: {
   entity: SceneEntity; gameView: boolean; active: boolean; selected?: boolean; primary?: boolean; assetUrls: Record<string, string>; onError: (message: string) => void;
@@ -19,11 +20,16 @@ export function SceneElementVisual({ entity, gameView, active, assetUrls, onErro
         color={light.color}
         intensity={light.intensity}
         castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-camera-left={-30}
+        shadow-camera-right={30}
+        shadow-camera-top={30}
+        shadow-camera-bottom={-30}
         shadow-camera-near={0.5}
         shadow-camera-far={80}
         shadow-bias={-0.00012}
+        shadow-normalBias={0.025}
       />
       : <pointLight color={light.color} intensity={light.intensity} decay={2} />)}
     {!gameView && <mesh><sphereGeometry args={[.22, 12, 8]} /><meshBasicMaterial color={light.color} wireframe /></mesh>}
@@ -120,6 +126,8 @@ function SceneEffectVisual({ effect }: { effect: EffectComponent }) {
 }
 
 function PrimitiveVisual({ primitive, url, onError, active }: { primitive: PrimitiveComponent; url?: string; active: boolean; onError: (message: string) => void }) {
+  const renderer = useThree(state => state.gl);
+  const anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const geometry = useMemo(
     () => createPrimitiveGeometry(primitive.shape, primitive.terrainSettings, primitive.terrainEdits),
@@ -129,28 +137,21 @@ function PrimitiveVisual({ primitive, url, onError, active }: { primitive: Primi
   useEffect(() => {
     setTexture(null);
     if (!url) return;
-    let alive = true;
-    let loadedTexture: THREE.Texture | null = null;
     const finish = beginSystemActivity('Loading surface texture');
-    try {
-      new THREE.TextureLoader().load(url, (loaded) => {
+    const release = sceneTextureCache.acquire(url, anisotropy, {
+      ready: loaded => {
         finish();
-        if (!alive) { loaded.dispose(); return; }
-        loadedTexture = loaded;
-        loaded.colorSpace = THREE.SRGBColorSpace;
         setTexture(loaded);
-      }, undefined, () => {
+      },
+      failed: () => {
         finish();
-        if (alive) onError('Could not decode the assigned surface texture.');
-      });
-    } catch {
-      finish();
-      onError('Could not load the assigned surface texture.');
-    }
-    return () => { alive = false; finish(); loadedTexture?.dispose(); };
+        onError('Could not decode the assigned surface texture.');
+      },
+    });
+    return () => { release(); finish(); };
     // Status callbacks may change with selection; the asset itself has not changed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url]);
+  }, [url, anisotropy]);
   return <mesh geometry={geometry} castShadow receiveShadow>
     <meshStandardMaterial color={primitive.color} map={texture} roughness={primitive.roughness ?? .58} metalness={primitive.metalness ?? .08} side={THREE.DoubleSide}
       transparent={!active || (primitive.opacity ?? 1) < 1} opacity={active ? primitive.opacity ?? 1 : .35}
