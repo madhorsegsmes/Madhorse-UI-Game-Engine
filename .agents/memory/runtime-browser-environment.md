@@ -82,3 +82,13 @@ completed-test recorders restored normal check performance.
 
 **How to apply:** Check process ownership and whether the test is finished before
 cleaning up a recorder. Do not terminate active tests or user application services.
+
+An exported Three.js constant is not proof that the renderer still supports it.
+`PCFSoftShadowMap` remains exported but the installed renderer warns and falls
+back to `PCFShadowMap`; use supported PCF filtering and the light's shadow radius.
+
+**Why:** Inspecting the installed renderer exposed a removed shadow mode that
+still passed TypeScript checks. Selecting it would not deliver a new feature.
+
+**How to apply:** Check current renderer behavior rather than old examples when
+upgrading graphics. Do not describe a deprecated fallback as a visual improvement.

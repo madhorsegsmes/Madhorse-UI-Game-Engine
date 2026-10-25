@@ -11,7 +11,7 @@ export function SceneEditorEnvironment({ mobile, showGrid = true, studioLighting
       <ambientLight intensity={(studioLighting ? 0.45 : 0.18) * exposure} />
       {studioLighting && <>
         <directionalLight position={[7, 12, 6]} intensity={2.1 * exposure}
-          castShadow={!mobile} shadow-mapSize-width={2048} shadow-mapSize-height={2048}
+          castShadow={!mobile} shadow-radius={2} shadow-mapSize-width={2048} shadow-mapSize-height={2048}
           shadow-camera-left={-30} shadow-camera-right={30}
           shadow-camera-top={30} shadow-camera-bottom={-30}
           shadow-camera-near={.1} shadow-camera-far={100}

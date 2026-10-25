@@ -12,3 +12,13 @@ when asked what should guide the engine-wide upgrade.
 budgets. Preserve existing explicit quality choices and saved projects. Do not
 describe a simulated timing check or a software preview as proof of real GPU
 visual quality or frame rate.
+
+## AAA-style production goal
+
+The product goal is to be able to produce AAA-style games.
+
+**Why:** The user said, “we want to be able to produce triple a kind of games.”
+
+**How to apply:** Prioritize rendering, world scale, character animation and
+production reliability, not just additional interface buttons. Keep comparisons
+honest: distinguish working features from missing systems and unverified GPU quality.

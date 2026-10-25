@@ -10,6 +10,8 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { TextureLoader } from 'three';
 import { SceneWebGLBoundary } from './scene-webgl-boundary';
 import { SceneContextLifecycle } from './scene-context-lifecycle';
+import { ScenePhysicalLighting } from './scene-physical-lighting';
+import { FrameIntervalWindow } from '@/lib/physical-rendering';
 import { requestWebGL2Context, type SceneGraphicsFailure } from '@/lib/webgl-context';
 import { SceneRenderFallback } from './scene-render-fallback';
 import { usePbrTextures } from './use-pbr-textures';
@@ -87,33 +89,50 @@ export type ScenePreview3DProps = {
 type ErrorEntry = { id: string; message: string };
 type PerformanceOutputRef = { current: HTMLDivElement | null };
 
-function ScenePerformanceSampler({ outputRef, gameView }: {
+function ScenePerformanceSampler({ outputRef, continuous }: {
   outputRef: PerformanceOutputRef;
-  gameView: boolean;
+  continuous: boolean;
 }) {
   const { gl } = useThree();
-  const sample = useRef({ frames: 0, elapsed: 0 });
+  const sample = useRef({ intervals: new FrameIntervalWindow(), elapsed: 0, started: false });
+  useEffect(() => {
+    const reset = () => {
+      sample.current.intervals.reset(); sample.current.elapsed = 0; sample.current.started = false;
+    };
+    reset();
+    document.addEventListener('visibilitychange', reset);
+    return () => document.removeEventListener('visibilitychange', reset);
+  }, [continuous]);
 
   useFrame((_state, delta) => {
     const output = outputRef.current;
-    if (!output) return;
-
-    const render = gl.info.render;
-    const memory = gl.info.memory;
-    const details = `${render.calls} draws · ${render.triangles.toLocaleString()} tris · ${memory.geometries} meshes · ${memory.textures} textures`;
-    if (!gameView) {
-      output.textContent = `EDIT · ON-DEMAND · ${details}`;
+    if (!output) {
+      sample.current.intervals.reset(); sample.current.started = false; sample.current.elapsed = 0;
       return;
     }
 
-    sample.current.frames += 1;
-    sample.current.elapsed += Math.max(delta, 0);
+    const render = gl.info.render;
+    const memory = gl.info.memory;
+    const details = `${render.calls} draws · ${render.triangles.toLocaleString()} tris · ${memory.geometries} geometries · ${memory.textures} textures`;
+    if (!continuous || document.hidden) {
+      output.textContent = `EDIT · ON-DEMAND · ${details}`;
+      output.dataset.frameBudget = 'idle';
+      sample.current.started = false;
+      return;
+    }
+    if (!sample.current.started) {
+      sample.current.started = true;
+      output.textContent = `Measuring frame intervals · ${details}`;
+      return;
+    }
+    sample.current.intervals.push(delta);
+    sample.current.elapsed += Number.isFinite(delta) && delta > 0 ? delta : 0;
     if (sample.current.elapsed < 0.5) return;
-
-    const fps = sample.current.frames / sample.current.elapsed;
-    const frameInterval = sample.current.elapsed * 1000 / sample.current.frames;
-    output.textContent = `${fps.toFixed(0)} FPS · ${frameInterval.toFixed(1)} ms frame interval · ${details}`;
-    sample.current = { frames: 0, elapsed: 0 };
+    const stats = sample.current.intervals.summary;
+    if (!stats) return;
+    output.dataset.frameBudget = stats.overBudget ? 'over' : 'within';
+    output.textContent = `${stats.fps.toFixed(0)} FPS · ${stats.meanMs.toFixed(1)} ms avg / ${stats.p95Ms.toFixed(1)} p95 / ${stats.worstMs.toFixed(1)} max · ${details}${stats.overBudget ? ' · Above 60 FPS frame budget' : ''}`;
+    sample.current.elapsed = 0;
   });
 
   return null;
@@ -480,8 +499,11 @@ export function ScenePreview3D({
           }}
         >
         <SceneContextLifecycle onLost={markGraphicsUnavailable} onRestored={markGraphicsReady} />
+        <ScenePhysicalLighting
+          enabled={renderSettings.environmentReflections && renderSettings.quality !== 'performance'}
+          intensity={renderSettings.reflectionIntensity} />
         {renderSettings.showPerformanceStats && (
-          <ScenePerformanceSampler outputRef={performanceStatsRef} gameView={gameView} />
+          <ScenePerformanceSampler outputRef={performanceStatsRef} continuous={!staticPreview && (gameView || hasAnimatedEffects)} />
         )}
         <SceneRendererSettings
           background={sceneBackground}
@@ -705,7 +727,8 @@ function SceneWorld(props: SceneWorldProps) {
   return (
     <>
       {props.gameView
-        ? <AutomaticGameLighting target={props.gameCamera?.target ?? { x: 0, y: 0, z: 0 }} />
+        ? <AutomaticGameLighting target={props.gameCamera?.target ?? { x: 0, y: 0, z: 0 }}
+            shadows={props.renderSettings.quality === 'high' && !props.mobile} />
         : <SceneEditorEnvironment
           mobile={props.mobile}
           showGrid={props.renderSettings.showGrid}
@@ -773,7 +796,7 @@ function SceneWorld(props: SceneWorldProps) {
   );
 }
 
-function AutomaticGameLighting({ target }: { target: GameCamera['target'] }) {
+function AutomaticGameLighting({ target, shadows }: { target: GameCamera['target']; shadows: boolean }) {
   const lightTarget = useMemo(() => {
     const object = new THREE.Object3D();
     object.position.set(target.x, target.y, target.z);
@@ -783,7 +806,11 @@ function AutomaticGameLighting({ target }: { target: GameCamera['target'] }) {
   return <>
     <primitive object={lightTarget} />
     <ambientLight intensity={1.15} />
-    <directionalLight target={lightTarget} position={[target.x + 7, target.y + 12, target.z + 6]} intensity={2.2} />
+    <directionalLight target={lightTarget} position={[target.x + 7, target.y + 12, target.z + 6]} intensity={2.2}
+      castShadow={shadows} shadow-mapSize-width={2048} shadow-mapSize-height={2048}
+      shadow-camera-left={-30} shadow-camera-right={30} shadow-camera-top={30} shadow-camera-bottom={-30}
+      shadow-camera-near={0.1} shadow-camera-far={100} shadow-radius={2}
+      shadow-normalBias={0.035} shadow-bias={-0.00015} />
     <directionalLight target={lightTarget} position={[target.x - 7, target.y + 5, target.z - 8]} intensity={0.75} color="#b3c0cf" />
   </>;
 }

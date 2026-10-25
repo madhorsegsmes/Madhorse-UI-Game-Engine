@@ -58,6 +58,26 @@ export function SceneRenderSettingsPanel({
           />
           Studio lighting
         </label>
+        <label>
+          <input type="checkbox"
+            checked={settings.environmentReflections && settings.quality !== 'performance'}
+            disabled={settings.quality === 'performance'}
+            onChange={event => onChange({ ...settings, environmentReflections: event.currentTarget.checked })}
+            data-testid="scene-render-reflections" />
+          Studio PBR reflections
+        </label>
+        <label className="mh-scene3d__reflection-strength">
+          <span>Reflection strength</span>
+          <input type="range" min="0" max="2" step="0.05" value={settings.reflectionIntensity}
+            disabled={!settings.environmentReflections || settings.quality === 'performance'}
+            aria-label="Reflection strength" data-testid="scene-render-reflection-intensity"
+            onChange={event => onChange({ ...settings, reflectionIntensity: Number(event.currentTarget.value) })} />
+          <output>{settings.reflectionIntensity.toFixed(2)}</output>
+        </label>
+        <p className="mh-scene3d__render-note">
+          Prefiltered studio reflections help metal and rough surfaces respond to light.
+          Performance quality disables them. This is not ray tracing or Lumen.
+        </p>
         <label className="mh-scene3d__render-exposure">
           Exposure
           <input

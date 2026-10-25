@@ -9,6 +9,8 @@ export type SceneRenderSettings = {
   background: string;
   quality: SceneRenderQuality;
   showPerformanceStats: boolean;
+  environmentReflections: boolean;
+  reflectionIntensity: number;
 };
 
 export const DEFAULT_SCENE_RENDER_SETTINGS: SceneRenderSettings = {
@@ -18,6 +20,8 @@ export const DEFAULT_SCENE_RENDER_SETTINGS: SceneRenderSettings = {
   background: '#1d1f22',
   quality: 'high',
   showPerformanceStats: false,
+  environmentReflections: true,
+  reflectionIntensity: 0.65,
 };
 
 const storageKey = 'madhorse-studio-scene-render-settings';
@@ -34,6 +38,10 @@ export function normalizeSceneRenderSettings(input: unknown): SceneRenderSetting
       quality: value.quality === 'performance' || value.quality === 'high' || value.quality === 'balanced'
         ? value.quality : DEFAULT_SCENE_RENDER_SETTINGS.quality,
       showPerformanceStats: typeof value.showPerformanceStats === 'boolean' ? value.showPerformanceStats : false,
+      environmentReflections: typeof value.environmentReflections === 'boolean' ? value.environmentReflections
+        : value.studioLighting !== false && value.quality !== 'performance',
+      reflectionIntensity: typeof value.reflectionIntensity === 'number' && Number.isFinite(value.reflectionIntensity)
+        ? Math.min(2, Math.max(0, value.reflectionIntensity)) : DEFAULT_SCENE_RENDER_SETTINGS.reflectionIntensity,
     };
 }
 
