@@ -116,7 +116,10 @@ export type PrimitiveComponent = {
 export type LightComponent = {
   id: string; type: 'light'; enabled: boolean;
   kind: 'point' | 'directional' | 'ambient'; color: string; intensity: number;
+  castShadow?: boolean;
+  shadowMapSize?: LightShadowMapSize;
 };
+export type LightShadowMapSize = 512 | 1024 | 2048;
 export type CameraComponent = {
   id: string; type: 'camera'; enabled: boolean; fov: number; target: Vector3;
   useTransformRotation?: boolean;
@@ -441,7 +444,9 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
   }
   if (item.type === 'light') {
     return typeof item.enabled === 'boolean' && ['point', 'directional', 'ambient'].includes(item.kind) &&
-      /^#[0-9a-f]{6}$/i.test(item.color) && Number.isFinite(item.intensity) && item.intensity >= 0 && item.intensity <= 100;
+      /^#[0-9a-f]{6}$/i.test(item.color) && Number.isFinite(item.intensity) && item.intensity >= 0 && item.intensity <= 100 &&
+      (item.castShadow === undefined || typeof item.castShadow === 'boolean') &&
+      (item.shadowMapSize === undefined || item.shadowMapSize === 512 || item.shadowMapSize === 1024 || item.shadowMapSize === 2048);
   }
   if (item.type === 'camera') {
     return typeof item.enabled === 'boolean' && Number.isFinite(item.fov) &&

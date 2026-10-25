@@ -255,6 +255,21 @@ export function HierarchyCreationTools(props: HierarchyCreationProps) {
             <label className="hct-field"><span>Intensity <code>{light.intensity}</code></span>
               <input type="range" min={0} max={100} step={1} value={light.intensity} disabled={locked} onChange={(e) => props.onUpdateLight(selected.id, { intensity: Math.min(100, Math.max(0, Number(e.target.value))) })} data-testid="input-light-intensity" />
             </label>
+            {light.kind === 'directional' && <>
+              <label className="hct-field hct-field-inline">
+                <span>Cast shadows</span>
+                <input type="checkbox" checked={light.castShadow !== false} disabled={locked}
+                  onChange={event => props.onUpdateLight(selected.id, { castShadow: event.currentTarget.checked })}
+                  data-testid="input-light-cast-shadow" />
+              </label>
+              <label className="hct-field"><span>Shadow detail</span>
+                <select value={light.shadowMapSize ?? 2048} disabled={locked}
+                  onChange={event => props.onUpdateLight(selected.id, { shadowMapSize: Number(event.currentTarget.value) as 512 | 1024 | 2048 })}
+                  data-testid="select-light-shadow-detail">
+                  <option value={512}>Low · 512</option><option value={1024}>Medium · 1024</option><option value={2048}>High · 2048</option>
+                </select>
+              </label>
+            </>}
           </>)}
           {camera && (<>
             <label className="hct-field"><span>Field of view <code>{camera.fov}°</code></span>

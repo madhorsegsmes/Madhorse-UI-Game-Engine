@@ -27,9 +27,9 @@ export function SceneElementVisual({ entity, gameView, active, assets, assetUrls
       : light.kind === 'directional' ? <directionalLight
         color={light.color}
         intensity={light.intensity}
-        castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
+        castShadow={light.castShadow !== false}
+        shadow-mapSize-width={light.shadowMapSize ?? 2048}
+        shadow-mapSize-height={light.shadowMapSize ?? 2048}
         shadow-camera-left={-30}
         shadow-camera-right={30}
         shadow-camera-top={30}

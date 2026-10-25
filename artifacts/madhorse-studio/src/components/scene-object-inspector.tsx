@@ -77,6 +77,8 @@ function toDraft(entity: SceneEntity) {
       values['light.color'] = component.color;
       values['light.intensity'] = String(component.intensity);
       values['light.enabled'] = String(component.enabled);
+      values['light.castShadow'] = String(component.castShadow !== false);
+      values['light.shadowMapSize'] = String(component.shadowMapSize ?? 2048);
     } else if (component.type === 'camera') {
       values['camera.fov'] = String(component.fov);
       values['camera.enabled'] = String(component.enabled);
@@ -298,6 +300,8 @@ export function SceneObjectInspector({
         color: values['light.color'],
         intensity: number('light.intensity'),
         enabled: values['light.enabled'] === 'true',
+        castShadow: values['light.castShadow'] === 'true',
+        shadowMapSize: number('light.shadowMapSize') as 512 | 1024 | 2048,
       };
       if (item.type === 'effect') return {
         ...item,
@@ -614,6 +618,15 @@ export function SceneObjectInspector({
           ])}
           {colorField('Color', 'light.color')}
           {numberField('Intensity', 'light.intensity', 0, 100, 0.1)}
+          {values['light.kind'] === 'directional' && <>
+            {checkboxField('Cast shadows', 'light.castShadow')}
+            {selectField('Shadow detail', 'light.shadowMapSize', [
+              { value: '512', label: 'Low · 512' },
+              { value: '1024', label: 'Medium · 1024' },
+              { value: '2048', label: 'High · 2048' },
+            ])}
+            <small>Higher detail uses more GPU memory. The Performance and Balanced render profiles disable shadows globally.</small>
+          </>}
         </>)}
         {camera && section('Camera', <>
           {checkboxField('Enabled', 'camera.enabled')}

@@ -17,6 +17,6 @@ export type HierarchyCreationProps = {
   onGenerateAsset: (options: GeneratedAssetOptions) => Promise<void>;
   onActivateCamera: (id: string | null) => void;
   onUpdatePrimitive: (id: string, changes: Partial<Pick<PrimitiveComponent, 'color' | 'textureAssetId'>>) => void;
-  onUpdateLight: (id: string, changes: Partial<Pick<LightComponent, 'kind' | 'color' | 'intensity'>>) => void;
+  onUpdateLight: (id: string, changes: Partial<Pick<LightComponent, 'kind' | 'color' | 'intensity' | 'castShadow' | 'shadowMapSize'>>) => void;
   onUpdateCamera: (id: string, changes: Partial<Pick<CameraComponent, 'fov' | 'target'>>) => void;
 };
