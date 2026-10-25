@@ -136,3 +136,15 @@ WebM was supported. Generic `video/mp4` capability returned only `maybe`.
 **How to apply:** Keep the full-resolution MP4 downloads, provide silent VP9 WebM
 for browser playback, and verify actual playback time advances. Successful HTTP
 ranges and ffprobe validation alone do not prove browser decoder compatibility.
+
+An unchanged initial status in a screenshot is not proof that an asynchronous
+worker failed; capture browser `pageerror` events before changing runtime code.
+
+**Why:** Static screenshot logs omitted a React initialization exception while a
+raw Vite-served verification page remained on “Preparing.” A focused browser
+check caught the missing React Refresh preamble and confirmed no worker started.
+
+**How to apply:** Raw verification HTML that imports Vite-transformed TSX needs
+the React Refresh preamble, or prebundled React components. When initialization
+stalls without a console error, inspect page exceptions and loaded resources
+rather than repeatedly taking the same screenshot or weakening worker checks.

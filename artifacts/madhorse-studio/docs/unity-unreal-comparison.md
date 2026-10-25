@@ -9,7 +9,7 @@ Reviewed 2026-10-25. This is a capability comparison, not a claim of feature or 
 | Physics | Local rigid-body/AABB simulation, broadphase, gravity, contact response; six collision groups, editable presets and opt-in swept-box CCD against stationary boxes | PhysX/Chaos-class mesh/convex solvers, joints, cloth, destruction, moving-body/rotational CCD and large-scale solver performance |
 | Characters and animation | Editable character building, imported model assets, animation controllers and coordinated scene animation | Mature retargeting, robust IK/control-rig authoring, animation debugging and production-quality deformation pipelines |
 | World building | Terrain/world tools and editable genre starters | Seamless world partition, streaming budgets, HLOD generation and scalable navigation-mesh baking |
-| Assets | Import/export, materials/textures, browser-local asset storage | Full DCC reimport/dependency pipeline, automated LOD generation, texture/platform cooking and robust compression workflows |
+| Assets | Import/export, materials/textures, browser-local asset storage; automatic bounded LOD generation for supported imported static meshes | Full DCC reimport/dependency pipeline, skeletal/multi-material LOD generation, texture/platform cooking and robust compression workflows |
 | Logic and scripts | Built-in editable gameplay components, visual logic and isolated language runtimes with memory limits | Full Unity/Unreal engine APIs and native-code/plugin compatibility; arbitrary language support is not API compatibility |
 | Multiplayer | Room/host-authority components | Dedicated authoritative servers, prediction/reconciliation at production scale, persistent MMO services and anti-cheat |
 | Shipping | Portable web player and project export paths | Verified native Android APK build/signing pipeline, platform certification and console deployment |
@@ -54,6 +54,34 @@ Collision presets simplify setup: Solid, World, Player, NPC, Fast projectile, De
 - **Rendering:** material/shader authoring, baked/dynamic indirect lighting and scalable visibility/occlusion systems. PBR alone does not provide these.
 - **Production:** platform asset cooking, build automation, authoritative server infrastructure and hardware-based performance regression tests.
 
+## Automatic static-model LOD
+
+Supported imported static meshes now have a real automatic detail pipeline:
+
+- Worker-based meshoptimizer simplification targets approximately 50% / 20% of
+  original triangles, subject to locked borders and a 0.5% geometric-error limit.
+  These targets are not guaranteed; unsafe or ineffective reductions keep originals.
+- Retained vertices are compacted with original UVs, normals, tangents and colors.
+  Materials, hierarchy and asset files are not replaced.
+- Actual projected screen height selects original / medium / low geometry, with
+  hysteresis. Near and selected objects stay original; orthographic zoom is handled.
+- New model renderer components enable it by default. Older components without
+  LOD settings stay full detail. Object Settings exposes editable thresholds and
+  actual last-renderer triangle counts/status. Save Changes applies them.
+- Studio and the standalone player both use the same ModelAssetView renderer.
+  Worker assets and their meshoptimizer license are included in web-player exports.
+
+Generation is limited to one worker, eight queued requests, 100,000 source vertices,
+200,000 source triangles, 16 MiB source attributes per mesh and 32 MiB of generated
+detail geometry. Generation has a timeout; worker failure keeps original geometry.
+Instances share generated geometry with reference-counted cleanup. These limits
+bound this optimization pipeline, not the whole renderer's memory.
+
+Skinned/morph models stay wholly original. Multi-material, non-indexed, partial
+draw-range and unsupported attribute meshes also stay original. This does not
+implement skeletal LOD, HLOD, streaming, cross-fades, GI or Nanite. GPU appearance
+and frame-time improvement still need real-hardware validation.
+
 ## Official comparison sources
 
 - Unity 6 layer-based collision detection: https://docs.unity.com/en-us/engine/6000.0/manual/physics-section/physics-overview/collision-section/collision-detection/layer-based-collision
@@ -62,3 +90,5 @@ Collision presets simplify setup: Solid, World, Player, NPC, Fast projectile, De
 - Unreal Engine Nanite: https://dev.epicgames.com/documentation/unreal-engine/nanite-virtualized-geometry-in-unreal-engine
 - Unity sweep-based CCD: https://docs.unity.com/en-us/engine/6000.6/manual/physics-section/physics-overview/collision-section/collision-detection/continuous/sweep-based-ccd
 - Unreal physics bodies / Use CCD: https://dev.epicgames.com/documentation/unreal-engine/physics-bodies-reference-for-unreal-engine
+- Unity LOD groups: https://docs.unity.com/en-us/engine/6000.5/manual/analysis/graphics-performance-profiling/lod/lod-group/class-lodgroup
+- Unreal LOD screen sizes: https://dev.epicgames.com/documentation/unreal-engine/optimizing-lod-screen-size-per-platform-in-unreal-engine

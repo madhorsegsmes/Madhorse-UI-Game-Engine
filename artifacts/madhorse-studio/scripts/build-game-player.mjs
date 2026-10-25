@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import { readdir, writeFile, readFile } from 'node:fs/promises';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const project = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(project, 'public/game-player');
@@ -29,6 +30,9 @@ for (const output of (Array.isArray(result) ? result : [result])) {
     }
   }
 }
+// Worker module graphs are built separately by Vite; include their dependency's
+// license explicitly as it need not appear in the main player's chunk modules.
+packages.add(dirname(createRequire(import.meta.url).resolve('meshoptimizer')));
 for (const packagePath of [...packages].sort()) {
   const pkg = JSON.parse(await readFile(join(packagePath, 'package.json'), 'utf8'));
   let found = false;

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, useSyncExternalStore, type FormEvent, type ReactNode } from 'react';
 import {
   isSceneEntity,
   primitiveShapes,
@@ -21,6 +21,8 @@ import type { VisualLogicNode } from '@/lib/scene-model';
 import { getPbrSurfacePreset, matchPbrSurfacePreset, pbrSurfacePresets } from '@/lib/pbr-surface-presets';
 import { fighterVisualDraft, isFighterEntity, withFighterVisual, type FighterVisualMode } from '@/lib/fighter-visual';
 import { withSceneModelAppearance } from '@/lib/scene-model-appearance';
+import { DEFAULT_MODEL_LOD } from '@/lib/model-lod-settings';
+import { getModelLodReport, subscribeModelLodReports } from '@/lib/model-lod-report';
 import { ALL_COLLISION_LAYERS, collisionLayers, collisionPresets, collisionPresetDraft } from '@/lib/collision-layers';
 
 type Props = {
@@ -150,6 +152,9 @@ function toDraft(entity: SceneEntity) {
       values['model.enabled'] = String(component.enabled);
       values['model.assetId'] = component.assetId ?? '';
       values['model.materialAssetId'] = component.materialAssetId ?? '';
+      values['model.lod.enabled'] = String(component.lod?.enabled ?? false);
+      values['model.lod.medium'] = String(component.lod?.mediumScreenPercent ?? DEFAULT_MODEL_LOD.mediumScreenPercent);
+      values['model.lod.low'] = String(component.lod?.lowScreenPercent ?? DEFAULT_MODEL_LOD.lowScreenPercent);
     }
   }
   return values;
@@ -168,6 +173,7 @@ export function SceneObjectInspector({
 }: Props) {
   const [name, setName] = useState(entity.name);
   const [values, setValues] = useState(() => toDraft(entity));
+  const lodReport = useSyncExternalStore(subscribeModelLodReports, () => getModelLodReport(entity.id), () => null);
   const [error, setError] = useState('');
   const [audioPreviewStatus, setAudioPreviewStatus] = useState('');
   useEffect(() => () => stopAudioPlayback(), []);
@@ -394,6 +400,11 @@ export function SceneObjectInspector({
         enabled: values['model.enabled'] === 'true',
         assetId: values['model.assetId'] || null,
         materialAssetId: values['model.materialAssetId'] || null,
+        lod: {
+          enabled: values['model.lod.enabled'] === 'true',
+          mediumScreenPercent: number('model.lod.medium'),
+          lowScreenPercent: number('model.lod.low'),
+        },
       };
     });
     let updated: SceneEntity = {
@@ -634,6 +645,21 @@ export function SceneObjectInspector({
         </>)}
         {model && !primitive && !isFighterEntity(entity) && section('Model Renderer', <>
           {checkboxField('Enabled', 'model.enabled')}
+          {checkboxField('Automatic model detail (LOD)', 'model.lod.enabled')}
+          <p className="fresh-inspector-note">Keep original geometry nearby and while selected. Supported static models get lighter geometry when small on screen. Skinned/morph models stay original.</p>
+          <details>
+            <summary>Distant-detail settings</summary>
+            {numberField('Medium detail below screen height %', 'model.lod.medium', 1, 100, .1)}
+            {numberField('Low detail below screen height %', 'model.lod.low', .1, 99.9, .1)}
+            <small>Low must be smaller than Medium. Save Changes to apply. Original files are never replaced.</small>
+          </details>
+          {lodReport && lodReport.assetId === model?.assetId && <p className="fresh-inspector-note" role="status">
+            Last renderer result: {lodReport.message}<br />
+            Triangles — original: {Math.round(lodReport.fullTriangles).toLocaleString()};
+            medium: {Math.round(lodReport.mediumTriangles).toLocaleString()};
+            low: {Math.round(lodReport.lowTriangles).toLocaleString()}.
+            Detail level: {lodReport.activeLevel === 0 ? 'Original' : lodReport.activeLevel === 1 ? 'Medium' : 'Low'}.
+          </p>}
           {selectField('Model asset', 'model.assetId', assetOptions(modelAssets))}
           {selectField('Project PBR material', 'model.materialAssetId', [
             { value: '', label: 'Use imported model materials' },

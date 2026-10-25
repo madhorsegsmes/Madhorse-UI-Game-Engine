@@ -1,5 +1,6 @@
 import { isPlayerActionComponent, type PlayerActionComponent } from './player-action-model';
 import { isCollisionFilter } from './collision-layers';
+import { DEFAULT_MODEL_LOD, isModelLodSettings, type ModelLodSettings } from './model-lod-settings';
 import { isGameFeatureComponent, type GameFeatureComponent } from './game-feature-model';
 import { isPbrMaterialDefinition } from './pbr-material';
 export type Vector3 = { x: number; y: number; z: number };
@@ -30,6 +31,7 @@ export type ModelRendererComponent = {
   enabled: boolean;
   assetId: string | null;
   materialAssetId?: string | null;
+  lod?: ModelLodSettings;
 };
 
 export type PhysicsBodyType = 'static' | 'dynamic' | 'kinematic';
@@ -263,6 +265,7 @@ export function createModelRendererComponent(assetId: string | null = null): Mod
     type: 'modelRenderer',
     enabled: true,
     assetId,
+    lod: { ...DEFAULT_MODEL_LOD },
   };
 }
 
@@ -414,7 +417,8 @@ export function isSceneComponent(value: unknown): value is SceneComponent {
   if (item.type === 'modelRenderer') {
     return typeof item.enabled === 'boolean' &&
       (item.assetId === null || typeof item.assetId === 'string') &&
-      (item.materialAssetId === undefined || item.materialAssetId === null || typeof item.materialAssetId === 'string');
+      (item.materialAssetId === undefined || item.materialAssetId === null || typeof item.materialAssetId === 'string') &&
+      (item.lod === undefined || isModelLodSettings(item.lod));
   }
   if (item.type === 'primitive') {
     const validTerrain = item.terrainSettings === undefined || isTerrainSettings(item.terrainSettings);

@@ -248,6 +248,9 @@ importers:
       '@clerk/themes':
         specifier: ^2.4.57
         version: 2.4.57(react-dom@19.1.4(react@19.1.4))(react@19.1.4)
+      meshoptimizer:
+        specifier: 1.1.1
+        version: 1.1.1
     devDependencies:
       '@bjorn3/browser_wasi_shim':
         specifier: ^0.4.2
@@ -3794,6 +3797,7 @@ packages:
   stats-gl@2.4.2:
     resolution: {integrity: sha512-g5O9B0hm9CvnM36+v7SFl39T7hmAlv541tU81ME8YeSb3i1CIP5/QdDeSB3A0la0bKNHpxpwxOVRo2wFTYEosQ==}
     peerDependencies:
+      '@types/three': '*'
       three: '*'
 
   stats.js@0.17.0:
@@ -5950,7 +5954,7 @@ snapshots:
       maath: 0.10.8(@types/three@0.186.0)(three@0.182.0)
       meshline: 3.3.1(three@0.182.0)
       react: 19.1.0
-      stats-gl: 2.4.2(three@0.182.0)
+      stats-gl: 2.4.2(@types/three@0.186.0)(three@0.182.0)
       stats.js: 0.17.0
       suspend-react: 0.1.3(react@19.1.0)
       three: 0.182.0
@@ -5983,7 +5987,7 @@ snapshots:
       maath: 0.10.8(@types/three@0.186.0)(three@0.186.1)
       meshline: 3.3.1(three@0.186.1)
       react: 19.1.0
-      stats-gl: 2.4.2(three@0.186.1)
+      stats-gl: 2.4.2(@types/three@0.186.0)(three@0.186.1)
       stats.js: 0.17.0
       suspend-react: 0.1.3(react@19.1.0)
       three: 0.186.1
@@ -6016,7 +6020,7 @@ snapshots:
       maath: 0.10.8(@types/three@0.186.0)(three@0.186.1)
       meshline: 3.3.1(three@0.186.1)
       react: 19.1.4
-      stats-gl: 2.4.2(three@0.186.1)
+      stats-gl: 2.4.2(@types/three@0.186.0)(three@0.186.1)
       stats.js: 0.17.0
       suspend-react: 0.1.3(react@19.1.4)
       three: 0.186.1
@@ -7874,12 +7878,12 @@ snapshots:
       '@stablelib/base64': 1.0.1
       fast-sha256: 1.3.0
 
-  stats-gl@2.4.2(three@0.182.0):
+  stats-gl@2.4.2(@types/three@0.186.0)(three@0.182.0):
     dependencies:
       '@types/three': 0.186.0
       three: 0.182.0
 
-  stats-gl@2.4.2(three@0.186.1):
+  stats-gl@2.4.2(@types/three@0.186.0)(three@0.186.1):
     dependencies:
       '@types/three': 0.186.0
       three: 0.186.1

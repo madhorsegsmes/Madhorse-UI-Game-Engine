@@ -6,6 +6,8 @@ import * as THREE from 'three';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { useModelLod } from '@/hooks/use-model-lod';
+import type { ModelLodSettings } from '@/lib/model-lod-settings';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { TextureLoader } from 'three';
 import { SceneWebGLBoundary } from './scene-webgl-boundary';
@@ -1016,6 +1018,8 @@ function EntityNode(props: SceneWorldProps & {
             key={`${model?.assetId ?? ''}:${modelUrl}`}
             id={entity.id}
             asset={modelAsset}
+            lod={model?.lod}
+            forceFullDetail={props.selectedEntityId === entity.id}
             url={modelUrl}
             assets={props.assets}
             assetUrls={props.assetUrls}
@@ -1045,6 +1049,8 @@ function EntityNode(props: SceneWorldProps & {
             key={`${model.assetId}:${modelUrl}`}
             id={entity.id}
             asset={modelAsset}
+            lod={model.lod}
+            forceFullDetail={props.selectedEntityId === entity.id}
             url={modelUrl}
             assets={props.assets}
             assetUrls={props.assetUrls}
@@ -1209,6 +1215,8 @@ function AssetPlaceholder({ message, failed, onStatus }: { message: string; fail
 type LoadedModelProps = {
   id: string; asset: ProjectAsset; url: string; assets: ProjectAsset[]; assetUrls: Record<string, string>;
   pbrMaterial?: PbrMaterialDefinition;
+  lod?: ModelLodSettings;
+  forceFullDetail?: boolean;
   onError: (id: string, message: string) => void; onStatus: (id: string, message: string) => void;
   clearError: (id: string) => void; opacity: number; fitHeight?: number;
 };
@@ -1216,6 +1224,7 @@ type LoadedModelProps = {
 function ModelAssetView(props: LoadedModelProps) {
   const [object, setObject] = useState<THREE.Object3D | null>(null);
   const [failure, setFailure] = useState('');
+  useModelLod(object, props.id, props.asset.id, props.lod, Boolean(props.forceFullDetail));
   const renderer = useThree(state => state.gl);
   const anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   const pbrTextures = usePbrTextures(props.pbrMaterial, props.assetUrls, anisotropy);
