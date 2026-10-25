@@ -171,7 +171,7 @@ function GameSession({ game, onRestart }: { game: WebGameData; onRestart: () => 
         primaryCamera={camera} gameCamera={camera} gameView readOnly selectedEntityId={null}
         renderSettingsOverride={renderSettings} playerPreviewPosition={{ x: 0, y: 0 }} transformMode="translate"
         onSelectEntity={noop} onTransformCommit={noop} onTransformModeChange={noop}
-        onGraphicsUnavailable={() => { setGraphicsFailed(true); setRunning(false); setStatus('WebGL is unavailable on this device. Enable hardware acceleration or use a WebGL-capable browser.'); }}
+        onGraphicsUnavailable={failure => { setGraphicsFailed(true); setRunning(false); setStatus(failure.message); }}
         onGraphicsReady={() => { setGraphicsFailed(false); setStatus('Ready. Press Play to begin.'); }} />
       {game.uiControls.map(control => <div key={control.id} className={`web-game-ui is-${control.type}`}
         style={{ left: `${control.x}%`, top: `${control.y}%`, width: control.width, height: control.height,

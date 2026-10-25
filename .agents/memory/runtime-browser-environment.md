@@ -39,6 +39,19 @@ to initialize a GPU or software WebGL renderer in this environment.
 project tools remain usable. Report graphics verification as blocked when no
 context can be created; DOM-only editor checks do not prove 3D rendering works.
 
+Graphics startup compatibility must not overwrite the creator's quality choices.
+Try the requested context first, then bounded WebGL 2 compatibility configurations;
+do not substitute WebGL 1 or label arbitrary scene exceptions as unsupported GPUs.
+
+**Why:** A browser may reject a GPU preference or hardware antialiasing while still
+supporting WebGL 2. Separately, a model/rendering exception is not evidence that the
+browser lacks WebGL. Browser-disabled graphics cannot be enabled by application JavaScript.
+
+**How to apply:** Preserve saved render settings, surface context-creation reasons,
+and keep a lost canvas mounted with its loss event cancelled so Three.js and the
+browser can restore it. Treat automatic restoration and a user-requested graphics
+restart as different recovery paths, neither of which should rewrite scene data.
+
 Software mesh previews, including full editor fallbacks, need their own rendering budget and depth-sort checks;
 never substitute unrelated illustration art when a preview must show actual models.
 

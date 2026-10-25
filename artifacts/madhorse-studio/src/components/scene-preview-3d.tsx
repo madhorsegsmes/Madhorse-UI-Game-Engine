@@ -9,6 +9,8 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { TextureLoader } from 'three';
 import { SceneWebGLBoundary } from './scene-webgl-boundary';
+import { SceneContextLifecycle } from './scene-context-lifecycle';
+import { requestWebGL2Context, type SceneGraphicsFailure } from '@/lib/webgl-context';
 import { SceneRenderFallback } from './scene-render-fallback';
 import { usePbrTextures } from './use-pbr-textures';
 import { FloatingTransformToolbar } from './floating-transform-toolbar';
@@ -60,7 +62,7 @@ export type ScenePreview3DProps = {
   staticPreview?: boolean;
   gameCamera?: GameCamera;
   graphicsFallback?: ReactNode;
-  onGraphicsUnavailable?: () => void;
+  onGraphicsUnavailable?: (failure: SceneGraphicsFailure) => void;
   onGraphicsReady?: () => void;
   entities: SceneEntity[];
   assets: ProjectAsset[];
@@ -217,6 +219,8 @@ export function ScenePreview3D({
   const [sceneFocus, setSceneFocus] = useState<SceneFocus | null>(null);
   const handledFrameRequest = useRef(0);
   const [graphicsAvailable, setGraphicsAvailable] = useState(false);
+  const [contextLost, setContextLost] = useState(false);
+  const [graphicsGeneration, setGraphicsGeneration] = useState(0);
   const [gameViewRotated, setGameViewRotated] = useState(false);
   const [cameraOrbitMode, setCameraOrbitMode] = useState<CanvasOrbitMode>('free');
   const editorCamera = primaryCamera ?? gameCamera;
@@ -257,13 +261,15 @@ export function ScenePreview3D({
     setErrors((current) => current.filter((entry) => entry.id !== id));
   }, []);
   const markGraphicsReady = useCallback(() => {
+    setContextLost(false);
     setGraphicsAvailable(true);
     onGraphicsReady?.();
   }, [onGraphicsReady]);
-  const markGraphicsUnavailable = useCallback(() => {
-    publishDiagnostic('rendering', 'warning', 'WebGL 2 unavailable. Using the software scene preview.', 'Enable hardware acceleration or use a WebGL 2-capable browser for interactive 3D controls.');
+  const markGraphicsUnavailable = useCallback((failure: SceneGraphicsFailure) => {
+    publishDiagnostic('rendering', failure.kind === 'scene-error' ? 'error' : 'warning', failure.message, failure.detail);
+    setContextLost(failure.kind === 'context-lost');
     setGraphicsAvailable(false);
-    onGraphicsUnavailable?.();
+    onGraphicsUnavailable?.(failure);
   }, [onGraphicsUnavailable]);
   const resetGameCamera = useCallback(() => {
     if (!canOrbitGameCamera) return;
@@ -433,6 +439,7 @@ export function ScenePreview3D({
           </div>
         )}
         <SceneWebGLBoundary
+          key={graphicsGeneration}
           fallback={graphicsFallback}
           fallbackContent={!gameView ? (
             <SceneRenderFallback
@@ -454,10 +461,17 @@ export function ScenePreview3D({
           dpr={webglProfile.dpr}
           shadows={webglProfile.shadows ? { type: THREE.PCFShadowMap } : false}
           frameloop={!staticPreview && (gameView || hasAnimatedEffects) ? 'always' : 'demand'}
-          gl={{
-            antialias: webglProfile.antialias,
-            powerPreference: webglProfile.powerPreference,
-            alpha: false,
+          gl={defaults => {
+            const canvas = defaults.canvas as HTMLCanvasElement;
+            const result = requestWebGL2Context(canvas, {
+              antialias: webglProfile.antialias,
+              powerPreference: webglProfile.powerPreference,
+            });
+            if (result.compatibility) publishDiagnostic('rendering', 'warning',
+              'WebGL 2 started in compatibility mode. Scene quality settings are preserved; hardware antialiasing is disabled.',
+              'The browser rejected the preferred GPU configuration. Using the available GPU instead.');
+            canvas.dataset.webglStartupMode = result.compatibility ? 'compatibility' : 'preferred';
+            return new THREE.WebGLRenderer({ ...defaults, canvas, context: result.context, alpha: false });
           }}
           onCreated={({ gl, scene }) => {
             gl.setClearColor(sceneBackground);
@@ -465,6 +479,7 @@ export function ScenePreview3D({
             markGraphicsReady();
           }}
         >
+        <SceneContextLifecycle onLost={markGraphicsUnavailable} onRestored={markGraphicsReady} />
         {renderSettings.showPerformanceStats && (
           <ScenePerformanceSampler outputRef={performanceStatsRef} gameView={gameView} />
         )}
@@ -504,6 +519,14 @@ export function ScenePreview3D({
           />
         </Canvas>
         </SceneWebGLBoundary>
+        {contextLost && <div className="mh-scene3d__unavailable" role="status" data-testid="scene3d-context-lost"
+          style={{ position: 'absolute', inset: 0, zIndex: 10, background: '#111923f5' }}>
+          <strong>Graphics connection interrupted</strong>
+          <p>Waiting for the browser to restore the GPU connection. Your scene has not been changed.</p>
+          <button type="button" onClick={() => { setContextLost(false); setGraphicsGeneration(value => value + 1); }}>
+            Restart graphics
+          </button>
+        </div>}
         {renderSettings.showPerformanceStats && graphicsAvailable && (
           <div
             ref={performanceStatsRef}
