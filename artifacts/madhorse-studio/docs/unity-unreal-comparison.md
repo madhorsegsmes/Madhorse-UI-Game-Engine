@@ -118,6 +118,21 @@ project/game data. Snapping applies to gizmo dragging, not exact Inspector input
 or free camera-icon dragging. Vertex/surface snapping, multi-object pivots and
 arbitrary rotated-parent world-grid correctness are not claimed by this pass.
 
+## Physics collision view
+
+Render settings can show editor-only colored wire boxes for the shared AABB
+solver, optionally for just the selected object or through visible models.
+The guide and solver share half-extent math, account for hierarchy scale and
+world position, and deliberately do not rotate box extents with the mesh.
+Inactive ancestors, disabled physics/colliders and editor-hidden objects are
+filtered; during Play the Scene view follows active runtime objects instead.
+
+Rendering uses one non-pickable line batch, reused bounded buffers and a 500-box
+cap. A counter exposes truncation and empty selections. The preference is
+browser-local, not an authored scene setting, and Game/camera/static previews
+never draw it. It does not add PhysX/Chaos, capsule/mesh collision debugging,
+contact/force visualization or terrain-contour collision validation.
+
 ## Official comparison sources
 
 - Unity 6 layer-based collision detection: https://docs.unity.com/en-us/engine/6000.0/manual/physics-section/physics-overview/collision-section/collision-detection/layer-based-collision

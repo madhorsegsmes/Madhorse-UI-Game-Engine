@@ -13,6 +13,7 @@ import type {
 import { physicsContactPairs } from './physics-broadphase';
 import { canBodiesCollide, collidesWithWorldFloor } from './collision-layers';
 import { sweepBox, type BoxSweepHit } from './physics-sweep';
+import { physicsBoxHalfSize } from './physics-box';
 
 type PhysicsBodyState = {
   entity: SceneEntity;
@@ -153,11 +154,7 @@ export function stepPhysicsScene(
       physics,
       position,
       previousPosition: world.position,
-      halfSize: {
-        x: physics.size.x * Math.abs(world.scale.x) / 2,
-        y: physics.size.y * Math.abs(world.scale.y) / 2,
-        z: physics.size.z * Math.abs(world.scale.z) / 2,
-      },
+      halfSize: physicsBoxHalfSize(physics.size, world.scale),
       velocity,
       inverseMass: dynamic ? 1 / physics.mass : 0,
     });

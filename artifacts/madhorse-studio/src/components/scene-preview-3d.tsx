@@ -20,6 +20,8 @@ import { SceneRenderFallback } from './scene-render-fallback';
 import { usePbrTextures } from './use-pbr-textures';
 import { FloatingTransformToolbar } from './floating-transform-toolbar';
 import { SceneTransformOptions } from './scene-transform-options';
+import { PhysicsDebugOverlay } from './physics-debug-overlay';
+import { usePhysicsDebugSettings } from '@/hooks/use-physics-debug-settings';
 import { useSceneTransformSettings } from '@/hooks/use-scene-transform-settings';
 import { safeGizmoScale, transformGizmoOptions, type SceneTransformSettings } from '@/lib/scene-transform-settings';
 import { SceneToolCursor, type SceneCursorTool } from './scene-tool-cursor';
@@ -305,6 +307,11 @@ function StandardScenePreview3D({
   const [graphicsGeneration, setGraphicsGeneration] = useState(0);
   const [gameViewRotated, setGameViewRotated] = useState(false);
   const [transformSettings, setTransformSettings] = useSceneTransformSettings();
+  const [physicsDebug] = usePhysicsDebugSettings();
+  const [physicsDebugReport, setPhysicsDebugReport] = useState({ count: 0, total: 0 });
+  const reportPhysicsDebug = useCallback((report: { count: number; total: number }) => {
+    setPhysicsDebugReport(current => current.count === report.count && current.total === report.total ? current : report);
+  }, []);
   const [cameraOrbitMode, setCameraOrbitMode] = useState<CanvasOrbitMode>('free');
   const editorCamera = primaryCamera ?? gameCamera;
   const canOrbitGameCamera = Boolean(gameView && gameCamera && primaryCamera === gameCamera &&
@@ -435,6 +442,13 @@ function StandardScenePreview3D({
       data-view-rotated={gameView ? String(gameViewRotated) : undefined}
       data-orbit-mode={gameView ? cameraOrbitMode : undefined}
       data-scene-entity-count={entities.length} data-scene-zoom={gameView ? undefined : zoom}>
+      {!gameView && !staticPreview && graphicsAvailable && !contextLost && physicsDebug.enabled && <div role="status"
+        style={{ position: 'absolute', bottom: 6, left: 8, zIndex: 5, pointerEvents: 'none', fontSize: 10,
+          padding: '3px 6px', color: '#e0d6eb', background: '#17121ee8', border: '1px solid #594365' }}>
+        Physics boxes: {physicsDebugReport.count} / {physicsDebugReport.total}
+        {physicsDebugReport.total > physicsDebugReport.count ? ' · some boxes not shown (maximum 500)' : ''}
+        {physicsDebugReport.total === 0 ? ' · no enabled collider in this selection/view' : ''}
+      </div>}
       {!gameView && <header className="mh-scene3d__toolbar">
         <div className="mh-scene3d__heading">
           <span className="mh-scene3d__eyebrow" data-testid="scene-project-name" title={projectName}>
@@ -577,6 +591,9 @@ function StandardScenePreview3D({
           background={sceneBackground}
           exposure={gameView ? 1 : renderSettings.exposure}
         />
+        {!gameView && !staticPreview && physicsDebug.enabled && <PhysicsDebugOverlay
+          entities={entities} selectedId={effectiveSelectedId} settings={physicsDebug}
+          editorView={editorView} onReport={reportPhysicsDebug} />}
         <SceneWorld
             primaryCamera={editorCamera}
             sceneZoom={zoom}

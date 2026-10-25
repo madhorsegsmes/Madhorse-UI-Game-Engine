@@ -3,6 +3,9 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { SceneEditState } from '@/lib/scene-edit-history';
 import { SceneReadinessDialog } from './scene-readiness-dialog';
+import { PhysicsDebugOptions } from './physics-debug-options';
+import { isPixelRpgScene } from '@/lib/pixel-rpg-runtime';
+import { isCardDuelScene } from '@/lib/card-duel-runtime';
 
 export function WorkspaceRenderSettings({ source, projectId, projectName, disabled, onInspect }: {
   source: SceneEditState; projectId: string; projectName: string; disabled: boolean;
@@ -12,6 +15,7 @@ export function WorkspaceRenderSettings({ source, projectId, projectName, disabl
   const [checking, setChecking] = useState(false);
   return <>
     <SceneRenderSettingsPanel settings={settings} onChange={setSettings}
+      physicsGuidesAvailable={!isPixelRpgScene(source.entities) && !isCardDuelScene(source.entities)}
       onCheckScene={() => setChecking(true)} checksDisabled={disabled} />
     {checking && createPortal(<SceneReadinessDialog source={source} projectId={projectId} projectName={projectName}
       onClose={() => setChecking(false)} onInspect={onInspect} />, document.body)}
@@ -19,17 +23,19 @@ export function WorkspaceRenderSettings({ source, projectId, projectName, disabl
 }
 
 export function SceneRenderSettingsPanel({
-  settings, onChange, onCheckScene, checksDisabled,
+  settings, onChange, onCheckScene, checksDisabled, physicsGuidesAvailable = true,
 }: {
   settings: SceneRenderSettings;
   onChange: (settings: SceneRenderSettings) => void;
   onCheckScene?: () => void;
   checksDisabled?: boolean;
+  physicsGuidesAvailable?: boolean;
 }) {
   return (
     <details className="mh-scene3d__render-settings" data-testid="scene-render-settings">
       <summary>Render settings</summary>
       <div className="mh-scene3d__render-panel">
+        <PhysicsDebugOptions available={physicsGuidesAvailable} />
         <label>
           <input
             type="checkbox"

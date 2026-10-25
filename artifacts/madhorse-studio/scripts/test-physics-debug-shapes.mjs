@@ -1,0 +1,70 @@
+import { build } from 'esbuild';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+const temporary = await mkdtemp(join(tmpdir(), 'madhorse-physics-guides-'));
+try {
+  const bundle = await build({
+    stdin: { resolveDir: new URL('..', import.meta.url).pathname, loader: 'ts', contents: `
+      import assert from 'node:assert/strict';
+      import * as THREE from 'three';
+      import {createStarterCube,getTransform,getPhysicsComponent,getWorldTransform} from './src/lib/scene-model';
+      import {physicsBoxHalfSize} from './src/lib/physics-box';
+      import {collectPhysicsDebugBoxes,writePhysicsBoxLines,MAX_PHYSICS_DEBUG_BOXES,normalizePhysicsDebug,DEFAULT_PHYSICS_DEBUG} from './src/lib/physics-debug-shapes';
+      import {createWebGameData} from './src/lib/web-game-format';
+      import {createGameCamera} from './src/lib/game-camera';
+      import {DEFAULT_SCENE_RENDER_SETTINGS} from './src/hooks/use-scene-render-settings';
+      assert.deepEqual(normalizePhysicsDebug(null),DEFAULT_PHYSICS_DEBUG);
+      assert.deepEqual(normalizePhysicsDebug({enabled:'yes',selectedOnly:2}),DEFAULT_PHYSICS_DEBUG);
+      const cube={...createStarterCube(),id:'box',name:'Box'};
+      const transform=getTransform(cube),physics=getPhysicsComponent(cube);
+      Object.assign(transform,{position:{x:70,y:80,z:50},scale:{x:2,y:3,z:4},rotation:{x:0,y:0,z:37}});
+      Object.assign(physics,{enabled:true,colliderEnabled:true,size:{x:20,y:40,z:60},bodyType:'dynamic'});
+      const original=JSON.stringify(cube);
+      const report=collectPhysicsDebugBoxes([cube],cube.id,false,true);
+      assert.equal(report.total,1);assert.equal(report.boxes.length,1);
+      assert.deepEqual(report.boxes[0].center,[2,5,3]);
+      assert.deepEqual(report.boxes[0].halfSize,[2,12,6],'Project axes map to renderer x/height/depth and ten project units per 3D unit');
+      assert.equal(report.boxes[0].selected,true);
+      const positions=new Float32Array(72),colors=new Float32Array(72);
+      assert.equal(writePhysicsBoxLines(report.boxes,positions,colors),24);
+      assert(positions.every(Number.isFinite)&&colors.every(value=>value>=0&&value<=1));
+      const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));geometry.computeBoundingBox();
+      assert.deepEqual(geometry.boundingBox.min.toArray(),[0,-7,-3]);assert.deepEqual(geometry.boundingBox.max.toArray(),[4,17,9]);
+      assert.equal(writePhysicsBoxLines([...report.boxes,...report.boxes],positions,colors),24,'Writing cannot exceed buffer capacity');
+      assert.equal(JSON.stringify(cube),original,'Diagnostic collection cannot edit scene data');
+      cube.editor={hidden:true,pickingLocked:true};
+      assert.equal(collectPhysicsDebugBoxes([cube],null,false,true).total,0);
+      assert.equal(collectPhysicsDebugBoxes([cube],null,false,false).total,1,'Runtime Scene view ignores editor hiding');
+      cube.editor.hidden=false;
+      assert.equal(collectPhysicsDebugBoxes([cube],null,false,true).total,1,'Picking locks do not disable colliders');
+      assert.equal(collectPhysicsDebugBoxes([cube],null,true,true).total,0,'No selection yields no selected-only boxes');
+      const parent={...createStarterCube(),id:'parent',name:'Parent'};
+      cube.parentId=parent.id;getTransform(parent).scale={x:2,y:2,z:2};
+      const parentPhysics=getPhysicsComponent(parent);parentPhysics.colliderEnabled=false;
+      const nested=collectPhysicsDebugBoxes([parent,cube],cube.id,true,true).boxes[0];
+      const world=getWorldTransform([parent,cube],cube.id);
+      const half=physicsBoxHalfSize(physics.size,world.scale);
+      assert.deepEqual(nested.halfSize,[half.x/10,half.z/10,half.y/10],'Nested bounds use the solver world scale');
+      parent.active=false;assert.equal(collectPhysicsDebugBoxes([parent,cube],null,false,true).total,0);
+      parent.active=true;parent.editor={hidden:true};assert.equal(collectPhysicsDebugBoxes([parent,cube],null,false,true).total,0);
+      parent.editor.hidden=false;physics.enabled=false;assert.equal(collectPhysicsDebugBoxes([parent,cube],null,false,true).total,0);
+      physics.enabled=true;physics.colliderEnabled=false;assert.equal(collectPhysicsDebugBoxes([parent,cube],null,false,true).total,0);
+      physics.colliderEnabled=true;cube.parentId=null;
+      const many=Array.from({length:MAX_PHYSICS_DEBUG_BOXES+7},(_,index)=>({...cube,id:'body-'+index}));
+      const capped=collectPhysicsDebugBoxes(many,null,false,true);
+      assert.equal(capped.boxes.length,MAX_PHYSICS_DEBUG_BOXES);assert.equal(capped.total,MAX_PHYSICS_DEBUG_BOXES+7);
+      assert.equal(collectPhysicsDebugBoxes(many,'body-506',true,true).boxes[0].id,'body-506','Selected-only mode can inspect beyond the all-objects cap');
+      const snapshot={entities:[cube],camera:createGameCamera([cube]),assets:[],animations:[],animationControllers:[],builderHistory:[],
+        builderDraft:null,builderDraftRequest:'',builderBuildLogs:[],prefabs:[],uiControls:[],scripts:[]};
+      const game=createWebGameData('Physics guide test',snapshot,DEFAULT_SCENE_RENDER_SETTINGS);
+      assert(!JSON.stringify(game).includes('physics-debug'),'Editor preference is not serialized into game data');
+      geometry.dispose();
+      console.log('PASS: shared solver extents, coordinate mapping, real Three geometry bounds, inherited scale/activity/visibility, runtime policy, selected-only mode, bounded buffers, truncation and data/export isolation.');
+    ` }, bundle: true, platform: 'node', format: 'esm', write: false, logLevel: 'silent',
+  });
+  const file = join(temporary, 'test.mjs');
+  await writeFile(file, bundle.outputFiles[0].text);
+  await import(pathToFileURL(file).href);
+} finally { await rm(temporary, { recursive: true, force: true }); }
