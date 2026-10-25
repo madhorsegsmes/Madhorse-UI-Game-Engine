@@ -20,11 +20,12 @@ import { FightingCharacterCustomization } from './fighting-character-customizati
 const fightingStarterVision = 'A fixed side-view 3D fighting game with detailed human fighters, editable combat actions and HUD, plus imported FBX fighters and high-resolution stage assets.';
 const rtsStarterVision = 'An editable isometric medieval RTS settlement in Sunstone Vale: a fortified keep, terracotta cottages, market roads, crop farms, wooded edges, resource sites, human squads, and an eastern outpost.';
 
-type StarterChoice = '2d-fighting' | 'rts' | 'fps' | 'third-person-shooter';
+type StarterChoice = '2d-fighting' | 'rts' | 'fps' | 'third-person-shooter' | 'mmorpg';
 
 function readStarterChoice(): StarterChoice | null {
   const requested = new URLSearchParams(window.location.search).get('starter');
-  return requested === 'rts' || requested === '2d-fighting' || requested === 'fps' || requested === 'third-person-shooter'
+  return requested === 'rts' || requested === '2d-fighting' || requested === 'fps' ||
+    requested === 'third-person-shooter' || requested === 'mmorpg'
     ? requested
     : null;
 }
@@ -36,8 +37,9 @@ function createStarterSnapshot(projectName: string, choice: StarterChoice, fight
   const isRts = choice === 'rts';
   const isFps = choice === 'fps';
   const isThirdPerson = choice === 'third-person-shooter';
+  const isMmorpg = choice === 'mmorpg';
   const starter = createGameStarterKit(
-    isFps ? 'shooter' : isRts ? 'rts' : isThirdPerson ? 'third-person-shooter' : 'fighting',
+    isFps ? 'shooter' : isRts ? 'rts' : isThirdPerson ? 'third-person-shooter' : isMmorpg ? 'mmorpg' : 'fighting',
     { x: -15, y: 50, z: 0 },
     fighterAppearances,
   );
@@ -51,23 +53,26 @@ function createStarterSnapshot(projectName: string, choice: StarterChoice, fight
   const camera = createGameCamera(starter.entities);
   camera.position = isFps ? { x: playerWorld.x, y: playerWorld.y + 1.6, z: playerWorld.z }
     : isRts ? { x: 8, y: 32, z: 36 }
-      : isThirdPerson ? { x: playerWorld.x + 3, y: playerWorld.y + 5, z: playerWorld.z - 10 }
+      : isThirdPerson || isMmorpg ? { x: playerWorld.x + 3, y: playerWorld.y + 5, z: playerWorld.z - 10 }
         : { x: 0, y: 1.2, z: -17 };
   camera.target = isFps ? { x: playerWorld.x, y: playerWorld.y + 1.6, z: playerWorld.z + 12 }
     : isRts ? { x: 0, y: 0, z: 0 }
-      : isThirdPerson ? { x: playerWorld.x, y: playerWorld.y + 1.2, z: playerWorld.z + 2 }
+      : isThirdPerson || isMmorpg ? { x: playerWorld.x, y: playerWorld.y + 1.2, z: playerWorld.z + 2 }
         : { x: 0, y: 1.2, z: 0 };
-  camera.fov = isFps ? 70 : isRts ? 43 : isThirdPerson ? 55 : 42;
+  camera.fov = isFps ? 70 : isRts ? 43 : isThirdPerson || isMmorpg ? 55 : 42;
   camera.placement = 'custom';
   const uiControls = createEgoUiKit([isFps || isThirdPerson ? 'shooter' : isRts ? 'rts' : 'fighting'], 0);
   return {
     snapshot: {
       projectName,
-      egoGameVision: isFps ? 'First-person industrial training facility with editable cover, lighting, modular carbine, six targets, collision-aware shooting, ammo, reload, sprint, crouch and jump.'
+      egoGameVision: isMmorpg ? 'A multiplayer fantasy role-playing world with a detailed third-person hero, first-person view toggle, settlement, quests, NPCs, melee combat, spells, health, inventory, gathering, crafting, and editable story progression.'
+        : isFps ? 'First-person industrial training facility with editable cover, lighting, modular carbine, six targets, collision-aware shooting, ammo, reload, sprint, crouch and jump.'
         : isThirdPerson ? 'Third-person tactical shooter with a detailed human operative, an over-the-shoulder camera, editable cover, a modular carbine, targets, collision-aware shooting, ammo, reload, sprint, crouch, jump, and multiplayer movement.'
           : isRts ? rtsStarterVision : fightingStarterVision,
       egoGameFlow: 'undecided',
-      egoGameNotes: isFps ? FPS_CONTROLS : isThirdPerson ? THIRD_PERSON_SHOOTER_CONTROLS : isRts
+      egoGameNotes: isMmorpg
+        ? 'MMORPG starter controls: WASD to move, F to fight, Q to cast, H to heal, G to gather, K to craft, U to recruit a companion, Shift to run, C to crouch, E to interact, and V to switch between first- and third-person views. Use Multiplayer Tools to host or join a room (up to 32 players). This is an editable multiplayer starter, not a persistent MMO service.'
+        : isFps ? FPS_CONTROLS : isThirdPerson ? THIRD_PERSON_SHOOTER_CONTROLS : isRts
         ? 'RTS starter controls: move with WASD; press T to order nearby allied NPCs to the Market Gate beacon, G to gather a nearby resource cache, K to craft planks, and B to place a temporary construction block. The starting scene is assembled from editable keep, cottage, farm, road, well, forest, resource, and squad pieces. Edit the mission, terrain, buildings, units, and HUD in Studio. This starter is a playable prototype, not a complete commercial RTS: squad selection, pathfinding, and a full economy are not included yet.'
         : 'Use A/D to move, F/G for attacks, Control to block, Shift to run, and C to crouch. Import a fighter image or FBX/GLB model through Hierarchy → Import asset. Double-click Player Fighter or Training Rival, choose Character type and its asset under Replace fighter · 2D / 3D, then Save Changes. This changes appearance without removing combat or movement. Import FBX or GLB stage models and their image textures for high-resolution environments. Edit health bars and action buttons in the UI builder.',
       entities: starter.entities,
@@ -113,6 +118,7 @@ export default function StudioProjects() {
   const [draft, setDraft] = useState(() =>
     templateChoice === 'fps' ? 'My FPS Game'
       : templateChoice === 'third-person-shooter' ? 'My Third-Person Shooter'
+        : templateChoice === 'mmorpg' ? 'My MMORPG'
         : templateChoice === 'rts' ? 'My RTS Game'
           : templateChoice === '2d-fighting' ? 'My 2D/3D Fighting Game' : '',
   );
@@ -158,7 +164,7 @@ export default function StudioProjects() {
           await Promise.all(generatedAssets.map(({ asset }) => deleteLocalAsset(id, asset.id)));
           return;
         }
-        if (starterChoice === 'rts' || starterChoice === 'fps') {
+        if (starterChoice === 'rts' || starterChoice === 'fps' || starterChoice === 'mmorpg') {
           setRenderSettings(current => ({ ...current, quality: 'high' }));
         }
         clearStarterRequestFromUrl();
@@ -169,7 +175,8 @@ export default function StudioProjects() {
       } catch (cause) {
         try { removeFreshWorkspace(id); } catch { /* Storage may be unavailable. Existing project data stays untouched. */ }
         await Promise.allSettled(generatedAssetIds.map(assetId => deleteLocalAsset(id, assetId)));
-        const kindLabel = templateChoice === 'fps' ? 'FPS' : (templateChoice ?? '2d-fighting') === 'rts' ? 'RTS' : 'fighting-game';
+        const kindLabel = templateChoice === 'mmorpg' ? 'MMORPG' : templateChoice === 'fps' ? 'FPS'
+          : (templateChoice ?? '2d-fighting') === 'rts' ? 'RTS' : 'fighting-game';
         setError(cause instanceof Error
           ? `The ${kindLabel} starter could not be saved. Existing projects were left untouched. ${cause.message}`
           : `The ${kindLabel} starter could not be saved. Existing projects were left untouched.`);
@@ -258,12 +265,14 @@ export default function StudioProjects() {
           }
         }}>
         <h2 id="project-name-heading">{mode === 'template'
-          ? templateChoice === 'fps' ? 'Name your FPS game'
+          ? templateChoice === 'mmorpg' ? 'Name your MMORPG'
+            : templateChoice === 'fps' ? 'Name your FPS game'
             : templateChoice === 'third-person-shooter' ? 'Name your third-person shooter'
               : templateChoice === 'rts' ? 'Name your RTS project' : 'Name your 2D/3D fighting game'
           : mode === 'new' ? 'New project' : mode === 'rename' ? 'Rename project' : 'Name your project'}</h2>
         <p>{mode === 'template'
-          ? templateChoice === 'fps' ? 'Create an editable first-person training facility with a modular weapon, six targets, colliding walls and cover, PBR surfaces, lighting, shooting, reload, sprint, crouch, jump, and a HUD. Press Play Test to begin. Your other projects remain untouched.'
+          ? templateChoice === 'mmorpg' ? 'Create an editable fantasy MMORPG starter with a detailed hero, quest guide, settlement, combat, spells, inventory, gathering, crafting, and a V key to switch between first- and third-person views. Multiplayer rooms support up to 32 players. This is a playable starter, not a persistent MMO service; your other projects remain untouched.'
+            : templateChoice === 'fps' ? 'Create an editable first-person training facility with a modular weapon, six targets, colliding walls and cover, PBR surfaces, lighting, shooting, reload, sprint, crouch, jump, and a HUD. Press Play Test to begin. Your other projects remain untouched.'
             : templateChoice === 'third-person-shooter' ? 'Create an editable tactical shooter with a detailed human operative, shoulder camera, cover, moving target operatives, shooting, reload, sprint, crouch, jump, and multiplayer movement. Your other projects remain untouched.'
               : templateChoice === 'rts'
             ? 'This creates a separate RTS project with an editable strategy map, two bases, squads, resource caches, a rally objective, and a mission HUD. Studio will start with its High render preset; you can change it later. Existing projects stay untouched.'
@@ -288,7 +297,8 @@ export default function StudioProjects() {
             setError('');
           }}>Cancel</button>}
           <button type="submit" disabled={savingProject}>{savingProject ? 'Creating…'
-            : mode === 'template' ? templateChoice === 'fps' ? 'Create FPS game'
+            : mode === 'template' ? templateChoice === 'mmorpg' ? 'Create MMORPG'
+              : templateChoice === 'fps' ? 'Create FPS game'
               : templateChoice === 'third-person-shooter' ? 'Create third-person shooter'
                 : templateChoice === 'rts' ? 'Create RTS project' : 'Create fighting game'
               : mode === 'new' ? 'Create project' : 'Save name'}</button>

@@ -176,6 +176,10 @@ function SceneViewport({
   const rangeTargets = entities.filter(entity =>
     entity.components.some(component => component.type === 'gameFeature' && component.enabled && component.kind === 'health') &&
     !entity.components.some(component => component.type === 'characterController' && component.role === 'player'));
+  const canTogglePerspective = isPlaying && entities.some(entity => entity.active && entity.components.some(component =>
+    component.type === 'characterController' && component.enabled && component.role === 'player' &&
+    (component.perspective === 'first-person' || component.perspective === 'third-person'),
+  ));
   return (
     <div className="fresh-viewport" data-fps-viewport={firstPerson ? 'true' : undefined}>
       <ScenePreview3D
@@ -199,6 +203,12 @@ function SceneViewport({
         onSelectPrimaryCamera={() => onSelect(PRIMARY_CAMERA_ID)}
       />
       {isPlaying && actionHud && <PlayerActionHud hud={actionHud} />}
+      {canTogglePerspective && <div style={{
+        position: 'absolute', top: 12, right: 12, padding: '6px 9px', border: '1px solid #54687b',
+        borderRadius: 4, background: '#091520df', color: '#e6f2fa', fontSize: 10, pointerEvents: 'none',
+      }}>
+        {firstPerson ? 'FIRST PERSON · V FOR THIRD PERSON' : 'THIRD PERSON · V FOR FIRST PERSON'}
+      </div>}
       {firstPerson && <>
         <div style={{ position: 'absolute', left: '50%', top: '50%', color: '#fff', fontSize: 24, pointerEvents: 'none', transform: 'translate(-50%,-50%)', textShadow: '0 0 3px #000' }} aria-label="FPS crosshair">+</div>
         <div style={{ position: 'absolute', top: 48, left: 16, padding: '8px 12px', background: '#091520df', color: '#e6f2fa', fontSize: 11, pointerEvents: 'none', maxWidth: '70%' }}>
@@ -2441,12 +2451,16 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
     const lastFootstepTime = new Map<string, number>();
     const lastFootstepPosition = new Map<string, { x: number; y: number; z: number }>();
     const runtimeState = createSceneRuntimeState(entities, playPlayerRef.current);
-    const fpsPlayer = entities.find(entity => entity.active && entity.components.some(component =>
+    let fpsPlayer = entities.find(entity => entity.active && entity.components.some(component =>
       component.type === 'characterController' && component.enabled && component.role === 'player' && component.perspective === 'first-person'));
     let lookYaw = fpsPlayer ? getTransform(fpsPlayer).rotation.z : 0;
     let lookPitch = 0;
-    const shootKey = fpsPlayer?.components.find(component => component.type === 'playerAction' && component.enabled && component.action === 'shoot');
-    const fireKey = shootKey?.type === 'playerAction' ? shootKey.key : 'j';
+    const controlledPlayer = entities.find(entity => entity.id === runtimeState.controlledPlayerId);
+    const primaryAction = controlledPlayer?.components.find(component =>
+      component.type === 'playerAction' && component.enabled &&
+      ['shoot', 'fight', 'light-attack'].includes(component.action),
+    );
+    const fireKey = primaryAction?.type === 'playerAction' ? primaryAction.key : 'j';
     setEditingEntityId(null);
     setRuntimeEntities(entities);
     setRuntimeCamera(camera);
@@ -2473,6 +2487,45 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
       if (event.metaKey || event.altKey || event.ctrlKey && key !== 'control') return;
       if (key === 'escape') {
         setPlayTestOn(false);
+        return;
+      }
+      if (key === 'v') {
+        const playerId = runtimeState.controlledPlayerId;
+        const player = liveEntities.find(entity => entity.id === playerId && entity.active);
+        const controller = player?.components.find(component =>
+          component.type === 'characterController' && component.enabled && component.role === 'player',
+        );
+        if (controller?.type === 'characterController' &&
+            (controller.perspective === 'first-person' || controller.perspective === 'third-person') &&
+            !event.repeat) {
+          const nextPerspective = controller.perspective === 'first-person' ? 'third-person' : 'first-person';
+          liveEntities = liveEntities.map(entity => entity.id !== playerId ? entity : {
+            ...entity,
+            components: entity.components.map(component =>
+              component.type === 'characterController' && component.enabled && component.role === 'player'
+                ? { ...component, perspective: nextPerspective }
+                : component,
+            ),
+          });
+          fpsPlayer = nextPerspective === 'first-person'
+            ? liveEntities.find(entity => entity.id === playerId)
+            : undefined;
+          if (fpsPlayer) {
+            lookYaw = getTransform(fpsPlayer).rotation.z;
+            lookPitch = 0;
+            try {
+              const viewport = document.querySelector<HTMLElement>('.fresh-viewport');
+              void viewport?.requestPointerLock()?.catch(() => setStatus('Mouse capture unavailable. Use arrow keys to look.'));
+            } catch {
+              setStatus('Mouse capture unavailable. Use arrow keys to look.');
+            }
+          } else if (document.pointerLockElement?.matches('[data-fps-viewport]')) {
+            document.exitPointerLock();
+          }
+          setRuntimeEntities(liveEntities);
+          setStatus(`Switched to ${nextPerspective === 'first-person' ? 'first-person' : 'third-person'} view. Press V to switch back.`);
+        }
+        event.preventDefault();
         return;
       }
       if (actionKeys.has(key) || ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(key)) {

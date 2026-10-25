@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Compass,
   Flame,
+  Globe2,
   Layers3,
   Plus,
   ScanLine,
@@ -70,7 +71,7 @@ const fightingFallbackSettings = {
   background: '#333538',
 };
 
-type HubStarterKind = Extract<GameStarterKitId, 'fighting' | 'rts' | 'shooter' | 'third-person-shooter'>;
+type HubStarterKind = Extract<GameStarterKitId, 'fighting' | 'rts' | 'shooter' | 'third-person-shooter' | 'mmorpg'>;
 
 function templatePreviewCamera(kind: HubStarterKind, aspect: number, playerWorld: { x: number; z: number }) {
   if (kind === 'fighting') return createFightingPreviewCamera(aspect);
@@ -83,7 +84,7 @@ function templatePreviewCamera(kind: HubStarterKind, aspect: number, playerWorld
       target: { x: 0, y: 2, z: 0 },
     };
   }
-  if (kind === 'third-person-shooter') {
+  if (kind === 'third-person-shooter' || kind === 'mmorpg') {
     return {
       ...createGameCamera([]),
       placement: 'custom' as const,
@@ -117,6 +118,7 @@ function FightingGamePreview({ kind }: { kind: HubStarterKind }) {
     rts: ['SUNSTONE VALE', 'EDITABLE RTS WORLD'],
     shooter: ['IRONLIGHT FACILITY', 'FIRST-PERSON RANGE'],
     'third-person-shooter': ['IRONLIGHT OPS', 'THIRD-PERSON COMBAT'],
+    mmorpg: ['SUNSTONE VALE', 'MMORPG ADVENTURE'],
   };
   const [sceneLabel, detailLabel] = previewLabels[kind];
 
@@ -298,8 +300,20 @@ export default function HubPage() {
               <span className="hub-card-link">CREATE THIRD-PERSON GAME <ArrowUpRight size={15} /></span>
             </a>
 
+            <a className="hub-pathway-card hub-pathway-studio" href={`${studioPath}?starter=mmorpg`} data-testid="card-mmorpg">
+              <div className="hub-card-top"><span>05 / MMORPG</span><span className="hub-card-index"><Globe2 size={16} /></span></div>
+              <div className="hub-card-graphic hub-graphic-rts" aria-hidden="true">
+                <FightingGamePreview kind="mmorpg" />
+              </div>
+              <div className="hub-card-copy">
+                <h3>MMORPG · Sunstone Vale</h3>
+                <p>Explore a detailed fantasy settlement, meet quest NPCs, fight, cast spells, gather, craft, and switch between first- and third-person views.</p>
+              </div>
+              <span className="hub-card-link">CREATE MMORPG <ArrowUpRight size={15} /></span>
+            </a>
+
             <a className="hub-pathway-card hub-pathway-workflow" href={studioPath} data-testid="card-workflow">
-              <div className="hub-card-top"><span>05 / THE WORKFLOW</span><span className="hub-card-index"><Layers3 size={16} /></span></div>
+              <div className="hub-card-top"><span>06 / THE WORKFLOW</span><span className="hub-card-index"><Layers3 size={16} /></span></div>
               <div className="hub-card-graphic hub-graphic-workflow" aria-hidden="true">
                 <span className="hub-workflow-step step-idea"><Sparkles size={15} /><b>IDEA</b></span>
                 <span className="hub-workflow-connector connector-one" />

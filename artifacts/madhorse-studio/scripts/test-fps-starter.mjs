@@ -19,7 +19,7 @@ try {
       assert(kit.entities.every(isSceneEntity), 'Invalid FPS entities: ' + kit.entities.filter(e => !isSceneEntity(e)).map(e => e.name).join(', '));
       assert.equal(kit.generatedAssets.length, 2);
       assert.equal(kit.entities.filter(e => /^Range Target [0-9]+$/.test(e.name)).length, 6);
-      const starterIds = ['shooter', 'third-person-shooter', 'fighting', 'rts', 'rpg', 'puzzle'];
+      const starterIds = ['shooter', 'third-person-shooter', 'mmorpg', 'fighting', 'rts', 'rpg', 'puzzle'];
       const starterKits = starterIds.map(id => createGameStarterKit(id, { x: -15, y: 50, z: 0 }));
       for (const starter of starterKits) {
         const playable = starter.entities.find(entity => entity.id === starter.playerId);
@@ -37,6 +37,28 @@ try {
         'Third-person player needs the third-person camera controller');
       assert(thirdPersonPlayer.components.some(component => component.type === 'playerAction' && component.action === 'shoot'),
         'Third-person player needs the shooting action');
+      const mmorpgKit = starterKits.find(starter => starter.title.includes('MMORPG'));
+      assert(mmorpgKit, 'MMORPG starter is missing');
+      assert(mmorpgKit.entities.every(isSceneEntity), 'Invalid MMORPG starter entities');
+      assert(mmorpgKit.generatedAssets.length >= 5, 'MMORPG starter should include its world and clothing textures');
+      assert(mmorpgKit.entities.some(entity => entity.name.includes('Elder Amara')), 'MMORPG starter needs its quest guide');
+      assert(mmorpgKit.entities.some(entity => entity.components.some(component =>
+        component.type === 'storyboard' && component.title.includes('Wayfarer Journey'))),
+        'MMORPG starter needs its editable quest path');
+      const mmorpgPlayer = mmorpgKit.entities.find(entity => entity.id === mmorpgKit.playerId);
+      assert(mmorpgPlayer.components.some(component => component.type === 'modelRenderer'), 'MMORPG player needs a detailed model');
+      assert(mmorpgPlayer.components.some(component =>
+        component.type === 'characterController' && component.role === 'player' && component.perspective === 'third-person'),
+        'MMORPG player must start in third person');
+      assert(!mmorpgPlayer.components.some(component => component.type === 'multiplayerPlugin' && component.mode === 'object'),
+        'MMORPG player must not also sync as a host-owned object');
+      assert.equal(mmorpgPlayer.components.filter(component =>
+        component.type === 'multiplayerPlugin' && component.mode === 'player').length, 1,
+        'MMORPG player must have exactly one player-owned network component');
+      for (const action of ['fight', 'cast', 'heal', 'gather', 'craft']) {
+        assert(mmorpgPlayer.components.some(component => component.type === 'playerAction' && component.action === action),
+          'MMORPG player is missing the ' + action + ' action');
+      }
       const movingOperative = thirdPersonKit.entities.find(entity => entity.name === 'Moving Target Operative · Alpha');
       assert(movingOperative?.components.some(component => component.type === 'multiplayerPlugin' && component.mode === 'object'),
         'Moving target operatives should synchronize with the host');
@@ -121,7 +143,7 @@ try {
         'Targets remaining: ' + JSON.stringify(combat.entities.filter(e => /^Range Target [0-9]+$/.test(e.name) && e.active).map(e => ({ name: e.name, health: combat.state.actions.health.get(e.id) }))));
       assert.equal(JSON.stringify(kit.entities), original, 'Play Test never changes saved template data');
       assert.equal(runtime().entities.filter(e => /^Range Target [0-9]+$/.test(e.name) && e.active).length, 6, 'Restart restores all six targets');
-      console.log('PASS: all six templates auto-network players; third-person model, clothing, camera control, shooting, moving networked NPC targets, plus FPS movement, cover, aiming, ammo/reload, target completion, and reset.');
+      console.log('PASS: all seven templates auto-network players; MMORPG has a detailed player, first-/third-person-ready controller, quest guide, story path, world textures, combat, magic, inventory actions, and correct player network authority; FPS and third-person shooter mechanics verified.');
     ` },
     bundle: true, platform: 'node', format: 'esm', write: false,
     alias: { '@': join(project, 'src') }, logLevel: 'silent',

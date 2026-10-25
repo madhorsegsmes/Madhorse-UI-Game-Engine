@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Compass, Crosshair, Puzzle, Swords, X } from 'lucide-react';
+import { Compass, Crosshair, Globe2, Puzzle, Swords, X } from 'lucide-react';
 import { gameStarterKits, type GameStarterKitId } from '@/lib/scene-starter-kits';
 import { defaultFightingAppearancePair, type FightingAppearancePair } from '@/lib/fighter-appearance';
 import { FightingCharacterCustomization } from './fighting-character-customization';
@@ -7,6 +7,7 @@ import { FightingCharacterCustomization } from './fighting-character-customizati
 const icons: Record<GameStarterKitId, typeof Crosshair> = {
   shooter: Crosshair,
   'third-person-shooter': Crosshair,
+  mmorpg: Globe2,
   rpg: Swords,
   puzzle: Puzzle,
   fighting: Swords,

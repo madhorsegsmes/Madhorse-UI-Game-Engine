@@ -10,10 +10,11 @@ import {
   type TerrainBrushEdit, type Vector3, type VisualLogicNode,
 } from './scene-model';
 
-export type GameStarterKitId = 'shooter' | 'third-person-shooter' | 'rpg' | 'puzzle' | 'fighting' | 'rts';
+export type GameStarterKitId = 'shooter' | 'third-person-shooter' | 'mmorpg' | 'rpg' | 'puzzle' | 'fighting' | 'rts';
 export const gameStarterKits: { id: GameStarterKitId; title: string; description: string }[] = [
   { id: 'shooter', title: 'FPS Training Arena', description: 'A first-person camera with shooting, ammo, targets, health, and a small test arena.' },
   { id: 'third-person-shooter', title: 'Third-Person Shooter · Ironlight Ops', description: 'A detailed human operative, over-the-shoulder camera, cover, shooting, ammo, health, and multiplayer-ready movement.' },
+  { id: 'mmorpg', title: 'MMORPG · Sunstone Vale', description: 'An editable fantasy world with a detailed hero, quests, villagers, combat, magic, inventory, crafting, and first- or third-person play.' },
   { id: 'rpg', title: 'RPG Quest', description: 'A player with inventory and spells, a character to meet, and a quest path to explore.' },
   { id: 'puzzle', title: 'Key-and-Gate Puzzle', description: 'Find a key, enter a trigger, and use safe visual logic to open the gate.' },
   { id: 'fighting', title: '2D/3D Fighting Arena', description: 'An editable side-view arena: replace fighters with sprites or 3D models, change the floor, backdrop, sky and textures, and customize combat moves and HUD.' },
@@ -766,6 +767,69 @@ function createRtsStarterKit(center: Vector3): {
   };
 }
 
+function createMmorpgStarterKit(center: Vector3) {
+  const starter = createRtsStarterKit(center);
+  const player = starter.entities.find(entity => entity.id === starter.playerId);
+  if (!player) throw new Error('MMORPG starter did not create a player character.');
+
+  player.name = 'Wayfarer · Player';
+  player.components = player.components.filter(component =>
+    !(component.type === 'multiplayerPlugin' && component.mode === 'object') &&
+    !(component.type === 'playerAction' && ['command', 'build'].includes(component.action)),
+  );
+  const playerController = player.components.find(component =>
+    component.type === 'characterController' && component.role === 'player',
+  );
+  if (playerController?.type === 'characterController') {
+    playerController.perspective = 'third-person';
+    playerController.behavior = 'direct-control';
+    playerController.moveSpeed = 5.5;
+  }
+  const playerActions = new Set(player.components.flatMap(component =>
+    component.type === 'playerAction' ? [component.action] : [],
+  ));
+  for (const action of ['fight', 'cast', 'heal', 'run', 'crouch', 'gather', 'craft', 'follow'] as const) {
+    if (!playerActions.has(action)) player.components.push(createPlayerAction(action));
+  }
+  if (!player.components.some(component => component.type === 'gameFeature' && component.kind === 'inventory')) {
+    player.components.push(createGameFeature('inventory'));
+  }
+
+  const clothingAssetId = starter.generatedAssets?.[0]?.asset.id;
+  if (clothingAssetId) {
+    const elder = createRtsUnit('Elder Amara · Quest Guide', { x: -4, y: -3 }, '#bd9c67',
+      'character-controller-patrol', clothingAssetId);
+    const guide = elder[0];
+    guide.components.push(createGameFeature('message'));
+    const message = guide.components.find(component => component.type === 'gameFeature' && component.kind === 'message');
+    if (message?.type === 'gameFeature') {
+      message.settings.text = 'Welcome to Sunstone Vale, Wayfarer. Gather supplies, learn your skills, and help keep the old road safe.';
+    }
+    starter.entities.push(...elder);
+  }
+
+  for (const entity of starter.entities) {
+    if (entity.name === 'Rally Beacon · Market Gate') entity.name = 'Quest Marker · Market Gate';
+    if (entity.name === 'Field Commander') entity.name = 'Vale Wayfarer';
+    const board = entity.components.find(component => component.type === 'storyboard');
+    if (board?.type === 'storyboard') {
+      board.title = 'Sunstone Vale · Wayfarer Journey';
+      board.beats = [
+        { id: crypto.randomUUID(), title: 'Speak with Elder Amara', note: 'Find the quest guide by the Market Gate and press E to hear about the old road.', complete: false },
+        { id: crypto.randomUUID(), title: 'Gather and prepare', note: 'Use G near a resource cache, K to craft, and open your inventory to review supplies.', complete: false },
+        { id: crypto.randomUUID(), title: 'Explore the vale', note: 'Visit the keep, farm roads, wooded edges, and eastern outpost. Use F, Q, and H to try your combat and magic skills.', complete: false },
+        { id: crypto.randomUUID(), title: 'Choose the next chapter', note: 'Edit this quest board and add your own story, regions, items, and endings.', complete: false },
+      ];
+      entity.name = 'Wayfarer Journey · Quest Board';
+    }
+  }
+
+  return {
+    ...starter,
+    title: 'MMORPG · Sunstone Vale',
+  };
+}
+
 export function createGameStarterKit(
   kind: GameStarterKitId,
   anchor: Vector3,
@@ -781,6 +845,7 @@ export function createGameStarterKit(
   if (kind === 'rts') return createRtsStarterKit(center);
   if (kind === 'shooter') return createFpsStarterKit(center);
   if (kind === 'third-person-shooter') return createFpsStarterKit(center, 'third-person');
+  if (kind === 'mmorpg') return createMmorpgStarterKit(center);
   const floor = createObject('Starter Arena', 'plane', '#414653',
     { x: center.x, y: center.y, z: center.z - 3 }, { x: 18, y: 18, z: 0.5 });
   const player = createActor('Player', { ...center, z: center.z + 1.4 }, '#6397d8', 'character-controller-player');
