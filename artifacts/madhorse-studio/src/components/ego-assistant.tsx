@@ -19,6 +19,8 @@ import { createEgoWorkspaceContext, type EgoInterfaceContext } from '@/lib/ego-w
 import { parseVisionAttachments } from '@/lib/vision-node-content';
 import { studioProjectStorageKey } from '@/lib/studio-projects';
 import { buildEgoGameBrief, egoGameFlowLabel, type EgoGameFlow } from '@/lib/ego-game-plan';
+import { defaultFightingAppearancePair, formatFightingAppearancePrompt, type FightingAppearancePair } from '@/lib/fighter-appearance';
+import { FightingCharacterCustomization } from './fighting-character-customization';
 
 type EgoAssistantProps = {
   interfaceContext?: EgoInterfaceContext;
@@ -112,6 +114,10 @@ export function EgoAssistant({
   onCreateScript, onUpdateScript, onDeleteScript, onClose,
 }: EgoAssistantProps) {
   const [gameTypes, setGameTypes] = useState<EgoGameType[]>(['rpg']);
+  const [fighterAppearances, setFighterAppearances] = useState<FightingAppearancePair>(() => ({
+    player: { ...defaultFightingAppearancePair.player },
+    rival: { ...defaultFightingAppearancePair.rival },
+  }));
   const [characterSize, setCharacterSize] = useState<EgoCharacterSize>('prompt');
   const [phraseFilter, setPhraseFilter] = useState('');
   const [activityLog, setActivityLog] = useState<Array<{ id: string; action: string; detail: string; time: string; duration?: string }>>([]);
@@ -165,13 +171,16 @@ export function EgoAssistant({
   const buildFromVision = async () => {
     const vision = gameBrief.trim();
     if (vision.length < 3 || sceneBuildBusy) return;
+    const buildVision = gameTypes.includes('fighting')
+      ? `${vision}\n\n${formatFightingAppearancePrompt(fighterAppearances)}`
+      : vision;
     const startedAt = performance.now();
     setSceneBuildBusy(true);
     setSceneBuildResult('');
     appendActivity('Read game vision', `Ego found ${visionAnalysis.detected.length} game areas in the description and is preparing a scene build.`);
     try {
       setSceneBuildProgress('Planning editable scene objects from the vision…');
-      const sceneResult = await onBuildVision(vision, gameTypes, characterSize, setSceneBuildProgress);
+      const sceneResult = await onBuildVision(buildVision, gameTypes, characterSize, setSceneBuildProgress);
       if (!sceneResult.ok) {
         setSceneBuildResult(`Build stopped: ${sceneResult.message}`);
         appendActivity('Scene build stopped', sceneResult.message);
@@ -308,6 +317,12 @@ export function EgoAssistant({
               <small>Choose a genre or combine genres. Creature Adventure 2D and 3D are separate modes; choose one.</small>
               {gameTypes.includes('creature-adventure-2d') && (
                 <small className="ego-2d-asset-note">2D mode reuses imported sprites. Upload creature and environment images in Panel 2 · Assets; Ego does not generate finished sprite art yet.</small>
+              )}
+              {gameTypes.includes('fighting') && (
+                <div className="ego-fighter-appearance">
+                  <strong>Customize both fighters</strong>
+                  <FightingCharacterCustomization value={fighterAppearances} onChange={setFighterAppearances} />
+                </div>
               )}
             </fieldset>
             <label className="ego-character-size-picker">

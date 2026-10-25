@@ -18,7 +18,7 @@ export interface MadBuilderInput {
   prompt: string;
   /** @maxLength 80 */
   selectedName: string;
-  /** Selected build type. RTS world uses its isometric settlement reference; Vehicle and House use matching references; auto follows the prompt. */
+  /** Selected target type. Vehicle, house, RTS world, and fighting builds use their matching protected reference; auto follows the prompt. */
   buildCategory?: MadBuilderInputBuildCategory;
   /**
      * Legacy single-image input. New clients should use referenceImages.

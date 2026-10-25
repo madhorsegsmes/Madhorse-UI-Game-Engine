@@ -93,7 +93,12 @@ import { playAudioPreview, stopAudioPlayback, unlockSceneAudio } from '@/lib/gam
 import { playerActionDefinitions } from '@/lib/player-action-model';
 import { createStoryboardComponent } from '@/lib/scene-model';
 import { scriptStorageError, type ScriptFile } from '@/lib/project-scripts';
-import { createGameStarterKit, type GameStarterKitId } from '@/lib/scene-starter-kits';
+import { createGameStarterKit, poseFighterGuard, type GameStarterKitId } from '@/lib/scene-starter-kits';
+import {
+  defaultFightingAppearancePair,
+  parseFightingAppearancePrompt,
+  type FightingAppearancePair,
+} from '@/lib/fighter-appearance';
 import { gameFeatureDefinitions } from '@/lib/game-feature-model';
 import type { ActionHud } from '@/lib/player-action-runtime';
 import { PlayerActionHud } from './player-action-hud';
@@ -102,8 +107,9 @@ import { GameStarterKitDialog } from './game-starter-kit-dialog';
 import { StoryboardEditor } from './storyboard-editor';
 import { downloadMadBuilderLogPdf, type MadBuilderBuildLog } from '@/lib/mad-builder-build-log';
 import { createGameTypeLibraryPdf, gameTypeLibraryEntryCount } from '@/lib/game-type-library';
-import { createEgoCharacterScene, createEgoClothingTextureAsset } from '@/lib/character-builder-starter';
+import { applyEgoFighterAppearance, createEgoCharacterScene, createEgoClothingTextureAsset } from '@/lib/character-builder-starter';
 import { detectEgoCharacterRequests, type EgoCharacterSize } from '@/lib/ego-character-anatomy';
+import { loadFightingCharacterReference } from '@/lib/fighting-character-reference';
 import { createEgoWorkspaceContext, type EgoInterfaceContext } from '@/lib/ego-workspace-context';
 import { EgoPanelBox } from './ego-panel-box';
 import type { EgoGameFlow } from '@/lib/ego-game-plan';
@@ -1968,7 +1974,15 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
     ) => {
       const isTwoDimensional = /\b(?:2d|sprite|pixel[- ]art)\b/i.test(prompt);
       const hasUserTargetImage = referenceImages.some(reference => reference.role === 'user-target');
-      let requestedCharacters = isTwoDimensional || hasUserTargetImage
+      const fighterAppearances = buildCategory === 'fighting'
+        ? parseFightingAppearancePrompt(prompt) ?? defaultFightingAppearancePair
+        : null;
+      let requestedCharacters = fighterAppearances
+        ? [
+          { species: fighterAppearances.player.race, displayName: 'Player Fighter', heightMeters: 1.8 },
+          { species: fighterAppearances.rival.race, displayName: 'Training Rival', heightMeters: 1.8 },
+        ]
+        : isTwoDimensional || hasUserTargetImage
         ? [] : detectEgoCharacterRequests(prompt, 'prompt');
       if (!isTwoDimensional && !hasUserTargetImage && requestedCharacters.length === 0 &&
         /\b(?:build|create|make|model|design)\b.{0,36}\b(?:3d\s+)?(?:character|avatar|hero|fighter)\b/i.test(prompt)) {
@@ -2031,14 +2045,22 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
           const build = createEgoCharacterScene(
             request.species, request.heightMeters, { x: 0, z: 0 }, request.displayName, clothingTextureAsset!.id,
           );
+          const isFighting = !!fighterAppearances;
+          const tint = index === 0 ? '#a94750' : '#5578ba';
+          if (isFighting && fighterAppearances) {
+            const appearance = index === 0 ? fighterAppearances.player : fighterAppearances.rival;
+            poseFighterGuard(build, tint);
+            applyEgoFighterAppearance(build, appearance, tint);
+          }
           const setup = build.entities.find(entity => entity.id === build.setupId);
           if (!setup) throw new Error(`The editable rig for ${request.displayName} is missing its root.`);
           setup.parentId = buildRoot.id;
           getTransform(setup).position = {
-            x: (index - (requestedCharacters.length - 1) / 2) * 34,
+            x: isFighting ? (index === 0 ? -2.2 : 2.2) : (index - (requestedCharacters.length - 1) / 2) * 34,
             y: 0,
             z: 0,
           };
+          if (isFighting) getTransform(setup).rotation.z = index === 0 ? 90 : -90;
           setup.name = `Rig · ${request.displayName}`;
           return build;
         });
@@ -2142,14 +2164,23 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
   ) => {
     const project = builderProjectRef.current;
     const editorContext = createEgoWorkspaceContext(project, selection, camera, egoInterfaceContext);
-    const isSpriteAdventure = gameTypes.includes('creature-adventure-2d');
-    const requestedCharacters = isSpriteAdventure ? [] : detectEgoCharacterRequests(vision, characterSize);
+    const isFightingMode = gameTypes.includes('fighting');
+    const isSpriteAdventure = gameTypes.includes('creature-adventure-2d') && !isFightingMode;
+    const fighterAppearances = isFightingMode
+      ? parseFightingAppearancePrompt(vision) ?? defaultFightingAppearancePair
+      : null;
+    const requestedCharacters = isSpriteAdventure ? [] : isFightingMode
+      ? [
+        { species: fighterAppearances!.player.race, displayName: 'Player Fighter', heightMeters: 1.8 },
+        { species: fighterAppearances!.rival.race, displayName: 'Training Rival', heightMeters: 1.8 },
+      ]
+      : detectEgoCharacterRequests(vision, characterSize);
     const genreGuidance: Partial<Record<EgoGameType, string>> = {
       'third-person-shooter': 'Stage a third-person shooter starting area with a player start, cover, targets/enemies, readable sight lines, and a useful camera framing. Do not claim advanced weapon simulation or a complete campaign.',
       'kingdom-strategy': 'Stage a kingdom strategy map with a home base, resource sites, routes, unit groups, and command points. The current economy and multiplayer rules still need implementation.',
       'creature-adventure-2d': 'Use a 2D sprite-first layout and matching image assets from this project when available. Do not create 3D creature anatomy for this 2D mode; custom sprite art must be imported.',
       'creature-adventure-3d': 'Stage an explorable 3D creature-adventure area with readable paths, companions, encounters, and places for collectibles; use the editable creature templates Ego adds.',
-      fighting: 'Stage a fighting-game arena with distinct fighter starts and a clear combat space. Use supported fight and block actions; do not claim a complete fighting engine.',
+      fighting: 'Stage a fixed side-view fighting-game arena with two distinct fighter starts, a clear combat space, and room for a HUD. Use supported fight and block actions; do not claim a complete fighting engine. Use the bundled image only as a guide for pose, anatomy, and clothing detail; honor each fighter’s separate race, 3D style, and outfit.',
     };
     const selectedGuidance = [...new Set(gameTypes)]
       .flatMap(type => genreGuidance[type] ? [genreGuidance[type]!] : [])
@@ -2168,7 +2199,11 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
     ].filter(Boolean).join('\n');
     const visionLine = `Vision: ${vision}`;
     const prompt = `${promptContext.slice(0, Math.max(0, 1998 - visionLine.length))}\n${visionLine}`;
-    const result = await madBuilder.onPlan(prompt, false, 'polished-game-ready', 'auto', []);
+    const references = isFightingMode ? [await loadFightingCharacterReference()] : [];
+    const result = await madBuilder.onPlan(
+      prompt, false, 'polished-game-ready', isFightingMode ? 'fighting' : 'auto', references,
+      requestedCharacters.length > 0,
+    );
     if (result.ok && isSpriteAdventure) {
       const spriteCount = project.assets.filter(asset => asset.kind === 'image').length;
       return {
@@ -2188,10 +2223,19 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
         clothingTextureAsset = generatedTexture.asset;
       }
       const characterBuilds = requestedCharacters.map((request, index) => {
-        const spacing = (index - (requestedCharacters.length - 1) / 2) * 2.2 + 1.25;
-        return createEgoCharacterScene(
+        const spacing = isFightingMode
+          ? (index === 0 ? -2.2 : 2.2)
+          : (index - (requestedCharacters.length - 1) / 2) * 2.2 + 1.25;
+        const build = createEgoCharacterScene(
           request.species, request.heightMeters, { x: spacing, z: 0 }, request.displayName, clothingTextureAsset!.id,
         );
+        if (isFightingMode && fighterAppearances) {
+          const appearance = index === 0 ? fighterAppearances.player : fighterAppearances.rival;
+          const tint = index === 0 ? '#a94750' : '#5578ba';
+          poseFighterGuard(build, tint);
+          applyEgoFighterAppearance(build, appearance, tint);
+        }
+        return build;
       });
       const animationPacks = characterBuilds.map(build =>
         createEgoAnimationPack(build.entities, build.characterId, gameTypes),
@@ -2597,11 +2641,11 @@ export default function BlankWorkspace({ projectId, projectName, projectControls
     setStatus('Storyboard saved with Scene 1 in this browser.');
   }, []);
 
-  const addStarterKit = useCallback(async (kind: GameStarterKitId) => {
+  const addStarterKit = useCallback(async (kind: GameStarterKitId, fightingAppearances?: FightingAppearancePair) => {
     const anchor = selectedEntity
       ? getWorldTransform(entities, selectedEntity.id)?.position ?? getTransform(selectedEntity).position
       : SCENE_ORIGIN;
-    const result = createGameStarterKit(kind, anchor);
+    const result = createGameStarterKit(kind, anchor, fightingAppearances);
     const next = [...entities, ...result.entities];
     if (!isSceneGraph(next)) {
       setStatus('The starter kit did not pass scene checks. No scene objects were added.');

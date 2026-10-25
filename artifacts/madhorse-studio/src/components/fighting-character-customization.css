@@ -1,0 +1,83 @@
+.fighter-appearance-settings {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+}
+
+.fighter-appearance-reference {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid rgb(160 104 198 / 45%);
+  background: rgb(12 9 17 / 65%);
+  color: #d7c8e4;
+  font: 500 10px/1.45 Inter, system-ui, sans-serif;
+}
+
+.fighter-appearance-reference img {
+  width: 56px;
+  height: 60px;
+  flex: 0 0 auto;
+  object-fit: contain;
+  background: #11131a;
+}
+
+.fighter-appearance-reference p {
+  margin: 0;
+}
+
+.fighter-appearance-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.fighter-look-card {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+  padding: 8px;
+  border: 1px solid rgb(160 104 198 / 45%);
+  background: rgb(18 14 24 / 76%);
+}
+
+.fighter-look-card legend {
+  padding: 0 4px;
+  color: #f0e3fa;
+  font: 800 10px/1.3 Inter, system-ui, sans-serif;
+}
+
+.fighter-look-card label {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  color: #c7b4d8;
+  font: 700 9px/1.3 Inter, system-ui, sans-serif;
+}
+
+.fighter-look-card select {
+  width: 100%;
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid #634879;
+  border-radius: 0;
+  background: #100c16;
+  color: #f1e6fa;
+  font: 500 10px/1.3 Inter, system-ui, sans-serif;
+}
+
+.fighter-look-card select:focus-visible {
+  outline: 2px solid #d8a0ff;
+  outline-offset: 2px;
+}
+
+@media (max-width: 560px) {
+  .fighter-appearance-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

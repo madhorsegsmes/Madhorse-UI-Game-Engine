@@ -1,14 +1,20 @@
 import { useState } from 'react';
 import { Compass, Crosshair, Puzzle, Swords, X } from 'lucide-react';
 import { gameStarterKits, type GameStarterKitId } from '@/lib/scene-starter-kits';
+import { defaultFightingAppearancePair, type FightingAppearancePair } from '@/lib/fighter-appearance';
+import { FightingCharacterCustomization } from './fighting-character-customization';
 
 const icons = { shooter: Crosshair, rpg: Swords, puzzle: Puzzle, fighting: Swords, rts: Compass };
 
 export function GameStarterKitDialog({ onAdd, onClose }: {
-  onAdd: (kit: GameStarterKitId) => void;
+  onAdd: (kit: GameStarterKitId, appearances?: FightingAppearancePair) => void;
   onClose: () => void;
 }) {
   const [selected, setSelected] = useState<GameStarterKitId>('shooter');
+  const [appearances, setAppearances] = useState<FightingAppearancePair>(() => ({
+    player: { ...defaultFightingAppearancePair.player },
+    rival: { ...defaultFightingAppearancePair.rival },
+  }));
   return (
     <div className="fresh-game-tools-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="fresh-starter-kit-dialog" role="dialog" aria-modal="true" aria-label="Scene starter kits" data-testid="starter-kit-dialog">
@@ -30,9 +36,10 @@ export function GameStarterKitDialog({ onAdd, onClose }: {
           })}
         </div>
         <p className="fresh-starter-kit-note">Starter kits add objects and settings to the current scene. Your saved objects stay in place. Edit or delete any part after adding.</p>
+        {selected === 'fighting' && <FightingCharacterCustomization value={appearances} onChange={setAppearances} />}
         <div className="fresh-storyboard-footer">
           <span>Scene data stays in this browser and is editable.</span>
-          <button type="button" className="fresh-storyboard-action primary" onClick={() => onAdd(selected)}>Add kit to Scene 1</button>
+          <button type="button" className="fresh-storyboard-action primary" onClick={() => onAdd(selected, appearances)}>Add kit to Scene 1</button>
         </div>
       </section>
     </div>

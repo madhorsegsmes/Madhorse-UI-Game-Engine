@@ -13,6 +13,8 @@ import { removeFreshWorkspace, saveFreshWorkspace } from '@/lib/fresh-workspace-
 import { deleteLocalAsset, saveLocalAsset } from '@/lib/asset-vault';
 import type { ProjectAsset } from '@/lib/scene-model';
 import { useSceneRenderSettings } from '@/hooks/use-scene-render-settings';
+import { defaultFightingAppearancePair, type FightingAppearancePair } from '@/lib/fighter-appearance';
+import { FightingCharacterCustomization } from './fighting-character-customization';
 
 const fightingStarterVision = 'A fixed side-view 3D fighting game with detailed human fighters, editable combat actions and HUD, plus imported FBX fighters and high-resolution stage assets.';
 const rtsStarterVision = 'An editable isometric medieval RTS settlement in Sunstone Vale: a fortified keep, terracotta cottages, market roads, crop farms, wooded edges, resource sites, human squads, and an eastern outpost.';
@@ -24,12 +26,12 @@ function readStarterChoice(): StarterChoice | null {
   return requested === 'rts' || requested === '2d-fighting' ? requested : null;
 }
 
-function createStarterSnapshot(projectName: string, choice: StarterChoice): {
+function createStarterSnapshot(projectName: string, choice: StarterChoice, fighterAppearances: FightingAppearancePair): {
   snapshot: FreshWorkspaceSnapshot;
   generatedAssets: Array<{ asset: ProjectAsset; file: File }>;
 } {
   const isRts = choice === 'rts';
-  const starter = createGameStarterKit(isRts ? 'rts' : 'fighting', { x: -15, y: 50, z: 0 });
+  const starter = createGameStarterKit(isRts ? 'rts' : 'fighting', { x: -15, y: 50, z: 0 }, fighterAppearances);
   const camera = createGameCamera(starter.entities);
   camera.position = isRts ? { x: 8, y: 32, z: 36 } : { x: 0, y: 1.2, z: -17 };
   camera.target = isRts ? { x: 0, y: 0, z: 0 } : { x: 0, y: 1.2, z: 0 };
@@ -75,6 +77,10 @@ export default function StudioProjects() {
   const [registry, setRegistry] = useState<StudioProjectRegistry | null>(initial.registry);
   const active = registry?.projects.find(project => project.id === registry.activeId);
   const [templateChoice, setTemplateChoice] = useState<StarterChoice | null>(() => readStarterChoice());
+  const [fighterAppearances, setFighterAppearances] = useState<FightingAppearancePair>(() => ({
+    player: { ...defaultFightingAppearancePair.player },
+    rival: { ...defaultFightingAppearancePair.rival },
+  }));
   const [, setRenderSettings] = useSceneRenderSettings();
   const [mode, setMode] = useState<'name' | 'new' | 'rename' | 'template' | null>(() => {
     if (readStarterChoice()) return 'template';
@@ -112,7 +118,7 @@ export default function StudioProjects() {
       let generatedAssetIds: string[] = [];
       try {
         const starterChoice = templateChoice ?? '2d-fighting';
-        const { snapshot, generatedAssets } = createStarterSnapshot(name, starterChoice);
+        const { snapshot, generatedAssets } = createStarterSnapshot(name, starterChoice, fighterAppearances);
         generatedAssetIds = generatedAssets.map(({ asset }) => asset.id);
         await Promise.all(generatedAssets.map(({ asset, file }) => saveLocalAsset(id, asset.id, file)));
         saveFreshWorkspace(snapshot, id);
@@ -238,6 +244,8 @@ export default function StudioProjects() {
           <input autoFocus required maxLength={80} value={draft} onChange={event => setDraft(event.target.value)}
             aria-describedby={error ? 'project-name-error' : undefined} />
         </label>
+        {mode === 'template' && templateChoice === '2d-fighting' &&
+          <FightingCharacterCustomization value={fighterAppearances} onChange={setFighterAppearances} />}
         {error && <p id="project-name-error" role="alert">{error}</p>}
         <footer>
           {mode !== 'name' && <button type="button" disabled={savingProject} onClick={() => {

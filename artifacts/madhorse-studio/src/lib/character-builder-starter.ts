@@ -7,6 +7,7 @@ import {
   type Vector3,
 } from './scene-model';
 import type { EgoCharacterSpecies } from './ego-character-anatomy';
+import type { FighterAppearance } from './fighter-appearance';
 
 type CharacterPoint = { x: number; height: number; depth: number };
 type CharacterSize = { width: number; height: number; depth: number };
@@ -678,4 +679,133 @@ export function createEgoCharacterScene(
   const entities = starter.entities.filter((entity) =>
     entity.id === setup.id || entity.id === character.id || entity.parentId === character.id);
   return { entities, setupId: setup.id, characterId: character.id };
+}
+
+export function applyEgoFighterAppearance(
+  build: ReturnType<typeof createEgoCharacterScene>,
+  appearance: FighterAppearance,
+  clothingColor: string,
+) {
+  const character = build.entities.find(entity => entity.id === build.characterId);
+  if (!character) return build;
+  const parts = build.entities.filter(entity => entity.parentId === build.characterId);
+  const primitiveOf = (entity: SceneEntity) => entity.components.find(component => component.type === 'primitive');
+  const shirt = parts.find(entity => /tailored shirt|shirt|jacket/i.test(entity.name));
+  const trousers = parts.find(entity => /trouser|pants/i.test(entity.name));
+  const hair = parts.find(entity => /hair/i.test(entity.name));
+  const head = parts.find(entity => /head/i.test(entity.name));
+
+  for (const part of parts) {
+    const primitive = primitiveOf(part);
+    if (!primitive) continue;
+    primitive.roughness = appearance.style === 'realistic-game-ready' ? 0.7 : 0.83;
+    if (/clothing|trouser|shirt|sleeve|belt|boot|shoe|armor|robe|hood|sash|wrap/i.test(part.name)) {
+      primitive.color = clothingColor;
+    }
+    if (appearance.outfit === 'light-armor' && /armor|plate|bracer|guard/i.test(part.name)) {
+      primitive.metalness = 0.34;
+      primitive.roughness = 0.48;
+    }
+  }
+
+  if (shirt && appearance.outfit === 'martial-arts-gi') {
+    shirt.name = 'Clothing · Martial-arts gi jacket';
+    for (const part of parts.filter(entity => /trouser|pants/i.test(entity.name))) {
+      part.name = part.name.replace(/Clothing · /, 'Clothing · Gi ');
+    }
+  }
+
+  if (shirt && appearance.outfit === 'streetwear') {
+    shirt.name = 'Clothing · Streetwear jacket';
+    const transform = getTransform(shirt);
+    transform.scale.x *= 1.08;
+    if (trousers) trousers.name = 'Clothing · Streetwear pants';
+    const hood = createPiece(character.id, {
+      name: 'Clothing · Streetwear hood',
+      shape: 'rounded-cube',
+      point: { x: 0, height: 1.72, depth: -0.17 },
+      size: { width: 0.29, height: 0.2, depth: 0.18 },
+      color: clothingColor,
+    });
+    build.entities.push(hood);
+  }
+
+  if (shirt && appearance.outfit === 'long-robe') {
+    shirt.name = 'Clothing · Long robe';
+    const transform = getTransform(shirt);
+    transform.scale.x *= 1.12;
+    transform.scale.z *= 1.48;
+    transform.position.z -= 0.12 * 10;
+    const sash = createPiece(character.id, {
+      name: 'Clothing · Robe sash',
+      shape: 'rounded-cube',
+      point: { x: 0, height: 1.14, depth: 0.02 },
+      size: { width: 0.5, height: 0.07, depth: 0.3 },
+      color: '#c9a45d',
+    });
+    build.entities.push(sash);
+  }
+
+  if (shirt && appearance.outfit === 'light-armor') {
+    shirt.name = 'Clothing · Armored underlayer';
+    const armorPieces = [
+      {
+        name: 'Armor · Chest plate',
+        point: { x: 0, height: 1.3, depth: 0.17 },
+        size: { width: 0.48, height: 0.32, depth: 0.1 },
+      },
+      {
+        name: 'Armor · Left shoulder guard',
+        point: { x: -0.31, height: 1.49, depth: 0.08 },
+        size: { width: 0.22, height: 0.18, depth: 0.23 },
+      },
+      {
+        name: 'Armor · Right shoulder guard',
+        point: { x: 0.31, height: 1.49, depth: 0.08 },
+        size: { width: 0.22, height: 0.18, depth: 0.23 },
+      },
+      {
+        name: 'Armor · Waist guard',
+        point: { x: 0, height: 1.02, depth: 0.04 },
+        size: { width: 0.42, height: 0.18, depth: 0.24 },
+      },
+    ] as const;
+    build.entities.push(...armorPieces.map(piece => {
+      const entity = createPiece(character.id, {
+        ...piece,
+        shape: 'rounded-cube',
+        color: '#9cabb9',
+      });
+      const primitive = primitiveOf(entity);
+      if (primitive) {
+        primitive.metalness = 0.34;
+        primitive.roughness = 0.48;
+      }
+      return entity;
+    }));
+  }
+
+  if (appearance.style === 'anime-inspired') {
+    if (head) {
+      const transform = getTransform(head);
+      transform.scale.x *= 1.06;
+      transform.scale.y *= 1.06;
+      transform.scale.z *= 1.04;
+    }
+    if (hair) {
+      const transform = getTransform(hair);
+      transform.scale.x *= 1.12;
+      transform.scale.z *= 1.1;
+      const spikes = [-0.11, 0, 0.11].map((x, index) => createPiece(character.id, {
+        name: `Hair · Anime lock ${index + 1}`,
+        shape: 'cone',
+        point: { x, height: 1.91, depth: 0.03 },
+        size: { width: 0.09, height: 0.2, depth: 0.1 },
+        color: '#27334d',
+      }));
+      build.entities.push(...spikes);
+    }
+  }
+
+  return build;
 }

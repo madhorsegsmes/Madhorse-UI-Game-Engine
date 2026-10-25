@@ -8,7 +8,7 @@
 import type { BuilderReferenceImageRole } from './builderReferenceImageRole';
 
 export interface BuilderReferenceImage {
-  /** global-style guides finish only; category-default anchors the selected Vehicle, House, or RTS world; user-target is the specific image reference. */
+  /** global-style guides finish only; category-default anchors the selected Vehicle, House, RTS world, or fighting-character type; user-target is the specific object reference. */
   role: BuilderReferenceImageRole;
   /**
      * @maxLength 1500000

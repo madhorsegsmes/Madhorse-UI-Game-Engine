@@ -3,6 +3,8 @@ import type { MouseEvent } from 'react';
 import type { BuilderBuildCategory, BuilderStyle, MadBuilderProps } from './mad-builder-contract';
 import type { BuilderReferenceImage } from '@workspace/api-client-react';
 import { prepareBuilderReference } from '@/lib/builder-reference-image';
+import { defaultFightingAppearancePair, formatFightingAppearancePrompt, type FightingAppearancePair } from '@/lib/fighter-appearance';
+import { FightingCharacterCustomization } from './fighting-character-customization';
 import { getMadBuilderModules, type MadBuilderModuleCategory, type MadBuilderModuleId } from '@/lib/mad-builder-modules';
 import './workspace-browser-menus.css';
 import './mad-builder-menu.css';
@@ -17,12 +19,14 @@ const DEFAULT_REFERENCE_URLS = {
   vehicle: `${import.meta.env.BASE_URL}references/default-style-coupe.webp`,
   house: `${import.meta.env.BASE_URL}references/default-style-house.webp`,
   'rts-world': `${import.meta.env.BASE_URL}references/default-rts-world.webp`,
+  fighting: `${import.meta.env.BASE_URL}references/default-fighting-character.webp`,
 };
 const BUILD_CATEGORIES: { value: BuilderBuildCategory; label: string }[] = [
   { value: 'auto', label: 'Automatic — follow the prompt' },
   { value: 'vehicle', label: 'Vehicle — orange coupe reference' },
   { value: 'house', label: 'House — Victorian reference' },
   { value: 'rts-world', label: 'RTS settlement template — Sunstone Vale' },
+  { value: 'fighting', label: 'Fighting characters — player and opponent' },
 ];
 const BUILD_STYLES: { value: BuilderStyle; label: string }[] = [
   { value: 'polished-game-ready', label: 'Polished game-ready' },
@@ -77,10 +81,15 @@ export function MadBuilderMenu(props: MadBuilderProps & {
   const [referenceName, setReferenceName] = useState('');
   const [referenceError, setReferenceError] = useState('');
   const [preparingImage, setPreparingImage] = useState(false);
+  const [fighterAppearances, setFighterAppearances] = useState<FightingAppearancePair>(() => ({
+    player: { ...defaultFightingAppearancePair.player },
+    rival: { ...defaultFightingAppearancePair.rival },
+  }));
   const defaultReferenceReady = defaultReferenceEnabled && !!defaultReferenceImage &&
     defaultReferenceLoadedFor === buildCategory;
   const defaultReferenceName = buildCategory === 'house' ? 'Victorian house'
-    : buildCategory === 'rts-world' ? 'Sunstone Vale settlement template' : 'orange coupe';
+    : buildCategory === 'rts-world' ? 'Sunstone Vale settlement template'
+      : buildCategory === 'fighting' ? 'fighting character guide' : 'orange coupe';
   const defaultReferenceUrl = DEFAULT_REFERENCE_URLS[buildCategory === 'auto' ? 'vehicle' : buildCategory];
   const defaultReferenceRole = buildCategory === 'auto' ? 'global-style' as const : 'category-default' as const;
   const moduleOptions = getMadBuilderModules(moduleCategory);
@@ -136,8 +145,15 @@ export function MadBuilderMenu(props: MadBuilderProps & {
         ? 'Build a vehicle based on the selected Vehicle reference.'
         : buildCategory === 'rts-world'
           ? 'Build the editable Sunstone Vale settlement template from separate scene pieces: terrain, roads, keep, cottages, farms, well, forest, resource sites, and squads.'
-          : 'Build the object shown in the uploaded target image.';
-    if (canPlan) void onPlan(prompt.trim() || fallbackPrompt, asPrefab, buildStyle, buildCategory, requestReferences()).catch(() => undefined);
+          : buildCategory === 'fighting'
+            ? 'Build a fixed side-view 3D fighting scene with a player fighter and an opponent. Use the included fighting-character image as a guide to stance, anatomy, and clothing detail; apply each fighter’s selected race, 3D style, and outfit.'
+            : 'Build the object shown in the uploaded target image.';
+    const appearancePrompt = buildCategory === 'fighting'
+      ? `\n\n${formatFightingAppearancePrompt(fighterAppearances)}`
+      : '';
+    const basePrompt = (prompt.trim() || fallbackPrompt).slice(0, Math.max(3, 2000 - appearancePrompt.length));
+    const fighterPrompt = `${basePrompt}${appearancePrompt}`;
+    if (canPlan) void onPlan(fighterPrompt, asPrefab, buildStyle, buildCategory, requestReferences()).catch(() => undefined);
   };
   const uploadReference = async (file: File | undefined) => {
     if (!file) return;
@@ -202,7 +218,7 @@ export function MadBuilderMenu(props: MadBuilderProps & {
                     {BUILD_CATEGORIES.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}
                   </select>
                 </label>
-                <p className="mb-hint">Vehicle selects the coupe, House the Victorian home, and RTS world the isometric settlement. Automatic follows your prompt.</p>
+                <p className="mb-hint">Choose a subject guide for the build. Fighting uses the supplied character image to guide the fighters, while your choices below set each fighter’s race, 3D style, and clothing.</p>
                 <label className="mb-check">
                   <input type="checkbox" checked={defaultReferenceEnabled} disabled={readOnly || busy}
                     onChange={(event) => updateDefaultReference(event.target.checked)} data-testid="checkbox-builder-default-reference" />
@@ -212,6 +228,8 @@ export function MadBuilderMenu(props: MadBuilderProps & {
                 </label>
                 <p className="mb-hint">{buildCategory === 'rts-world'
                   ? 'Sunstone Vale is an editable scene template made from separate buildings, farms, roads, and landscape pieces. Your uploaded target image can still guide a custom build.'
+                  : buildCategory === 'fighting'
+                    ? 'The supplied image is a modeling guide, not a fixed pixel-art style. Each fighter has independent appearance settings; your text prompt can add details.'
                   : 'The selected image guides that subject or world layout. Automatic uses the coupe for finish only. Your uploaded target takes priority.'}</p>
                 {preparingDefaultReference && defaultReferenceEnabled && <p className="mb-hint" role="status">Loading selected template image…</p>}
                 {defaultReferenceReady && <div className="mb-default-reference">
@@ -220,10 +238,13 @@ export function MadBuilderMenu(props: MadBuilderProps & {
                     ? 'Orange coupe finish reference · subject follows your prompt'
                     : buildCategory === 'rts-world'
                       ? 'Sunstone Vale scene template · built from editable pieces'
+                      : buildCategory === 'fighting'
+                        ? 'Fighter anatomy and pose guide · sent with each request'
                       : `${defaultReferenceName} · sent with each request`}</span>
                 </div>}
                 {defaultReferenceError && <p className="mb-error" role="alert" data-testid="text-builder-default-reference-error">{defaultReferenceError}</p>}
-                <div className="mb-module-tools" data-testid="section-builder-modules">
+                {buildCategory === 'fighting' && <FightingCharacterCustomization value={fighterAppearances} onChange={setFighterAppearances} />}
+                {(buildCategory === 'vehicle' || buildCategory === 'house') && <div className="mb-module-tools" data-testid="section-builder-modules">
                   <div className="mb-module-tools-title">MODULAR TOOLS</div>
                   <label className="mb-style-row" htmlFor="mad-builder-module-kit">
                     <span>Module kit</span>
@@ -248,7 +269,7 @@ export function MadBuilderMenu(props: MadBuilderProps & {
                     data-testid="button-builder-add-module">
                     Add module to scene and library
                   </button>
-                </div>
+                </div>}
               </div>
             </details>
             <label className="mb-prompt-label" htmlFor="mad-builder-reference">Optional target image for this build</label>

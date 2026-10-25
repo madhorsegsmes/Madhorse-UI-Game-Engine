@@ -7,7 +7,7 @@
  */
 
 /**
- * Selected build type. RTS world uses its isometric settlement reference; Vehicle and House use matching references; auto follows the prompt.
+ * Selected target type. Vehicle, house, RTS world, and fighting builds use their matching protected reference; auto follows the prompt.
  */
 export type MadBuilderInputBuildCategory = typeof MadBuilderInputBuildCategory[keyof typeof MadBuilderInputBuildCategory];
 
@@ -17,4 +17,5 @@ export const MadBuilderInputBuildCategory = {
   vehicle: 'vehicle',
   house: 'house',
   'rts-world': 'rts-world',
+  fighting: 'fighting',
 } as const;

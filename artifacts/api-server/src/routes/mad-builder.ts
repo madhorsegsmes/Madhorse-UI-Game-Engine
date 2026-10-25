@@ -109,7 +109,10 @@ router.post('/mad-builder/plan', async (req, res) => {
       : buildCategory === 'rts-world'
         ? `RTS world. Build an editable isometric strategy settlement, not one isolated prop.${referenceImages.some((image) => image.role === 'category-default')
           ? ' Use the attached settlement image as a whole-map composition and visual target.' : ' Follow the prompt or uploaded whole-world target.'}`
-        : 'Automatic. Follow the user prompt; any global image is finish guidance only.';
+        : buildCategory === 'fighting'
+          ? `Fighting characters. Build a fixed side-view fighting-game scene with two distinct, editable fighters and a clear arena.${referenceImages.some((image) => image.role === 'category-default')
+            ? ' Use the supplied fighter image as a guide for stance, anatomy, and clothing craftsmanship, but do not copy its pixel-art medium or override the separately specified race, 3D style, or clothing for either fighter.' : ' Follow the prompt and any user-target image.'}`
+          : 'Automatic. Follow the user prompt; any global image is finish guidance only.';
   for (const reference of referenceImages) {
     const bytes = Buffer.from(reference.dataUrl.split(',')[1]!, 'base64');
     const imageType = reference.dataUrl.slice(5, reference.dataUrl.indexOf(';'));
@@ -157,7 +160,7 @@ router.post('/mad-builder/plan', async (req, res) => {
           assets: body.data.assets,
           style: body.data.style,
           buildCategory,
-          imageGuidance: 'Use the explicitly labeled roles. A category-default image anchors the selected Vehicle or House subject, or the whole-map layout for RTS world. A user-target image controls the requested object appearance or RTS map layout and takes precedence over category-reference details. A global-style image guides finish only.',
+          imageGuidance: 'Use the explicitly labeled roles. A category-default image anchors the selected Vehicle or House subject, the whole-map layout for RTS world, or fighter stance/anatomy/clothing craftsmanship for fighting. For fighters, preserve the selected race, 3D style, and outfit for each fighter; do not copy the reference image pixel-art medium. A user-target image controls the requested object appearance or RTS map layout and takes precedence over category-reference details. A global-style image guides finish only.',
         }) },
         ...referenceImages.flatMap((reference) => [
           { type: 'text' as const, text: reference.role === 'global-style'
@@ -165,6 +168,8 @@ router.post('/mad-builder/plan', async (req, res) => {
             : reference.role === 'category-default'
               ? buildCategory === 'rts-world'
                 ? 'RTS WORLD REFERENCE — match the whole-map isometric settlement composition, paths, building clusters, crop plots, forests, and resource placement.'
+                : buildCategory === 'fighting'
+                  ? 'FIGHTING CHARACTER REFERENCE — use as a guide to pose, body proportions, anatomy, and clothing detail. Make editable 3D fighters. Follow the independent race, style, and clothing settings; do not reproduce pixel art or force the sample outfit.'
                 : `CATEGORY DEFAULT REFERENCE — selected ${buildCategory.toUpperCase()} build type; use this image as the subject starting point.`
               : buildCategory === 'rts-world'
                 ? 'USER TARGET REFERENCE — match the requested RTS world layout and visible placement of its main features.'

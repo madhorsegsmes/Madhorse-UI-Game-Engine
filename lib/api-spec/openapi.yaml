@@ -228,8 +228,8 @@ components:
         selectedName: { type: string, maxLength: 80 }
         buildCategory:
           type: string
-          enum: [auto, vehicle, house]
-          description: Selected target type. Vehicle and house use their matching protected reference; auto follows the prompt.
+          enum: [auto, vehicle, house, rts-world, fighting]
+          description: Selected target type. Vehicle, house, RTS world, and fighting builds use their matching protected reference; auto follows the prompt.
         referenceImage:
           type: string
           maxLength: 1500000
@@ -354,7 +354,7 @@ components:
         role:
           type: string
           enum: [global-style, category-default, user-target]
-          description: global-style guides finish only; category-default anchors the selected Vehicle or House type; user-target is the specific object reference.
+          description: global-style guides finish only; category-default anchors the selected Vehicle, House, RTS world, or fighting-character type; user-target is the specific object reference.
         dataUrl:
           type: string
           maxLength: 1500000

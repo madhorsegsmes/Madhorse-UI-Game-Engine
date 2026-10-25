@@ -33,6 +33,8 @@ Use these practices when planning any scene. The structured scene schema and saf
 - Use the existing Madhorse fighting actions and play-test systems where available: light/heavy/special attacks, block, movement, health, combo feedback, special meter, and round timing. Set up clear player and opponent roles, then test that attacks have a valid target and that UI remains visible.
 - Make move names, keys, cooldowns, and any available attack settings editable. Use distinct hit reactions and visual/audio feedback only when supported. Do not claim frame-perfect MUGEN compatibility, MUGEN file support, or a full tournament engine.
 - 3D character models can be used in a side-view arena when supported by the project's model renderer. Keep their facing and camera alignment consistent; do not silently convert them to sprites.
+- When a fighting-character reference is attached, use it to guide pose, anatomy, proportions, and clothing craftsmanship. Treat the image's pixel-art medium, race, and exact outfit as optional: preserve the separate race, 3D style, and clothing choices supplied for Fighter 1 and Fighter 2.
+- Keep both fighters independently editable. Apply each fighter's own requested race and outfit to its anatomy; do not give both fighters one shared appearance just because they share a reference image.
 
 5. WORLD BUILDING AND FINISHING
 - Establish ground, scale, paths, landmarks, resource or interaction areas, and lighting before adding detail. Keep terrain sculpting, trees, water, and object placement editable.

@@ -1,7 +1,8 @@
 import { createGameFeature } from './game-feature-model';
 import { createPlayerAction } from './player-action-model';
 import { createPluginComponent } from './scene-plugin-catalog';
-import { createEgoCharacterScene, createEgoClothingTextureAsset } from './character-builder-starter';
+import { applyEgoFighterAppearance, createEgoCharacterScene, createEgoClothingTextureAsset } from './character-builder-starter';
+import { defaultFightingAppearancePair, type FightingAppearancePair } from './fighter-appearance';
 import {
   createPhysicsComponent, createStoryboardComponent, createTransformComponent, getPrimitive, getTransform,
   type EffectComponent, type PrimitiveShape, type ProjectAsset, type SceneEntity, type StoryboardBeat,
@@ -61,7 +62,7 @@ function createVisualPart(
   };
 }
 
-function poseFighterGuard(build: ReturnType<typeof createEgoCharacterScene>, tint: string) {
+export function poseFighterGuard(build: ReturnType<typeof createEgoCharacterScene>, tint: string) {
   for (const side of [-1, 1] as const) {
     const label = side < 0 ? 'Left' : 'Right';
     const pose: Record<string, { x: number; height: number; depth: number; rotation?: number }> = {
@@ -106,7 +107,7 @@ function flattenCharacterFighter(build: ReturnType<typeof createEgoCharacterScen
   return { root, entities: [root, ...parts] };
 }
 
-function createFightingStarterKit(center: Vector3): {
+function createFightingStarterKit(center: Vector3, appearances: FightingAppearancePair = defaultFightingAppearancePair): {
   entities: SceneEntity[];
   playerId: string;
   title: string;
@@ -123,10 +124,12 @@ function createFightingStarterKit(center: Vector3): {
   const stageStripe = createVisualPart('Stage Center Stripe', null, 'rounded-cube', '#9a4546',
     { x: center.x, y: center.y - 23, z: center.z + 0.2 }, { x: 15.2, y: 0.12, z: 0.08 });
   const clothingTexture = createEgoClothingTextureAsset();
-  const playerBuild = createEgoCharacterScene('human', 1.8, { x: -4, z: 0 }, 'Player Fighter', clothingTexture.asset.id);
-  const rivalBuild = createEgoCharacterScene('human', 1.8, { x: 4, z: 0 }, 'Training Rival', clothingTexture.asset.id);
+  const playerBuild = createEgoCharacterScene(appearances.player.race, 1.8, { x: -4, z: 0 }, 'Player Fighter', clothingTexture.asset.id);
+  const rivalBuild = createEgoCharacterScene(appearances.rival.race, 1.8, { x: 4, z: 0 }, 'Training Rival', clothingTexture.asset.id);
   poseFighterGuard(playerBuild, '#a94750');
   poseFighterGuard(rivalBuild, '#5578ba');
+  applyEgoFighterAppearance(playerBuild, appearances.player, '#a94750');
+  applyEgoFighterAppearance(rivalBuild, appearances.rival, '#5578ba');
   const playerFighter = flattenCharacterFighter(playerBuild, 'Player Fighter');
   const rivalFighter = flattenCharacterFighter(rivalBuild, 'Training Rival');
   const player = playerFighter.root;
@@ -748,14 +751,18 @@ function createRtsStarterKit(center: Vector3): {
   };
 }
 
-export function createGameStarterKit(kind: GameStarterKitId, anchor: Vector3): {
+export function createGameStarterKit(
+  kind: GameStarterKitId,
+  anchor: Vector3,
+  fightingAppearances: FightingAppearancePair = defaultFightingAppearancePair,
+): {
   entities: SceneEntity[];
   playerId: string;
   title: string;
   generatedAssets?: Array<{ asset: ProjectAsset; file: File }>;
 } {
   const center = { x: anchor.x + 65, y: anchor.y, z: anchor.z };
-  if (kind === 'fighting') return createFightingStarterKit(center);
+  if (kind === 'fighting') return createFightingStarterKit(center, fightingAppearances);
   if (kind === 'rts') return createRtsStarterKit(center);
   const floor = createObject('Starter Arena', 'plane', '#414653',
     { x: center.x, y: center.y, z: center.z - 3 }, { x: 18, y: 18, z: 0.5 });
