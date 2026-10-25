@@ -9,6 +9,8 @@ export default defineConfig({
   // Direct Node engine checks live alongside browser specs, not inside them.
   testMatch: '**/*.spec.ts',
   timeout: 240_000,
+  // End gracefully before the independent workflow watchdog so reports upload.
+  globalTimeout: process.env.CI ? 70 * 60_000 : undefined,
   expect: { timeout: 10_000 },
   forbidOnly: !!process.env.CI,
   fullyParallel: false,
@@ -16,7 +18,7 @@ export default defineConfig({
   retries: 0,
   outputDir: path.join(evidence, 'results'),
   reporter: [
-    ['list'],
+    [process.env.CI ? 'line' : 'list'],
     ['html', { outputFolder: path.join(evidence, 'report'), open: 'never' }],
     ['json', { outputFile: path.join(evidence, 'report.json') }],
   ],

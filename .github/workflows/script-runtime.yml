@@ -93,16 +93,24 @@ jobs:
           set -euo pipefail
           pnpm --filter @workspace/madhorse-ui run test:runtime:interpreters 2>&1 | tee generated-artifacts/script-runtime/interpreter-memory-test.log
 
-      # Deliberately one invocation, no matrix/shards: the compiler runtimes
-      # need the config's single worker. A setup or test failure fails the job.
-      - name: Check script runtimes in all three engines
+      - name: Check browser compiler host packaging
         shell: bash
         run: |
           set -euo pipefail
-          pnpm --filter @workspace/madhorse-ui run test:runtime 2>&1 | tee generated-artifacts/script-runtime/test.log
+          pnpm --filter @workspace/madhorse-ui run test:runtime:hosts 2>&1 | tee generated-artifacts/script-runtime/host-packaging-test.log
+
+      # Deliberately one invocation, no matrix/shards: the compiler runtimes
+      # need the config's single worker. A setup or test failure fails the job.
+      - name: Check script runtimes in all three engines
+        timeout-minutes: 75
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=INT --kill-after=30s 72m pnpm --filter @workspace/madhorse-ui run test:runtime 2>&1 | tee generated-artifacts/script-runtime/test.log
 
       - name: Upload runtime evidence (including failures)
         if: ${{ always() }}
+        timeout-minutes: 10
         uses: actions/upload-artifact@v4
         with:
           name: script-runtime-${{ github.run_id }}-${{ github.run_attempt }}

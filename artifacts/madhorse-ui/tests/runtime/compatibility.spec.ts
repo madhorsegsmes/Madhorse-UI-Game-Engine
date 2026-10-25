@@ -71,3 +71,41 @@ test('Python loads real WASM anonymously from the opaque worker', async ({ page 
     status: 200, type: 'application/wasm', cors: '*', credentials: '',
   }]);
 });
+
+test('native and C# host exports load inside the actual opaque classic worker', async ({ page }, testInfo) => {
+  await openScripts(page);
+  await page.route('**/runtimes/runner.js', async route => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      body: `
+const reportHost = self.postMessage.bind(self);
+try {
+  const [native, csharp] = await Promise.all([
+    import('./native/index.js'), import('./csharp/WasmSharpWorker.js')
+  ]);
+  reportHost({type:'output', text:'HOST_IMPORTS ' + JSON.stringify({
+    origin: self.location.origin,
+    nativeCompile: typeof native.compile,
+    csharpInitialize: typeof csharp.WasmSharpWorker?.initializeAsync
+  })});
+} catch (error) {
+  reportHost({type:'error', message:'Compiler host import failed: ' + String(error)});
+  throw error;
+}
+${await response.text()}`,
+    });
+  });
+  await importSource(page, 'host-imports.js', 'console.log("sandbox still works")');
+  await run(page);
+  await finished(page);
+  const text = await output(page).innerText();
+  const match = text.match(/HOST_IMPORTS (\{[^\n]+\})/);
+  expect(match, text).not.toBeNull();
+  const hosts = JSON.parse(match![1]);
+  await testInfo.attach('compiler-host-imports', {
+    body: JSON.stringify(hosts, null, 2), contentType: 'application/json',
+  });
+  expect(hosts).toEqual({ origin: 'null', nativeCompile: 'function', csharpInitialize: 'function' });
+  await expect(output(page)).toContainText('sandbox still works');
+});

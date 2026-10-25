@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { capDefinedMemory, capPythonLoader, memoryLimits } from './memory-limits.mjs';
+import { bundleRuntimeHost } from './bundle-host.mjs';
 
 const require = createRequire(import.meta.url);
 const appRoot = path.resolve(import.meta.dirname, '..');
@@ -57,6 +58,13 @@ export async function prepareRuntimes() {
   );
   if (fixedDriver === native) throw new Error('Native compiler adapter needs review: upstream driver changed');
   await writeFile(nativePath, fixedDriver);
+  // Firefox's opaque classic worker can import an entry module but reject its
+  // static dependency graph. Bundle trusted hosts without changing the worker's
+  // origin, CSP, anonymous fetching, asset roots or physical WASM ceilings.
+  await Promise.all([
+    bundleRuntimeHost(nativePath),
+    bundleRuntimeHost(path.join(runtimeDirectory, 'csharp/WasmSharpWorker.js')),
+  ]);
 
   const common = {
     bundle: true,

@@ -129,6 +129,32 @@ focused (`test.only`) tests in CI. Do not add browser matrices, shards, skips,
 `continue-on-error`, or failure-to-success fallbacks. Missing browsers, missing
 features, and failing assertions must fail the gate.
 
+In CI, the line reporter prints the current test and failure details as they
+happen. Script waits retain the 180-second cold-compilation allowance only
+while the runtime is starting/loading: an unexpected terminal status fails
+immediately with its actual Script output. A failed compiler import must not
+consume three minutes waiting for success that can no longer happen.
+
+The browser suite has a 70-minute global deadline for graceful report creation,
+an independent 72-minute process watchdog (30-second kill grace), and a
+75-minute Actions step limit. Evidence upload has its own 10-minute limit inside
+the 90-minute job budget. Deadlines fail the gate; they never approve incomplete
+coverage. All engines still run with one worker and no retries.
+
+Compiler host packaging bundles each trusted native/C# entry's static JavaScript
+dependencies in its original asset directory. WASM, sysroot and assembly URLs
+remain relative to the same public runtime directory; runtimes still load only
+on demand. This does not change the opaque origin, CSP, anonymous fetch rules,
+guest API surface or physical WASM ceilings. The compatibility suite checks both
+host exports inside the actual opaque classic worker, in addition to running real
+guest programs.
+
+The separate **Compiler host smoke (not release approval)** check provides early
+feedback on host imports, all seven language execution/error/rerun cases, and C17
+semantics across all three engines. It is a diagnostic subset, not a replacement
+for **Script runtime (Chromium, Firefox, WebKit)**. Never substitute the smoke
+check for the full required release gate.
+
 Every run uploads `generated-artifacts/script-runtime/` as
 `script-runtime-<run-id>-<attempt>` for 14 days, including failed runs. It contains
 HTML/JSON reports, traces, screenshots and attachments when produced, plus
